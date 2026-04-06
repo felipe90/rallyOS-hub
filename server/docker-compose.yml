@@ -1,0 +1,13 @@
+services:
+  hub:
+    build: .
+    container_name: rallyOS-hub
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - REFEREE_PIN=12345
+    volumes:
+      - .:/app
+      - /app/node_modules
+    restart: always

@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>rallyOS-hub | Scoreboard</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        :root {
+            --bg-color: #000000;
+            --text-main: #ffffff;
+            --team-a: #3b82f6;
+            --team-b: #ef4444;
+            --accent: #facc15;
+            --panel-bg: #111827;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- Header & Status --- */
+        header {
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--panel-bg);
+            border-bottom: 1px solid #374151;
+            z-index: 10;
+        }
+
+        .status { font-size: 14px; font-weight: bold; color: #4ade80; }
+        .logo { font-weight: 900; letter-spacing: -1px; font-size: 18px; }
+
+        /* --- Scoreboard Container --- */
+        .scoreboard {
+            flex: 1;
+            display: flex;
+            width: 100%;
+        }
+
+        .team-box {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .team-box.a { border-right: 1px solid #1f2937; }
+
+        /* --- Big Numbers --- */
+        .score {
+            font-size: 40vh;
+            line-height: 1;
+            font-weight: 900;
+            font-variant-numeric: tabular-nums;
+            margin: -20px 0;
+            text-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .team-box.a .score { color: var(--team-a); }
+        .team-box.b .score { color: var(--team-b); }
+
+        .team-label { font-size: 24px; font-weight: 700; text-transform: uppercase; opacity: 0.8; letter-spacing: 2px; }
+        .sets-count { font-size: 40px; font-weight: 800; margin-top: 10px; color: #94a3b8; }
+
+        /* --- HUD Elements --- */
+        .serving-indicator {
+            position: absolute;
+            top: 20%;
+            font-size: 30px;
+            color: var(--accent);
+            font-weight: 900;
+            opacity: 0;
+            transform: scale(0.5);
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .is-serving .serving-indicator { opacity: 1; transform: scale(1); }
+
+        /* --- Contextual UI (Referee vs Spectator) --- */
+        .referee-panel {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            background: rgba(17, 24, 39, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 15px 0;
+            border-top: 1px solid #374151;
+            display: none; /* Shown via JS */
+            z-index: 100;
+        }
+
+        .control-row { display: flex; justify-content: center; gap: 20px; align-items: center; }
+        .team-controls { display: flex; gap: 10px; }
+
+        .btn {
+            border: none;
+            border-radius: 12px;
+            padding: 15px 25px;
+            font-size: 18px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.1s;
+            color: white;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .btn:active { transform: scale(0.9); }
+        .btn-plus { background: #059669; }
+        .btn-minus { background: #4b5563; }
+        .btn-config { background: #1f2937; margin-left: 20px; }
+        .btn-fullscreen { background: transparent; border: 1px solid #374151; padding: 8px 12px; font-size: 12px; }
+
+        /* --- Auth & Config Panels --- */
+        .floating-auth {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            gap: 10px;
+            z-index: 1000;
+        }
+        .floating-auth input {
+            background: #1f2937;
+            border: 1px solid #374151;
+            color: white;
+            padding: 8px;
+            border-radius: 6px;
+            width: 60px;
+            text-align: center;
+        }
+
+        #configModal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--panel-bg);
+            padding: 30px;
+            border-radius: 20px;
+            border: 1px solid #374151;
+            display: none;
+            z-index: 2000;
+            box-shadow: 0 0 100px rgba(0,0,0,0.8);
+            width: 90%;
+            max-width: 400px;
+        }
+
+        .config-row { margin-bottom: 20px; text-align: left; }
+        .config-row label { display: block; margin-bottom: 8px; font-size: 14px; color: #94a3b8; }
+        .config-row select, .config-row input { width: 100%; padding: 12px; background: #0f172a; border: 1px solid #374151; color: white; border-radius: 8px; }
+
+        /* --- Landscape Optimization --- */
+        @media (orientation: landscape) {
+            .score { font-size: 65vh; }
+            header { display: none; }
+            .logo-watermark { position: absolute; bottom: 20px; width: 100%; text-align: center; opacity: 0.1; font-weight: 900; font-size: 40px; pointer-events: none; }
+        }
+
+        /* --- Utility --- */
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <header id="mainHeader">
+        <div class="logo">RALLY<span style="color:var(--accent)">OS</span> HUB</div>
+        <div id="status" class="status">Connecting...</div>
+        <button class="btn btn-fullscreen" onclick="toggleFullscreen()">FULLSCREEN</button>
+    </header>
+
+    <div class="floating-auth">
+        <input type="password" id="pinInput" placeholder="PIN" onchange="reconnectWithPin()">
+    </div>
+
+    <main class="scoreboard">
+        <div id="boxA" class="team-box a">
+            <div class="serving-indicator">● SERVING</div>
+            <div class="team-label">EQUIPO A</div>
+            <div id="scoreA" class="score">0</div>
+            <div id="setsA" class="sets-count">0 SETS</div>
+        </div>
+        <div id="boxB" class="team-box b">
+            <div class="serving-indicator">● SERVING</div>
+            <div class="team-label">EQUIPO B</div>
+            <div id="scoreB" class="score">0</div>
+            <div id="setsB" class="sets-count">0 SETS</div>
+        </div>
+    </main>
+
+    <div class="logo-watermark">RALLYOS</div>
+
+    <div id="refereePanel" class="referee-panel">
+        <div class="control-row">
+            <div class="team-controls">
+                <button class="btn btn-plus" onclick="emit('RECORD_POINT', 'A')">A +1</button>
+                <button class="btn btn-minus" onclick="emit('SUBTRACT_POINT', 'A')">-1</button>
+            </div>
+            <button class="btn btn-config" onclick="showConfig()">⚙ CONFIG</button>
+            <div class="team-controls">
+                <button class="btn btn-plus" onclick="emit('RECORD_POINT', 'B')">B +1</button>
+                <button class="btn btn-minus" onclick="emit('SUBTRACT_POINT', 'B')">-1</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="configModal">
+        <h2 style="margin-top:0">Configuración</h2>
+        <div class="config-row">
+            <label>Formato de Partido</label>
+            <select id="bestOfSelect">
+                <option value="1">1 Set (Quick Match)</option>
+                <option value="3">Al mejor de 3 (Gana 2)</option>
+                <option value="5" selected>Al mejor de 5 (Gana 3)</option>
+                <option value="7">Al mejor de 7 (Gana 4)</option>
+            </select>
+        </div>
+        <div class="config-row" style="display: flex; gap: 10px;">
+            <div style="flex:1">
+                <label>Handicap A</label>
+                <input type="number" id="handicapA" value="0" min="-30" max="30">
+            </div>
+            <div style="flex:1">
+                <label>Handicap B</label>
+                <input type="number" id="handicapB" value="0" min="-30" max="30">
+            </div>
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 30px;">
+            <button class="btn btn-minus" style="flex:1" onclick="hideConfig()">CANCELAR</button>
+            <button class="btn btn-plus" style="flex:2" onclick="applyConfig()">INICIAR MATCH</button>
+        </div>
+        <button class="btn btn-minus" style="width: 100%; margin-top: 10px; background: #991b1b;" onclick="resetEngine()">DANGER: FORCE RESET</button>
+    </div>
+
+    <script>
+        let socket;
+        let currentPin = '';
+        let isReferee = false;
+
+        function connect() {
+            if (socket) socket.close();
+            socket = io({ auth: { pin: currentPin } });
+
+            socket.on('connect', () => {
+                document.getElementById('status').innerText = '● HUB CONNECTED';
+                isReferee = currentPin.length > 0;
+                document.getElementById('refereePanel').style.display = isReferee ? 'block' : 'none';
+                document.getElementById('mainHeader').className = isReferee ? '' : 'viewer-mode';
+            });
+
+            socket.on('MATCH_UPDATE', (state) => {
+                updateUI(state);
+            });
+
+            socket.on('ERROR', (msg) => { alert(msg); currentPin = ''; connect(); });
+        }
+
+        function updateUI(state) {
+            document.getElementById('scoreA').innerText = state.score.currentSet.a;
+            document.getElementById('scoreB').innerText = state.score.currentSet.b;
+            document.getElementById('setsA').innerText = `${state.score.sets.a} SETS`;
+            document.getElementById('setsB').innerText = `${state.score.sets.b} SETS`;
+            
+            document.getElementById('boxA').classList.toggle('is-serving', state.score.serving === 'A');
+            document.getElementById('boxB').classList.toggle('is-serving', state.score.serving === 'B');
+
+            if (state.status === 'FINISHED') {
+                document.getElementById('status').innerText = `🏆 WINNER: TEAM ${state.winner}`;
+                document.getElementById('status').style.color = '#facc15';
+            } else {
+                document.getElementById('status').innerText = `● LIVE (${state.config.bestOf} SETS)`;
+                document.getElementById('status').style.color = '#4ade80';
+            }
+        }
+
+        function emit(event, data) {
+            socket.emit(event, data);
+        }
+
+        function reconnectWithPin() {
+            currentPin = document.getElementById('pinInput').value;
+            connect();
+        }
+
+        function showConfig() { document.getElementById('configModal').style.display = 'block'; }
+        function hideConfig() { document.getElementById('configModal').style.display = 'none'; }
+
+        function applyConfig() {
+            const config = {
+                pointsPerSet: 11,
+                bestOf: parseInt(document.getElementById('bestOfSelect').value),
+                minDifference: 2,
+                initialScore: {
+                    a: parseInt(document.getElementById('handicapA').value || 0),
+                    b: parseInt(document.getElementById('handicapB').value || 0)
+                }
+            };
+            socket.emit('RESET_MATCH', config);
+            hideConfig();
+        }
+
+        function resetEngine() { if(confirm('¿Reiniciar todo?')) { socket.emit('RESET_MATCH'); hideConfig(); } }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                if (document.exitFullscreen) document.exitFullscreen();
+            }
+        }
+
+        connect();
+    </script>
+</body>
+</html>

@@ -39,6 +39,7 @@
         }
 
         .status { font-size: 14px; font-weight: bold; color: #4ade80; }
+        .awake-indicator { font-size: 10px; color: #94a3b8; margin-top: 2px; }
         .logo { font-weight: 900; letter-spacing: -1px; font-size: 18px; }
 
         /* --- Scoreboard Container --- */
@@ -47,7 +48,9 @@
             display: flex;
             flex-direction: column; /* Default: Portrait */
             width: 100%;
+            transition: flex-direction 0.5s ease;
         }
+        .scoreboard.swapped { flex-direction: column-reverse; }
 
         .team-box {
             flex: 1;
@@ -56,10 +59,11 @@
             justify-content: center;
             align-items: center;
             position: relative;
-            transition: all 0.3s ease;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        .team-box.a { border-bottom: 1px solid #1f2937; } /* Bottom border in portrait */
+        .team-box.a { border-bottom: 1px solid #1f2937; } 
+        .swapped .team-box.a { border-bottom: none; border-top: 1px solid #1f2937; }
 
         /* --- Big Numbers --- */
         .score {
@@ -122,6 +126,7 @@
         .btn-plus { background: #059669; }
         .btn-minus { background: #4b5563; }
         .btn-config { background: #1f2937; margin-left: 20px; }
+        .btn-sacar { background: transparent; border: 1px solid var(--accent); color: var(--accent); font-size: 14px; padding: 10px 15px; }
         .btn-fullscreen { background: transparent; border: 1px solid #374151; padding: 8px 12px; font-size: 12px; }
 
         /* --- Auth & Config Panels --- */
@@ -166,12 +171,43 @@
         /* --- Landscape Optimization --- */
         @media (orientation: landscape) {
             .scoreboard { flex-direction: row; }
+            .scoreboard.swapped { flex-direction: row-reverse; }
             .team-box.a { border-bottom: none; border-right: 1px solid #1f2937; }
+            .swapped .team-box.a { border-right: none; border-left: 1px solid #1f2937; border-top: none; }
             .score { font-size: 65vh; }
             .team-label { font-size: 24px; opacity: 0.8; }
             .sets-count { font-size: 40px; margin-top: 10px; }
             header { display: none; }
             .logo-watermark { position: absolute; bottom: 20px; width: 100%; text-align: center; opacity: 0.1; font-weight: 900; font-size: 40px; pointer-events: none; }
+        }
+
+        .control-row.swapped { flex-direction: row-reverse; }
+
+        /* --- Overlay for Swap --- */
+        #swapOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 5000;
+            font-size: 40px;
+            font-weight: 900;
+            color: var(--accent);
+            pointer-events: none;
+            animation: fadeInOut 2s forwards;
+        }
+
+        @keyframes fadeInOut {
+            0% { opacity: 0; }
+            20% { opacity: 1; }
+            80% { opacity: 1; }
+            100% { opacity: 0; }
         }
 
         /* --- Utility --- */
@@ -181,8 +217,11 @@
 <body>
 
     <header id="mainHeader">
-        <div class="logo">RALLY<span style="color:var(--accent)">OS</span> HUB</div>
-        <div id="status" class="status">Connecting...</div>
+        <div>
+            <div class="logo">RALLY<span style="color:var(--accent)">OS</span> HUB</div>
+            <div id="status" class="status">Connecting...</div>
+            <div id="awakeStatus" class="awake-indicator">SCREEN: AUTO</div>
+        </div>
         <button class="btn btn-fullscreen" onclick="toggleFullscreen()">FULLSCREEN</button>
     </header>
 
@@ -212,9 +251,11 @@
             <div class="team-controls">
                 <button class="btn btn-plus" onclick="emit('RECORD_POINT', 'A')">A +1</button>
                 <button class="btn btn-minus" onclick="emit('SUBTRACT_POINT', 'A')">-1</button>
+                <button class="btn btn-sacar" onclick="emit('SET_SERVER', 'A')">SACAR A</button>
             </div>
             <button class="btn btn-config" onclick="showConfig()">⚙ CONFIG</button>
             <div class="team-controls">
+                <button class="btn btn-sacar" onclick="emit('SET_SERVER', 'B')">SACAR B</button>
                 <button class="btn btn-plus" onclick="emit('RECORD_POINT', 'B')">B +1</button>
                 <button class="btn btn-minus" onclick="emit('SUBTRACT_POINT', 'B')">-1</button>
             </div>
@@ -223,14 +264,23 @@
 
     <div id="configModal">
         <h2 style="margin-top:0">Configuración</h2>
-        <div class="config-row">
-            <label>Formato de Partido</label>
-            <select id="bestOfSelect">
-                <option value="1">1 Set (Quick Match)</option>
-                <option value="3">Al mejor de 3 (Gana 2)</option>
-                <option value="5" selected>Al mejor de 5 (Gana 3)</option>
-                <option value="7">Al mejor de 7 (Gana 4)</option>
-            </select>
+        <div class="config-row" style="display: flex; gap: 10px;">
+            <div style="flex:2">
+                <label>Formato de Partido</label>
+                <select id="bestOfSelect">
+                    <option value="1">1 Set (Quick Match)</option>
+                    <option value="3">Al mejor de 3 (Gana 2)</option>
+                    <option value="5" selected>Al mejor de 5 (Gana 3)</option>
+                    <option value="7">Al mejor de 7 (Gana 4)</option>
+                </select>
+            </div>
+            <div style="flex:1">
+                <label>Saca Primero</label>
+                <select id="initialServerSelect">
+                    <option value="A">Equipo A</option>
+                    <option value="B">Equipo B</option>
+                </select>
+            </div>
         </div>
         <div class="config-row" style="display: flex; gap: 10px;">
             <div style="flex:1">
@@ -249,10 +299,13 @@
         <button class="btn btn-minus" style="width: 100%; margin-top: 10px; background: #991b1b;" onclick="resetEngine()">DANGER: FORCE RESET</button>
     </div>
 
+    <div id="swapOverlay">🔄 LADOS CAMBIADOS</div>
+
     <script>
         let socket;
         let currentPin = '';
         let isReferee = false;
+        let lastSwappedState = false;
 
         function connect() {
             if (socket) socket.close();
@@ -272,6 +325,14 @@
             socket.on('ERROR', (msg) => { alert(msg); currentPin = ''; connect(); });
         }
 
+        function showSwapOverlay() {
+            const overlay = document.getElementById('swapOverlay');
+            overlay.style.display = 'flex';
+            setTimeout(() => {
+                overlay.style.display = 'none';
+            }, 2000);
+        }
+
         function updateUI(state) {
             document.getElementById('scoreA').innerText = state.score.currentSet.a;
             document.getElementById('scoreB').innerText = state.score.currentSet.b;
@@ -280,6 +341,23 @@
             
             document.getElementById('boxA').classList.toggle('is-serving', state.score.serving === 'A');
             document.getElementById('boxB').classList.toggle('is-serving', state.score.serving === 'B');
+
+            // Handle Side Swapping
+            const scoreboard = document.querySelector('.scoreboard');
+            const controlRow = document.querySelector('.control-row');
+            
+            if (state.swappedSides !== lastSwappedState) {
+                showSwapOverlay();
+                lastSwappedState = state.swappedSides;
+            }
+
+            if (state.swappedSides) {
+                scoreboard.classList.add('swapped');
+                if (controlRow) controlRow.classList.add('swapped');
+            } else {
+                scoreboard.classList.remove('swapped');
+                if (controlRow) controlRow.classList.remove('swapped');
+            }
 
             if (state.status === 'FINISHED') {
                 document.getElementById('status').innerText = `🏆 WINNER: TEAM ${state.winner}`;
@@ -307,6 +385,7 @@
                 pointsPerSet: 11,
                 bestOf: parseInt(document.getElementById('bestOfSelect').value),
                 minDifference: 2,
+                initialServer: document.getElementById('initialServerSelect').value,
                 initialScore: {
                     a: parseInt(document.getElementById('handicapA').value || 0),
                     b: parseInt(document.getElementById('handicapB').value || 0)
@@ -318,14 +397,33 @@
 
         function resetEngine() { if(confirm('¿Reiniciar todo?')) { socket.emit('RESET_MATCH'); hideConfig(); } }
 
-        function toggleFullscreen() {
-            if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen();
+        // --- Screen Wake Lock (Keep Screen ON) ---
+        let wakeLock = null;
+        async function requestWakeLock() {
+            if ('wakeLock' in navigator) {
+                try {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    document.getElementById('awakeStatus').innerText = 'SCREEN: ALWAYS ON';
+                    document.getElementById('awakeStatus').style.color = '#4ade80';
+                    console.log('Wake Lock is active');
+                } catch (err) {
+                    console.error(`${err.name}, ${err.message}`);
+                    document.getElementById('awakeStatus').innerText = 'SCREEN: ERROR';
+                }
             } else {
-                if (document.exitFullscreen) document.exitFullscreen();
+                document.getElementById('awakeStatus').innerText = 'SCREEN: NOT SUPPORTED';
             }
         }
 
+        // Re-request wake lock when screen is visible again
+        document.addEventListener('visibilitychange', async () => {
+            if (wakeLock !== null && document.visibilityState === 'visible') {
+                await requestWakeLock();
+            }
+        });
+
+        // Request on load
+        requestWakeLock();
         connect();
     </script>
 </body>

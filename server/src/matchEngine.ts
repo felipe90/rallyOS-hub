@@ -10,6 +10,7 @@ export interface MatchConfig {
   bestOf: number;
   minDifference: number;
   initialScore?: Score;
+  initialServer?: Player;
 }
 
 export interface MatchState {
@@ -19,6 +20,8 @@ export interface MatchState {
     currentSet: Score;
     serving: Player;
   };
+  swappedSides: boolean;
+  midSetSwapped: boolean;
   setHistory: Score[];
   status: 'WAITING' | 'LIVE' | 'FINISHED';
   winner: Player | null;
@@ -46,8 +49,10 @@ export class MatchEngine {
           a: config.initialScore?.a || 0, 
           b: config.initialScore?.b || 0 
         },
-        serving: 'A',
+        serving: config.initialServer || 'A',
       },
+      swappedSides: false,
+      midSetSwapped: false,
       setHistory: [],
       status: 'WAITING',
       winner: null,
@@ -65,10 +70,25 @@ export class MatchEngine {
     if (player === 'A') this.state.score.currentSet.a++;
     else this.state.score.currentSet.b++;
 
+    this.checkSideSwap();
     this.checkSetWin();
-    this.updateServing(); // Note: Keeping serving logic as it's common for many racket sports, but could be toggled.
+    this.updateServing();
 
     return this.getState();
+  }
+
+  private checkSideSwap() {
+    const { a, b } = this.state.score.sets;
+    const isFinalSet = (a + b) === (this.state.config.bestOf - 1);
+    
+    if (isFinalSet && !this.state.midSetSwapped) {
+      const { a: scoreA, b: scoreB } = this.state.score.currentSet;
+      if (scoreA >= 5 || scoreB >= 5) {
+        this.state.swappedSides = !this.state.swappedSides;
+        this.state.midSetSwapped = true;
+        console.log('[Match] Decisive set midpoint reached: Swapping sides');
+      }
+    }
   }
 
   public subtractPoint(player: Player): MatchState {
@@ -111,6 +131,10 @@ export class MatchEngine {
 
       this.state.setHistory.push({ a, b });
       this.state.score.currentSet = { a: 0, b: 0 };
+      
+      // Swap sides for next set and reset midSet flag
+      this.state.swappedSides = !this.state.swappedSides;
+      this.state.midSetSwapped = false;
 
       this.checkMatchWin();
     }

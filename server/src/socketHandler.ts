@@ -14,7 +14,11 @@ export class SocketHandler {
 
   private setupListeners() {
     // 1. PIN Authentication Middleware
-    const REFEREE_PIN = process.env.REFEREE_PIN || '1234';
+    const REFEREE_PIN = process.env.REFEREE_PIN;
+    
+    if (!REFEREE_PIN) {
+      console.warn('⚠️  SECURITY WARNING: REFEREE_PIN is not set in environment variables. No one will be able to authenticate as Referee unless a PIN is provided.');
+    }
 
     this.io.use((socket, next) => {
       const pin = socket.handshake.auth.pin;

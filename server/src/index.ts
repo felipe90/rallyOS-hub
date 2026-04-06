@@ -9,10 +9,28 @@ import fs from 'fs';
 const app = express();
 app.use(cors());
 
-// Load SSL Certificates (generated via OpenSSL)
+// Path to SSL Certificates (must be generated via OpenSSL locally or via Docker)
+const keyPath = path.join(__dirname, '../key.pem');
+const certPath = path.join(__dirname, '../cert.pem');
+
+if (!fs.existsSync(keyPath) || !fs.existsSync(certPath)) {
+  console.error(`
+  ❌ ERROR: SSL Certificates not found!
+  --------------------------------------------------
+  To run rallyOS-hub, you need self-signed certificates.
+  RUN THIS COMMAND IN THE 'server' DIRECTORY:
+  
+  openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes -subj "/C=AR/ST=BA/L=City/O=RallyOS/OU=Dev/CN=localhost"
+  
+  Then restart the server.
+  --------------------------------------------------
+  `);
+  process.exit(1);
+}
+
 const httpsOptions = {
-  key: fs.readFileSync(path.join(__dirname, '../key.pem')),
-  cert: fs.readFileSync(path.join(__dirname, '../cert.pem'))
+  key: fs.readFileSync(keyPath),
+  cert: fs.readFileSync(certPath)
 };
 
 // Serve a very basic testing UI

@@ -45,6 +45,7 @@
         .scoreboard {
             flex: 1;
             display: flex;
+            flex-direction: column; /* Default: Portrait */
             width: 100%;
         }
 
@@ -58,23 +59,23 @@
             transition: all 0.3s ease;
         }
 
-        .team-box.a { border-right: 1px solid #1f2937; }
+        .team-box.a { border-bottom: 1px solid #1f2937; } /* Bottom border in portrait */
 
         /* --- Big Numbers --- */
         .score {
-            font-size: 40vh;
+            font-size: 30vh; /* Scaled for portrait */
             line-height: 1;
             font-weight: 900;
             font-variant-numeric: tabular-nums;
-            margin: -20px 0;
+            margin: 0;
             text-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
 
         .team-box.a .score { color: var(--team-a); }
         .team-box.b .score { color: var(--team-b); }
 
-        .team-label { font-size: 24px; font-weight: 700; text-transform: uppercase; opacity: 0.8; letter-spacing: 2px; }
-        .sets-count { font-size: 40px; font-weight: 800; margin-top: 10px; color: #94a3b8; }
+        .team-label { font-size: 18px; font-weight: 700; text-transform: uppercase; opacity: 0.6; letter-spacing: 2px; }
+        .sets-count { font-size: 28px; font-weight: 800; margin-top: 5px; color: #94a3b8; }
 
         /* --- HUD Elements --- */
         .serving-indicator {
@@ -164,7 +165,11 @@
 
         /* --- Landscape Optimization --- */
         @media (orientation: landscape) {
+            .scoreboard { flex-direction: row; }
+            .team-box.a { border-bottom: none; border-right: 1px solid #1f2937; }
             .score { font-size: 65vh; }
+            .team-label { font-size: 24px; opacity: 0.8; }
+            .sets-count { font-size: 40px; margin-top: 10px; }
             header { display: none; }
             .logo-watermark { position: absolute; bottom: 20px; width: 100%; text-align: center; opacity: 0.1; font-weight: 900; font-size: 40px; pointer-events: none; }
         }

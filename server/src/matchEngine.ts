@@ -132,11 +132,18 @@ export class MatchEngine {
       this.state.setHistory.push({ a, b });
       this.state.score.currentSet = { a: 0, b: 0 };
       
-      // Swap sides for next set and reset midSet flag
-      this.state.swappedSides = !this.state.swappedSides;
-      this.state.midSetSwapped = false;
-
       this.checkMatchWin();
+
+      // ONLY swap sides if the match isn't over.
+      // If it's over, we stay in the current position to show final scores.
+      if (this.state.status !== 'FINISHED') {
+        const oldSide = this.state.swappedSides;
+        this.state.swappedSides = !this.state.swappedSides;
+        this.state.midSetSwapped = false;
+        console.log(`[Match] Set finished. Swapping sides for next set: ${oldSide} -> ${this.state.swappedSides}`);
+      } else {
+        console.log(`[Match] Match finished. Keeping sides as is.`);
+      }
     }
   }
 

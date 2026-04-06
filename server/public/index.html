@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -38,19 +39,37 @@
             z-index: 10;
         }
 
-        .status { font-size: 14px; font-weight: bold; color: #4ade80; }
-        .awake-indicator { font-size: 10px; color: #94a3b8; margin-top: 2px; }
-        .logo { font-weight: 900; letter-spacing: -1px; font-size: 18px; }
+        .status {
+            font-size: 14px;
+            font-weight: bold;
+            color: #4ade80;
+        }
+
+        .awake-indicator {
+            font-size: 10px;
+            color: #94a3b8;
+            margin-top: 2px;
+        }
+
+        .logo {
+            font-weight: 900;
+            letter-spacing: -1px;
+            font-size: 18px;
+        }
 
         /* --- Scoreboard Container --- */
         .scoreboard {
             flex: 1;
             display: flex;
-            flex-direction: column; /* Default: Portrait */
+            flex-direction: column;
+            /* Default: Portrait */
             width: 100%;
             transition: flex-direction 0.5s ease;
         }
-        .scoreboard.swapped { flex-direction: column-reverse; }
+
+        .scoreboard.swapped {
+            flex-direction: column-reverse;
+        }
 
         .team-box {
             flex: 1;
@@ -62,24 +81,40 @@
             transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        .team-box.a { border-bottom: 1px solid #1f2937; } 
-        .swapped .team-box.a { border-bottom: none; border-top: 1px solid #1f2937; }
+        .team-box.a {
+            border-bottom: 1px solid #1f2937;
+        }
+
+        .swapped .team-box.a {
+            border-bottom: none;
+            border-top: 1px solid #1f2937;
+        }
 
         /* --- Big Numbers --- */
         .score {
-            font-size: 30vh; /* Scaled for portrait */
+            font-size: 30vh;
+            /* Scaled for portrait */
             line-height: 1;
             font-weight: 900;
             font-variant-numeric: tabular-nums;
             margin: 0;
-            text-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            text-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
         }
 
-        .team-box.a .score { color: var(--team-a); }
-        .team-box.b .score { color: var(--team-b); }
+        .team-box.a .score {
+            color: var(--team-a);
+        }
 
-        .team-label { font-size: 18px; font-weight: 700; text-transform: uppercase; opacity: 0.6; letter-spacing: 2px; }
-        .sets-count { font-size: 28px; font-weight: 800; margin-top: 5px; color: #94a3b8; }
+        .team-box.b .score {
+            color: var(--team-b);
+        }
+
+        .sets-count {
+            font-size: 28px;
+            font-weight: 800;
+            margin-top: 5px;
+            color: #94a3b8;
+        }
 
         /* --- HUD Elements --- */
         .serving-indicator {
@@ -92,7 +127,11 @@
             transform: scale(0.5);
             transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
-        .is-serving .serving-indicator { opacity: 1; transform: scale(1); }
+
+        .is-serving .serving-indicator {
+            opacity: 1;
+            transform: scale(1);
+        }
 
         /* --- Contextual UI (Referee vs Spectator) --- */
         .referee-panel {
@@ -103,12 +142,22 @@
             backdrop-filter: blur(10px);
             padding: 15px 0;
             border-top: 1px solid #374151;
-            display: none; /* Shown via JS */
+            display: none;
+            /* Shown via JS */
             z-index: 100;
         }
 
-        .control-row { display: flex; justify-content: center; gap: 20px; align-items: center; }
-        .team-controls { display: flex; gap: 10px; }
+        .control-row {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .team-controls {
+            display: flex;
+            gap: 10px;
+        }
 
         .btn {
             border: none;
@@ -122,12 +171,38 @@
             user-select: none;
             -webkit-tap-highlight-color: transparent;
         }
-        .btn:active { transform: scale(0.9); }
-        .btn-plus { background: #059669; }
-        .btn-minus { background: #4b5563; }
-        .btn-config { background: #1f2937; margin-left: 20px; }
-        .btn-sacar { background: transparent; border: 1px solid var(--accent); color: var(--accent); font-size: 14px; padding: 10px 15px; }
-        .btn-fullscreen { background: transparent; border: 1px solid #374151; padding: 8px 12px; font-size: 12px; }
+
+        .btn:active {
+            transform: scale(0.9);
+        }
+
+        .btn-plus {
+            background: #059669;
+        }
+
+        .btn-minus {
+            background: #4b5563;
+        }
+
+        .btn-config {
+            background: #1f2937;
+            margin-left: 20px;
+        }
+
+        .btn-sacar {
+            background: transparent;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            font-size: 14px;
+            padding: 10px 15px;
+        }
+
+        .btn-fullscreen {
+            background: transparent;
+            border: 1px solid #374151;
+            padding: 8px 12px;
+            font-size: 12px;
+        }
 
         /* --- Auth & Config Panels --- */
         .floating-auth {
@@ -138,6 +213,7 @@
             gap: 10px;
             z-index: 1000;
         }
+
         .floating-auth input {
             background: #1f2937;
             border: 1px solid #374151;
@@ -159,29 +235,82 @@
             border: 1px solid #374151;
             display: none;
             z-index: 2000;
-            box-shadow: 0 0 100px rgba(0,0,0,0.8);
+            box-shadow: 0 0 100px rgba(0, 0, 0, 0.8);
             width: 90%;
             max-width: 400px;
         }
 
-        .config-row { margin-bottom: 20px; text-align: left; }
-        .config-row label { display: block; margin-bottom: 8px; font-size: 14px; color: #94a3b8; }
-        .config-row select, .config-row input { width: 100%; padding: 12px; background: #0f172a; border: 1px solid #374151; color: white; border-radius: 8px; }
+        .config-row {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .config-row label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #94a3b8;
+        }
+
+        .config-row select,
+        .config-row input {
+            width: 100%;
+            padding: 12px;
+            background: #0f172a;
+            border: 1px solid #374151;
+            color: white;
+            border-radius: 8px;
+        }
 
         /* --- Landscape Optimization --- */
         @media (orientation: landscape) {
-            .scoreboard { flex-direction: row; }
-            .scoreboard.swapped { flex-direction: row-reverse; }
-            .team-box.a { border-bottom: none; border-right: 1px solid #1f2937; }
-            .swapped .team-box.a { border-right: none; border-left: 1px solid #1f2937; border-top: none; }
-            .score { font-size: 65vh; }
-            .team-label { font-size: 24px; opacity: 0.8; }
-            .sets-count { font-size: 40px; margin-top: 10px; }
-            header { display: none; }
-            .logo-watermark { position: absolute; bottom: 20px; width: 100%; text-align: center; opacity: 0.1; font-weight: 900; font-size: 40px; pointer-events: none; }
+            .scoreboard {
+                flex-direction: row;
+            }
+
+            .scoreboard.swapped {
+                flex-direction: row-reverse;
+            }
+
+            .team-box.a {
+                border-bottom: none;
+                border-right: 1px solid #1f2937;
+            }
+
+            .swapped .team-box.a {
+                border-right: none;
+                border-left: 1px solid #1f2937;
+                border-top: none;
+            }
+
+            .score {
+                font-size: 65vh;
+            }
+
+            .sets-count {
+                font-size: 40px;
+                margin-top: 10px;
+            }
+
+            header {
+                display: none;
+            }
+
+            .logo-watermark {
+                position: absolute;
+                bottom: 20px;
+                width: 100%;
+                text-align: center;
+                opacity: 0.1;
+                font-weight: 900;
+                font-size: 40px;
+                pointer-events: none;
+            }
         }
 
-        .control-row.swapped { flex-direction: row-reverse; }
+        .control-row.swapped {
+            flex-direction: row-reverse;
+        }
 
         /* --- Overlay for Swap --- */
         #swapOverlay {
@@ -190,7 +319,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.8);
+            background: rgba(0, 0, 0, 0.8);
             display: none;
             flex-direction: column;
             justify-content: center;
@@ -204,16 +333,30 @@
         }
 
         @keyframes fadeInOut {
-            0% { opacity: 0; }
-            20% { opacity: 1; }
-            80% { opacity: 1; }
-            100% { opacity: 0; }
+            0% {
+                opacity: 0;
+            }
+
+            20% {
+                opacity: 1;
+            }
+
+            80% {
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 0;
+            }
         }
 
         /* --- Utility --- */
-        .hidden { display: none !important; }
+        .hidden {
+            display: none !important;
+        }
     </style>
 </head>
+
 <body>
 
     <header id="mainHeader">
@@ -232,13 +375,11 @@
     <main class="scoreboard">
         <div id="boxA" class="team-box a">
             <div class="serving-indicator">● SERVING</div>
-            <div class="team-label">EQUIPO A</div>
             <div id="scoreA" class="score">0</div>
             <div id="setsA" class="sets-count">0 SETS</div>
         </div>
         <div id="boxB" class="team-box b">
             <div class="serving-indicator">● SERVING</div>
-            <div class="team-label">EQUIPO B</div>
             <div id="scoreB" class="score">0</div>
             <div id="setsB" class="sets-count">0 SETS</div>
         </div>
@@ -296,7 +437,8 @@
             <button class="btn btn-minus" style="flex:1" onclick="hideConfig()">CANCELAR</button>
             <button class="btn btn-plus" style="flex:2" onclick="applyConfig()">INICIAR MATCH</button>
         </div>
-        <button class="btn btn-minus" style="width: 100%; margin-top: 10px; background: #991b1b;" onclick="resetEngine()">DANGER: FORCE RESET</button>
+        <button class="btn btn-minus" style="width: 100%; margin-top: 10px; background: #991b1b;"
+            onclick="resetEngine()">DANGER: FORCE RESET</button>
     </div>
 
     <div id="swapOverlay">🔄 LADOS CAMBIADOS</div>
@@ -305,7 +447,7 @@
         let socket;
         let currentPin = '';
         let isReferee = false;
-        let lastSwappedState = false;
+        let lastSwappedState = null;
 
         function connect() {
             if (socket) socket.close();
@@ -338,7 +480,7 @@
             document.getElementById('scoreB').innerText = state.score.currentSet.b;
             document.getElementById('setsA').innerText = `${state.score.sets.a} SETS`;
             document.getElementById('setsB').innerText = `${state.score.sets.b} SETS`;
-            
+
             document.getElementById('boxA').classList.toggle('is-serving', state.score.serving === 'A');
             document.getElementById('boxB').classList.toggle('is-serving', state.score.serving === 'B');
 
@@ -346,10 +488,10 @@
             const scoreboard = document.querySelector('.scoreboard');
             const controlRow = document.querySelector('.control-row');
             
-            if (state.swappedSides !== lastSwappedState) {
+            if (lastSwappedState !== null && state.swappedSides !== lastSwappedState) {
                 showSwapOverlay();
-                lastSwappedState = state.swappedSides;
             }
+            lastSwappedState = state.swappedSides;
 
             if (state.swappedSides) {
                 scoreboard.classList.add('swapped');
@@ -382,20 +524,26 @@
 
         function applyConfig() {
             const config = {
-                pointsPerSet: 11,
                 bestOf: parseInt(document.getElementById('bestOfSelect').value),
+                pointsPerSet: 11,
                 minDifference: 2,
                 initialServer: document.getElementById('initialServerSelect').value,
                 initialScore: {
-                    a: parseInt(document.getElementById('handicapA').value || 0),
-                    b: parseInt(document.getElementById('handicapB').value || 0)
+                    a: parseInt(document.getElementById('handicapA').value) || 0,
+                    b: parseInt(document.getElementById('handicapB').value) || 0
                 }
             };
+            lastSwappedState = null;
             socket.emit('RESET_MATCH', config);
             hideConfig();
         }
 
-        function resetEngine() { if(confirm('¿Reiniciar todo?')) { socket.emit('RESET_MATCH'); hideConfig(); } }
+        function resetEngine() {
+            if (confirm('¿Seguro que querés reiniciar el partido de cero?')) {
+                lastSwappedState = null;
+                socket.emit('RESET_MATCH');
+            }
+        }
 
         // --- Screen Wake Lock (Keep Screen ON) ---
         let wakeLock = null;
@@ -427,4 +575,5 @@
         connect();
     </script>
 </body>
+
 </html>

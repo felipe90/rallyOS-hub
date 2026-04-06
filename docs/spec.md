@@ -117,10 +117,32 @@ Para el desarrollador, el proceso es:
 
 ---
 
-## 8. Next Steps (POC Phase)
+## 9. Match Engine: Tournament Rules & Logic
+
+El motor de **rallyOS-hub** implementa reglas oficiales para garantizar la paridad en entornos competitivos.
+
+### 9.1 Scoring & Handicap
+- **Default Goal**: 11 puntos por set.
+- **Min Difference**: 2 puntos (extensible en Deuce).
+- **Handicap System**: Permite inicializar el marcador con valores positivos o negativos (ej. un jugador de Élite puede empezar -5 contra un Amateur en +5).
+
+### 9.2 Side-Swapping (Reglamento ITTF 2.15.03)
+La paridad del entorno (luz, viento, reflejos) se maneja mediante cambios de lado automáticos:
+1.  **Inter-Set Swap**: Los jugadores cambian de lado al finalizar cada set.
+2.  **Decisive Set Swap**: En el último set del partido (ej. 5to set en un Best of 5), los jugadores cambian de lado apenas uno de ellos alcanza los **5 puntos**.
+3.  **Persistence**: El Hub mantiene el estado de `swappedSides` de manera persistente. Si el match termina, se mantiene la posición final para el Match Summary.
+
+### 9.3 Quality of Life (Mobile First)
+- **Screen Wake Lock API**: Para evitar que el dispositivo del Árbitro entre en reposo, se solicita un "Sentinel" de sistema que mantiene la pantalla encendida mientras el match esté en estado `LIVE`.
+- **UI Mirroring**: El frontend espeja automáticamente el marcador y los controles (`flex-direction: row-reverse`) basándose en el flag `swappedSides` del servidor.
+
+---
+
+## 10. Status & Next Steps (Tournament Ready)
 
 1.  [x] Definir Hardware & OS Strategy.
-2.  [ ] Setup de `hostapd` en hardware de prueba.
-3.  [ ] Crear servidor base de Socket.io en Node.js.
-4.  [ ] Test de latencia con 5 clientes simultáneos.
-5.  [ ] Implementación de "Reconnection Logic" en la App React Native.
+2.  [x] Implementación core de Match Engine (Rules, Handicap, Sides).
+3.  [x] UI Responsiva con soporte de mirroring táctil.
+4.  [x] Screen Wake Lock para dispositivos móviles.
+5.  [ ] Setup de `hostapd` y DNS local en hardware físico (Orange Pi/RPi).
+6.  [ ] Generación de QR dinámico para acceso rápido.

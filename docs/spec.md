@@ -138,11 +138,36 @@ La paridad del entorno (luz, viento, reflejos) se maneja mediante cambios de lad
 
 ---
 
-## 10. Status & Next Steps (Tournament Ready)
+---
+
+## 11. Testing & Quality Assurance (E2E)
+
+Para garantizar la estabilidad del **Match Engine** y el cumplimiento de las reglas ITTF, el Hub utiliza **Playwright** para pruebas de integración de punta a punta.
+
+### Escenarios de Prueba (Critical Path)
+- **ITTF 2.15.03**: Validación del cambio de lado automático al alcanzar los 5 puntos en el set decisivo.
+- **Persistencia de Final**: Verificación de que el marcador y la posición de los jugadores no se "limpien" ni se inviertan al terminar el partido.
+- **Handicap Logic**: Asegurar que el partido inicie con los desfases de puntaje configurados correctamente.
+
+### Ejecución de Tests
+Los tests se ejecutan en el host (fuera de Docker) para interactuar con la UI real:
+```bash
+cd server
+npm install
+npx playwright test
+```
+
+> [!NOTE]
+> Los tests ignoran errores de certificados SSL auto-firmados para permitir la validación local sobre HTTPS.
+
+---
+
+## 12. Status & Next Steps (Tournament Ready)
 
 1.  [x] Definir Hardware & OS Strategy.
 2.  [x] Implementación core de Match Engine (Rules, Handicap, Sides).
 3.  [x] UI Responsiva con soporte de mirroring táctil.
 4.  [x] Screen Wake Lock para dispositivos móviles.
-5.  [ ] Setup de `hostapd` y DNS local en hardware físico (Orange Pi/RPi).
-6.  [ ] Generación de QR dinámico para acceso rápido.
+5.  [x] Infraestructura de Testing E2E (Playwright).
+6.  [ ] Setup de `hostapd` y DNS local en hardware físico (Orange Pi/RPi).
+7.  [ ] Generación de QR dinámico para acceso rápido.

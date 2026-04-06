@@ -95,7 +95,9 @@ export class MatchEngine {
     if (this.state.status !== 'LIVE') return this.state;
 
     const p = player.toLowerCase() as 'a' | 'b';
-    this.state.score.currentSet[p]--;
+    if (this.state.score.currentSet[p] > 0) {
+      this.state.score.currentSet[p]--;
+    }
 
     // After subtracting, we should still update serving to stay in sync
     this.updateServing();
@@ -130,9 +132,13 @@ export class MatchEngine {
       else this.state.score.sets.b++;
 
       this.state.setHistory.push({ a, b });
-      this.state.score.currentSet = { a: 0, b: 0 };
       
       this.checkMatchWin();
+
+      // Reset scores for next set ONLY if match isn't finished
+      if (this.state.status !== 'FINISHED') {
+        this.state.score.currentSet = { a: 0, b: 0 };
+      }
 
       // ONLY swap sides if the match isn't over.
       // If it's over, we stay in the current position to show final scores.

@@ -1,0 +1,31 @@
+# SDD Config - rallyOS-hub
+schema: spec-driven
+
+context: |
+  Tech stack: Node.js + TypeScript + Socket.io + Express
+  Architecture: Centralized Hub with WebSocket communication
+  Test Framework: Playwright (E2E only)
+  Key Files: server/src/{index.ts, matchEngine.ts, socketHandler.ts}
+
+strict_tdd: false  # No unit test framework yet
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+    - Identify affected modules/packages
+  specs:
+    - Use Given/When/Then format for scenarios
+    - Document Socket.io events with direction (Client→Server / Server→Client)
+  design:
+    - Include sequence diagrams for complex flows
+    - Maintain backward compatibility with existing Socket events
+  tasks:
+    - Group tasks by phase (infrastructure, implementation, testing)
+    - Keep tasks small enough to complete in one session
+
+testing:
+  runner: playwright
+  command: "npm run test:e2e"
+  layers:
+    unit: false
+    e2e: true

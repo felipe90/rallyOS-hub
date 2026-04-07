@@ -1,7 +1,7 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { useSocketContext } from '../contexts/SocketContext'
 import { useAuth } from '../hooks/useAuth'
-import { ScoreboardMain } from '../components/organisms/ScoreboardMain'
+import { ScoreboardMain, MatchConfigPanel } from '../components/organisms/ScoreboardMain'
 import { HistoryDrawer } from '../components/organisms/HistoryDrawer'
 import { ConnectionStatus } from '../components/ConnectionStatus'
 import { Button } from '../components/atoms/Button'
@@ -40,7 +40,6 @@ export function ScoreboardPage() {
       console.warn('Not connected to server')
       return
     }
-    // Convert 'A' | 'B' to 'a' | 'b' for emit
     const playerKey = player.toLowerCase() as 'a' | 'b'
     emit('SCORE_POINT', { player: playerKey, tableId })
   }
@@ -60,6 +59,50 @@ export function ScoreboardPage() {
     }
     const playerKey = player.toLowerCase() as 'a' | 'b'
     emit('SET_SERVER', { player: playerKey, tableId })
+  }
+
+  const handleStartMatch = (config: { pointsPerSet: number; bestOf: number }) => {
+    if (!connected) {
+      console.warn('Not connected to server')
+      return
+    }
+    console.log(`[Scoreboard] Starting match with config:`, config)
+    emit('START_MATCH', { tableId, ...config })
+  }
+
+  const handleCancelMatch = () => {
+    navigate('/dashboard')
+  }
+
+  // Show config panel if match is not live (referee only)
+  if (isReferee && currentMatch.status !== 'LIVE') {
+    return (
+      <div className="flex flex-col h-screen bg-surface">
+        <ConnectionStatus />
+        
+        <div className="pt-12 p-4 border-b border-border flex justify-between items-center">
+          <h2 className="text-lg font-heading font-bold">Configurar Partido</h2>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleCancelMatch}
+          >
+            Atrás
+          </Button>
+        </div>
+
+        <div className="flex-1 overflow-auto">
+          <MatchConfigPanel
+            onStart={handleStartMatch}
+            onCancel={handleCancelMatch}
+            defaultConfig={{
+              pointsPerSet: 21,
+              bestOf: 3,
+            }}
+          />
+        </div>
+      </div>
+    )
   }
 
   return (

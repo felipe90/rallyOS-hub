@@ -5,13 +5,12 @@ import { MatchEngine, Player, MatchConfig } from './matchEngine';
 export class SocketHandler {
   private io: Server;
   private tableManager: TableManager;
-  private hubConfig: { ssid: string; ip: string; port: number };
 
-  constructor(io: Server, hubConfig: { ssid: string; ip: string; port: number }) {
+  constructor(io: Server, tableManager: TableManager) {
     this.io = io;
-    this.hubConfig = hubConfig;
-    this.tableManager = new TableManager(hubConfig);
+    this.tableManager = tableManager;
     
+    // Set up global table update listener once
     this.tableManager.onTableUpdate = (tableInfo) => {
       this.io.emit('TABLE_UPDATE', tableInfo);
       this.io.emit('TABLE_LIST', this.tableManager.getAllTables());
@@ -26,10 +25,10 @@ export class SocketHandler {
       }
     };
     
-    this.setupSocketListeners();
+    this.setupListeners();
   }
-  
-  private setupSocketListeners(): void {
+
+  private setupListeners() {
     this.io.on('connection', (socket: Socket) => {
       console.log(`[Socket] Connected: ${socket.id}`);
       
@@ -115,6 +114,7 @@ export class SocketHandler {
         tableId: string; 
         playerNames?: { a: string; b: string }; 
         format?: number; 
+        ptsPerSet?: number;
         handicap?: { a: number; b: number } 
       }) => {
         if (!data?.tableId) {
@@ -128,6 +128,7 @@ export class SocketHandler {
         // Map UI data to MatchConfig
         const matchConfig: any = {};
         if (data.format) matchConfig.bestOf = data.format;
+        if (data.ptsPerSet) matchConfig.pointsPerSet = data.ptsPerSet;
         if (data.handicap) {
           matchConfig.initialScore = { a: data.handicap.a, b: data.handicap.b };
         }

@@ -32,8 +32,8 @@ export class MatchEngine {
   private state: InternalMatchState;
   private onMatchEvent?: (event: MatchEvent) => void;
 
-  constructor(config: MatchConfig = INITIAL_CONFIG) {
-    this.state = this.getInitialState(config);
+  constructor(config: Partial<MatchConfig> = {}) {
+    this.state = this.getInitialState({ ...INITIAL_CONFIG, ...config });
   }
 
   private getInitialState(config: MatchConfig): InternalMatchState {
@@ -74,21 +74,16 @@ export class MatchEngine {
     this.state.tableName = name;
   }
 
-  private addToHistory(player: Player, action: 'POINT' | 'CORRECTION', pointsBefore: Score, pointsAfter: Score): void {
+  private addToHistory(player: Player | undefined, action: 'POINT' | 'CORRECTION' | 'SET_WON', pointsBefore: Score, pointsAfter: Score, setNumber?: number): void {
     this.state.history.push({
       id: crypto.randomUUID(),
       player,
       action,
       pointsBefore: JSON.parse(JSON.stringify(pointsBefore)),
       pointsAfter: JSON.parse(JSON.stringify(pointsAfter)),
+      setNumber,
       timestamp: Date.now(),
-      fullStateSnapshot: {
-        swappedSides: this.state.swappedSides,
-        midSetSwapped: this.state.midSetSwapped,
-        status: this.state.status,
-        serving: this.state.score.serving
-      }
-    } as any);
+    });
     
     if (this.state.history.length > 20) {
       this.state.history.shift();
@@ -186,6 +181,10 @@ export class MatchEngine {
       else this.state.score.sets.b++;
 
       this.state.setHistory.push({ a, b });
+      
+      // Record SET_WON in history
+      const setNumber = this.state.score.sets.a + this.state.score.sets.b;
+      this.addToHistory(winner, 'SET_WON', { a, b }, { a, b }, setNumber);
       
       if (this.onMatchEvent) {
         const setNumber = this.state.score.sets.a + this.state.score.sets.b;

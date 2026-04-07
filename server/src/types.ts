@@ -21,10 +21,11 @@ export interface PlayerConnection {
 // Score change for history (undo)
 export interface ScoreChange {
   id: string;
-  player: Player;
-  action: 'POINT' | 'CORRECTION';
+  player?: Player;
+  action: 'POINT' | 'CORRECTION' | 'SET_WON';
   pointsBefore: Score;
   pointsAfter: Score;
+  setNumber?: number;
   timestamp: number;
 }
 
@@ -94,6 +95,7 @@ export interface TableInfo {
   playerNames?: { a: string; b: string };
   currentScore?: Score;
   currentSets?: Score;
+  winner?: Player | null;
 }
 
 // QR Data

@@ -173,28 +173,40 @@ export class TableManager {
     const table = this.tables.get(tableId);
     if (!table || table.status !== 'LIVE') return null;
     
-    return table.matchEngine.recordPoint(player);
+    const state = table.matchEngine.recordPoint(player);
+    if (state) {
+      // Sync table status with engine status (e.g. FINISHED after match won)
+      table.status = state.status;
+      this.notifyUpdate(table);
+    }
+    return state;
   }
   
   public subtractPoint(tableId: string, player: Player): MatchStateExtended | null {
     const table = this.tables.get(tableId);
     if (!table || table.status !== 'LIVE') return null;
     
-    return table.matchEngine.subtractPoint(player);
+    const state = table.matchEngine.subtractPoint(player);
+    if (state) this.notifyUpdate(table);
+    return state;
   }
   
   public undoLast(tableId: string): MatchStateExtended | null {
     const table = this.tables.get(tableId);
     if (!table || table.status !== 'LIVE') return null;
     
-    return table.matchEngine.undoLast();
+    const state = table.matchEngine.undoLast();
+    if (state) this.notifyUpdate(table);
+    return state;
   }
   
   public setServer(tableId: string, player: Player): MatchStateExtended | null {
     const table = this.tables.get(tableId);
     if (!table || table.status !== 'LIVE') return null;
     
-    return table.matchEngine.setServer(player);
+    const state = table.matchEngine.setServer(player);
+    if (state) this.notifyUpdate(table);
+    return state;
   }
   
   public resetTable(tableId: string, config?: MatchConfig): MatchStateExtended | null {
@@ -263,12 +275,14 @@ export class TableManager {
       id: table.id,
       number: table.number,
       name: table.name,
-      status: table.status,
+      // Use engine status as source of truth (handles FINISHED, LIVE, WAITING)
+      status: state.status,
       pin: table.pin,
       playerCount: table.players.length,
       playerNames: state.playerNames,
       currentScore: state.score.currentSet,
-      currentSets: state.score.sets
+      currentSets: state.score.sets,
+      winner: state.winner
     };
   }
 }

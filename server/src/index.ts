@@ -3,6 +3,7 @@ import { createServer } from 'https';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import { SocketHandler } from './socketHandler';
+import { TableManager } from './tableManager';
 import path from 'path';
 import fs from 'fs';
 
@@ -33,7 +34,7 @@ const httpsOptions = {
   cert: fs.readFileSync(certPath)
 };
 
-// Serve a very basic testing UI
+// Serve the Hub UI
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
 });
@@ -54,7 +55,9 @@ const hubConfig = {
   port: parseInt(process.env.PORT || '3000')
 };
 
-new SocketHandler(io, hubConfig);
+// CRITICAL: Create TableManager first, then pass it to SocketHandler
+const tableManager = new TableManager(hubConfig);
+new SocketHandler(io, tableManager);
 
 httpServer.listen(PORT, () => {
   console.log(`

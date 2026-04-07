@@ -22,10 +22,16 @@ else
     echo "⚠️  lsof no disponible, saltando cleanup de puerto"
 fi
 
-# Verificar que Docker esté corriendo
+# Verificar que Docker esté corriendo, si no, arrancarlo automáticamente
 if ! docker info > /dev/null 2>&1; then
-    echo "❌ Docker no está corriendo. Iniciá Docker Desktop."
-    exit 1
+    echo "🐳 Docker no está corriendo. Iniciando Docker Desktop..."
+    open -a Docker
+    echo "⏳ Esperando que el daemon esté listo (puede tardar ~20 segundos)..."
+    until docker info > /dev/null 2>&1; do
+        sleep 2
+        echo "   ... esperando"
+    done
+    echo "✅ Docker listo!"
 fi
 
 # Iniciar el contenedor

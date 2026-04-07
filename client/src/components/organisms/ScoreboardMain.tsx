@@ -276,7 +276,10 @@ export function MatchConfigPanel({
               <input
                 type="number"
                 value={handicapA}
-                onChange={(e) => setHandicapA(parseInt(e.target.value) || 0)}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value);
+                  setHandicapA(isNaN(val) ? 0 : val);
+                }}
                 className="p-3 border border-surface-high rounded-[--radius-md] bg-surface-low text-center font-heading text-lg"
               />
             </div>
@@ -285,7 +288,10 @@ export function MatchConfigPanel({
               <input
                 type="number"
                 value={handicapB}
-                onChange={(e) => setHandicapB(parseInt(e.target.value) || 0)}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value);
+                  setHandicapB(isNaN(val) ? 0 : val);
+                }}
                 className="p-3 border border-surface-high rounded-[--radius-md] bg-surface-low text-center font-heading text-lg"
               />
             </div>

@@ -4,7 +4,7 @@ import type { MatchStateExtended, TableStatus } from '../../../../shared/types';
 import { ScorePair } from '../molecules/ScoreDisplay';
 import { MatchContext, SetScore } from '../molecules/MatchContext';
 import { ScoreButton } from '../atoms/Button';
-import { Undo2, History, Settings } from 'lucide-react';
+import { Undo2, History, Settings, Plus, Minus } from 'lucide-react';
 import { Body } from '../atoms/Typography';
 
 /* ScoreboardMain Organism - Landscape referee/viewer scoreboard */
@@ -271,29 +271,45 @@ export function MatchConfigPanel({
         <div className="flex flex-col gap-2 pt-4 border-t border-surface-high">
           <Body className="font-medium text-lg">Handicap</Body>
           <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 items-center">
               <label className="text-sm font-medium">Equipo A</label>
-              <input
-                type="number"
-                value={handicapA}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value);
-                  setHandicapA(isNaN(val) ? 0 : val);
-                }}
-                className="p-3 border border-surface-high rounded-[--radius-md] bg-surface-low text-center font-heading text-lg"
-              />
+              <div className="flex items-center gap-2 bg-surface-low rounded-[--radius-md] p-2">
+                <button
+                  onClick={() => setHandicapA(handicapA - 1)}
+                  className="p-2 hover:bg-surface-high rounded-[--radius-sm] transition-colors"
+                >
+                  <Minus size={20} />
+                </button>
+                <div className="w-12 text-center font-heading text-xl font-bold">
+                  {handicapA}
+                </div>
+                <button
+                  onClick={() => setHandicapA(handicapA + 1)}
+                  className="p-2 hover:bg-surface-high rounded-[--radius-sm] transition-colors"
+                >
+                  <Plus size={20} />
+                </button>
+              </div>
             </div>
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 items-center">
               <label className="text-sm font-medium">Equipo B</label>
-              <input
-                type="number"
-                value={handicapB}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value);
-                  setHandicapB(isNaN(val) ? 0 : val);
-                }}
-                className="p-3 border border-surface-high rounded-[--radius-md] bg-surface-low text-center font-heading text-lg"
-              />
+              <div className="flex items-center gap-2 bg-surface-low rounded-[--radius-md] p-2">
+                <button
+                  onClick={() => setHandicapB(handicapB - 1)}
+                  className="p-2 hover:bg-surface-high rounded-[--radius-sm] transition-colors"
+                >
+                  <Minus size={20} />
+                </button>
+                <div className="w-12 text-center font-heading text-xl font-bold">
+                  {handicapB}
+                </div>
+                <button
+                  onClick={() => setHandicapB(handicapB + 1)}
+                  className="p-2 hover:bg-surface-high rounded-[--radius-sm] transition-colors"
+                >
+                  <Plus size={20} />
+                </button>
+              </div>
             </div>
           </div>
         </div>

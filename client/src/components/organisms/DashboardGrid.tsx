@@ -91,12 +91,12 @@ export function DashboardHeader({
       <div className="flex items-center justify-between">
         <Title>The Kinetic Clubhouse</Title>
         
-        <div className="flex gap-1 p-1 bg-surface-low rounded-full">
+        <div className="flex gap-1 p-1 bg-slate-100 rounded-full">
           <button
             onClick={() => onViewModeChange('grid')}
             className={`
               p-2 rounded-full transition-colors
-              ${viewMode === 'grid' ? 'bg-surface text-text-h' : 'text-text/50'}
+              ${viewMode === 'grid' ? 'bg-white text-slate-900' : 'text-slate-500'}
             `}
             aria-label="Grid view"
           >
@@ -106,7 +106,7 @@ export function DashboardHeader({
             onClick={() => onViewModeChange('list')}
             className={`
               p-2 rounded-full transition-colors
-              ${viewMode === 'list' ? 'bg-surface text-text-h' : 'text-text/50'}
+              ${viewMode === 'list' ? 'bg-white text-slate-900' : 'text-slate-500'}
             `}
             aria-label="List view"
           >
@@ -116,17 +116,17 @@ export function DashboardHeader({
       </div>
       
       <div className="grid grid-cols-3 gap-4">
-        <div className="p-4 bg-surface rounded-[--radius-md] shadow-sm">
-          <Body className="text-text/50 text-sm">Mesas</Body>
+        <div className="p-4 bg-white rounded-xl shadow-sm">
+          <Body className="text-slate-500 text-sm">Mesas</Body>
           <Title className="text-2xl">{totalTables}</Title>
         </div>
-        <div className="p-4 bg-surface rounded-[--radius-md] shadow-sm">
-          <Body className="text-text/50 text-sm">Partidos Activos</Body>
-          <Title className="text-2xl text-amber">{liveMatches}</Title>
+        <div className="p-4 bg-white rounded-xl shadow-sm">
+          <Body className="text-slate-500 text-sm">Partidos</Body>
+          <Title className="text-2xl text-amber-600">{liveMatches}</Title>
         </div>
-        <div className="p-4 bg-surface rounded-[--radius-md] shadow-sm">
-          <Body className="text-text/50 text-sm">Jugadores</Body>
-          <Title className="text-2xl text-primary">{activePlayers}</Title>
+        <div className="p-4 bg-white rounded-xl shadow-sm">
+          <Body className="text-slate-500 text-sm">Jugadores</Body>
+          <Title className="text-2xl text-teal-600">{activePlayers}</Title>
         </div>
       </div>
     </div>

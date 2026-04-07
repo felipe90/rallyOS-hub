@@ -34,20 +34,23 @@ const httpsOptions = {
   cert: fs.readFileSync(certPath)
 };
 
-// Serve the React client (Vite build or dev)
-const clientDistPath = path.join(__dirname, '../../client/dist');
+// Serve the React client (from dist or public)
+const clientDistPath = path.join(__dirname, '../public/dist');
+const clientPublicPath = path.join(__dirname, '../public');
 const clientSrcPath = path.join(__dirname, '../../client');
-const clientPath = fs.existsSync(clientDistPath) ? clientDistPath : clientSrcPath;
+const clientPath = fs.existsSync(clientDistPath) ? clientDistPath : 
+                fs.existsSync(clientPublicPath) ? clientPublicPath : clientSrcPath;
 
 app.use(express.static(clientPath));
-app.use(express.static(path.join(clientPath, 'assets')));
 
 // Serve the Hub UI
 app.get('/', (req, res) => {
-  // Try dist first, then fall back to index.html for Vite dev
+  // Try: dist -> public -> client src
   const indexPath = fs.existsSync(path.join(clientDistPath, 'index.html'))
     ? path.join(clientDistPath, 'index.html')
-    : path.join(clientSrcPath, 'index.html');
+    : fs.existsSync(path.join(clientPublicPath, 'index.html'))
+      ? path.join(clientPublicPath, 'index.html')
+      : path.join(clientSrcPath, 'index.html');
   res.sendFile(indexPath);
 });
 

@@ -12,6 +12,7 @@ services:
     volumes:
       - ./server:/app/server
       - ./shared:/app/shared
+      - ./client/dist:/app/client/dist:ro
     networks:
       - rallyos-net
 

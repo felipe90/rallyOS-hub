@@ -1,9 +1,6 @@
 #!/bin/sh
 set -e
 
-echo "🚀 Starting rallyOS-hub..."
-
-# Ensure we are in /app
 cd /app
 
 # Generate SSL certificates if needed
@@ -14,10 +11,19 @@ if [ ! -f server/key.pem ]; then
         -days 365 -nodes -subj "/C=AR/ST=BA/L=Buenos Aires/O=RallyOS/OU=Dev/CN=localhost"
 fi
 
-echo "✅ RallyOS-hub is running!"
-echo "   - Client: http://localhost:5173"
-echo "   - Server: https://localhost:3001"
-echo ""
+# Build client if dist doesn't exist
+if [ ! -d client/dist ]; then
+    echo "📦 Building client..."
+    cd client && npm run build
+fi
 
-# Keep container running - just ping
-exec tail -f /dev/null
+# Copy client dist to server public
+if [ -d client/dist ]; then
+    echo "📦 Copying client to server..."
+    rm -rf server/public/*
+    cp -r client/dist/* server/public/
+fi
+
+# Start Express server with tsx (from server dir, with full path)
+echo "🖥️ Starting Express server..."
+cd /app/server && exec npx tsx src/index.js

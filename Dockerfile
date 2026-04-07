@@ -17,11 +17,17 @@ COPY client/ ./client/
 
 WORKDIR /build/client
 
-# Install dependencies (including dev deps needed for build)
-RUN npm ci
+# Clear npm cache to ensure fresh dependencies
+RUN npm cache clean --force
 
-# Build for production
+# Install dependencies (including dev deps needed for build)
+RUN npm ci --force
+
+# Build for production (fresh build, no cache)
 RUN npm run build
+
+# Verify build output exists
+RUN test -d dist && echo "✓ Client build successful" || (echo "✗ Client build failed" && exit 1)
 
 # Stage 2: Build and compile server TypeScript
 FROM node:${NODE_VERSION} AS server-builder
@@ -40,10 +46,17 @@ WORKDIR /build/server
 # Copy and install dependencies (including dev for TypeScript compilation)
 COPY server/package*.json ./
 
-RUN npm ci
+# Clear npm cache to ensure fresh dependencies
+RUN npm cache clean --force
 
-# Compile TypeScript to JavaScript
+# Install dependencies (including dev for TypeScript compilation)
+RUN npm ci --force
+
+# Compile TypeScript to JavaScript (fresh compilation)
 RUN npm run build
+
+# Verify build output exists
+RUN test -d dist && echo "✓ Server build successful" || (echo "✗ Server build failed" && exit 1)
 
 # Stage 3: Production runtime - lightweight final image
 FROM node:${NODE_VERSION}

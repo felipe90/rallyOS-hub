@@ -41,6 +41,32 @@ if ! docker info &>/dev/null; then
     sleep 5
 fi
 
+# Pre-build: Ensure client and server are built locally first
+echo -e "${YELLOW}📦 Pre-building client...${NC}"
+if [ -f "client/package.json" ]; then
+    cd "$PROJECT_DIR/client"
+    npm ci --force 2>&1 | tail -3
+    npm run build 2>&1 | grep -E "built|errors|✓|✗" | tail -5
+    cd "$PROJECT_DIR"
+    echo -e "${GREEN}✓${NC} Client pre-build complete"
+else
+    echo -e "${RED}✗ Client directory not found${NC}"
+    exit 1
+fi
+
+# Pre-build: Ensure server is built locally first
+echo -e "${YELLOW}📦 Pre-building server...${NC}"
+if [ -f "server/package.json" ]; then
+    cd "$PROJECT_DIR/server"
+    npm ci --force 2>&1 | tail -3
+    npm run build 2>&1 | grep -E "tsc|errors|✓|✗" | tail -5
+    cd "$PROJECT_DIR"
+    echo -e "${GREEN}✓${NC} Server pre-build complete"
+else
+    echo -e "${RED}✗ Server directory not found${NC}"
+    exit 1
+fi
+
 # Build and start containers
 echo -e "${YELLOW}🔨 Building Docker image (this may take a few minutes)...${NC}"
 if ! docker-compose build --no-cache; then

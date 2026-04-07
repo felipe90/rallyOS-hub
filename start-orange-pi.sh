@@ -75,9 +75,33 @@ main() {
     check_compose
     check_docker_daemon
     
+    print_step "Pre-building client locally..."
+    if [ -f "client/package.json" ]; then
+        cd "$SCRIPT_DIR/client"
+        npm ci --force 2>&1 | tail -2
+        npm run build 2>&1 | grep -E "built|errors" | tail -3
+        cd "$SCRIPT_DIR"
+        print_success "Client pre-build complete"
+    else
+        print_error "client/package.json not found"
+        exit 1
+    fi
+    
+    print_step "Pre-building server locally..."
+    if [ -f "server/package.json" ]; then
+        cd "$SCRIPT_DIR/server"
+        npm ci --force 2>&1 | tail -2
+        npm run build 2>&1 | grep -E "tsc|errors" | tail -3
+        cd "$SCRIPT_DIR"
+        print_success "Server pre-build complete"
+    else
+        print_error "server/package.json not found"
+        exit 1
+    fi
+    
     print_step "Building Docker image..."
     print_step "This may take 2-5 minutes on Orange Pi Zero..."
-    docker-compose build
+    docker-compose build --no-cache
     
     print_step "Stopping any existing containers..."
     docker-compose down 2>/dev/null || true

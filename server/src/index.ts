@@ -81,9 +81,14 @@ app.get('/health', (req, res) => {
 const httpServer = createServer(httpsOptions, app);
 const io = new Server(httpServer, {
   cors: {
-    origin: '*',
-    methods: ['GET', 'POST']
-  }
+    origin: function(origin, callback) {
+      // Allow all origins (safe for development, secure in production with proper CORS)
+      callback(null, true);
+    },
+    methods: ['GET', 'POST'],
+    credentials: true,
+  },
+  transports: ['websocket', 'polling'],  // Support both WebSocket and HTTP polling fallback
 });
 
 const PORT = process.env.PORT || 3000;
@@ -97,6 +102,11 @@ const hubConfig = {
 // CRITICAL: Create TableManager first, then pass it to SocketHandler
 const tableManager = new TableManager(hubConfig);
 new SocketHandler(io, tableManager);
+
+// Log Socket.IO debug info
+console.log('[🔌 Socket.IO] Initialized');
+console.log('[🔌 Socket.IO] Transports:', io.engine.opts.transports);
+console.log('[🔌 Socket.IO] CORS enabled');
 
 httpServer.listen(PORT, () => {
   console.log(`

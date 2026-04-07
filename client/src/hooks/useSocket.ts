@@ -15,8 +15,37 @@ export interface SocketState {
 }
 
 export function useSocket(options: UseSocketOptions = {}) {
+  // Auto-detect server URL if not provided
+  // Uses window.location to determine the server origin
+  const getDefaultServerUrl = () => {
+    // If VITE_SERVER_URL is set (dev or custom), use it
+    if (import.meta.env.VITE_SERVER_URL) {
+      return import.meta.env.VITE_SERVER_URL;
+    }
+    
+    // Otherwise, detect from current page location
+    // This works for Docker, production, and local dev
+    if (typeof window !== 'undefined') {
+      // Use window.location origin (keeps protocol, domain, port from page)
+      // But replace port if we're on dev server (5173) to connect to server (3000)
+      const loc = window.location;
+      const isDev = loc.port === '5173';
+      
+      if (isDev) {
+        // Dev mode: client on :5173, server on :3000
+        return `https://localhost:3000`;
+      } else {
+        // Production/Docker: same origin as the page
+        return loc.origin;
+      }
+    }
+    
+    // Fallback (should never reach here in browser)
+    return 'https://localhost:3000';
+  };
+
   const {
-    serverUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000',
+    serverUrl = getDefaultServerUrl(),
     autoConnect = true,
   } = options;
 
@@ -36,11 +65,29 @@ export function useSocket(options: UseSocketOptions = {}) {
 
     setState(s => ({ ...s, connecting: true, error: null }));
 
-    const socket = io(serverUrl, { transports: ['websocket'] });
+    // Socket.io options: auto-detect namespace and use both websocket and http long-polling as fallback
+    const socket = io(serverUrl, { 
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5,
+    });
+    
+    // Debug logging
+    console.log('[Socket] Attempting connection to:', serverUrl);
 
-    socket.on('connect', () => setState({ connected: true, connecting: false, error: null }));
-    socket.on('disconnect', () => setState(s => ({ ...s, connected: false })));
-    socket.on('connect_error', (error: Error) => setState({ connected: false, connecting: false, error: error.message }));
+    socket.on('connect', () => {
+      console.log('[✓ Socket] Connected successfully');
+      setState({ connected: true, connecting: false, error: null });
+    });
+    socket.on('disconnect', (reason) => {
+      console.log('[✗ Socket] Disconnected:', reason);
+      setState(s => ({ ...s, connected: false }));
+    });
+    socket.on('connect_error', (error: Error) => {
+      console.error('[✗ Socket Error]', error.message);
+      setState({ connected: false, connecting: false, error: error.message });
+    });
 
     socket.on('TABLE_UPDATE', (table: TableInfo) => {
       setTables(prev => prev.find(t => t.id === table.id) 

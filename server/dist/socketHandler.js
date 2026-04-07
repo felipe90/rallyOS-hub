@@ -23,8 +23,19 @@ class SocketHandler {
     }
     setupListeners() {
         this.io.on('connection', (socket) => {
-            console.log(`[Socket] Connected: ${socket.id}`);
+            console.log(`[✓ Socket] Client connected: ${socket.id}`);
+            console.log(`[Socket] Connected clients: ${this.io.engine.clientsCount}`);
+            // Send current tables to new client
             socket.emit('TABLE_LIST', this.tableManager.getAllTables());
+            // Handle disconnection
+            socket.on('disconnect', (reason) => {
+                console.log(`[✗ Socket] Client disconnected: ${socket.id} - Reason: ${reason}`);
+                console.log(`[Socket] Connected clients: ${this.io.engine.clientsCount}`);
+            });
+            // Handle errors
+            socket.on('error', (error) => {
+                console.error(`[✗ Socket Error] ${socket.id}:`, error);
+            });
             socket.on('CREATE_TABLE', (data) => {
                 const table = this.tableManager.createTable(data?.name);
                 socket.join(table.id); // Creator joins the table room

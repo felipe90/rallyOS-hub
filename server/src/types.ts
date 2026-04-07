@@ -53,6 +53,8 @@ export interface MatchConfig {
   pointsPerSet: number;
   bestOf: number;
   minDifference: number;
+  handicapA?: number;
+  handicapB?: number;
   initialScore?: Score;
   initialServer?: Player;
 }

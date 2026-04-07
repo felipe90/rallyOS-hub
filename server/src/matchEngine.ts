@@ -37,13 +37,17 @@ export class MatchEngine {
   }
 
   private getInitialState(config: MatchConfig): InternalMatchState {
+    // Apply handicap as initial score if provided
+    const initialScoreA = config.initialScore?.a || config.handicapA || 0;
+    const initialScoreB = config.initialScore?.b || config.handicapB || 0;
+    
     return {
       config,
       score: {
         sets: { a: 0, b: 0 },
         currentSet: { 
-          a: config.initialScore?.a || 0, 
-          b: config.initialScore?.b || 0 
+          a: initialScoreA, 
+          b: initialScoreB 
         },
         serving: config.initialServer || 'A',
       },

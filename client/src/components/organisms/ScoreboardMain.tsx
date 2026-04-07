@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { useState } from 'react';
 import type { MatchStateExtended, TableStatus } from '../../../../shared/types';
 import { ScorePair } from '../molecules/ScoreDisplay';
 import { MatchContext, SetScore } from '../molecules/MatchContext';
@@ -195,36 +196,48 @@ export interface MatchConfigPanelProps {
   defaultConfig?: {
     pointsPerSet: number;
     bestOf: number;
+    handicapA?: number;
+    handicapB?: number;
   };
-  onStart: (config: { pointsPerSet: number; bestOf: number }) => void;
+  onStart: (config: { pointsPerSet: number; bestOf: number; handicapA?: number; handicapB?: number }) => void;
   onCancel: () => void;
 }
 
 export function MatchConfigPanel({
-  defaultConfig = { pointsPerSet: 21, bestOf: 3 },
+  defaultConfig = { pointsPerSet: 11, bestOf: 3, handicapA: 0, handicapB: 0 },
   onStart,
   onCancel,
 }: MatchConfigPanelProps) {
+  const [pointsPerSet, setPointsPerSet] = useState(defaultConfig.pointsPerSet || 11);
+  const [bestOf, setBestOf] = useState(defaultConfig.bestOf || 3);
+  const [handicapA, setHandicapA] = useState(defaultConfig.handicapA || 0);
+  const [handicapB, setHandicapB] = useState(defaultConfig.handicapB || 0);
+
+  const handleStart = () => {
+    onStart({ pointsPerSet, bestOf, handicapA, handicapB });
+  };
+
   return (
     <div className="flex flex-col items-center justify-center h-full p-8 bg-surface">
-      <Body className="text-xl mb-8">Configurar Partido</Body>
+      <Body className="text-2xl mb-8 font-heading">Configurar Partido</Body>
       
-      <div className="flex flex-col gap-4 w-full max-w-md">
+      <div className="flex flex-col gap-6 w-full max-w-md">
+        
+        {/* Puntos por set */}
         <div className="flex flex-col gap-2">
-          <Body className="font-medium">Puntos por set</Body>
+          <Body className="font-medium text-lg">Puntos por set</Body>
           <div className="flex gap-2">
             {[11, 15, 21].map((points) => (
               <button
                 key={points}
                 className={`
                   flex-1 p-4 rounded-[--radius-md]
-                  font-heading text-lg font-medium
-                  ${points === defaultConfig.pointsPerSet 
+                  font-heading text-lg font-medium transition-colors
+                  ${pointsPerSet === points 
                     ? 'bg-primary text-white' 
                     : 'bg-surface-low hover:bg-surface-high'}
-                  transition-colors
                 `}
-                onClick={() => onStart({ ...defaultConfig, pointsPerSet: points })}
+                onClick={() => setPointsPerSet(points)}
               >
                 {points}
               </button>
@@ -232,26 +245,71 @@ export function MatchConfigPanel({
           </div>
         </div>
         
+        {/* Mejor de */}
         <div className="flex flex-col gap-2">
-          <Body className="font-medium">Mejor de</Body>
+          <Body className="font-medium text-lg">Mejor de</Body>
           <div className="flex gap-2">
             {[1, 3, 5].map((bo) => (
               <button
                 key={bo}
                 className={`
                   flex-1 p-4 rounded-[--radius-md]
-                  font-heading text-lg font-medium
-                  ${bo === defaultConfig.bestOf 
+                  font-heading text-lg font-medium transition-colors
+                  ${bestOf === bo 
                     ? 'bg-primary text-white' 
                     : 'bg-surface-low hover:bg-surface-high'}
-                  transition-colors
                 `}
-                onClick={() => onStart({ ...defaultConfig, bestOf: bo })}
+                onClick={() => setBestOf(bo)}
               >
                 {bo}
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Handicap */}
+        <div className="flex flex-col gap-2 pt-4 border-t border-surface-high">
+          <Body className="font-medium text-lg">Handicap</Body>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium">Equipo A</label>
+              <input
+                type="number"
+                min="0"
+                max="10"
+                value={handicapA}
+                onChange={(e) => setHandicapA(Math.max(0, parseInt(e.target.value) || 0))}
+                className="p-3 border border-surface-high rounded-[--radius-md] bg-surface-low text-center font-heading text-lg"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium">Equipo B</label>
+              <input
+                type="number"
+                min="0"
+                max="10"
+                value={handicapB}
+                onChange={(e) => setHandicapB(Math.max(0, parseInt(e.target.value) || 0))}
+                className="p-3 border border-surface-high rounded-[--radius-md] bg-surface-low text-center font-heading text-lg"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Acciones */}
+        <div className="flex gap-3 pt-4">
+          <button
+            onClick={onCancel}
+            className="flex-1 p-4 rounded-[--radius-md] bg-surface-low hover:bg-surface-high font-heading text-lg font-medium transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleStart}
+            className="flex-1 p-4 rounded-[--radius-md] bg-primary hover:bg-primary-dark text-white font-heading text-lg font-medium transition-colors"
+          >
+            Iniciar
+          </button>
         </div>
       </div>
     </div>

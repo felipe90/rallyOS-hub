@@ -144,7 +144,12 @@ class SocketHandler {
                 if (!this.tableManager.isReferee(data.tableId, socket.id)) {
                     return socket.emit('ERROR', { code: 'UNAUTHORIZED', message: 'No autorizado' });
                 }
-                const state = this.tableManager.startMatch(data.tableId);
+                const state = this.tableManager.startMatch(data.tableId, {
+                    pointsPerSet: data.pointsPerSet || 11,
+                    bestOf: data.bestOf || 3,
+                    handicapA: data.handicapA || 0,
+                    handicapB: data.handicapB || 0,
+                });
                 if (state) {
                     this.io.to(data.tableId).emit('MATCH_UPDATE', state); // Emit only to room
                 }

@@ -132,10 +132,31 @@ class TableManager {
         table.status = 'CONFIGURING';
         this.notifyUpdate(table);
     }
-    startMatch(tableId) {
+    startMatch(tableId, config) {
         const table = this.tables.get(tableId);
         if (!table)
             return null;
+        // If config provided, create a new MatchEngine with it
+        if (config) {
+            // Preserve player names and table info
+            const playerNames = table.playerNames;
+            const tableId = table.id;
+            const tableName = table.name;
+            // Create new MatchEngine with the provided config
+            table.matchEngine = new matchEngine_1.MatchEngine({
+                pointsPerSet: config.pointsPerSet || 11,
+                bestOf: config.bestOf || 3,
+                minDifference: 2,
+                handicapA: config.handicapA || 0,
+                handicapB: config.handicapB || 0,
+            });
+            // Restore table metadata
+            table.matchEngine.setTableId(tableId, tableName);
+            table.matchEngine.setPlayerNames(playerNames);
+            table.matchEngine.setEventCallback((event) => {
+                this.onMatchEvent(tableId, event);
+            });
+        }
         table.status = 'LIVE';
         const state = table.matchEngine.startMatch();
         this.notifyUpdate(table);

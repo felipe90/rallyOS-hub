@@ -61,7 +61,7 @@ export function ScoreboardPage() {
     emit('SET_SERVER', { player: playerKey, tableId })
   }
 
-  const handleStartMatch = (config: { pointsPerSet: number; bestOf: number }) => {
+  const handleStartMatch = (config: { pointsPerSet: number; bestOf: number; handicapA?: number; handicapB?: number }) => {
     if (!connected) {
       console.warn('Not connected to server')
       return
@@ -96,8 +96,10 @@ export function ScoreboardPage() {
             onStart={handleStartMatch}
             onCancel={handleCancelMatch}
             defaultConfig={{
-              pointsPerSet: 21,
+              pointsPerSet: 11,
               bestOf: 3,
+              handicapA: 0,
+              handicapB: 0,
             }}
           />
         </div>

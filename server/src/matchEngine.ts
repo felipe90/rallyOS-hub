@@ -1,31 +1,18 @@
-export type Player = 'A' | 'B';
+import { 
+  Player, 
+  Score, 
+  MatchConfig, 
+  MatchState, 
+  MatchConfigExtended,
+  MatchStateExtended,
+  ScoreChange,
+  MatchEvent,
+  SetWonEvent,
+  MatchWonEvent,
+  TableStatus
+} from './types';
 
-export interface Score {
-  a: number;
-  b: number;
-}
-
-export interface MatchConfig {
-  pointsPerSet: number;
-  bestOf: number;
-  minDifference: number;
-  initialScore?: Score;
-  initialServer?: Player;
-}
-
-export interface MatchState {
-  config: MatchConfig;
-  score: {
-    sets: Score;
-    currentSet: Score;
-    serving: Player;
-  };
-  swappedSides: boolean;
-  midSetSwapped: boolean;
-  setHistory: Score[];
-  status: 'WAITING' | 'LIVE' | 'FINISHED';
-  winner: Player | null;
-}
+export type { Player, Score, MatchConfig, MatchState, MatchConfigExtended, MatchStateExtended };
 
 export const INITIAL_CONFIG: MatchConfig = {
   pointsPerSet: 11,
@@ -33,14 +20,23 @@ export const INITIAL_CONFIG: MatchConfig = {
   minDifference: 2,
 };
 
+interface InternalMatchState extends MatchState {
+  tableId?: string;
+  tableName?: string;
+  playerNames: { a: string; b: string };
+  history: ScoreChange[];
+  undoAvailable: boolean;
+}
+
 export class MatchEngine {
-  private state: MatchState;
+  private state: InternalMatchState;
+  private onMatchEvent?: (event: MatchEvent) => void;
 
   constructor(config: MatchConfig = INITIAL_CONFIG) {
     this.state = this.getInitialState(config);
   }
 
-  private getInitialState(config: MatchConfig): MatchState {
+  private getInitialState(config: MatchConfig): InternalMatchState {
     return {
       config,
       score: {
@@ -54,9 +50,61 @@ export class MatchEngine {
       swappedSides: false,
       midSetSwapped: false,
       setHistory: [],
-      status: 'WAITING',
+      status: 'WAITING' as TableStatus,
       winner: null,
+      tableId: '',
+      tableName: '',
+      playerNames: { a: 'Player A', b: 'Player B' },
+      history: [],
+      undoAvailable: false,
     };
+  }
+
+  public setEventCallback(cb: (event: MatchEvent) => void) {
+    this.onMatchEvent = cb;
+  }
+
+  public setPlayerNames(names: { a: string; b: string }): MatchStateExtended {
+    this.state.playerNames = names;
+    return this.getState();
+  }
+
+  public setTableId(id: string, name: string): void {
+    this.state.tableId = id;
+    this.state.tableName = name;
+  }
+
+  private addToHistory(player: Player, action: 'POINT' | 'CORRECTION', pointsBefore: Score, pointsAfter: Score): void {
+    const change: ScoreChange = {
+      id: crypto.randomUUID(),
+      player,
+      action,
+      pointsBefore: { ...pointsBefore },
+      pointsAfter: { ...pointsAfter },
+      timestamp: Date.now()
+    };
+    this.state.history.push(change);
+    if (this.state.history.length > 20) {
+      this.state.history.shift();
+    }
+    this.state.undoAvailable = this.state.history.length > 0;
+  }
+
+  public canUndo(): boolean {
+    return this.state.history.length > 0 && this.state.status === 'LIVE';
+  }
+
+  public undoLast(): MatchStateExtended {
+    if (!this.canUndo()) {
+      return this.getState();
+    }
+    
+    const lastChange = this.state.history.pop()!;
+    this.state.score.currentSet = { ...lastChange.pointsBefore };
+    this.updateServing();
+    this.state.undoAvailable = this.state.history.length > 0;
+    
+    return this.getState();
   }
 
   public startMatch() {
@@ -64,12 +112,16 @@ export class MatchEngine {
     return this.getState();
   }
 
-  public recordPoint(player: Player): MatchState {
-    if (this.state.status !== 'LIVE') return this.state;
+  public recordPoint(player: Player): MatchStateExtended {
+    if (this.state.status !== 'LIVE') return this.getState();
 
+    const pointsBefore = { ...this.state.score.currentSet };
+    
     if (player === 'A') this.state.score.currentSet.a++;
     else this.state.score.currentSet.b++;
 
+    this.addToHistory(player, 'POINT', pointsBefore, { ...this.state.score.currentSet });
+    
     this.checkSideSwap();
     this.checkSetWin();
     this.updateServing();
@@ -91,15 +143,18 @@ export class MatchEngine {
     }
   }
 
-  public subtractPoint(player: Player): MatchState {
-    if (this.state.status !== 'LIVE') return this.state;
+  public subtractPoint(player: Player): MatchStateExtended {
+    if (this.state.status !== 'LIVE') return this.getState();
 
     const p = player.toLowerCase() as 'a' | 'b';
-    if (this.state.score.currentSet[p] > 0) {
-      this.state.score.currentSet[p]--;
+    
+    if (this.state.score.currentSet[p] <= 0) {
+      return this.getState();
     }
-
-    // After subtracting, we should still update serving to stay in sync
+    
+    const pointsBefore = { ...this.state.score.currentSet };
+    this.state.score.currentSet[p]--;
+    this.addToHistory(player, 'CORRECTION', pointsBefore, { ...this.state.score.currentSet });
     this.updateServing();
 
     return this.getState();
@@ -108,9 +163,6 @@ export class MatchEngine {
   private updateServing() {
     const totalPoints = this.state.score.currentSet.a + this.state.score.currentSet.b;
     const isDeuce = this.state.score.currentSet.a >= 10 && this.state.score.currentSet.b >= 10;
-
-    // Standard: Alternates every 2 points
-    // Deuce: Alternates every 1 point
     const changeInterval = isDeuce ? 1 : 2;
 
     if (totalPoints % changeInterval === 0) {
@@ -126,22 +178,29 @@ export class MatchEngine {
     const hasDifference = Math.abs(a - b) >= minDifference;
 
     if (hasReachedLimit && hasDifference) {
-      // Set Won
       const winner = a > b ? 'A' : 'B';
       if (winner === 'A') this.state.score.sets.a++;
       else this.state.score.sets.b++;
 
       this.state.setHistory.push({ a, b });
       
+      if (this.onMatchEvent) {
+        const setNumber = this.state.score.sets.a + this.state.score.sets.b;
+        const event: SetWonEvent = {
+          type: 'SET_WON',
+          winner,
+          score: { a, b },
+          setNumber
+        };
+        this.onMatchEvent(event);
+      }
+
       this.checkMatchWin();
 
-      // Reset scores for next set ONLY if match isn't finished
       if (this.state.status !== 'FINISHED') {
         this.state.score.currentSet = { a: 0, b: 0 };
       }
 
-      // ONLY swap sides if the match isn't over.
-      // If it's over, we stay in the current position to show final scores.
       if (this.state.status !== 'FINISHED') {
         const oldSide = this.state.swappedSides;
         this.state.swappedSides = !this.state.swappedSides;
@@ -164,14 +223,31 @@ export class MatchEngine {
       this.state.status = 'FINISHED';
       this.state.winner = 'B';
     }
+
+    if (this.state.status === 'FINISHED' && this.onMatchEvent) {
+      const event: MatchWonEvent = {
+        type: 'MATCH_WON',
+        winner: this.state.winner as Player,
+        finalScore: [...this.state.setHistory, { a: this.state.score.currentSet.a, b: this.state.score.currentSet.b }],
+        sets: { ...this.state.score.sets }
+      };
+      this.onMatchEvent(event);
+    }
   }
 
-  public setServer(player: Player): MatchState {
+  public setServer(player: Player): MatchStateExtended {
     this.state.score.serving = player;
     return this.getState();
   }
 
-  public getState(): MatchState {
-    return JSON.parse(JSON.stringify(this.state)); // Deep clone
+  public getState(): MatchStateExtended {
+    return {
+      ...JSON.parse(JSON.stringify(this.state)),
+      tableId: this.state.tableId || '',
+      tableName: this.state.tableName || '',
+      playerNames: this.state.playerNames || { a: 'Player A', b: 'Player B' },
+      history: this.state.history,
+      undoAvailable: this.state.undoAvailable
+    };
   }
 }

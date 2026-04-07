@@ -48,8 +48,13 @@ const io = new Server(httpServer, {
 
 const PORT = process.env.PORT || 3000;
 
-// Initialize Socket Handler
-new SocketHandler(io);
+const hubConfig = {
+  ssid: process.env.HUB_SSID || 'RallyOS',
+  ip: process.env.HUB_IP || '192.168.4.1',
+  port: parseInt(process.env.PORT || '3000')
+};
+
+new SocketHandler(io, hubConfig);
 
 httpServer.listen(PORT, () => {
   console.log(`

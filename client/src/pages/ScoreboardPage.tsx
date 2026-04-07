@@ -5,7 +5,7 @@ import { ScoreboardMain } from '../components/organisms/ScoreboardMain'
 import { HistoryDrawer } from '../components/organisms/HistoryDrawer'
 import { ConnectionStatus } from '../components/ConnectionStatus'
 import { Button } from '../components/atoms/Button'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 export function ScoreboardPage() {
   const { tableId } = useParams<{ tableId: string }>()
@@ -17,6 +17,14 @@ export function ScoreboardPage() {
   if (!tableId) {
     return <div>Invalid table ID</div>
   }
+
+  // Request match data when component mounts or tableId changes
+  useEffect(() => {
+    if (connected && tableId) {
+      console.log(`[Scoreboard] Requesting match data for table: ${tableId}`)
+      emit('GET_MATCH_STATE', { tableId })
+    }
+  }, [tableId, connected, emit])
 
   if (!currentMatch) {
     return (

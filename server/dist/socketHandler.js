@@ -49,6 +49,18 @@ class SocketHandler {
             socket.on('LIST_TABLES', () => {
                 socket.emit('TABLE_LIST', this.tableManager.getAllTables());
             });
+            socket.on('GET_MATCH_STATE', (data) => {
+                if (!data?.tableId) {
+                    return socket.emit('ERROR', { code: 'INVALID_PARAMS', message: 'tableId required' });
+                }
+                const state = this.tableManager.getMatchState(data.tableId);
+                if (state) {
+                    socket.emit('MATCH_UPDATE', state);
+                }
+                else {
+                    socket.emit('ERROR', { code: 'TABLE_NOT_FOUND', message: 'Partido no encontrado' });
+                }
+            });
             socket.on('JOIN_TABLE', (data) => {
                 if (!data?.tableId || !data?.name) {
                     return socket.emit('ERROR', { code: 'INVALID_PARAMS', message: 'tableId and name required' });

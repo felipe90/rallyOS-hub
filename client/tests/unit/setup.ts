@@ -30,8 +30,11 @@ vi.mock('framer-motion', () => ({
 }))
 
 // Silence console warnings in tests
-global.console = {
-  ...console,
-  warn: vi.fn(),
-  error: vi.fn(),
-}
+Object.defineProperty(window, 'console', {
+  value: {
+    ...console,
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
+  writable: false,
+})

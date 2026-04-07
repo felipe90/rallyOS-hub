@@ -40,7 +40,7 @@ describe('HistoryDrawer', () => {
   })
 
   it('renders events list', () => {
-    render(<HistoryDrawer isOpen onClose={() => {}} events={mockEvents} onUndo={() => {}} />
+    render(<HistoryDrawer isOpen onClose={() => {}} events={mockEvents} onUndo={() => {}} />)
     // First event should show player A with 5-3 score
     expect(screen.getByText(/5 - 3/)).toBeInTheDocument()
   })

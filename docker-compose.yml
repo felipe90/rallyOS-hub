@@ -1,6 +1,4 @@
 # docker-compose.yml for rallyOS-hub
-version: '3.8'
-
 services:
   server:
     build:
@@ -8,7 +6,6 @@ services:
       dockerfile: Dockerfile
     ports:
       - "3001:3001"
-      - "5173:5173"
     environment:
       - NODE_ENV=production
       - PORT=3001

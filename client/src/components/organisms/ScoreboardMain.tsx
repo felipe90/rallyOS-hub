@@ -275,10 +275,8 @@ export function MatchConfigPanel({
               <label className="text-sm font-medium">Equipo A</label>
               <input
                 type="number"
-                min="0"
-                max="10"
                 value={handicapA}
-                onChange={(e) => setHandicapA(Math.max(0, parseInt(e.target.value) || 0))}
+                onChange={(e) => setHandicapA(parseInt(e.target.value) || 0)}
                 className="p-3 border border-surface-high rounded-[--radius-md] bg-surface-low text-center font-heading text-lg"
               />
             </div>
@@ -286,10 +284,8 @@ export function MatchConfigPanel({
               <label className="text-sm font-medium">Equipo B</label>
               <input
                 type="number"
-                min="0"
-                max="10"
                 value={handicapB}
-                onChange={(e) => setHandicapB(Math.max(0, parseInt(e.target.value) || 0))}
+                onChange={(e) => setHandicapB(parseInt(e.target.value) || 0)}
                 className="p-3 border border-surface-high rounded-[--radius-md] bg-surface-low text-center font-heading text-lg"
               />
             </div>

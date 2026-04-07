@@ -2,3 +2,7 @@
 *.key
 .env
 node_modules/
+
+# Test artifacts
+test-results/
+*.log

@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>RallyOS | Component Specifications</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Manrope:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              colors: {
+                "on-error-container": "#93000a",
+                "inverse-surface": "#2d3133",
+                "surface-container-highest": "#e0e3e5",
+                "surface-bright": "#f7f9fb",
+                "primary": "#006b5f",
+                "tertiary-fixed-dim": "#ffb95f",
+                "primary-fixed": "#71f8e4",
+                "on-primary": "#ffffff",
+                "background": "#f7f9fb",
+                "surface-container": "#eceef0",
+                "on-surface": "#191c1e",
+                "on-secondary-fixed-variant": "#1f4e47",
+                "tertiary": "#855300",
+                "on-primary-container": "#00423b",
+                "surface-container-lowest": "#ffffff",
+                "inverse-primary": "#4fdbc8",
+                "inverse-on-surface": "#eff1f3",
+                "secondary-fixed-dim": "#a0d0c6",
+                "secondary-fixed": "#bbece2",
+                "on-tertiary": "#ffffff",
+                "on-tertiary-fixed": "#2a1700",
+                "primary-fixed-dim": "#4fdbc8",
+                "on-primary-fixed": "#00201c",
+                "on-secondary": "#ffffff",
+                "outline-variant": "#bbcac6",
+                "on-tertiary-container": "#543300",
+                "primary-container": "#14b8a6",
+                "on-secondary-container": "#3d6b63",
+                "secondary": "#38665f",
+                "error": "#ba1a1a",
+                "surface-container-high": "#e6e8ea",
+                "tertiary-fixed": "#ffddb8",
+                "on-primary-fixed-variant": "#005048",
+                "surface-tint": "#006b5f",
+                "secondary-container": "#b9e9e0",
+                "surface-container-low": "#f2f4f6",
+                "surface": "#f7f9fb",
+                "on-error": "#ffffff",
+                "on-background": "#191c1e",
+                "on-secondary-fixed": "#00201c",
+                "on-surface-variant": "#3c4947",
+                "error-container": "#ffdad6",
+                "surface-dim": "#d8dadc",
+                "outline": "#6c7a77",
+                "surface-variant": "#e0e3e5",
+                "tertiary-container": "#e49200",
+                "on-tertiary-fixed-variant": "#653e00"
+              },
+              fontFamily: {
+                "headline": ["Space Grotesk"],
+                "body": ["Manrope"],
+                "label": ["Manrope"]
+              },
+              borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"},
+            },
+          },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .token-label {
+            @apply font-mono text-[10px] uppercase tracking-widest text-slate-400 bg-slate-100 px-2 py-0.5 rounded-sm;
+        }
+        .spec-line {
+            @apply border-l-2 border-dashed border-teal-200 pl-4 my-4;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopAppBar Shell (Suppressed context check: This is a documentation/spec page, we keep minimal nav) -->
+<header class="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl fixed top-0 w-full z-50 shadow-[0px_20px_40px_rgba(25,28,30,0.06)]">
+<div class="flex justify-between items-center px-8 h-16 w-full">
+<div class="flex items-center gap-8">
+<span class="font-['Space_Grotesk'] font-bold tracking-tighter text-teal-600 text-2xl">RallyOS</span>
+<nav class="hidden md:flex gap-6 items-center">
+<a class="font-['Space_Grotesk'] font-bold tracking-tight text-teal-700 border-b-2 border-teal-600 pb-1" href="#">Dashboard</a>
+<a class="font-['Space_Grotesk'] font-bold tracking-tight text-slate-500 hover:text-teal-600 transition-all" href="#">Tournaments</a>
+<a class="font-['Space_Grotesk'] font-bold tracking-tight text-slate-500 hover:text-teal-600 transition-all" href="#">Scouting</a>
+<a class="font-['Space_Grotesk'] font-bold tracking-tight text-slate-500 hover:text-teal-600 transition-all" href="#">Rankings</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-slate-500 hover:bg-slate-50/50 p-2 rounded-full cursor-pointer transition-all">notifications</span>
+<span class="material-symbols-outlined text-slate-500 hover:bg-slate-50/50 p-2 rounded-full cursor-pointer transition-all">settings</span>
+<div class="w-8 h-8 rounded-full overflow-hidden bg-slate-200">
+<img alt="User profile avatar" data-alt="minimalist 3d character avatar with a teal hoodie and friendly expression on a soft grey background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBYvAyMtNSLqJc4J1x0FnpMZ4g38LLon1xLNcVN7uxi9Oafmk2gKXQxu330FQQbVTpfnrbt6GOJfgpxwyki68aufuV5ENWJmobX2cRl8pCx_DDpcjzwvOiPwNc_UJY8k3FboT5L3soKJ1gG0f1SsAk7oin7oRIrx6twxaYjMwyugQtCc7DUW9hwG6ypx6UPLbW9RX6jOOjm6KyRsAxvV7CN6UOKVYy1RignmMSdoH6jhdL83oeHMeIRliUSm9iMmgVmITsjpO4VhpG5"/>
+</div>
+</div>
+</div>
+</header>
+<main class="pt-32 pb-24 px-8 max-w-7xl mx-auto">
+<!-- Header -->
+<header class="mb-16">
+<div class="flex items-center gap-3 mb-2">
+<span class="token-label">System v4.2.0</span>
+<span class="h-1 w-1 rounded-full bg-teal-400"></span>
+<span class="text-slate-400 text-sm font-medium">Player Dashboard Manifest</span>
+</div>
+<h1 class="font-headline text-5xl font-bold tracking-tight text-on-surface mb-4">Component Specifications</h1>
+<p class="text-on-surface-variant max-w-2xl text-lg leading-relaxed">
+                The Kinetic Clubhouse design system leverages tonal depth and high-contrast editorial typography. This document outlines the core primitives for the RallyOS player experience.
+            </p>
+</header>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-12">
+<!-- Sidebar: Navigation/TOC -->
+<aside class="lg:col-span-3 space-y-8">
+<div class="sticky top-32">
+<h3 class="font-headline font-bold text-sm uppercase tracking-widest text-primary mb-6">Components</h3>
+<ul class="space-y-4">
+<li><a class="flex items-center gap-2 text-on-surface font-semibold hover:text-primary transition-colors" href="#stat-cards">
+<span class="material-symbols-outlined text-sm">dashboard_customize</span> Stat Cards</a></li>
+<li><a class="flex items-center gap-2 text-slate-500 hover:text-primary transition-colors" href="#elo-chart">
+<span class="material-symbols-outlined text-sm">show_chart</span> ELO Progression</a></li>
+<li><a class="flex items-center gap-2 text-slate-500 hover:text-primary transition-colors" href="#match-history">
+<span class="material-symbols-outlined text-sm">history</span> Match History</a></li>
+<li><a class="flex items-center gap-2 text-slate-500 hover:text-primary transition-colors" href="#badges-buttons">
+<span class="material-symbols-outlined text-sm">token</span> Badges &amp; CTAs</a></li>
+</ul>
+<div class="mt-12 p-6 bg-surface-container-low rounded-2xl">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-primary text-sm" style="font-variation-settings: 'FILL' 1;">info</span>
+<span class="text-xs font-bold font-headline uppercase tracking-wider text-on-surface">Design Rule</span>
+</div>
+<p class="text-xs text-on-surface-variant leading-relaxed">
+<strong>The No-Line Mandate:</strong> Avoid 1px solid borders. Use background shifts and soft ambient shadows for depth.
+                        </p>
+</div>
+</div>
+</aside>
+<!-- Main Content: Component Isolated View -->
+<div class="lg:col-span-9 space-y-24">
+<!-- 1. Stat Cards -->
+<section class="scroll-mt-32" id="stat-cards">
+<div class="flex items-center justify-between mb-8 border-b border-outline-variant/10 pb-4">
+<h2 class="font-headline text-2xl font-bold">01. Stat Cards</h2>
+<span class="token-label">Surface: lowest + 80% opacity</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 p-8 bg-surface-container-low rounded-3xl relative overflow-hidden">
+<!-- BG Decoration -->
+<div class="absolute -top-24 -right-24 w-64 h-64 bg-teal-100/30 rounded-full blur-3xl"></div>
+<!-- Card 1: Global Rank -->
+<div class="bg-white/80 backdrop-blur-xl p-6 rounded-[2rem] shadow-[0px_20px_40px_rgba(25,28,30,0.06)] relative z-10">
+<div class="flex items-center justify-between mb-4">
+<span class="material-symbols-outlined text-primary bg-primary/10 p-2 rounded-xl">public</span>
+<span class="text-xs font-bold text-teal-600 bg-teal-50 px-2 py-1 rounded-lg">#42 Worldwide</span>
+</div>
+<p class="text-slate-500 text-xs font-bold uppercase tracking-widest mb-1">Global Rank</p>
+<h4 class="font-headline text-3xl font-extrabold text-on-surface tracking-tighter">Elite II</h4>
+<div class="mt-4 h-1 w-full bg-slate-100 rounded-full overflow-hidden">
+<div class="h-full bg-primary w-3/4"></div>
+</div>
+<p class="mt-2 text-[10px] text-slate-400">920/1200 points to Master</p>
+</div>
+<!-- Card 2: Win Rate -->
+<div class="bg-white/80 backdrop-blur-xl p-6 rounded-[2rem] shadow-[0px_20px_40px_rgba(25,28,30,0.06)] relative z-10">
+<div class="flex items-center justify-between mb-4">
+<span class="material-symbols-outlined text-tertiary bg-tertiary/10 p-2 rounded-xl">analytics</span>
+<span class="text-xs font-bold text-tertiary bg-tertiary/5 px-2 py-1 rounded-lg">+4.2%</span>
+</div>
+<p class="text-slate-500 text-xs font-bold uppercase tracking-widest mb-1">Win Rate</p>
+<h4 class="font-headline text-3xl font-extrabold text-on-surface tracking-tighter">68.5%</h4>
+<div class="mt-4 flex gap-1 items-end h-8">
+<div class="w-2 bg-slate-100 h-4 rounded-t-sm"></div>
+<div class="w-2 bg-slate-100 h-6 rounded-t-sm"></div>
+<div class="w-2 bg-primary h-8 rounded-t-sm"></div>
+<div class="w-2 bg-primary h-5 rounded-t-sm"></div>
+<div class="w-2 bg-primary h-7 rounded-t-sm"></div>
+</div>
+</div>
+<!-- Card 3: Tournaments -->
+<div class="bg-white/80 backdrop-blur-xl p-6 rounded-[2rem] shadow-[0px_20px_40px_rgba(25,28,30,0.06)] relative z-10">
+<div class="flex items-center justify-between mb-4">
+<span class="material-symbols-outlined text-primary bg-primary/10 p-2 rounded-xl">military_tech</span>
+</div>
+<p class="text-slate-500 text-xs font-bold uppercase tracking-widest mb-1">Tournaments</p>
+<h4 class="font-headline text-3xl font-extrabold text-on-surface tracking-tighter">14</h4>
+<p class="mt-4 text-xs text-on-surface-variant font-medium leading-tight">
+                                3 Podium finishes this season.
+                            </p>
+</div>
+</div>
+<div class="mt-6 flex flex-wrap gap-4">
+<span class="token-label">p-6 (Card Inner)</span>
+<span class="token-label">gap-6 (Grid)</span>
+<span class="token-label">rounded-[2rem] (Card Shape)</span>
+</div>
+</section>
+<!-- 2. ELO Progression Chart -->
+<section class="scroll-mt-32" id="elo-chart">
+<div class="flex items-center justify-between mb-8 border-b border-outline-variant/10 pb-4">
+<h2 class="font-headline text-2xl font-bold">02. ELO Progression</h2>
+<span class="token-label">Visual: Data Kinetic</span>
+</div>
+<div class="bg-white rounded-[2rem] p-8 shadow-[0px_20px_40px_rgba(25,28,30,0.06)]">
+<div class="flex justify-between items-start mb-12">
+<div>
+<h3 class="font-headline text-xl font-bold text-on-surface">Skill Delta Breakdown</h3>
+<p class="text-sm text-slate-500">Last 14 matches performance</p>
+</div>
+<div class="text-right">
+<div class="text-2xl font-bold font-headline text-primary">2,480</div>
+<div class="text-[10px] font-bold text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full inline-block">+142 pts</div>
+</div>
+</div>
+<!-- Chart Placeholder Visual -->
+<div class="relative h-48 w-full">
+<svg class="w-full h-full" viewbox="0 0 800 200">
+<!-- Grid Lines -->
+<line stroke="#f2f4f6" stroke-width="1" x1="0" x2="800" y1="50" y2="50"></line>
+<line stroke="#f2f4f6" stroke-width="1" x1="0" x2="800" y1="100" y2="100"></line>
+<line stroke="#f2f4f6" stroke-width="1" x1="0" x2="800" y1="150" y2="150"></line>
+<!-- The Kinetic Path -->
+<path d="M0,160 Q100,140 200,150 T400,80 T600,100 T800,40" fill="none" stroke="url(#paint0_linear)" stroke-linecap="round" stroke-width="4"></path>
+<path d="M0,160 Q100,140 200,150 T400,80 T600,100 T800,40 V200 H0 Z" fill="url(#paint1_linear)" opacity="0.1"></path>
+<defs>
+<lineargradient gradientunits="userSpaceOnUse" id="paint0_linear" x1="0" x2="800" y1="0" y2="0">
+<stop stop-color="#006b5f"></stop>
+<stop offset="1" stop-color="#14b8a6"></stop>
+</lineargradient>
+<lineargradient gradientunits="userSpaceOnUse" id="paint1_linear" x1="0" x2="0" y1="0" y2="200">
+<stop stop-color="#006b5f"></stop>
+<stop offset="1" stop-color="#ffffff" stop-opacity="0"></stop>
+</lineargradient>
+</defs>
+<!-- Interactive Data Points -->
+<circle cx="400" cy="80" fill="#006b5f" r="6"></circle>
+<circle cx="400" cy="80" fill="none" opacity="0.3" r="10" stroke="#006b5f" stroke-width="2"></circle>
+</svg>
+<!-- Tooltip Spec -->
+<div class="absolute left-1/2 top-4 -translate-x-1/2 bg-on-surface text-white p-3 rounded-xl shadow-xl text-xs">
+<p class="opacity-70">Match #102</p>
+<p class="font-bold">+28 Points vs. Pro-Player</p>
+</div>
+</div>
+<div class="flex justify-between mt-8">
+<span class="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Oct 01</span>
+<span class="text-[10px] font-bold text-slate-300 uppercase tracking-widest text-center">Active Season</span>
+<span class="text-[10px] font-bold text-slate-300 uppercase tracking-widest text-right">Today</span>
+</div>
+</div>
+</section>
+<!-- 3. Match History Items -->
+<section class="scroll-mt-32" id="match-history">
+<div class="flex items-center justify-between mb-8 border-b border-outline-variant/10 pb-4">
+<h2 class="font-headline text-2xl font-bold">03. Match History Items</h2>
+<span class="token-label">Pattern: Asymmetric List</span>
+</div>
+<div class="space-y-4">
+<!-- History Row 1 -->
+<div class="bg-white hover:bg-surface-container-low transition-all p-6 rounded-2xl flex flex-wrap md:flex-nowrap items-center gap-6 group">
+<div class="flex items-center gap-4 flex-1">
+<div class="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 bg-slate-100 ring-2 ring-transparent group-hover:ring-primary/20 transition-all">
+<img alt="Opponent avatar" data-alt="vibrant 3d avatar of a male tennis player with a headband and focused expression" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAXeu7ArpwpCudu_rUvZra2CgbIiBYSkN0xmtt2cmUvcD6Tnx3f_Mzn6Ar7uWKIrxopJnIx7ZGCGzL9DcTFr7uq2UEN2v8GVjERn-FTo6l9kpMliKFLnLRqyQk-apHeijXNMGgmqOJQCbmdgUsq7gjofjZ_FEQwwCXTyjFV2joq2zyeUdio7yGuSHuo1YVYeC2KlKiJwK7vlbZK3CKVUG9vYqyUYMZJI-KjTQH360m5Dc9N8RDXPtOwjUbfdWx0d_LMwURX_8M_jnRz"/>
+</div>
+<div>
+<h5 class="font-headline font-bold text-on-surface">Felix V. (Diamond I)</h5>
+<p class="text-xs text-slate-400">Played 2 hours ago • Clay Court</p>
+</div>
+</div>
+<div class="flex items-center gap-12">
+<div class="text-center">
+<p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Score</p>
+<p class="font-headline font-black text-xl">6-4, 6-2</p>
+</div>
+<div class="text-center w-20">
+<p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">ELO Change</p>
+<p class="font-bold text-teal-600 font-headline">+32</p>
+</div>
+<div>
+<span class="bg-teal-50 text-teal-700 text-[10px] font-extrabold px-3 py-1 rounded-full tracking-wider uppercase">WON</span>
+</div>
+<button class="opacity-0 group-hover:opacity-100 p-2 text-slate-400 hover:text-primary transition-all">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+</div>
+<!-- History Row 2 -->
+<div class="bg-white hover:bg-surface-container-low transition-all p-6 rounded-2xl flex flex-wrap md:flex-nowrap items-center gap-6 group">
+<div class="flex items-center gap-4 flex-1">
+<div class="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 bg-slate-100">
+<img alt="Opponent avatar" data-alt="3d isometric avatar of a female professional athlete with short blonde hair and athletic gear" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCtyHLqRRtzA4T-z9poE777F4PqrfITOXJECAvL010AUATzidHYa64wyPtKxOa0Vlkb8FxxVBDJ36g5cqEI4hr7c-LX76MF1nfA4WtZWUi6a4l5wL0CYZ5A9MSTtn2mT2TpzxRpPNgRVWYFfyTRvJIn8S8Za0mtE_LbgcPPqSqTO8-3vW349PSrFcf6gmdNWCFILkAj_9Q6NyzFmkU1lsxbSexblTONCLD_tG0BdbyysukwjCKei9XTqbVps8h9aEQ95kh4F8EfyggM"/>
+</div>
+<div>
+<h5 class="font-headline font-bold text-on-surface">Sarah K. (Elite II)</h5>
+<p class="text-xs text-slate-400">Played yesterday • Grass Court</p>
+</div>
+</div>
+<div class="flex items-center gap-12">
+<div class="text-center">
+<p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Score</p>
+<p class="font-headline font-black text-xl">3-6, 5-7</p>
+</div>
+<div class="text-center w-20">
+<p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">ELO Change</p>
+<p class="font-bold text-error font-headline">-18</p>
+</div>
+<div>
+<span class="bg-slate-100 text-slate-500 text-[10px] font-extrabold px-3 py-1 rounded-full tracking-wider uppercase">LOST</span>
+</div>
+<button class="opacity-0 group-hover:opacity-100 p-2 text-slate-400 hover:text-primary transition-all">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+<!-- 4. Badges & Buttons -->
+<section class="scroll-mt-32" id="badges-buttons">
+<div class="flex items-center justify-between mb-8 border-b border-outline-variant/10 pb-4">
+<h2 class="font-headline text-2xl font-bold">04. Badges &amp; CTAs</h2>
+<span class="token-label">Interaction: Primary &amp; Secondary</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-12">
+<!-- Badges Sub-section -->
+<div>
+<h3 class="text-xs font-bold font-headline uppercase tracking-[0.2em] text-slate-400 mb-6">Status Badges</h3>
+<div class="flex flex-wrap gap-4 items-center">
+<div class="flex flex-col items-center gap-2">
+<span class="bg-teal-50 text-teal-700 text-[10px] font-extrabold px-4 py-1.5 rounded-full tracking-wider uppercase ring-1 ring-teal-200">WON</span>
+<span class="token-label">Success</span>
+</div>
+<div class="flex flex-col items-center gap-2">
+<span class="bg-slate-100 text-slate-500 text-[10px] font-extrabold px-4 py-1.5 rounded-full tracking-wider uppercase">LOST</span>
+<span class="token-label">Neutral</span>
+</div>
+<div class="flex flex-col items-center gap-2">
+<span class="bg-tertiary-container text-white text-[10px] font-extrabold px-4 py-1.5 rounded-full tracking-wider uppercase shadow-lg shadow-tertiary/20">PRO</span>
+<span class="token-label">Urgent</span>
+</div>
+<div class="flex flex-col items-center gap-2">
+<span class="bg-primary text-white text-[10px] font-extrabold px-4 py-1.5 rounded-full tracking-wider uppercase">ELITE</span>
+<span class="token-label">Global</span>
+</div>
+</div>
+</div>
+<!-- Buttons Sub-section -->
+<div>
+<h3 class="text-xs font-bold font-headline uppercase tracking-[0.2em] text-slate-400 mb-6">Interactive Buttons</h3>
+<div class="space-y-6">
+<div class="flex items-center gap-6">
+<button class="bg-gradient-to-br from-primary to-primary-container text-white px-8 py-3.5 rounded-full font-bold font-label shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all text-sm">
+                                        Check In Now
+                                    </button>
+<span class="token-label">Primary Gradient</span>
+</div>
+<div class="flex items-center gap-6">
+<button class="bg-surface-container-low text-primary px-8 py-3.5 rounded-full font-bold font-label hover:bg-primary/5 transition-all text-sm">
+                                        Match Details
+                                    </button>
+<span class="token-label">Secondary Tonal</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+</div>
+</div>
+</main>
+<!-- Footer Meta -->
+<footer class="bg-surface-container-low border-t border-outline-variant/10 py-12 px-8">
+<div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
+<div class="flex flex-col">
+<span class="font-headline font-bold text-teal-600 text-xl">RallyOS</span>
+<span class="text-xs text-slate-400 mt-1 uppercase tracking-widest">Digital Court Design System</span>
+</div>
+<div class="flex gap-12 text-center md:text-left">
+<div>
+<p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Typography</p>
+<p class="text-sm font-headline font-bold">Space Grotesk</p>
+<p class="text-xs text-slate-500">Manrope</p>
+</div>
+<div>
+<p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Radii</p>
+<p class="text-sm font-bold">rounded-3xl (24px)</p>
+<p class="text-xs text-slate-500">rounded-2xl (16px)</p>
+</div>
+<div>
+<p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Accents</p>
+<div class="flex gap-2 mt-1">
+<div class="w-4 h-4 rounded-full bg-primary"></div>
+<div class="w-4 h-4 rounded-full bg-primary-container"></div>
+<div class="w-4 h-4 rounded-full bg-tertiary-container"></div>
+</div>
+</div>
+</div>
+</div>
+</footer>
+</body></html>

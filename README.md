@@ -27,25 +27,140 @@ Un servidor de sincronización offline-first diseñado para correr en SBCs (como
 
 ## 🚀 Inicio Rápido (con Docker)
 
-1. **Clonar el repo**:
-   ```bash
-   git clone [URL_REPOS_HUB]
-   cd rallyOS-hub/server
-   ```
+### Opción 1: Script Automático (Recomendado)
 
-2. **Levantar el Hub** (automáticamente libera el puerto si está ocupado):
-   ```bash
-   ./start.sh
-   ```
+```bash
+# En tu máquina o en el Orange Pi
+cd rallyOS-hub
 
-   O manualmente:
-   ```bash
-   docker-compose up --build
-   ```
+# Deploy automático (construye, inicia, muestra info)
+bash start.sh
+```
 
-3. **Acceder**:
-   - Abrí `https://localhost:3000` en tu MacBook.
-   - O entrá desde tu celular usando `https://[TU_IP_LOCAL]:3000`.
+### Opción 2: Orange Pi (Setup Completo)
+
+Para primera vez en Orange Pi:
+
+```bash
+# Setup inicial (instala Docker, descarga imágenes, configura todo)
+bash setup-orange-pi.sh
+
+# Después, solo ejecutar:
+bash start-orange-pi.sh
+```
+
+### Opción 3: Manual
+
+```bash
+cd rallyOS-hub
+
+# Construir imagen
+docker build -t rallyos-hub:latest .
+
+# O usando docker-compose
+docker-compose build
+docker-compose up -d
+
+# Acceder
+curl -k https://localhost:3000/health
+# Browser: https://localhost:3000
+```
+
+### Verificar Estado
+
+```bash
+# Ver logs en vivo
+docker-compose logs -f hub
+
+# Diagnosticar problemas
+bash diagnose.sh
+
+# Ver recursos
+docker stats
+```
+
+---
+
+## 🏠 Acceso Local vs Red
+
+| Ubicación | URL |
+|-----------|-----|
+| **Localhost** | `https://localhost:3000` |
+| **Misma red** | `https://192.168.x.x:3000` (reemplazar IP) |
+| **DNS** | `https://orangepi.local:3000` |
+| **Móvil/QR** | Escanear código QR en UI |
+
+---
+
+## 🔧 Configuración Rápida
+
+Editar `.env`:
+
+```bash
+# Cambiar puerto
+PORT=8080
+
+# Cambiar PIN de árbitro
+REFEREE_PIN=99999
+
+# Ajustar memoria (Orange Pi Zero con 512MB)
+NODE_OPTIONS=--max-old-space-size=128
+```
+
+Luego:
+```bash
+docker-compose restart hub
+```
+
+---
+
+## 📊 Monitoreo y Troubleshooting
+
+### Ver Logs
+```bash
+# Últimas 50 líneas
+docker-compose logs --tail=50 hub
+
+# Seguir en vivo
+docker-compose logs -f hub
+```
+
+### Diagnóstico Completo
+```bash
+bash diagnose.sh
+```
+
+### Problemas Comunes
+
+| Problema | Solución |
+|----------|----------|
+| **Puerto 3000 en uso** | Cambiar puerto en `.env` o `docker-compose down` |
+| **Contenedor no inicia** | `docker-compose logs hub` o `bash diagnose.sh` |
+| **Memoria insuficiente** | Reducir `NODE_OPTIONS` en `.env` |
+| **No se ve desde otra máquina** | Usar IP real, no localhost; acepta cert SSL |
+
+---
+
+## 🔐 Certificados SSL
+
+Los certificados se generan automáticamente (auto-firmados).
+
+Para usar certificados reales (Let's Encrypt, etc.):
+- Modificar el Dockerfile (sección donde se generan)
+- O montar volumen con certificados externos
+
+```bash
+# Extraer certificados actuales
+docker exec rallyo-hub cat /app/cert.pem > cert.pem
+docker exec rallyo-hub cat /app/key.pem > key.pem
+```
+
+---
+
+## 📖 Documentación Completa
+
+- **[DEPLOYMENT.md](DEPLOYMENT.md)** - Guía de despliegue en Orange Pi
+- **[setup-orange-pi.sh](setup-orange-pi.sh)** - Script de setup automatizado
 
 ---
 

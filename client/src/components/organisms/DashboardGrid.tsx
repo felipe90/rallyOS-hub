@@ -35,6 +35,7 @@ export function DashboardGrid({
               playerNames={table.playerNames}
               playerCount={table.playerCount}
               className="cursor-pointer"
+              onClick={() => onTableClick?.(table.id)}
             />
           </motion.div>
         ))}
@@ -62,6 +63,7 @@ export function DashboardGrid({
               playerNames={table.playerNames}
               playerCount={table.playerCount}
               className="cursor-pointer"
+              onClick={() => onTableClick?.(table.id)}
             />
           </motion.div>
         );
@@ -83,9 +85,9 @@ export function DashboardHeader({
   totalTables, 
   liveMatches, 
   activePlayers,
-  viewMode,
-  onViewModeChange,
-}: DashboardHeaderProps) {
+  viewMode = 'grid',
+  onViewModeChange = () => {},
+}: Partial<DashboardHeaderProps> & { viewMode?: 'grid' | 'list'; onViewModeChange?: (mode: 'grid' | 'list') => void } = {}) {
   return (
     <div className="flex flex-col gap-4 mb-6">
       <div className="flex items-center justify-between">

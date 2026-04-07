@@ -1,20 +1,39 @@
 # docker-compose.yml for rallyOS-hub
+# Production-ready configuration for Orange Pi and other ARM devices
+
+version: '3.8'
+
 services:
-  server:
+  hub:
+    container_name: rallyo-hub
     build:
       context: .
       dockerfile: Dockerfile
+    restart: always
     ports:
-      - "3001:3001"
+      - "3000:3000"
     environment:
       - NODE_ENV=production
-      - PORT=3001
-    volumes:
-      - ./server:/app/server
-      - ./shared:/app/shared
-      - ./client/dist:/app/client/dist:ro
+      - PORT=3000
+      - REFEREE_PIN=${REFEREE_PIN:-12345}
+      - HUB_SSID=${HUB_SSID:-RallyOS}
+      - HUB_IP=${HUB_IP:-192.168.4.1}
+      - NODE_OPTIONS=--max-old-space-size=256
     networks:
       - rallyos-net
+    healthcheck:
+      test: ["CMD", "curl", "-k", "-f", "https://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    volumes:
+      - ./server/logs:/app/logs
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 networks:
   rallyos-net:

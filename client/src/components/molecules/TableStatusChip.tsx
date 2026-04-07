@@ -10,6 +10,7 @@ export interface TableStatusChipProps {
   playerNames?: { a: string; b: string };
   playerCount?: number;
   className?: string;
+  onClick?: () => void;
 }
 
 const statusBadge: Record<TableStatus, typeof WaitingBadge> = {
@@ -26,11 +27,13 @@ export function TableStatusChip({
   playerNames,
   playerCount = 0,
   className = '',
+  onClick,
 }: TableStatusChipProps) {
   const StatusBadgeComponent = statusBadge[status];
   
   return (
     <div
+      onClick={onClick}
       className={`
         flex flex-col gap-2 p-4 rounded-[--radius-md]
         bg-surface shadow-sm hover:shadow-md

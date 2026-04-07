@@ -35,24 +35,42 @@ const httpsOptions = {
     cert: fs_1.default.readFileSync(certPath)
 };
 // Serve the React client (from dist, public, or client src)
+// Priority: dist > public > src (for development)
 const clientDistPath = path_1.default.join(__dirname, '../public/dist');
 const clientPublicPath = path_1.default.join(__dirname, '../public');
 const clientSrcPath = path_1.default.join(__dirname, '../../client');
-// Check all paths and use first that exists
-let clientPath = clientSrcPath;
-if (fs_1.default.existsSync(clientPublicPath))
-    clientPath = clientPublicPath;
-else if (fs_1.default.existsSync(clientDistPath))
+let clientPath;
+let indexPath;
+// Determine which path to use based on what exists
+if (fs_1.default.existsSync(clientDistPath)) {
     clientPath = clientDistPath;
+    indexPath = path_1.default.join(clientDistPath, 'index.html');
+    console.log('✓ Using built client (dist)');
+}
+else if (fs_1.default.existsSync(clientPublicPath) && fs_1.default.existsSync(path_1.default.join(clientPublicPath, 'index.html'))) {
+    clientPath = clientPublicPath;
+    indexPath = path_1.default.join(clientPublicPath, 'index.html');
+    console.log('✓ Using public client');
+}
+else if (fs_1.default.existsSync(clientSrcPath)) {
+    clientPath = clientSrcPath;
+    indexPath = path_1.default.join(clientSrcPath, 'index.html');
+    console.log('⚠️  Using client source (development mode)');
+}
+else {
+    console.warn('⚠️  Client files not found in any expected location');
+    clientPath = __dirname; // Fallback to app directory
+    indexPath = path_1.default.join(__dirname, 'index.html');
+}
 app.use(express_1.default.static(clientPath));
 // Serve the Hub UI
 app.get('/', (req, res) => {
-    let indexPath = path_1.default.join(clientSrcPath, 'index.html');
-    if (fs_1.default.existsSync(path_1.default.join(clientPublicPath, 'index.html')))
-        indexPath = path_1.default.join(clientPublicPath, 'index.html');
-    else if (fs_1.default.existsSync(path_1.default.join(clientDistPath, 'index.html')))
-        indexPath = path_1.default.join(clientDistPath, 'index.html');
-    res.sendFile(indexPath);
+    if (fs_1.default.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+    }
+    else {
+        res.status(404).send('Client not found. Build the client first.');
+    }
 });
 // API health check
 app.get('/health', (req, res) => {

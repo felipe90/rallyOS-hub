@@ -35,26 +35,42 @@ const httpsOptions = {
 };
 
 // Serve the React client (from dist, public, or client src)
+// Priority: dist > public > src (for development)
 const clientDistPath = path.join(__dirname, '../public/dist');
 const clientPublicPath = path.join(__dirname, '../public');
 const clientSrcPath = path.join(__dirname, '../../client');
 
-// Check all paths and use first that exists
-let clientPath = clientSrcPath;
-if (fs.existsSync(clientPublicPath)) clientPath = clientPublicPath;
-else if (fs.existsSync(clientDistPath)) clientPath = clientDistPath;
+let clientPath: string;
+let indexPath: string;
+
+// Determine which path to use based on what exists
+if (fs.existsSync(clientDistPath)) {
+  clientPath = clientDistPath;
+  indexPath = path.join(clientDistPath, 'index.html');
+  console.log('✓ Using built client (dist)');
+} else if (fs.existsSync(clientPublicPath) && fs.existsSync(path.join(clientPublicPath, 'index.html'))) {
+  clientPath = clientPublicPath;
+  indexPath = path.join(clientPublicPath, 'index.html');
+  console.log('✓ Using public client');
+} else if (fs.existsSync(clientSrcPath)) {
+  clientPath = clientSrcPath;
+  indexPath = path.join(clientSrcPath, 'index.html');
+  console.log('⚠️  Using client source (development mode)');
+} else {
+  console.warn('⚠️  Client files not found in any expected location');
+  clientPath = __dirname; // Fallback to app directory
+  indexPath = path.join(__dirname, 'index.html');
+}
 
 app.use(express.static(clientPath));
 
 // Serve the Hub UI
 app.get('/', (req, res) => {
-  let indexPath = path.join(clientSrcPath, 'index.html');
-  if (fs.existsSync(path.join(clientPublicPath, 'index.html'))) 
-    indexPath = path.join(clientPublicPath, 'index.html');
-  else if (fs.existsSync(path.join(clientDistPath, 'index.html'))) 
-    indexPath = path.join(clientDistPath, 'index.html');
-  
-  res.sendFile(indexPath);
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.status(404).send('Client not found. Build the client first.');
+  }
 });
 
 // API health check

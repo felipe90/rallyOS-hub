@@ -16,10 +16,12 @@
     "test:all": "vitest && playwright test"
   },
   "dependencies": {
+    "@tailwindcss/postcss": "^4.2.2",
     "framer-motion": "^12.38.0",
     "lucide-react": "^1.7.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "react-router-dom": "^7.14.0",
     "socket.io-client": "^4.8.3"
   },
   "devDependencies": {
@@ -30,6 +32,7 @@
     "@types/node": "^24.12.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "@types/react-router-dom": "^5.3.3",
     "@vitejs/plugin-react": "^6.0.1",
     "autoprefixer": "^10.4.27",
     "eslint": "^9.39.4",

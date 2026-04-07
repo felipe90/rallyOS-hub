@@ -16,7 +16,7 @@ export interface SocketState {
 
 export function useSocket(options: UseSocketOptions = {}) {
   const {
-    serverUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001',
+    serverUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000',
     autoConnect = true,
   } = options;
 

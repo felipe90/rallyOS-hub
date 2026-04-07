@@ -127,6 +127,24 @@
             margin-bottom: 10px;
         }
 
+        .delete-btn {
+            background: none;
+            border: none;
+            color: #ff4d4d;
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 0.3rem;
+            transition: background 0.2s, color 0.2s;
+            opacity: 0.6;
+        }
+
+        .delete-btn:hover {
+            background: rgba(255, 77, 77, 0.1);
+            color: #ff3333;
+            opacity: 1;
+        }
+
         .table-name {
             font-size: 18px;
             font-weight: 700;
@@ -686,10 +704,32 @@
             </div>
             <div class="form-group">
                 <label class="form-label">Formato</label>
-                <div class="radio-group">
-                    <div class="radio-option" data-format="1" onclick="selectFormat(1)">1 Set</div>
-                    <div class="radio-option selected" data-format="3" onclick="selectFormat(3)">3 Sets</div>
-                    <div class="radio-option" data-format="5" onclick="selectFormat(5)">5 Sets</div>
+                <div class="setup-group">
+                    <label>Puntos por Set</label>
+                    <div class="radio-group">
+                        <input type="radio" name="format" value="1" id="f1">
+                        <label for="f1">Best of 1</label>
+                        
+                        <input type="radio" name="format" value="3" id="f3" checked>
+                        <label for="f3">Best of 3</label>
+                        
+                        <input type="radio" name="format" value="5" id="f5">
+                        <label for="f5">Best of 5</label>
+                        
+                        <input type="radio" name="format" value="7" id="f7">
+                        <label for="f7">Best of 7</label>
+                    </div>
+                </div>
+
+                <div class="setup-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                    <div>
+                        <label>Handicap Player A</label>
+                        <input type="number" id="handicap-a" value="0" style="width: 100%;" class="input-modern">
+                    </div>
+                    <div>
+                        <label>Handicap Player B</label>
+                        <input type="number" id="handicap-b" value="0" style="width: 100%;" class="input-modern">
+                    </div>
                 </div>
             </div>
             <div class="modal-actions">
@@ -734,6 +774,8 @@
         <div class="overlay-content">
             <div style="font-size: 60px;">🎉</div>
             <div class="overlay-title" id="set-won-name">¡SET PARA!</div>
+            <!-- Side Swap Overlay -->
+            <div id="overlay-swap">🔄 Lados Cambiados</div>
             <div class="overlay-score" id="set-won-score">11 - 7</div>
             <div class="overlay-sets" id="set-won-sets">Sets: 1 - 0</div>
         </div>
@@ -813,7 +855,15 @@
                 renderTables();
             });
 
-            socket.on('MATCH_UPDATE', (state) => {
+            socket.on('TABLE_DELETED', (data) => {
+            if (currentTableId === data.tableId) {
+                alert('Esta mesa ha sido eliminada por un administrador.');
+                showScreen('hub-dashboard');
+                currentTableId = null;
+            }
+        });
+
+        socket.on('MATCH_UPDATE', (state) => {
                 updateScoreboard(state);
             });
 
@@ -867,6 +917,7 @@
                 <div class="table-card" onclick="joinTable('${table.id}')">
                     <div class="table-card-header">
                         <div class="table-name">${table.name}</div>
+                        <button class="delete-btn" onclick="event.stopPropagation(); confirmDeleteTable('${table.id}', '${table.name}')" title="Eliminar Mesa">🗑️</button>
                         <div class="table-status status-${table.status}">${table.status}</div>
                     </div>
                     ${table.playerNames ? `
@@ -918,20 +969,38 @@
 
         function updateScoreboard(state) {
             document.getElementById('player-a-name').textContent = state.playerNames?.a || 'Player A';
-            document.getElementById('player-b-name').textContent = state.playerNames?.b || 'Player B';
+            if (!state) return;
+            
+            const scoreboard = document.querySelector('.scoreboard');
+            if (scoreboard) {
+                // Apply visual swap class
+                if (state.swappedSides) {
+                    scoreboard.classList.add('swapped');
+                } else {
+                    scoreboard.classList.remove('swapped');
+                }
+
+                // Trigger swap overlay animation
+                if (state.swappedSides !== lastSwappedSides && state.status === 'LIVE') {
+                    const overlay = document.getElementById('overlay-swap');
+                    if (overlay) {
+                        overlay.classList.remove('show-swap');
+                        void overlay.offsetWidth; // Force reflow
+                        overlay.classList.add('show-swap');
+                        
+                        // Clean up after animation
+                        setTimeout(() => {
+                            overlay.classList.remove('show-swap');
+                        }, 2100);
+                    }
+                }
+                lastSwappedSides = state.swappedSides;
+            }
 
             document.getElementById('score-a').textContent = state.score.currentSet.a;
             document.getElementById('score-b').textContent = state.score.currentSet.b;
             document.getElementById('sets-a').textContent = state.score.sets.a;
             document.getElementById('sets-b').textContent = state.score.sets.b;
-
-            document.getElementById('serving-a').style.opacity = state.score.serving === 'A' ? '1' : '0';
-            document.getElementById('serving-b').style.opacity = state.score.serving === 'B' ? '1' : '0';
-
-            document.getElementById('btn-undo').disabled = !state.undoAvailable;
-
-            renderHistory(state.history);
-
             if (isReferee) {
                 document.getElementById('controls-a').style.display = 'flex';
                 document.getElementById('controls-b').style.display = 'flex';
@@ -1004,6 +1073,13 @@
             closeModal('modal-create-table');
         }
 
+        function confirmDeleteTable(tableId, tableName) {
+            const pin = prompt(`⚠️ ¿Estás seguro de que querés eliminar la mesa "${tableName}"?\n\nIngresá el PIN de la mesa para confirmar:`);
+            if (pin) {
+                socket.emit('DELETE_TABLE', { tableId, pin });
+            }
+        }
+
         function joinTable(tableId) {
             const playerName = prompt('Ingresá tu nombre:', 'Jugador') || 'Anonymous';
             socket.emit('JOIN_TABLE', { tableId, name: playerName });
@@ -1018,20 +1094,18 @@
             document.getElementById('modal-setup').classList.add('active');
         }
 
-        function selectFormat(format) {
-            selectedFormat = format;
-            document.querySelectorAll('[data-format]').forEach(el => {
-                el.classList.toggle('selected', parseInt(el.dataset.format) === format);
-            });
-        }
-
         function startMatch() {
             const playerA = document.getElementById('input-player-a').value || 'Player A';
             const playerB = document.getElementById('input-player-b').value || 'Player B';
+            const format = document.querySelector('input[name="format"]:checked').value;
+            const handicapA = document.getElementById('handicap-a').value;
+            const handicapB = document.getElementById('handicap-b').value;
 
             socket.emit('CONFIGURE_MATCH', {
                 tableId: currentTableId,
-                playerNames: { a: playerA, b: playerB }
+                playerNames: { a: playerA, b: playerB },
+                format: parseInt(format),
+                handicap: { a: parseInt(handicapA), b: parseInt(handicapB) }
             });
 
             closeModal('modal-setup');

@@ -7,11 +7,14 @@ Un servidor de sincronización offline-first diseñado para correr en SBCs (como
 
 ## ✨ Características Principales
 
+- **🏓 Multi-Table System**: Soporta múltiples mesas de juego concurrentes con waiting rooms individuales.
+- **🔄 Undo System**: Sistema de historial para deshacer puntos marcados erróneamente.
+- **📱 Waiting Room**: Sala de espera con QR codes para que jugadores se unan.
 - **🔒 Seguridad Empotrada**: Comunicación vía HTTPS con certificados SSL y sistema de autorización por PIN para árbitros.
 - **📱 Massive Spectator UI**: Interfaz optimizada para modo horizontal (Landscape) con números gigantes, diseñada para reemplazar tableros físicos.
 - **⚖️ Handicap Flexible**: Soporta ventajas de puntos positivas y negativas configurables antes de cada partido.
 - **🏓 Scoring Genérico**: Motor de puntaje agnóstico al deporte, configurable para partidos al mejor de 1, 3, 5 o 7 sets.
-- **🐳 Docker Ready**: Despliegue en un solo comando, ideal para entornos de producción rápidos.
+- **🐳 Docker Ready**: Despliegue en un solo comando con cleanup automático de puertos.
 
 ---
 
@@ -30,7 +33,12 @@ Un servidor de sincronización offline-first diseñado para correr en SBCs (como
    cd rallyOS-hub/server
    ```
 
-2. **Levantar el Hub**:
+2. **Levantar el Hub** (automáticamente libera el puerto si está ocupado):
+   ```bash
+   ./start.sh
+   ```
+
+   O manualmente:
    ```bash
    docker-compose up --build
    ```

@@ -75,15 +75,21 @@ export class MatchEngine {
   }
 
   private addToHistory(player: Player, action: 'POINT' | 'CORRECTION', pointsBefore: Score, pointsAfter: Score): void {
-    const change: ScoreChange = {
+    this.state.history.push({
       id: crypto.randomUUID(),
       player,
       action,
-      pointsBefore: { ...pointsBefore },
-      pointsAfter: { ...pointsAfter },
-      timestamp: Date.now()
-    };
-    this.state.history.push(change);
+      pointsBefore: JSON.parse(JSON.stringify(pointsBefore)),
+      pointsAfter: JSON.parse(JSON.stringify(pointsAfter)),
+      timestamp: Date.now(),
+      fullStateSnapshot: {
+        swappedSides: this.state.swappedSides,
+        midSetSwapped: this.state.midSetSwapped,
+        status: this.state.status,
+        serving: this.state.score.serving
+      }
+    } as any);
+    
     if (this.state.history.length > 20) {
       this.state.history.shift();
     }
@@ -95,9 +101,6 @@ export class MatchEngine {
   }
 
   public undoLast(): MatchStateExtended {
-    if (!this.canUndo()) {
-      return this.getState();
-    }
     
     const lastChange = this.state.history.pop()!;
     this.state.score.currentSet = { ...lastChange.pointsBefore };

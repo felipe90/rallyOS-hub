@@ -18,10 +18,11 @@ export class SocketHandler {
     };
     
     this.tableManager.onMatchEvent = (tableId, event) => {
+      // Emit events only to the specific table room
       if (event.type === 'SET_WON') {
-        this.io.emit('SET_WON', { tableId, ...event });
+        this.io.to(tableId).emit('SET_WON', { tableId, ...event });
       } else if (event.type === 'MATCH_WON') {
-        this.io.emit('MATCH_WON', { tableId, ...event });
+        this.io.to(tableId).emit('MATCH_WON', { tableId, ...event });
       }
     };
     
@@ -36,6 +37,8 @@ export class SocketHandler {
       
       socket.on('CREATE_TABLE', (data?: { name?: string }) => {
         const table = this.tableManager.createTable(data?.name);
+        socket.join(table.id); // Creator joins the table room
+        
         socket.emit('TABLE_CREATED', this.tableManager.tableToInfo(table));
         
         const qrData = this.tableManager.generateQRData(table.id);
@@ -57,6 +60,7 @@ export class SocketHandler {
         
         const success = this.tableManager.joinTable(data.tableId, socket.id, data.name);
         if (success) {
+          socket.join(data.tableId); // JOIN the socket room for this table
           socket.emit('TABLE_JOINED', { tableId: data.tableId });
           
           const tableInfo = this.tableManager.getAllTables().find(t => t.id === data.tableId);
@@ -76,13 +80,15 @@ export class SocketHandler {
       socket.on('LEAVE_TABLE', (data: { tableId: string }) => {
         if (!data?.tableId) return;
         
+        socket.leave(data.tableId); // LEAVE the socket room
+        
         const table = this.tableManager.getTable(data.tableId);
         if (!table) return;
         
         const player = table.players.find(p => p.socketId === socket.id);
         if (player) {
           this.tableManager.leaveTable(data.tableId, socket.id);
-          socket.emit('PLAYER_LEFT', { tableId: data.tableId, socketId: socket.id });
+          this.io.to(data.tableId).emit('PLAYER_LEFT', { tableId: data.tableId, socketId: socket.id });
         }
       });
       
@@ -93,18 +99,24 @@ export class SocketHandler {
         
         const success = this.tableManager.setReferee(data.tableId, socket.id, data.pin);
         if (success) {
+          socket.join(data.tableId); // Ensure referee is in the room
           socket.emit('REF_SET', { tableId: data.tableId });
           
           const tableInfo = this.tableManager.getAllTables().find(t => t.id === data.tableId);
           if (tableInfo) {
-            this.io.emit('TABLE_UPDATE', tableInfo);
+            this.io.emit('TABLE_UPDATE', tableInfo); // Update global dashboard
           }
         } else {
           socket.emit('ERROR', { code: 'INVALID_PIN', message: 'PIN incorrecto' });
         }
       });
       
-      socket.on('CONFIGURE_MATCH', (data: { tableId: string; playerNames?: { a: string; b: string }; matchConfig?: MatchConfig }) => {
+      socket.on('CONFIGURE_MATCH', (data: { 
+        tableId: string; 
+        playerNames?: { a: string; b: string }; 
+        format?: number; 
+        handicap?: { a: number; b: number } 
+      }) => {
         if (!data?.tableId) {
           return socket.emit('ERROR', { code: 'INVALID_PARAMS', message: 'tableId required' });
         }
@@ -113,14 +125,21 @@ export class SocketHandler {
           return socket.emit('ERROR', { code: 'UNAUTHORIZED', message: 'No autorizado' });
         }
         
+        // Map UI data to MatchConfig
+        const matchConfig: any = {};
+        if (data.format) matchConfig.bestOf = data.format;
+        if (data.handicap) {
+          matchConfig.initialScore = { a: data.handicap.a, b: data.handicap.b };
+        }
+
         this.tableManager.configureMatch(data.tableId, {
           playerNames: data.playerNames,
-          matchConfig: data.matchConfig
+          matchConfig: matchConfig
         });
         
         const state = this.tableManager.getMatchState(data.tableId);
         if (state) {
-          this.io.emit('MATCH_UPDATE', state);
+          this.io.to(data.tableId).emit('MATCH_UPDATE', state); // Emit only to room
         }
       });
       
@@ -135,7 +154,7 @@ export class SocketHandler {
         
         const state = this.tableManager.startMatch(data.tableId);
         if (state) {
-          this.io.emit('MATCH_UPDATE', state);
+          this.io.to(data.tableId).emit('MATCH_UPDATE', state); // Emit only to room
         }
       });
       
@@ -150,7 +169,7 @@ export class SocketHandler {
         
         const state = this.tableManager.recordPoint(data.tableId, data.player);
         if (state) {
-          this.io.emit('MATCH_UPDATE', state);
+          this.io.to(data.tableId).emit('MATCH_UPDATE', state); // Emit only to room
         }
       });
       
@@ -165,7 +184,7 @@ export class SocketHandler {
         
         const state = this.tableManager.subtractPoint(data.tableId, data.player);
         if (state) {
-          this.io.emit('MATCH_UPDATE', state);
+          this.io.to(data.tableId).emit('MATCH_UPDATE', state); // Emit only to room
         }
       });
       
@@ -180,7 +199,7 @@ export class SocketHandler {
         
         const state = this.tableManager.undoLast(data.tableId);
         if (state) {
-          this.io.emit('MATCH_UPDATE', state);
+          this.io.to(data.tableId).emit('MATCH_UPDATE', state); // Emit only to room
         }
       });
       
@@ -195,7 +214,7 @@ export class SocketHandler {
         
         const state = this.tableManager.setServer(data.tableId, data.player);
         if (state) {
-          this.io.emit('MATCH_UPDATE', state);
+          this.io.to(data.tableId).emit('MATCH_UPDATE', state); // Emit only to room
         }
       });
       
@@ -210,7 +229,7 @@ export class SocketHandler {
         
         const state = this.tableManager.resetTable(data.tableId, data.config);
         if (state) {
-          this.io.emit('MATCH_UPDATE', state);
+          this.io.to(data.tableId).emit('MATCH_UPDATE', state); // Emit only to room
         }
       });
       
@@ -224,6 +243,36 @@ export class SocketHandler {
           socket.emit('MATCH_UPDATE', state);
         } else {
           socket.emit('ERROR', { code: 'TABLE_NOT_FOUND', message: 'Mesa no encontrada' });
+        }
+      });
+      
+      socket.on('DELETE_TABLE', (data: { tableId: string; pin: string }) => {
+        if (!data?.tableId || !data?.pin) {
+          return socket.emit('ERROR', { code: 'INVALID_PARAMS', message: 'tableId and pin required' });
+        }
+        
+        const table = this.tableManager.getTable(data.tableId);
+        if (!table) {
+          return socket.emit('ERROR', { code: 'TABLE_NOT_FOUND', message: 'Mesa no encontrada' });
+        }
+        
+        if (table.pin !== data.pin) {
+          return socket.emit('ERROR', { code: 'INVALID_PIN', message: 'PIN incorrecto' });
+        }
+        
+        // Notify room members that the table is gone
+        this.io.to(data.tableId).emit('TABLE_DELETED', { tableId: data.tableId });
+        
+        // Force everyone out of the socket room
+        this.io.in(data.tableId).socketsLeave(data.tableId);
+        
+        // Delete from manager
+        const success = this.tableManager.deleteTable(data.tableId);
+        
+        if (success) {
+          console.log(`[Socket] Table ${data.tableId} killed by ${socket.id}`);
+          // Broadcast updated list to everyone
+          this.io.emit('TABLE_LIST', this.tableManager.getAllTables());
         }
       });
       

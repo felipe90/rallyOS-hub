@@ -144,6 +144,16 @@ export class TableManager {
       table.matchEngine.setPlayerNames(config.playerNames);
     }
     
+    if (config.matchConfig) {
+      // Create a fresh MatchEngine with the new config
+      table.matchEngine = new MatchEngine(config.matchConfig);
+      table.matchEngine.setTableId(table.id, table.name);
+      table.matchEngine.setPlayerNames(table.playerNames);
+      table.matchEngine.setEventCallback((event: MatchEvent) => {
+        this.onMatchEvent(table.id, event);
+      });
+    }
+
     table.status = 'CONFIGURING';
     this.notifyUpdate(table);
   }

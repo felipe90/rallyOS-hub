@@ -9,8 +9,10 @@ import { Button } from '../components/atoms/Button'
 
 export function DashboardPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [isCreatingTable, setIsCreatingTable] = useState(false)
+  const [tableName, setTableName] = useState('')
   const navigate = useNavigate()
-  const { tables, connected } = useSocketContext()
+  const { tables, connected, createTable } = useSocketContext()
   const { logout, isReferee } = useAuth()
 
   const handleLogout = () => {
@@ -19,8 +21,11 @@ export function DashboardPage() {
   }
 
   const handleCreateTable = () => {
-    // TODO: Implementar creación de nueva mesa
-    console.log('Create new table')
+    if (tableName.trim()) {
+      createTable(tableName.trim())
+      setTableName('')
+      setIsCreatingTable(false)
+    }
   }
 
   const handleTableClick = (tableId: string) => {
@@ -45,9 +50,35 @@ export function DashboardPage() {
         </div>
         <div className="flex gap-2">
           {isReferee && (
-            <Button variant="secondary" onClick={handleCreateTable} size="sm">
-              Nueva Mesa
-            </Button>
+            <>
+              {!isCreatingTable ? (
+                <Button variant="secondary" onClick={() => setIsCreatingTable(true)} size="sm">
+                  Nueva Mesa
+                </Button>
+              ) : (
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="text"
+                    placeholder="Nombre de la mesa..."
+                    value={tableName}
+                    onChange={(e) => setTableName(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        handleCreateTable()
+                      }
+                    }}
+                    className="px-3 py-2 rounded border border-border bg-background text-text focus:outline-none focus:ring-2 focus:ring-primary"
+                    autoFocus
+                  />
+                  <Button variant="primary" onClick={handleCreateTable} size="sm">
+                    Crear
+                  </Button>
+                  <Button variant="ghost" onClick={() => setIsCreatingTable(false)} size="sm">
+                    Cancelar
+                  </Button>
+                </div>
+              )}
+            </>
           )}
           <Button variant="ghost" onClick={handleLogout} size="sm">
             Salir

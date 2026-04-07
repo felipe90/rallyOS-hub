@@ -117,6 +117,7 @@ export function useSocket(options: UseSocketOptions = {}) {
     }
   }, []);
 
+  const createTable = useCallback((name?: string) => emit('CREATE_TABLE', { name }), [emit]);
   const joinTable = useCallback((tableId: string, pin: string, role: string) => emit('JOIN_TABLE', { tableId, pin, role }), [emit]);
   const requestTables = useCallback(() => emit('GET_TABLES', {}), [emit]);
   const scorePoint = useCallback((player: 'A' | 'B') => currentTable?.id && emit('SCORE_POINT', { tableId: currentTable.id, player }), [emit, currentTable]);
@@ -136,6 +137,7 @@ export function useSocket(options: UseSocketOptions = {}) {
     currentMatch,
     connect,
     disconnect,
+    createTable,
     joinTable,
     requestTables,
     scorePoint,

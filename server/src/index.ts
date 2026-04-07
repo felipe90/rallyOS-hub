@@ -34,9 +34,18 @@ const httpsOptions = {
   cert: fs.readFileSync(certPath)
 };
 
+// Serve the React client (Vite build)
+const clientDistPath = path.join(__dirname, '../../client/dist');
+app.use(express.static(clientDistPath));
+
 // Serve the Hub UI
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/index.html'));
+  res.sendFile(path.join(clientDistPath, 'index.html'));
+});
+
+// API health check
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: Date.now() });
 });
 
 const httpServer = createServer(httpsOptions, app);

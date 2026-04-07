@@ -63,9 +63,10 @@ describe('Button', () => {
       expect(handler).not.toHaveBeenCalled()
     })
 
-    it('shows loading state', () => {
+    it('shows loading spinner when loading', () => {
       render(<Button loading>Loading</Button>)
-      expect(screen.getByRole('button')).toHaveClass('animate-spin')
+      // Loading shows a spinner element
+      expect(document.querySelector('.animate-spin')).toBeInTheDocument()
     })
   })
 })

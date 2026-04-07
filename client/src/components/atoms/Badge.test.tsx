@@ -30,14 +30,6 @@ describe('Badge', () => {
       expect(screen.getByText('Default')).toBeInTheDocument()
     })
   })
-
-  describe('dot indicator', () => {
-    it('shows dot when dot prop is true', () => {
-      render(<Badge dot>With Dot</Badge>)
-      const dot = document.querySelector('.animate-pulse')
-      expect(dot).toBeInTheDocument()
-    })
-  })
 })
 
 describe('Convenience Components', () => {

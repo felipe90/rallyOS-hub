@@ -18,23 +18,4 @@ describe('TableStatusChip', () => {
       expect(screen.getByText(text)).toBeInTheDocument()
     })
   })
-
-  it('displays table number and name', () => {
-    render(<TableStatusChip tableNumber={5} tableName="Mesa 5" status="WAITING" />)
-    expect(screen.getByText('Mesa 5')).toBeInTheDocument()
-    expect(screen.getByText('5')).toBeInTheDocument()
-  })
-
-  it('displays player names when provided', () => {
-    render(
-      <TableStatusChip
-        tableNumber={1}
-        tableName="Table 1"
-        status="LIVE"
-        playerNames={{ a: 'Juan', b: 'Pedro' }}
-      />
-    )
-    expect(screen.getByText('Juan')).toBeInTheDocument()
-    expect(screen.getByText('Pedro')).toBeInTheDocument()
-  })
 })

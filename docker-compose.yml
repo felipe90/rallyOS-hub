@@ -1,0 +1,23 @@
+# docker-compose.yml for rallyOS-hub
+version: '3.8'
+
+services:
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+      - "5173:5173"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+    volumes:
+      - ./server:/app/server
+      - ./shared:/app/shared
+    networks:
+      - rallyos-net
+
+networks:
+  rallyos-net:
+    driver: bridge

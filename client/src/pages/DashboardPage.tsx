@@ -13,7 +13,7 @@ export function DashboardPage() {
   const [tableName, setTableName] = useState('')
   const navigate = useNavigate()
   const { tables, connected, createTable } = useSocketContext()
-  const { logout, isReferee } = useAuth()
+  const { logout, isReferee, isViewer } = useAuth()
 
   const handleLogout = () => {
     logout()
@@ -35,6 +35,11 @@ export function DashboardPage() {
   const liveMatches = tables.filter(t => t.status === 'LIVE').length
   const activePlayers = tables.reduce((acc, t) => acc + (t.playerCount || 0), 0)
 
+  const pageTitle = isReferee ? 'Panel de Árbitro' : 'Espectador'
+  const pageSubtitle = isReferee 
+    ? 'Crea y gestiona mesas'
+    : 'Observa los partidos en vivo'
+
   return (
     <div className="flex flex-col h-screen bg-surface">
       {/* Connection Status Bar */}
@@ -43,9 +48,9 @@ export function DashboardPage() {
       {/* Header */}
       <div className="pt-12 p-4 border-b border-border flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-heading font-bold">Dashboard</h1>
+          <h1 className="text-2xl font-heading font-bold">{pageTitle}</h1>
           <p className="text-sm text-text-muted">
-            {connected ? '✅ Conectado' : '⚠️ Desconectado'}
+            {pageSubtitle}
           </p>
         </div>
         <div className="flex gap-2">

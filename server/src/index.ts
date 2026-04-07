@@ -34,23 +34,26 @@ const httpsOptions = {
   cert: fs.readFileSync(certPath)
 };
 
-// Serve the React client (from dist or public)
+// Serve the React client (from dist, public, or client src)
 const clientDistPath = path.join(__dirname, '../public/dist');
 const clientPublicPath = path.join(__dirname, '../public');
 const clientSrcPath = path.join(__dirname, '../../client');
-const clientPath = fs.existsSync(clientDistPath) ? clientDistPath : 
-                fs.existsSync(clientPublicPath) ? clientPublicPath : clientSrcPath;
+
+// Check all paths and use first that exists
+let clientPath = clientSrcPath;
+if (fs.existsSync(clientPublicPath)) clientPath = clientPublicPath;
+else if (fs.existsSync(clientDistPath)) clientPath = clientDistPath;
 
 app.use(express.static(clientPath));
 
 // Serve the Hub UI
 app.get('/', (req, res) => {
-  // Try: dist -> public -> client src
-  const indexPath = fs.existsSync(path.join(clientDistPath, 'index.html'))
-    ? path.join(clientDistPath, 'index.html')
-    : fs.existsSync(path.join(clientPublicPath, 'index.html'))
-      ? path.join(clientPublicPath, 'index.html')
-      : path.join(clientSrcPath, 'index.html');
+  let indexPath = path.join(clientSrcPath, 'index.html');
+  if (fs.existsSync(path.join(clientPublicPath, 'index.html'))) 
+    indexPath = path.join(clientPublicPath, 'index.html');
+  else if (fs.existsSync(path.join(clientDistPath, 'index.html'))) 
+    indexPath = path.join(clientDistPath, 'index.html');
+  
   res.sendFile(indexPath);
 });
 

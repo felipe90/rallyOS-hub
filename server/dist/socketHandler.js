@@ -138,20 +138,34 @@ class SocketHandler {
                 }
             });
             socket.on('START_MATCH', (data) => {
+                console.log('[SocketHandler] START_MATCH received:', data);
                 if (!data?.tableId) {
+                    console.warn('[SocketHandler] START_MATCH: tableId missing');
                     return socket.emit('ERROR', { code: 'INVALID_PARAMS', message: 'tableId required' });
                 }
                 if (!this.tableManager.isReferee(data.tableId, socket.id)) {
+                    console.warn('[SocketHandler] START_MATCH: Not a referee for table', data.tableId);
                     return socket.emit('ERROR', { code: 'UNAUTHORIZED', message: 'No autorizado' });
                 }
+                console.log('[SocketHandler] START_MATCH: Calling tableManager.startMatch with config:', {
+                    pointsPerSet: data.pointsPerSet || 11,
+                    bestOf: data.bestOf || 3,
+                    handicapA: data.handicapA || 0,
+                    handicapB: data.handicapB || 0,
+                });
                 const state = this.tableManager.startMatch(data.tableId, {
                     pointsPerSet: data.pointsPerSet || 11,
                     bestOf: data.bestOf || 3,
                     handicapA: data.handicapA || 0,
                     handicapB: data.handicapB || 0,
                 });
+                console.log('[SocketHandler] START_MATCH: Result state:', state);
                 if (state) {
+                    console.log('[SocketHandler] START_MATCH: Emitting MATCH_UPDATE to room', data.tableId);
                     this.io.to(data.tableId).emit('MATCH_UPDATE', state); // Emit only to room
+                }
+                else {
+                    console.warn('[SocketHandler] START_MATCH: tableManager.startMatch returned null');
                 }
             });
             socket.on('RECORD_POINT', (data) => {

@@ -133,15 +133,19 @@ class TableManager {
         this.notifyUpdate(table);
     }
     startMatch(tableId, config) {
+        console.log('[TableManager] startMatch called for table:', tableId, 'config:', config);
         const table = this.tables.get(tableId);
-        if (!table)
+        if (!table) {
+            console.warn('[TableManager] startMatch: table not found for tableId:', tableId);
             return null;
+        }
         // If config provided, create a new MatchEngine with it
         if (config) {
+            console.log('[TableManager] Creating new MatchEngine with config');
             // Preserve player names and table info
             const playerNames = table.playerNames;
-            const tableId = table.id;
-            const tableName = table.name;
+            const tblId = table.id;
+            const tblName = table.name;
             // Create new MatchEngine with the provided config
             table.matchEngine = new matchEngine_1.MatchEngine({
                 pointsPerSet: config.pointsPerSet || 11,
@@ -151,7 +155,7 @@ class TableManager {
                 handicapB: config.handicapB || 0,
             });
             // Restore table metadata
-            table.matchEngine.setTableId(tableId, tableName);
+            table.matchEngine.setTableId(tblId, tblName);
             table.matchEngine.setPlayerNames(playerNames);
             table.matchEngine.setEventCallback((event) => {
                 this.onMatchEvent(tableId, event);
@@ -159,6 +163,7 @@ class TableManager {
         }
         table.status = 'LIVE';
         const state = table.matchEngine.startMatch();
+        console.log('[TableManager] After startMatch, state status:', state?.status);
         this.notifyUpdate(table);
         return state;
     }

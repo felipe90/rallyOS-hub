@@ -67,7 +67,9 @@ export function ScoreboardPage() {
       return
     }
     console.log(`[Scoreboard] Starting match with config:`, config)
+    console.log(`[Scoreboard] Emitting START_MATCH with tableId:`, tableId)
     emit('START_MATCH', { tableId, ...config })
+    console.log(`[Scoreboard] START_MATCH event emitted`)
   }
 
   const handleCancelMatch = () => {

@@ -29,18 +29,23 @@ COPY shared/ ./shared/
 WORKDIR /app/client
 RUN npm run build
 
-# Copy client dist to server public
-WORKDIR /app
-RUN rm -rf server/public && mkdir server/public
-RUN cp -r client/dist/* server/public/
-
-# Compile server TypeScript
+# Ensure server/src exists
 WORKDIR /app/server
-RUN npx tsc
+RUN ls -la src/
 
-# Create start script
-WORKDIR /app
-RUN openssl req -x509 -newkey rsa:4096 -keyout server/key.pem -out server/cert.pem -days 365 -nodes -subj "/C=AR/ST=BA/L=Buenos Aires/O=RallyOS/OU=Dev/CN=localhost" 2>/dev/null || true
+# Compile server TypeScript 
+RUN pwd && ls src/ && npx tsc --version && npx tsc
+
+# Verify compiled output
+RUN ls -la dist/
+
+# Copy client dist to server public
+WORKDIR /app/server
+RUN rm -rf public && mkdir public
+RUN cp -r ../client/dist/* public/
+
+# Generate SSL
+RUN openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes -subj "/C=AR/ST=BA/L=Buenos Aires/O=RallyOS/OU=Dev/CN=localhost" 2>/dev/null || true
 
 # Expose port
 EXPOSE 3001
@@ -49,5 +54,5 @@ EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:3001/health || exit 1
 
-# Run
-CMD ["node", "server/src/index.js"]
+# Run from server/dist
+CMD ["node", "dist/index.js"]

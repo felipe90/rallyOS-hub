@@ -285,7 +285,7 @@ export function ScoreboardMain({
                     )}
                   </div>
                   
-                  <div className="font-heading font-bold text-[18rem] leading-none text-primary tracking-tighter drop-shadow-2xl">
+                  <div className="font-heading font-bold text-[18rem] leading-none text-text-h tracking-tighter drop-shadow-2xl">
                     {leftScore}
                   </div>
                   
@@ -373,7 +373,7 @@ export function ScoreboardMain({
                   <div className="text-center mb-[-1rem]">
                     <Title className="text-xl tracking-tight">{leftName || `Player ${leftPlayer}`}</Title>
                   </div>
-                  <div className="font-heading font-bold text-[18rem] leading-none text-primary tracking-tighter drop-shadow-2xl">
+                  <div className="font-heading font-bold text-[18rem] leading-none text-text-h tracking-tighter drop-shadow-2xl">
                     {leftScore}
                   </div>
                   {leftServing && (

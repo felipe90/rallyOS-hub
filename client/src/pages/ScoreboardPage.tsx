@@ -49,8 +49,7 @@ export function ScoreboardPage() {
       console.warn('Not connected to server')
       return
     }
-    const playerKey = player.toLowerCase() as 'a' | 'b'
-    emit('RECORD_POINT', { player: playerKey, tableId })
+    emit('RECORD_POINT', { player, tableId })
   }
 
   const handleSubtractPoint = (player: 'A' | 'B') => {
@@ -58,8 +57,7 @@ export function ScoreboardPage() {
       console.warn('Not connected to server')
       return
     }
-    const playerKey = player.toLowerCase() as 'a' | 'b'
-    emit('SUBTRACT_POINT', { player: playerKey, tableId })
+    emit('SUBTRACT_POINT', { player, tableId })
   }
 
   const handleUndo = () => {

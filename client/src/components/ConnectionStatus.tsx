@@ -1,40 +1,65 @@
 import { useSocketContext } from '../contexts/SocketContext'
+import { Wifi, WifiOff, Loader2 } from 'lucide-react'
 
 export function ConnectionStatus() {
   const { connected, connecting, error } = useSocketContext()
 
-  if (error) {
-    return (
-      <div className="fixed top-0 left-0 right-0 z-50 p-3 bg-red-500/10 border-b border-red-500/30 text-red-500 text-sm">
-        <div className="max-w-7xl mx-auto flex items-center gap-2">
-          <span>⚠️ Error de conexión: {error}</span>
-          <span className="text-xs text-red-400">Usando datos locales</span>
-        </div>
-      </div>
-    )
+  // Determine status
+  const status = error ? 'error' : connecting ? 'connecting' : connected ? 'connected' : 'disconnected'
+
+  const statusConfig = {
+    connected: {
+      bg: 'bg-primary/10',
+      border: 'border-primary/20',
+      dot: 'bg-primary/20',
+      icon: <Wifi size={14} className="text-primary" />,
+      subtitle: 'Conectado',
+      textClass: 'text-primary',
+    },
+    connecting: {
+      bg: 'bg-amber/10',
+      border: 'border-amber/20',
+      dot: 'bg-amber/20',
+      icon: <Loader2 size={14} className="text-amber animate-spin" />,
+      subtitle: 'Conectando',
+      textClass: 'text-amber',
+    },
+    error: {
+      bg: 'bg-error/10',
+      border: 'border-error/20',
+      dot: 'bg-error/20',
+      icon: <WifiOff size={14} className="text-error" />,
+      subtitle: 'Sin Conexión',
+      textClass: 'text-error',
+    },
+    disconnected: {
+      bg: 'bg-surface-low',
+      border: 'border-outline/10',
+      dot: 'bg-outline/20',
+      icon: <WifiOff size={14} className="text-text-muted" />,
+      subtitle: 'Desconectado',
+      textClass: 'text-text-muted',
+    },
   }
 
-  if (connecting) {
-    return (
-      <div className="fixed top-0 left-0 right-0 z-50 p-3 bg-amber-500/10 border-b border-amber-500/30 text-amber-600 text-sm">
-        <div className="max-w-7xl mx-auto flex items-center gap-2">
-          <span className="animate-spin">🔄</span>
-          <span>Conectando...</span>
+  const config = statusConfig[status]
+
+  return (
+    <div className="fixed top-0 left-0 right-0 z-50">
+      <div className={`flex items-center gap-3 px-4 py-2 ${config.bg} border-b ${config.border}`}>
+        <div className={`p-1.5 rounded-full ${config.dot}`}>
+          {config.icon}
+        </div>
+        
+        <div className="flex flex-col">
+          <span className="font-heading font-bold text-sm leading-tight">
+            RallyOS
+          </span>
+          <span className={`font-label text-[9px] uppercase tracking-widest ${config.textClass} font-bold leading-none`}>
+            {config.subtitle}
+          </span>
         </div>
       </div>
-    )
-  }
-
-  if (connected) {
-    return (
-      <div className="fixed top-0 left-0 right-0 z-50 p-3 bg-green-500/10 border-b border-green-500/30 text-green-600 text-sm">
-        <div className="max-w-7xl mx-auto flex items-center gap-2">
-          <span>✅ Conectado</span>
-          <span className="text-xs">Actualizaciones en tiempo real</span>
-        </div>
-      </div>
-    )
-  }
-
-  return null
+    </div>
+  )
 }

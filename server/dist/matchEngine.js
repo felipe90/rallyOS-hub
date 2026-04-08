@@ -106,9 +106,7 @@ class MatchEngine {
         if (this.state.status !== 'LIVE')
             return this.getState();
         const p = player.toLowerCase();
-        if (this.state.score.currentSet[p] <= 0) {
-            return this.getState();
-        }
+        // Allow subtraction even with negative handicap (referee can adjust)
         const pointsBefore = { ...this.state.score.currentSet };
         this.state.score.currentSet[p]--;
         this.addToHistory(player, 'CORRECTION', pointsBefore, { ...this.state.score.currentSet });
@@ -150,7 +148,10 @@ class MatchEngine {
             }
             this.checkMatchWin();
             if (this.state.status !== 'FINISHED') {
-                this.state.score.currentSet = { a: 0, b: 0 };
+                // Apply handicap to next set
+                const handicapA = this.state.config.handicapA || 0;
+                const handicapB = this.state.config.handicapB || 0;
+                this.state.score.currentSet = { a: handicapA, b: handicapB };
             }
             if (this.state.status !== 'FINISHED') {
                 const oldSide = this.state.swappedSides;

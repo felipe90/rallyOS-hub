@@ -134,14 +134,6 @@ export function HistoryDrawer({
               )}
             </div>
 
-            {/* Footer with undo all hint */}
-            {events.length > 0 && (
-              <div className="p-4 bg-surface-low">
-                <Body className="text-sm text-text/50 text-center">
-                  Toca el primer evento para deshacer
-                </Body>
-              </div>
-            )}
           </motion.div>
         </>
       )}

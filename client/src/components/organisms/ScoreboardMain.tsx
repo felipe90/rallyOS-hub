@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
 import type { MatchStateExtended, TableStatus, Player } from '../../../../shared/types';
 import { ScoreDisplay, ScorePair } from '../molecules/ScoreDisplay';
-import { MatchContext, SetScore } from '../molecules/MatchContext';
+import { SetScore } from '../molecules/MatchContext';
 import { ScoreButton } from '../atoms/Button';
 import { Button } from '../atoms/Button';
 import { Body, Label, Title } from '../atoms/Typography';
@@ -53,12 +53,35 @@ export function ScoreboardMain({
   isConnected = true,
   className = '',
 }: ScoreboardMainProps) {
-  const { score, status, playerNames, history, setHistory, config } = match
+  const { score, status, playerNames, history, setHistory, config, swappedSides } = match
   
   // Calculate sets won for each player
   const setsA = setHistory.filter(s => s.a > s.b).length
   const setsB = setHistory.filter(s => s.b > s.a).length
   const totalSets = config?.bestOf ? Math.ceil(config.bestOf / 2) * 2 - 1 : 3
+
+  // Apply side swap (ITTF Rule - swap sides between sets)
+  const isSwapped = swappedSides === true
+  
+  // Swap player data if sides are swapped
+  const leftPlayer = isSwapped ? 'B' : 'A'
+  const rightPlayer = isSwapped ? 'A' : 'B'
+  
+  const leftName = isSwapped ? playerNames?.b : playerNames?.a
+  const rightName = isSwapped ? playerNames?.a : playerNames?.b
+  
+  const leftScore = isSwapped ? score.currentSet.b : score.currentSet.a
+  const rightScore = isSwapped ? score.currentSet.a : score.currentSet.b
+  
+  const leftSets = isSwapped ? setsB : setsA
+  const rightSets = isSwapped ? setsA : setsB
+  
+  const leftHandicap = isSwapped ? config?.handicapB : config?.handicapA
+  const rightHandicap = isSwapped ? config?.handicapA : config?.handicapB
+  
+  // Serving: if swapped, A becomes B visually
+  const leftServing = isSwapped ? (score.serving === 'B') : (score.serving === 'A')
+  const rightServing = isSwapped ? (score.serving === 'A') : (score.serving === 'B')
 
   // Determine phase label
   const phaseLabel = status === 'FINISHED' ? 'final' : 'quarterfinal'
@@ -134,16 +157,6 @@ export function ScoreboardMain({
           </div>
         </div>
 
-        {/* Match Phase */}
-        <div className="p-2 bg-surface rounded-lg">
-          <MatchContext
-            phase={phaseLabel}
-            status={status}
-            bestOf={config?.bestOf}
-            pointsPerSet={config?.pointsPerSet}
-          />
-        </div>
-
         {/* Sets History - Compact */}
         {setHistory && setHistory.length > 0 && (
           <div className="px-2 py-1 bg-surface rounded-lg overflow-x-auto">
@@ -172,45 +185,35 @@ export function ScoreboardMain({
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col landscape:min-h-screen landscape:justify-center relative">
+      <div className="flex-1 flex flex-col landscape:min-h-screen relative">
         {/* Landscape Header - Only visible in landscape */}
         <div className="
           hidden landscape:flex items-center justify-between
-          px-6 py-2 bg-background/80 backdrop-blur-md border-b border-outline/10
-          landscape:flex-row
+          px-4 py-3 bg-background/80 backdrop-blur-md border-b border-outline/10
+          flex-shrink-0
         ">
           {/* Left: Logo + Status */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 flex-shrink-0">
             <div className="flex items-center gap-2">
               <div className={`p-1.5 rounded-full ${isConnected ? 'bg-primary/20' : 'bg-error/20'}`}>
                 {isConnected 
-                  ? <Wifi size={16} className="text-primary" />
-                  : <WifiOff size={16} className="text-error" />
+                  ? <Wifi size={14} className="text-primary" />
+                  : <WifiOff size={14} className="text-error" />
                 }
               </div>
               <div className="flex flex-col">
                 <span className="font-heading font-bold text-sm leading-tight">RallyOS</span>
-                <Label className="text-[9px] uppercase tracking-widest text-primary font-bold leading-none">
+                <span className="font-label text-[9px] uppercase tracking-widest text-primary font-bold leading-none">
                   {isConnected ? 'Synced' : 'Offline'}
-                </Label>
+                </span>
               </div>
             </div>
             
             <div className="h-6 w-px bg-outline/30" />
-            
-            {/* Phase */}
-            <div className="flex flex-col">
-              <span className="font-heading font-bold text-[10px] tracking-widest uppercase opacity-60 leading-none">
-                {phaseLabel === 'final' ? 'Final' : 'Cuartos de Final'}
-              </span>
-              <span className="font-label text-[10px] font-bold text-tertiary uppercase tracking-tighter">
-                {status === 'LIVE' ? 'Live Match' : status === 'FINISHED' ? 'Finished' : 'Waiting'}
-              </span>
-            </div>
           </div>
           
           {/* Center: Current Sets */}
-          <div className="flex items-center bg-surface-low px-4 py-1 rounded-full border border-outline/10">
+          <div className="flex items-center bg-surface-low px-4 py-1 rounded-full border border-outline/10 flex-shrink-0">
             <span className="font-label text-[10px] uppercase tracking-widest opacity-60 font-bold mr-3">
               Sets
             </span>
@@ -220,7 +223,7 @@ export function ScoreboardMain({
           </div>
           
           {/* Right: Actions */}
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-shrink-0">
             {history && history.length > 0 && onHistoryClick && (
               <motion.button
                 className="p-2 rounded-[--radius-md] bg-surface hover:bg-surface-high transition-colors"
@@ -229,7 +232,7 @@ export function ScoreboardMain({
                 whileTap={{ scale: 0.95 }}
                 aria-label="History"
               >
-                <History size={20} />
+                <History size={18} />
               </motion.button>
             )}
             {onSettingsClick && (
@@ -240,7 +243,7 @@ export function ScoreboardMain({
                 whileTap={{ scale: 0.95 }}
                 aria-label="Settings"
               >
-                <Settings size={20} />
+                <Settings size={18} />
               </motion.button>
             )}
           </div>
@@ -250,7 +253,7 @@ export function ScoreboardMain({
         <div className="
           flex-1 flex items-center justify-center 
           p-4 landscape:p-8 bg-surface
-          landscape:h-full landscape:min-h-screen
+          min-h-0
         ">
           {isReferee ? (
             // Referee view with tap zones
@@ -262,28 +265,28 @@ export function ScoreboardMain({
               `}>
                 {/* Tap Zone: Add (top) */}
                 <ScoreButton 
-                  side="A" 
-                  onAdd={() => onScorePoint('A')} 
-                  onSubtract={() => onSubtractPoint?.('A')} 
+                  side={leftPlayer} 
+                  onAdd={() => onScorePoint(leftPlayer)} 
+                  onSubtract={() => onSubtractPoint?.(leftPlayer)} 
                   disabled={false} 
                 />
                 
                 {/* Score Overlay */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
                   <div className="text-center mb-[-1rem]">
-                    <Title className="text-xl tracking-tight">{playerNames?.a || 'Player A'}</Title>
-                    {config?.handicapA !== undefined && config.handicapA !== 0 && (
+                    <Title className="text-xl tracking-tight">{leftName || `Player ${leftPlayer}`}</Title>
+                    {leftHandicap !== undefined && leftHandicap !== 0 && (
                       <span className={`
                         inline-block px-3 py-0.5 rounded-full text-xs font-bold uppercase mt-1
-                        ${config.handicapA > 0 ? 'bg-surface-high text-primary' : 'bg-surface-high text-error'}
+                        ${leftHandicap > 0 ? 'bg-surface-high text-primary' : 'bg-surface-high text-error'}
                       `}>
-                        {config.handicapA > 0 ? `+${config.handicapA}` : config.handicapA} HCP
+                        {leftHandicap > 0 ? `+${leftHandicap}` : leftHandicap} HCP
                       </span>
                     )}
                   </div>
                   
                   <div className="font-heading font-bold text-[18rem] leading-none text-primary tracking-tighter drop-shadow-2xl">
-                    {score.currentSet.a}
+                    {leftScore}
                   </div>
                   
                   {/* Sets Won Indicators */}
@@ -293,13 +296,13 @@ export function ScoreboardMain({
                         key={i}
                         className={`
                           w-3 h-3 rounded-full shadow-[0_0_8px_rgba(0,107,95,0.5)]
-                          ${i < setsA ? 'bg-primary' : 'bg-outline/30'}
+                          ${i < leftSets ? 'bg-primary' : 'bg-outline/30'}
                         `}
                       />
                     ))}
                   </div>
                   
-                  {score.serving === 'A' && (
+                  {leftServing && (
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 bg-amber rounded-full animate-pulse mt-[10rem]" />
                   )}
                 </div>
@@ -315,28 +318,28 @@ export function ScoreboardMain({
               `}>
                 {/* Tap Zone: Add (top) */}
                 <ScoreButton 
-                  side="B" 
-                  onAdd={() => onScorePoint('B')} 
-                  onSubtract={() => onSubtractPoint?.('B')} 
+                  side={rightPlayer} 
+                  onAdd={() => onScorePoint(rightPlayer)} 
+                  onSubtract={() => onSubtractPoint?.(rightPlayer)} 
                   disabled={false} 
                 />
                 
                 {/* Score Overlay */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
                   <div className="text-center mb-[-1rem]">
-                    <Title className="text-xl tracking-tight">{playerNames?.b || 'Player B'}</Title>
-                    {config?.handicapB !== undefined && config.handicapB !== 0 && (
+                    <Title className="text-xl tracking-tight">{rightName || `Player ${rightPlayer}`}</Title>
+                    {rightHandicap !== undefined && rightHandicap !== 0 && (
                       <span className={`
                         inline-block px-3 py-0.5 rounded-full text-xs font-bold uppercase mt-1
-                        ${config.handicapB > 0 ? 'bg-surface-high text-primary' : 'bg-surface-high text-error'}
+                        ${rightHandicap > 0 ? 'bg-surface-high text-primary' : 'bg-surface-high text-error'}
                       `}>
-                        {config.handicapB > 0 ? `+${config.handicapB}` : config.handicapB} HCP
+                        {rightHandicap > 0 ? `+${rightHandicap}` : rightHandicap} HCP
                       </span>
                     )}
                   </div>
                   
                   <div className="font-heading font-bold text-[18rem] leading-none text-text-h tracking-tighter drop-shadow-2xl">
-                    {score.currentSet.b}
+                    {rightScore}
                   </div>
                   
                   {/* Sets Won Indicators */}
@@ -346,13 +349,13 @@ export function ScoreboardMain({
                         key={i}
                         className={`
                           w-3 h-3 rounded-full shadow-[0_0_8px_rgba(0,107,95,0.5)]
-                          ${i < setsB ? 'bg-primary' : 'bg-outline/30'}
+                          ${i < rightSets ? 'bg-primary' : 'bg-outline/30'}
                         `}
                       />
                     ))}
                   </div>
                   
-                  {score.serving === 'B' && (
+                  {rightServing && (
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 bg-amber rounded-full animate-pulse mt-[10rem]" />
                   )}
                 </div>
@@ -360,41 +363,41 @@ export function ScoreboardMain({
               
               {/* Background Decor */}
               <BackgroundDecor />
-
-              {/* Referee Controls - Portrait: bottom, Landscape: right side */}
-              {status === 'LIVE' && (
-                <div className="
-                  flex gap-4 p-4 bg-surface
-                  landscape:flex-col landscape:w-32 landscape:h-full landscape:gap-2 landscape:p-3
-                ">
-                  {/* Undo Button */}
-                  <motion.button
-                    className={`
-                      flex-1 aspect-[4/5] rounded-[--radius-lg]
-                      flex flex-col items-center justify-center gap-2
-                      shadow-md hover:shadow-lg
-                      transition-all text-xs landscape:text-[10px]
-                      ${history && history.length > 0 ? 'bg-surface-low' : 'bg-surface-low opacity-50'}
-                      landscape:aspect-auto landscape:h-20
-                    `}
-                    onClick={onUndo}
-                    disabled={!history || history.length === 0}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    <Undo2 size={24} className="landscape:w-4 landscape:h-4" />
-                    <Body className="text-xs landscape:text-[10px]">Deshacer</Body>
-                  </motion.button>
-                </div>
-              )}
             </div>
           ) : (
-            // Viewer mode (simpler display)
-            <ScorePair
-              score={score.currentSet}
-              serving={score.serving}
-              playerNames={playerNames}
-            />
+            // Viewer mode - use same large score layout as referee (no buttons)
+            <div className="flex w-full h-full landscape:flex-row">
+              {/* Player A Column */}
+              <section className="flex-1 flex flex-col relative overflow-hidden bg-surface-container-low">
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
+                  <div className="text-center mb-[-1rem]">
+                    <Title className="text-xl tracking-tight">{leftName || `Player ${leftPlayer}`}</Title>
+                  </div>
+                  <div className="font-heading font-bold text-[18rem] leading-none text-primary tracking-tighter drop-shadow-2xl">
+                    {leftScore}
+                  </div>
+                  {leftServing && (
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 bg-amber rounded-full animate-pulse mt-[10rem]" />
+                  )}
+                </div>
+              </section>
+              
+              <VSDivider />
+              
+              <section className="flex-1 flex flex-col relative overflow-hidden bg-surface">
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
+                  <div className="text-center mb-[-1rem]">
+                    <Title className="text-xl tracking-tight">{rightName || `Player ${rightPlayer}`}</Title>
+                  </div>
+                  <div className="font-heading font-bold text-[18rem] leading-none text-text-h tracking-tighter drop-shadow-2xl">
+                    {rightScore}
+                  </div>
+                  {rightServing && (
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 bg-amber rounded-full animate-pulse mt-[10rem]" />
+                  )}
+                </div>
+              </section>
+            </div>
           )}
         </div>
       </div>
@@ -529,7 +532,7 @@ function MatchConfigPanelInternal({
           <Button variant="secondary" onClick={onCancel} className="flex-1">
             Cancelar
           </Button>
-          <Button variant="primary" onClick={handleStart} className="flex-1">
+          <Button variant="primary" onClick={handleStart} className="flex-1 bg-primary">
             Iniciar
           </Button>
         </div>

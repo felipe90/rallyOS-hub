@@ -93,7 +93,7 @@ export function DashboardHeader({
   return (
     <div className="flex flex-col gap-4 mb-6">
       <div className="flex items-center justify-between">
-        <Title>The Kinetic Clubhouse</Title>
+        <Title>Dashboard</Title>
         
         <div className="flex gap-1 p-1 bg-slate-100 rounded-full">
           <button

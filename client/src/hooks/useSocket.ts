@@ -98,7 +98,6 @@ export function useSocket(options: UseSocketOptions = {}) {
 
     socket.on('TABLE_LIST', (list: TableInfo[]) => setTables(list));
     socket.on('MATCH_UPDATE', (match: MatchStateExtended) => {
-      console.log('[useSocket] MATCH_UPDATE received:', match);
       setCurrentMatch(match);
     });
     socket.on('HISTORY_UPDATE', (history: ScoreChange[]) => setCurrentMatch(prev => prev ? { ...prev, history } : null));

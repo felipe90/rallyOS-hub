@@ -30,8 +30,8 @@ export function MatchContext({
   status,
   matchNumber,
   totalMatches,
-  bestOf = 3,
-  pointsPerSet = 21,
+  bestOf,
+  pointsPerSet,
 }: MatchContextProps) {
   const phaseLabel = phaseLabels[phase] || phase;
   
@@ -53,12 +53,16 @@ export function MatchContext({
       )}
       
       <div className="flex gap-4 mt-1 text-sm text-text/70">
-        <span>
-          <strong className="text-text">{bestOf}</strong> a {bestOf}
-        </span>
-        <span>
-          <strong className="text-text">{pointsPerSet}</strong> pts/set
-        </span>
+        {bestOf && (
+          <span>
+            <strong className="text-text">{bestOf}</strong> a {bestOf}
+          </span>
+        )}
+        {pointsPerSet && (
+          <span>
+            <strong className="text-text">{pointsPerSet}</strong> pts/set
+          </span>
+        )}
       </div>
     </div>
   );

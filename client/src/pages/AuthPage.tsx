@@ -81,21 +81,22 @@ export function AuthPage() {
         // Selection Mode
         <div className="flex flex-col gap-4 w-full max-w-sm">
           <Button
+            className='bg-primary text-primary hover:bg-primary'
             variant="primary"
-            size="lg"
-            onClick={handleRefereeClick}
-            disabled={isLoading}
-          >
-            👨‍💼 Árbitro
-          </Button>
-
-          <Button
-            variant="secondary"
             size="lg"
             onClick={handleSpectatorClick}
             disabled={isLoading}
           >
-            👀 Espectador
+            Espectador
+          </Button>
+          <Button
+            className='bg-secondary text-secondary hover:bg-secondary'
+            variant="secondary"
+            size="lg"
+            onClick={handleRefereeClick}
+            disabled={isLoading}
+          >
+            Árbitro
           </Button>
         </div>
       ) : (
@@ -119,6 +120,7 @@ export function AuthPage() {
           )}
 
           <Button
+            className='bg-primary text-primary hover:bg-primary'
             variant="primary"
             disabled={pin.length !== 5 || isLoading}
             onClick={handlePinSubmit}

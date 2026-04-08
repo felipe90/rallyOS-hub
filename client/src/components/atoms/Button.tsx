@@ -73,36 +73,59 @@ export function Button({
   );
 }
 
-/* Score button variant - specific to referee score controls */
+/* Score button variant - specific to referee score controls (+/- buttons) */
 export function ScoreButton({ 
   side, 
-  onClick, 
+  onAdd, 
+  onSubtract,
   disabled,
   className = '',
 }: { 
   side: 'A' | 'B'; 
-  onClick: () => void; 
+  onAdd: () => void; 
+  onSubtract: () => void;
   disabled?: boolean;
   className?: string;
 }) {
   return (
-    <motion.button
-      className={`
-        ${side === 'A' ? 'bg-surface-low' : 'bg-primary'} 
-        text-text-h font-heading text-[80px] leading-none
-        w-full aspect-[4/5] rounded-[--radius-lg]
-        flex items-center justify-center
-        shadow-md hover:shadow-lg
-        active:scale-95 transition-transform
-        disabled:opacity-50 disabled:pointer-events-none
-        ${className}
-      `}
-      whileHover={{ scale: disabled ? 1 : 1.02 }}
-      whileTap={{ scale: disabled ? 1 : 0.95 }}
-      onClick={onClick}
-      disabled={disabled}
-    >
-      {side}
-    </motion.button>
+    <div className={`flex flex-col gap-2 w-full ${className}`}>
+      {/* Plus button */}
+      <motion.button
+        className={`
+          ${side === 'A' ? 'bg-surface-low' : 'bg-primary'} 
+          text-white font-heading text-4xl
+          w-full aspect-[4/3] rounded-[--radius-lg]
+          flex items-center justify-center
+          shadow-md hover:shadow-lg
+          active:scale-95 transition-transform
+          disabled:opacity-50 disabled:pointer-events-none
+        `}
+        whileHover={{ scale: disabled ? 1 : 1.02 }}
+        whileTap={{ scale: disabled ? 1 : 0.95 }}
+        onClick={onAdd}
+        disabled={disabled}
+      >
+        +
+      </motion.button>
+      
+      {/* Minus button */}
+      <motion.button
+        className={`
+          ${side === 'A' ? 'bg-surface-low/80' : 'bg-primary/80'} 
+          text-text-h font-heading text-4xl
+          w-full aspect-[4/3] rounded-[--radius-lg]
+          flex items-center justify-center
+          shadow-md hover:shadow-lg
+          active:scale-95 transition-transform
+          disabled:opacity-50 disabled:pointer-events-none
+        `}
+        whileHover={{ scale: disabled ? 1 : 1.02 }}
+        whileTap={{ scale: disabled ? 1 : 0.95 }}
+        onClick={onSubtract}
+        disabled={disabled}
+      >
+        −
+      </motion.button>
+    </div>
   );
 }

@@ -31,7 +31,7 @@ export function ScoreDisplay({
       <AnimatePresence mode="wait">
         <motion.span
           key={score}
-          className="font-heading text-[80px] font-bold leading-none text-text-h"
+          className="font-heading text-[120px] font-bold leading-none text-text-h"
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 20, opacity: 0 }}
@@ -68,7 +68,7 @@ export function ScorePair({ score, serving, playerNames }: ScorePairProps) {
   const currentPoints = score.a + score.b;
   
   return (
-    <div className="flex items-center justify-center gap-4">
+    <div className="flex items-center justify-center gap-8 landscape:gap-16">
       <ScoreDisplay 
         score={score.a} 
         player="A" 
@@ -77,8 +77,8 @@ export function ScorePair({ score, serving, playerNames }: ScorePairProps) {
       />
       
       <div className="flex flex-col items-center gap-1 px-4">
-        <Body className="text-text/50 text-sm">vs</Body>
-        <Body className="text-text/70 text-xs">#{currentPoints}</Body>
+        <Body className="text-text/50 text-xl landscape:text-2xl">vs</Body>
+        <Body className="text-text/70 text-sm landscape:text-lg">#{currentPoints}</Body>
       </div>
       
       <ScoreDisplay 

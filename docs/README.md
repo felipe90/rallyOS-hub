@@ -9,12 +9,13 @@ Un servidor de sincronización offline-first diseñado para correr en SBCs (como
 
 - **🏓 Multi-Table System**: Soporta múltiples mesas de juego concurrentes con waiting rooms individuales.
 - **🔄 Undo System**: Sistema de historial para deshacer puntos marcados erróneamente.
-- **📱 Waiting Room**: Sala de espera con QR codes para que jugadores se unan.
-- **🔒 Seguridad Empotrada**: Comunicación vía HTTPS con certificados SSL y sistema de autorización por PIN para árbitros.
-- **📱 Massive Spectator UI**: Interfaz optimizada para modo horizontal (Landscape) con números gigantes, diseñada para reemplazar tableros físicos.
+- **📱 Waiting Room**: Sala de espera con PIN para que jugadores se unan.
+- **🔒 Seguridad Empotrada**: Comunicación vía HTTPS con certificados SSL y sistema de autorización por PIN para árbitros (PIN por mesa).
+- **📱 Scoreboard Táctico**: Interfaz optimizada para modo horizontal (Landscape) con números gigantes, diseño de tap zones (+/-) y controles de árbitro.
 - **⚖️ Handicap Flexible**: Soporta ventajas de puntos positivas y negativas configurables antes de cada partido.
 - **🏓 Scoring Genérico**: Motor de puntaje agnóstico al deporte, configurable para partidos al mejor de 1, 3, 5 o 7 sets.
 - **🐳 Docker Ready**: Despliegue en un solo comando con cleanup automático de puertos.
+- **📊 Sets Tracker**: Indicadores visuales de sets ganados (puntitos) y marcador de "Sets A - B".
 
 ---
 
@@ -178,14 +179,18 @@ Podés ajustar el comportamiento del Hub editando el archivo `docker-compose.yml
 ## 📡 Socket API (Eventos)
 
 ### Emitir (Referee Only)
-- `RECORD_POINT`: `(player: 'A' | 'B')` -> Suma un punto.
-- `SUBTRACT_POINT`: `(player: 'A' | 'B')` -> Resta un punto.
-- `SET_SERVER`: `(player: 'A' | 'B')` -> Cambia el servicio manualmente.
-- `RESET_MATCH`: `(config: MatchConfig)` -> Reinicia el partido con nueva configuración.
+- `RECORD_POINT`: `(player: 'a' | 'b')` → Suma un punto.
+- `SUBTRACT_POINT`: `(player: 'a' | 'b')` → Resta un punto.
+- `SET_SERVER`: `(player: 'a' | 'b')` → Cambia el servicio manualmente.
+- `START_MATCH`: `(tableId, config)` → Inicia el partido.
+- `SET_REF`: `(tableId, pin)` → Autentica como árbitro.
+- `UNDO_LAST`: `(tableId)` → Deshace el último punto.
 
 ### Escuchar (All)
-- `MATCH_UPDATE`: Recibe el estado completo del partido (`MatchState`).
+- `MATCH_UPDATE`: Recibe el estado completo del partido (`MatchStateExtended`).
+- `TABLE_UPDATE`: Actualización de información de mesa.
 - `ERROR`: Recibe mensajes de autorización fallida o errores de lógica.
+- `REF_SET`: Confirmación de autenticación de árbitro.
 
 ---
 
@@ -193,11 +198,24 @@ Podés ajustar el comportamiento del Hub editando el archivo `docker-compose.yml
 
 ```text
 rallyOS-hub/
-├── docs/               # Documentación técnica y especificaciones.
-└── server/             # Código fuente del Servidor Node.js + Socket.io.
-    ├── src/            # Lógica en TypeScript.
-    ├── public/         # UI (HTML/CSS/JS) para el Live Board.
-    └── Dockerfile      # Configuración de contenedor.
+├── client/                 # Frontend React + TypeScript + Vite
+│   ├── src/
+│   │   ├── pages/         # 5 páginas (Auth, Dashboard, Scoreboard, WaitingRoom, History)
+│   │   ├── components/    # Componentes atoms/molecules/organisms
+│   │   ├── hooks/         # useAuth, useSocket
+│   │   ├── contexts/      # SocketContext global
+│   │   └── test/          # Unit tests (Vitest)
+│   ├── tests/             # E2E tests (Playwright)
+│   └── dist/              # Build de producción
+│
+├── server/                 # Backend Node.js + Socket.io
+│   ├── src/               # Lógica en TypeScript
+│   ├── public/            # UI del Live Board
+│   └── dist/              # Compilado
+│
+├── docs/                  # Documentación técnica
+├── openspec/              # Especificaciones SDD
+└── shared/                # Tipos TypeScript compartidos
 ```
 
 ---

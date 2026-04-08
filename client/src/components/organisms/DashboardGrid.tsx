@@ -31,6 +31,7 @@ export function DashboardGrid({
             <TableStatusChip
               tableNumber={table.number}
               tableName={table.name}
+              tablePin={table.pin}
               status={table.status}
               playerNames={table.playerNames}
               playerCount={table.playerCount}
@@ -59,6 +60,7 @@ export function DashboardGrid({
             <TableStatusChip
               tableNumber={table.number}
               tableName={table.name}
+              tablePin={table.pin}
               status={table.status}
               playerNames={table.playerNames}
               playerCount={table.playerCount}

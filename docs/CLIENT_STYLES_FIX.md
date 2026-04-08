@@ -5,6 +5,8 @@
 **Causa:** Lógica incorrecta en cómo el servidor servía los archivos estáticos  
 **Estado:** ✅ RESUELTO
 
+> ⚠️ **NOTA HISTÓRICA**: Este bug ya fue resuelto y documentado. Se mantiene como referencia.
+
 ---
 
 ## Problema Identificado

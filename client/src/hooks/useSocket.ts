@@ -103,6 +103,17 @@ export function useSocket(options: UseSocketOptions = {}) {
     });
     socket.on('HISTORY_UPDATE', (history: ScoreChange[]) => setCurrentMatch(prev => prev ? { ...prev, history } : null));
 
+    // Listen for errors
+    socket.on('ERROR', (error: { code: string; message: string }) => {
+      console.error('[Socket] Error from server:', error);
+      setState(s => ({ ...s, error: error.message }));
+    });
+
+    // Listen for REF_SET confirmation
+    socket.on('REF_SET', (data: { tableId: string }) => {
+      console.log('[Socket] REF_SET confirmed for table:', data.tableId);
+    });
+
     socketRef.current = socket;
   }, [serverUrl]);
 

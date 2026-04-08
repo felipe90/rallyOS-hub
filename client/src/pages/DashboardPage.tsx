@@ -29,6 +29,11 @@ export function DashboardPage() {
   }
 
   const handleTableClick = (tableId: string) => {
+    // Find table and store PIN for scoreboard authentication
+    const table = tables.find(t => t.id === tableId)
+    if (table?.pin) {
+      localStorage.setItem('tablePin', table.pin)
+    }
     navigate(`/scoreboard/${tableId}`)
   }
 

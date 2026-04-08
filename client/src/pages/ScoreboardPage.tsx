@@ -26,6 +26,15 @@ export function ScoreboardPage() {
     }
   }, [tableId, connected, emit])
 
+  // Authenticate as referee when page loads (if referee)
+  useEffect(() => {
+    if (connected && tableId && isReferee) {
+      const tablePin = localStorage.getItem('tablePin') || '12345'
+      console.log(`[Scoreboard] Authenticating as referee for table: ${tableId} with PIN: ${tablePin}`)
+      emit('SET_REF', { tableId, pin: tablePin })
+    }
+  }, [tableId, connected, isReferee, emit])
+
   if (!currentMatch) {
     return (
       <div className="flex flex-col items-center justify-center h-screen">
@@ -41,7 +50,16 @@ export function ScoreboardPage() {
       return
     }
     const playerKey = player.toLowerCase() as 'a' | 'b'
-    emit('SCORE_POINT', { player: playerKey, tableId })
+    emit('RECORD_POINT', { player: playerKey, tableId })
+  }
+
+  const handleSubtractPoint = (player: 'A' | 'B') => {
+    if (!connected) {
+      console.warn('Not connected to server')
+      return
+    }
+    const playerKey = player.toLowerCase() as 'a' | 'b'
+    emit('SUBTRACT_POINT', { player: playerKey, tableId })
   }
 
   const handleUndo = () => {
@@ -80,7 +98,7 @@ export function ScoreboardPage() {
   if (isReferee && currentMatch.status !== 'LIVE') {
     return (
       <div className="flex flex-col h-screen bg-surface">
-        <ConnectionStatus />
+        {/* <ConnectionStatus /> */}
         
         <div className="pt-12 p-4 border-b border-border flex justify-between items-center">
           <h2 className="text-lg font-heading font-bold">Configurar Partido</h2>
@@ -112,7 +130,7 @@ export function ScoreboardPage() {
   return (
     <div className="flex flex-col h-screen bg-surface">
       {/* Connection Status Bar */}
-      <ConnectionStatus />
+      {/* <ConnectionStatus /> */}
 
       {/* Top Bar */}
       <div className="pt-12 p-4 border-b border-border flex justify-between items-center landscape:hidden">
@@ -142,6 +160,7 @@ export function ScoreboardPage() {
         <ScoreboardMain
           match={currentMatch}
           onScorePoint={handleScorePoint}
+          onSubtractPoint={handleSubtractPoint}
           onUndo={handleUndo}
           onSettingsClick={() => handleSetServer('A')}
           onHistoryClick={() => setHistoryOpen(true)}

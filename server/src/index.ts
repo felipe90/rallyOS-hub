@@ -10,9 +10,16 @@ import fs from 'fs';
 const app = express();
 
 const defaultAllowedOrigins = [
+  'http://localhost:5173',
+  'https://localhost:5173',
   'http://localhost:3000',
+  'https://localhost:3000',
+  'http://127.0.0.1:5173',
+  'https://127.0.0.1:5173',
   'http://127.0.0.1:3000',
+  'https://127.0.0.1:3000',
   'http://orangepi.local:3000',
+  'https://orangepi.local:3000',
 ];
 
 const allowedOrigins = (process.env.HUB_ALLOWED_ORIGINS || '')
@@ -34,7 +41,8 @@ const corsOriginValidator = (origin: string | undefined, callback: (err: Error |
     return;
   }
 
-  callback(new Error('Not allowed by CORS'));
+  console.warn(`[CORS] Blocked origin: ${origin}`);
+  callback(null, false);
 };
 
 app.use(cors({ origin: corsOriginValidator, credentials: true }));

@@ -13,9 +13,16 @@ const path_1 = __importDefault(require("path"));
 const fs_1 = __importDefault(require("fs"));
 const app = (0, express_1.default)();
 const defaultAllowedOrigins = [
+    'http://localhost:5173',
+    'https://localhost:5173',
     'http://localhost:3000',
+    'https://localhost:3000',
+    'http://127.0.0.1:5173',
+    'https://127.0.0.1:5173',
     'http://127.0.0.1:3000',
+    'https://127.0.0.1:3000',
     'http://orangepi.local:3000',
+    'https://orangepi.local:3000',
 ];
 const allowedOrigins = (process.env.HUB_ALLOWED_ORIGINS || '')
     .split(',')
@@ -32,7 +39,8 @@ const corsOriginValidator = (origin, callback) => {
         callback(null, true);
         return;
     }
-    callback(new Error('Not allowed by CORS'));
+    console.warn(`[CORS] Blocked origin: ${origin}`);
+    callback(null, false);
 };
 app.use((0, cors_1.default)({ origin: corsOriginValidator, credentials: true }));
 // Path to SSL Certificates (must be generated via OpenSSL locally or via Docker)

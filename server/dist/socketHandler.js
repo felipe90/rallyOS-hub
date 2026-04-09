@@ -42,7 +42,12 @@ class SocketHandler {
             socket.on('CREATE_TABLE', (data) => {
                 const table = this.tableManager.createTable(data?.name);
                 socket.join(table.id); // Creator joins the table room
+                // POC UX: the table creator is trusted as initial referee for that table.
+                // This avoids relying on exposing/storing table PIN on the client.
+                this.tableManager.joinTable(table.id, socket.id, 'Referee');
+                this.tableManager.setReferee(table.id, socket.id, table.pin);
                 socket.emit('TABLE_CREATED', this.tableManager.tableToInfo(table));
+                socket.emit('REF_SET', { tableId: table.id });
                 const qrData = this.tableManager.generateQRData(table.id);
                 if (qrData) {
                     socket.emit('QR_DATA', qrData);

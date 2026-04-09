@@ -1,7 +1,7 @@
 import { Routes, Route } from 'react-router-dom'
 import './index.css'
 import { SocketProvider } from './contexts/SocketContext'
-import { PrivateRoute } from './components/PrivateRoute'
+import { PrivateRoute } from './components/utilities/PrivateRoute'
 import { AuthPage } from './pages/AuthPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { ScoreboardPage } from './pages/ScoreboardPage'

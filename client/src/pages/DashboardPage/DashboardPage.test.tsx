@@ -7,9 +7,9 @@ import { SocketContext, SocketContextType } from '@/contexts/SocketContext'
 import { useAuth } from '@/hooks/useAuth'
 
 const mockTables = [
-  { id: 'table-1', number: 1, name: 'Mesa 1', status: 'LIVE' as const, pin: '11111', playerCount: 2 },
-  { id: 'table-2', number: 2, name: 'Mesa 2', status: 'WAITING' as const, pin: '22222', playerCount: 0 },
-  { id: 'table-3', number: 3, name: 'Mesa 3', status: 'FINISHED' as const, pin: '33333', playerCount: 4 },
+  { id: 'table-1', number: 1, name: 'Mesa 1', status: 'LIVE' as const, playerCount: 2 },
+  { id: 'table-2', number: 2, name: 'Mesa 2', status: 'WAITING' as const, playerCount: 0 },
+  { id: 'table-3', number: 3, name: 'Mesa 3', status: 'FINISHED' as const, playerCount: 4 },
 ]
 
 const mockCreateTable = vi.fn((name?: string) => Promise.resolve({ 
@@ -17,7 +17,6 @@ const mockCreateTable = vi.fn((name?: string) => Promise.resolve({
   name: name || 'New Table', 
   number: 0,
   status: 'WAITING' as const, 
-  pin: '00000',
   playerCount: 0 
 }))
 

@@ -9,7 +9,6 @@ const mockTables: TableInfo[] = [
     number: 1,
     name: 'Mesa 1',
     status: 'WAITING',
-    pin: '1234',
     playerCount: 0,
   },
   {
@@ -17,7 +16,6 @@ const mockTables: TableInfo[] = [
     number: 2,
     name: 'Mesa 2',
     status: 'LIVE',
-    pin: '5678',
     playerCount: 2,
     playerNames: { a: 'Player A', b: 'Player B' },
   },
@@ -26,7 +24,6 @@ const mockTables: TableInfo[] = [
     number: 3,
     name: 'Mesa 3',
     status: 'FINISHED',
-    pin: '9012',
     playerCount: 2,
   },
 ];

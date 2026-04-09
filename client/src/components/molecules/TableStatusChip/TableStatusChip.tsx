@@ -7,7 +7,6 @@ export interface TableStatusChipProps {
   tableNumber: number;
   tableName: string;
   status: TableStatus;
-  tablePin?: string;
   playerNames?: { a: string; b: string };
   playerCount?: number;
   className?: string;
@@ -25,7 +24,6 @@ export function TableStatusChip({
   tableNumber,
   tableName,
   status,
-  tablePin,
   playerNames,
   playerCount = 0,
   className = '',
@@ -50,10 +48,6 @@ export function TableStatusChip({
       </div>
       
       <Body className="text-sm text-text/70">{tableName}</Body>
-      
-      {tablePin && (
-        <Body className="text-xs text-text/40">PIN: {tablePin}</Body>
-      )}
       
       {playerNames && (playerNames.a || playerNames.b) && (
         <div className="flex gap-2 text-sm text-text/50">

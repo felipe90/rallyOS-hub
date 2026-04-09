@@ -12,7 +12,29 @@ const tableManager_1 = require("./tableManager");
 const path_1 = __importDefault(require("path"));
 const fs_1 = __importDefault(require("fs"));
 const app = (0, express_1.default)();
-app.use((0, cors_1.default)());
+const defaultAllowedOrigins = [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://orangepi.local:3000',
+];
+const allowedOrigins = (process.env.HUB_ALLOWED_ORIGINS || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+const effectiveAllowedOrigins = allowedOrigins.length > 0 ? allowedOrigins : defaultAllowedOrigins;
+const corsOriginValidator = (origin, callback) => {
+    // Allow requests without Origin header (curl, local tools, server-to-server)
+    if (!origin) {
+        callback(null, true);
+        return;
+    }
+    if (effectiveAllowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+    }
+    callback(new Error('Not allowed by CORS'));
+};
+app.use((0, cors_1.default)({ origin: corsOriginValidator, credentials: true }));
 // Path to SSL Certificates (must be generated via OpenSSL locally or via Docker)
 const keyPath = path_1.default.join(__dirname, '../key.pem');
 const certPath = path_1.default.join(__dirname, '../cert.pem');
@@ -79,10 +101,7 @@ app.get('/health', (req, res) => {
 const httpServer = (0, https_1.createServer)(httpsOptions, app);
 const io = new socket_io_1.Server(httpServer, {
     cors: {
-        origin: function (origin, callback) {
-            // Allow all origins (safe for development, secure in production with proper CORS)
-            callback(null, true);
-        },
+        origin: corsOriginValidator,
         methods: ['GET', 'POST'],
         credentials: true,
     },
@@ -100,7 +119,7 @@ new socketHandler_1.SocketHandler(io, tableManager);
 // Log Socket.IO debug info
 console.log('[🔌 Socket.IO] Initialized');
 console.log('[🔌 Socket.IO] Transports:', io.engine.opts.transports);
-console.log('[🔌 Socket.IO] CORS enabled');
+console.log('[🔌 Socket.IO] Allowed CORS origins:', effectiveAllowedOrigins.join(', '));
 httpServer.listen(PORT, () => {
     console.log(`
   🚀 rallyOS-hub is live (SECURE)!

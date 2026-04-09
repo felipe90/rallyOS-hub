@@ -5,9 +5,9 @@ import React from 'react'
 import type { TableInfo } from '../../../../shared/types'
 
 const mockTables: TableInfo[] = [
-  { id: '1', number: 1, name: 'Mesa Alpha', status: 'WAITING', pin: '0000', playerCount: 0 },
-  { id: '2', number: 2, name: 'Mesa Beta', status: 'LIVE', pin: '0000', playerCount: 2, playerNames: { a: 'A', b: 'B' } },
-  { id: '3', number: 3, name: 'Mesa Gamma', status: 'FINISHED', pin: '0000', playerCount: 2 },
+  { id: '1', number: 1, name: 'Mesa Alpha', status: 'WAITING', playerCount: 0 },
+  { id: '2', number: 2, name: 'Mesa Beta', status: 'LIVE', playerCount: 2, playerNames: { a: 'A', b: 'B' } },
+  { id: '3', number: 3, name: 'Mesa Gamma', status: 'FINISHED', playerCount: 2 },
 ]
 
 describe('DashboardGrid', () => {

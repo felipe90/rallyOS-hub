@@ -92,7 +92,6 @@ export interface TableInfo {
   number: number;
   name: string;
   status: TableStatus;
-  pin: string;
   playerCount: number;
   playerNames?: { a: string; b: string };
   currentScore?: Score;

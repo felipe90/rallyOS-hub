@@ -1,10 +1,14 @@
 import { Server, Socket } from 'socket.io';
 import { TableManager } from './tableManager';
 import { MatchEngine, Player, MatchConfig } from './matchEngine';
+import { TableInfo } from './types';
 
 export class SocketHandler {
   private io: Server;
   private tableManager: TableManager;
+  private readonly rateLimitWindowMs = 60_000;
+  private readonly rateLimitMaxAttempts = 5;
+  private rateLimitAttempts: Map<string, number[]> = new Map();
 
   constructor(io: Server, tableManager: TableManager) {
     this.io = io;
@@ -12,8 +16,8 @@ export class SocketHandler {
     
     // Set up global table update listener once
     this.tableManager.onTableUpdate = (tableInfo) => {
-      this.io.emit('TABLE_UPDATE', tableInfo);
-      this.io.emit('TABLE_LIST', this.tableManager.getAllTables());
+      this.io.emit('TABLE_UPDATE', this.toPublicTableInfo(tableInfo));
+      this.io.emit('TABLE_LIST', this.getPublicTableList());
     };
     
     this.tableManager.onMatchEvent = (tableId, event) => {
@@ -34,7 +38,7 @@ export class SocketHandler {
       console.log(`[Socket] Connected clients: ${this.io.engine.clientsCount}`);
       
       // Send current tables to new client
-      socket.emit('TABLE_LIST', this.tableManager.getAllTables());
+      socket.emit('TABLE_LIST', this.getPublicTableList());
       
       // Handle disconnection
       socket.on('disconnect', (reason) => {
@@ -62,7 +66,7 @@ export class SocketHandler {
       });
       
       socket.on('LIST_TABLES', () => {
-        socket.emit('TABLE_LIST', this.tableManager.getAllTables());
+        socket.emit('TABLE_LIST', this.getPublicTableList());
       });
 
       socket.on('GET_MATCH_STATE', (data: { tableId: string }) => {
@@ -92,7 +96,7 @@ export class SocketHandler {
           
           const tableInfo = this.tableManager.getAllTables().find(t => t.id === data.tableId);
           if (tableInfo) {
-            socket.emit('TABLE_UPDATE', tableInfo);
+            socket.emit('TABLE_UPDATE', this.toPublicTableInfo(tableInfo));
           }
           
           const state = this.tableManager.getMatchState(data.tableId);
@@ -129,6 +133,14 @@ export class SocketHandler {
         if (!data?.tableId || !data?.pin) {
           return socket.emit('ERROR', { code: 'INVALID_PARAMS', message: 'tableId and pin required' });
         }
+
+        const rateLimitKey = `SET_REF:${data.tableId}:${socket.id}`;
+        if (this.isRateLimited(rateLimitKey)) {
+          return socket.emit('ERROR', {
+            code: 'RATE_LIMITED',
+            message: 'Too many attempts. Please wait a minute before trying again.',
+          });
+        }
         
         const success = this.tableManager.setReferee(data.tableId, socket.id, data.pin);
         if (success) {
@@ -137,7 +149,7 @@ export class SocketHandler {
           
           const tableInfo = this.tableManager.getAllTables().find(t => t.id === data.tableId);
           if (tableInfo) {
-            this.io.emit('TABLE_UPDATE', tableInfo); // Update global dashboard
+            this.io.emit('TABLE_UPDATE', this.toPublicTableInfo(tableInfo)); // Update global dashboard
           }
         } else {
           socket.emit('ERROR', { code: 'INVALID_PIN', message: 'PIN incorrecto' });
@@ -311,6 +323,14 @@ export class SocketHandler {
         if (!data?.tableId || !data?.pin) {
           return socket.emit('ERROR', { code: 'INVALID_PARAMS', message: 'tableId and pin required' });
         }
+
+        const rateLimitKey = `DELETE_TABLE:${data.tableId}:${socket.id}`;
+        if (this.isRateLimited(rateLimitKey)) {
+          return socket.emit('ERROR', {
+            code: 'RATE_LIMITED',
+            message: 'Too many attempts. Please wait a minute before trying again.',
+          });
+        }
         
         const table = this.tableManager.getTable(data.tableId);
         if (!table) {
@@ -333,7 +353,7 @@ export class SocketHandler {
         if (success) {
           console.log(`[Socket] Table ${data.tableId} killed by ${socket.id}`);
           // Broadcast updated list to everyone
-          this.io.emit('TABLE_LIST', this.tableManager.getAllTables());
+          this.io.emit('TABLE_LIST', this.getPublicTableList());
         }
       });
       
@@ -353,5 +373,24 @@ export class SocketHandler {
   
   public getTableInfo(tableId: string) {
     return this.tableManager.getAllTables().find(t => t.id === tableId);
+  }
+
+  private getPublicTableList(): Omit<TableInfo, 'pin'>[] {
+    return this.tableManager.getAllTables().map((table) => this.toPublicTableInfo(table));
+  }
+
+  private toPublicTableInfo(table: TableInfo): Omit<TableInfo, 'pin'> {
+    const { pin: _pin, ...publicTable } = table;
+    return publicTable;
+  }
+
+  private isRateLimited(key: string): boolean {
+    const now = Date.now();
+    const windowStart = now - this.rateLimitWindowMs;
+    const attempts = this.rateLimitAttempts.get(key) ?? [];
+    const recentAttempts = attempts.filter((timestamp) => timestamp > windowStart);
+    recentAttempts.push(now);
+    this.rateLimitAttempts.set(key, recentAttempts);
+    return recentAttempts.length > this.rateLimitMaxAttempts;
   }
 }

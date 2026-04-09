@@ -3,12 +3,15 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SocketHandler = void 0;
 class SocketHandler {
     constructor(io, tableManager) {
+        this.rateLimitWindowMs = 60000;
+        this.rateLimitMaxAttempts = 5;
+        this.rateLimitAttempts = new Map();
         this.io = io;
         this.tableManager = tableManager;
         // Set up global table update listener once
         this.tableManager.onTableUpdate = (tableInfo) => {
-            this.io.emit('TABLE_UPDATE', tableInfo);
-            this.io.emit('TABLE_LIST', this.tableManager.getAllTables());
+            this.io.emit('TABLE_UPDATE', this.toPublicTableInfo(tableInfo));
+            this.io.emit('TABLE_LIST', this.getPublicTableList());
         };
         this.tableManager.onMatchEvent = (tableId, event) => {
             // Emit events only to the specific table room
@@ -26,7 +29,7 @@ class SocketHandler {
             console.log(`[✓ Socket] Client connected: ${socket.id}`);
             console.log(`[Socket] Connected clients: ${this.io.engine.clientsCount}`);
             // Send current tables to new client
-            socket.emit('TABLE_LIST', this.tableManager.getAllTables());
+            socket.emit('TABLE_LIST', this.getPublicTableList());
             // Handle disconnection
             socket.on('disconnect', (reason) => {
                 console.log(`[✗ Socket] Client disconnected: ${socket.id} - Reason: ${reason}`);
@@ -47,7 +50,7 @@ class SocketHandler {
                 socket.emit('MATCH_UPDATE', this.tableManager.getMatchState(table.id));
             });
             socket.on('LIST_TABLES', () => {
-                socket.emit('TABLE_LIST', this.tableManager.getAllTables());
+                socket.emit('TABLE_LIST', this.getPublicTableList());
             });
             socket.on('GET_MATCH_STATE', (data) => {
                 if (!data?.tableId) {
@@ -72,7 +75,7 @@ class SocketHandler {
                     socket.emit('TABLE_JOINED', { tableId: data.tableId });
                     const tableInfo = this.tableManager.getAllTables().find(t => t.id === data.tableId);
                     if (tableInfo) {
-                        socket.emit('TABLE_UPDATE', tableInfo);
+                        socket.emit('TABLE_UPDATE', this.toPublicTableInfo(tableInfo));
                     }
                     const state = this.tableManager.getMatchState(data.tableId);
                     if (state) {
@@ -107,13 +110,20 @@ class SocketHandler {
                 if (!data?.tableId || !data?.pin) {
                     return socket.emit('ERROR', { code: 'INVALID_PARAMS', message: 'tableId and pin required' });
                 }
+                const rateLimitKey = `SET_REF:${data.tableId}:${socket.id}`;
+                if (this.isRateLimited(rateLimitKey)) {
+                    return socket.emit('ERROR', {
+                        code: 'RATE_LIMITED',
+                        message: 'Too many attempts. Please wait a minute before trying again.',
+                    });
+                }
                 const success = this.tableManager.setReferee(data.tableId, socket.id, data.pin);
                 if (success) {
                     socket.join(data.tableId); // Ensure referee is in the room
                     socket.emit('REF_SET', { tableId: data.tableId });
                     const tableInfo = this.tableManager.getAllTables().find(t => t.id === data.tableId);
                     if (tableInfo) {
-                        this.io.emit('TABLE_UPDATE', tableInfo); // Update global dashboard
+                        this.io.emit('TABLE_UPDATE', this.toPublicTableInfo(tableInfo)); // Update global dashboard
                     }
                 }
                 else {
@@ -256,6 +266,13 @@ class SocketHandler {
                 if (!data?.tableId || !data?.pin) {
                     return socket.emit('ERROR', { code: 'INVALID_PARAMS', message: 'tableId and pin required' });
                 }
+                const rateLimitKey = `DELETE_TABLE:${data.tableId}:${socket.id}`;
+                if (this.isRateLimited(rateLimitKey)) {
+                    return socket.emit('ERROR', {
+                        code: 'RATE_LIMITED',
+                        message: 'Too many attempts. Please wait a minute before trying again.',
+                    });
+                }
                 const table = this.tableManager.getTable(data.tableId);
                 if (!table) {
                     return socket.emit('ERROR', { code: 'TABLE_NOT_FOUND', message: 'Mesa no encontrada' });
@@ -272,7 +289,7 @@ class SocketHandler {
                 if (success) {
                     console.log(`[Socket] Table ${data.tableId} killed by ${socket.id}`);
                     // Broadcast updated list to everyone
-                    this.io.emit('TABLE_LIST', this.tableManager.getAllTables());
+                    this.io.emit('TABLE_LIST', this.getPublicTableList());
                 }
             });
             socket.on('disconnect', () => {
@@ -289,6 +306,22 @@ class SocketHandler {
     }
     getTableInfo(tableId) {
         return this.tableManager.getAllTables().find(t => t.id === tableId);
+    }
+    getPublicTableList() {
+        return this.tableManager.getAllTables().map((table) => this.toPublicTableInfo(table));
+    }
+    toPublicTableInfo(table) {
+        const { pin: _pin, ...publicTable } = table;
+        return publicTable;
+    }
+    isRateLimited(key) {
+        const now = Date.now();
+        const windowStart = now - this.rateLimitWindowMs;
+        const attempts = this.rateLimitAttempts.get(key) ?? [];
+        const recentAttempts = attempts.filter((timestamp) => timestamp > windowStart);
+        recentAttempts.push(now);
+        this.rateLimitAttempts.set(key, recentAttempts);
+        return recentAttempts.length > this.rateLimitMaxAttempts;
     }
 }
 exports.SocketHandler = SocketHandler;

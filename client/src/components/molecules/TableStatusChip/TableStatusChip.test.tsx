@@ -21,11 +21,6 @@ describe('TableStatusChip', () => {
     expect(screen.getByText('Tournament Table')).toBeInTheDocument();
   });
 
-  it('renders table PIN when provided', () => {
-    render(<TableStatusChip tableNumber={1} tableName="Test" status="WAITING" tablePin="1234" />);
-    expect(screen.getByText('PIN: 1234')).toBeInTheDocument();
-  });
-
   it('renders player names when provided', () => {
     const playerNames = { a: 'Player A', b: 'Player B' };
     render(<TableStatusChip tableNumber={1} tableName="Test" status="LIVE" playerNames={playerNames} />);

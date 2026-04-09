@@ -18,6 +18,7 @@ services:
       - REFEREE_PIN=${REFEREE_PIN:-12345}
       - HUB_SSID=${HUB_SSID:-RallyOS}
       - HUB_IP=${HUB_IP:-192.168.4.1}
+      - HUB_ALLOWED_ORIGINS=${HUB_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000,http://orangepi.local:3000}
       - NODE_OPTIONS=--max-old-space-size=256
     networks:
       - rallyos-net

@@ -33,7 +33,7 @@ class TableManager {
             this.onMatchEvent(id, event);
         });
         this.tables.set(id, table);
-        console.log(`[TableManager] Created ${tableName} (ID: ${id}, PIN: ${pin})`);
+        console.log(`[TableManager] Created ${tableName} (ID: ${id})`);
         this.notifyUpdate(table);
         return table;
     }
@@ -49,7 +49,7 @@ class TableManager {
             return false;
         // Validate PIN if provided
         if (pin && table.pin !== pin) {
-            console.log(`[TableManager] Invalid PIN for ${table.name}: expected ${table.pin}, got ${pin}`);
+            console.log(`[TableManager] Invalid PIN for ${table.name}`);
             return false;
         }
         const existing = table.players.find(p => p.socketId === socketId);
@@ -66,7 +66,7 @@ class TableManager {
         };
         table.players.push(player);
         this.notifyUpdate(table);
-        console.log(`[TableManager] Player ${name} joined ${table.name} (PIN: ${pin ? 'valid' : 'none'})`);
+        console.log(`[TableManager] Player ${name} joined ${table.name}`);
         return true;
     }
     leaveTable(tableId, socketId) {

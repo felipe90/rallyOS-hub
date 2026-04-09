@@ -40,7 +40,7 @@ export class TableManager {
     });
     
     this.tables.set(id, table);
-    console.log(`[TableManager] Created ${tableName} (ID: ${id}, PIN: ${pin})`);
+    console.log(`[TableManager] Created ${tableName} (ID: ${id})`);
     
     this.notifyUpdate(table);
     
@@ -61,7 +61,7 @@ export class TableManager {
     
     // Validate PIN if provided
     if (pin && table.pin !== pin) {
-      console.log(`[TableManager] Invalid PIN for ${table.name}: expected ${table.pin}, got ${pin}`);
+      console.log(`[TableManager] Invalid PIN for ${table.name}`);
       return false;
     }
     
@@ -82,7 +82,7 @@ export class TableManager {
     table.players.push(player);
     this.notifyUpdate(table);
     
-    console.log(`[TableManager] Player ${name} joined ${table.name} (PIN: ${pin ? 'valid' : 'none'})`);
+    console.log(`[TableManager] Player ${name} joined ${table.name}`);
     return true;
   }
   

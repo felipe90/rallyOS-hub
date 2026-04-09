@@ -26,7 +26,7 @@ export function AuthPage() {
     try {
       // Login as spectator (no PIN needed)
       login('viewer')
-      navigate('/dashboard')
+      navigate('/waiting-room')
     } catch (err) {
       setError('Error durante login')
       console.error(err)

@@ -154,14 +154,14 @@ describe('AuthPage', () => {
       expect(mockLogin).toHaveBeenCalledWith('viewer')
     })
 
-    it('navigates to dashboard after successful login', async () => {
+    it('navigates to waiting-room after successful login', async () => {
       renderWithRouter()
       
       const spectatorButton = screen.getAllByText('Espectador')[0]
       fireEvent.click(spectatorButton)
       
       await waitFor(() => {
-        expect(mockNavigate).toHaveBeenCalledWith('/dashboard')
+        expect(mockNavigate).toHaveBeenCalledWith('/waiting-room')
       })
     })
   })

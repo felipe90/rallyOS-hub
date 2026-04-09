@@ -55,9 +55,15 @@ export class TableManager {
     return Array.from(this.tables.values()).map(t => this.tableToInfo(t));
   }
   
-  public joinTable(tableId: string, socketId: string, name: string): boolean {
+  public joinTable(tableId: string, socketId: string, name: string, pin?: string): boolean {
     const table = this.tables.get(tableId);
     if (!table) return false;
+    
+    // Validate PIN if provided
+    if (pin && table.pin !== pin) {
+      console.log(`[TableManager] Invalid PIN for ${table.name}: expected ${table.pin}, got ${pin}`);
+      return false;
+    }
     
     const existing = table.players.find(p => p.socketId === socketId);
     if (existing) {
@@ -76,7 +82,7 @@ export class TableManager {
     table.players.push(player);
     this.notifyUpdate(table);
     
-    console.log(`[TableManager] Player ${name} joined ${table.name}`);
+    console.log(`[TableManager] Player ${name} joined ${table.name} (PIN: ${pin ? 'valid' : 'none'})`);
     return true;
   }
   
@@ -158,7 +164,7 @@ export class TableManager {
     this.notifyUpdate(table);
   }
   
-  public startMatch(tableId: string, config?: Partial<MatchConfig>): MatchStateExtended | null {
+  public startMatch(tableId: string, config?: Partial<MatchConfig> & { playerNameA?: string; playerNameB?: string }): MatchStateExtended | null {
     console.log('[TableManager] startMatch called for table:', tableId, 'config:', config);
     
     const table = this.tables.get(tableId);
@@ -167,11 +173,16 @@ export class TableManager {
       return null;
     }
     
+    // Determine player names - use config names or keep existing
+    const playerNames = {
+      a: config?.playerNameA || table.playerNames.a || 'Player A',
+      b: config?.playerNameB || table.playerNames.b || 'Player B',
+    };
+    
     // If config provided, create a new MatchEngine with it
     if (config) {
       console.log('[TableManager] Creating new MatchEngine with config');
-      // Preserve player names and table info
-      const playerNames = table.playerNames;
+      // Preserve table info
       const tblId = table.id;
       const tblName = table.name;
       
@@ -184,12 +195,17 @@ export class TableManager {
         handicapB: config.handicapB || 0,
       });
       
-      // Restore table metadata
+      // Restore table metadata and player names
       table.matchEngine.setTableId(tblId, tblName);
       table.matchEngine.setPlayerNames(playerNames);
       table.matchEngine.setEventCallback((event: MatchEvent) => {
         this.onMatchEvent(tableId, event);
       });
+    }
+    
+    // Update table player names if provided
+    if (config?.playerNameA || config?.playerNameB) {
+      table.playerNames = playerNames;
     }
     
     table.status = 'LIVE';

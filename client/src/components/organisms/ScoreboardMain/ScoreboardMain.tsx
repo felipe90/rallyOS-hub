@@ -403,13 +403,22 @@ export interface MatchConfigPanelProps {
     bestOf: number;
     handicapA?: number;
     handicapB?: number;
+    playerNameA?: string;
+    playerNameB?: string;
   };
-  onStart: (config: { pointsPerSet: number; bestOf: number; handicapA?: number; handicapB?: number }) => void;
+  onStart: (config: { 
+    pointsPerSet: number; 
+    bestOf: number; 
+    handicapA?: number; 
+    handicapB?: number;
+    playerNameA?: string;
+    playerNameB?: string;
+  }) => void;
   onCancel: () => void;
 }
 
 function MatchConfigPanelInternal({
-  defaultConfig = { pointsPerSet: 11, bestOf: 3, handicapA: 0, handicapB: 0 },
+  defaultConfig = { pointsPerSet: 11, bestOf: 3, handicapA: 0, handicapB: 0, playerNameA: '', playerNameB: '' },
   onStart,
   onCancel,
 }: MatchConfigPanelProps) {
@@ -417,9 +426,18 @@ function MatchConfigPanelInternal({
   const [bestOf, setBestOf] = useState(defaultConfig.bestOf || 3);
   const [handicapA, setHandicapA] = useState(defaultConfig.handicapA || 0);
   const [handicapB, setHandicapB] = useState(defaultConfig.handicapB || 0);
+  const [playerNameA, setPlayerNameA] = useState(defaultConfig.playerNameA || '');
+  const [playerNameB, setPlayerNameB] = useState(defaultConfig.playerNameB || '');
 
   const handleStart = () => {
-    onStart({ pointsPerSet, bestOf, handicapA, handicapB });
+    onStart({ 
+      pointsPerSet, 
+      bestOf, 
+      handicapA, 
+      handicapB,
+      playerNameA: playerNameA.trim() || 'Player A',
+      playerNameB: playerNameB.trim() || 'Player B'
+    });
   };
 
   return (
@@ -427,6 +445,28 @@ function MatchConfigPanelInternal({
       <Body className="text-2xl mb-8 font-heading">Configurar Partido</Body>
       
       <div className="flex flex-col gap-6 w-full max-w-md">
+        {/* Nombres de jugadores */}
+        <div className="flex flex-col gap-2 pb-4 border-b border-surface-high">
+          <Body className="font-medium text-lg">Jugadores</Body>
+          <div className="grid grid-cols-2 gap-4">
+            <input
+              type="text"
+              placeholder="Jugador A"
+              value={playerNameA}
+              onChange={(e) => setPlayerNameA(e.target.value)}
+              className="px-3 py-2 rounded-md border border-border bg-surface text-text placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <input
+              type="text"
+              placeholder="Jugador B"
+              value={playerNameB}
+              onChange={(e) => setPlayerNameB(e.target.value)}
+              className="px-3 py-2 rounded-md border border-border bg-surface text-text placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+          <Body className="text-sm text-text-muted">Deja en blanco para usar nombres por defecto</Body>
+        </div>
+        
         {/* Puntos por set */}
         <div className="flex flex-col gap-2">
           <Body className="font-medium text-lg">Puntos por set</Body>

@@ -62,10 +62,11 @@ class SocketHandler {
                 }
             });
             socket.on('JOIN_TABLE', (data) => {
-                if (!data?.tableId || !data?.name) {
-                    return socket.emit('ERROR', { code: 'INVALID_PARAMS', message: 'tableId and name required' });
+                if (!data?.tableId) {
+                    return socket.emit('ERROR', { code: 'INVALID_PARAMS', message: 'tableId required' });
                 }
-                const success = this.tableManager.joinTable(data.tableId, socket.id, data.name);
+                const playerName = data.name || `Espectador ${socket.id.slice(0, 6)}`;
+                const success = this.tableManager.joinTable(data.tableId, socket.id, playerName, data.pin);
                 if (success) {
                     socket.join(data.tableId); // JOIN the socket room for this table
                     socket.emit('TABLE_JOINED', { tableId: data.tableId });
@@ -79,7 +80,14 @@ class SocketHandler {
                     }
                 }
                 else {
-                    socket.emit('ERROR', { code: 'TABLE_NOT_FOUND', message: 'Mesa no encontrada' });
+                    // Check if it's a PIN error
+                    const table = this.tableManager.getAllTables().find(t => t.id === data.tableId);
+                    if (table && data.pin) {
+                        socket.emit('ERROR', { code: 'INVALID_PIN', message: 'PIN incorrecto' });
+                    }
+                    else {
+                        socket.emit('ERROR', { code: 'TABLE_NOT_FOUND', message: 'Mesa no encontrada' });
+                    }
                 }
             });
             socket.on('LEAVE_TABLE', (data) => {
@@ -152,12 +160,16 @@ class SocketHandler {
                     bestOf: data.bestOf || 3,
                     handicapA: data.handicapA || 0,
                     handicapB: data.handicapB || 0,
+                    playerNameA: data.playerNameA || 'Player A',
+                    playerNameB: data.playerNameB || 'Player B',
                 });
                 const state = this.tableManager.startMatch(data.tableId, {
                     pointsPerSet: data.pointsPerSet || 11,
                     bestOf: data.bestOf || 3,
                     handicapA: data.handicapA || 0,
                     handicapB: data.handicapB || 0,
+                    playerNameA: data.playerNameA,
+                    playerNameB: data.playerNameB,
                 });
                 console.log('[SocketHandler] START_MATCH: Result state:', state);
                 if (state) {

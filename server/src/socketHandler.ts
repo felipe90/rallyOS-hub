@@ -78,12 +78,14 @@ export class SocketHandler {
         }
       });
       
-      socket.on('JOIN_TABLE', (data: { tableId: string; name: string }) => {
-        if (!data?.tableId || !data?.name) {
-          return socket.emit('ERROR', { code: 'INVALID_PARAMS', message: 'tableId and name required' });
+      socket.on('JOIN_TABLE', (data: { tableId: string; name?: string; pin?: string; role?: string }) => {
+        if (!data?.tableId) {
+          return socket.emit('ERROR', { code: 'INVALID_PARAMS', message: 'tableId required' });
         }
         
-        const success = this.tableManager.joinTable(data.tableId, socket.id, data.name);
+        const playerName = data.name || `Espectador ${socket.id.slice(0, 6)}`;
+        const success = this.tableManager.joinTable(data.tableId, socket.id, playerName, data.pin);
+        
         if (success) {
           socket.join(data.tableId); // JOIN the socket room for this table
           socket.emit('TABLE_JOINED', { tableId: data.tableId });
@@ -98,7 +100,13 @@ export class SocketHandler {
             socket.emit('MATCH_UPDATE', state);
           }
         } else {
-          socket.emit('ERROR', { code: 'TABLE_NOT_FOUND', message: 'Mesa no encontrada' });
+          // Check if it's a PIN error
+          const table = this.tableManager.getAllTables().find(t => t.id === data.tableId);
+          if (table && data.pin) {
+            socket.emit('ERROR', { code: 'INVALID_PIN', message: 'PIN incorrecto' });
+          } else {
+            socket.emit('ERROR', { code: 'TABLE_NOT_FOUND', message: 'Mesa no encontrada' });
+          }
         }
       });
       
@@ -170,7 +178,7 @@ export class SocketHandler {
         }
       });
       
-      socket.on('START_MATCH', (data: { tableId: string; pointsPerSet?: number; bestOf?: number; handicapA?: number; handicapB?: number }) => {
+      socket.on('START_MATCH', (data: { tableId: string; pointsPerSet?: number; bestOf?: number; handicapA?: number; handicapB?: number; playerNameA?: string; playerNameB?: string }) => {
         console.log('[SocketHandler] START_MATCH received:', data);
         
         if (!data?.tableId) {
@@ -188,6 +196,8 @@ export class SocketHandler {
           bestOf: data.bestOf || 3,
           handicapA: data.handicapA || 0,
           handicapB: data.handicapB || 0,
+          playerNameA: data.playerNameA || 'Player A',
+          playerNameB: data.playerNameB || 'Player B',
         });
         
         const state = this.tableManager.startMatch(data.tableId, {
@@ -195,6 +205,8 @@ export class SocketHandler {
           bestOf: data.bestOf || 3,
           handicapA: data.handicapA || 0,
           handicapB: data.handicapB || 0,
+          playerNameA: data.playerNameA,
+          playerNameB: data.playerNameB,
         });
         
         console.log('[SocketHandler] START_MATCH: Result state:', state);

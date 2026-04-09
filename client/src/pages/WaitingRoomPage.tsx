@@ -1,10 +1,10 @@
 import { useNavigate } from 'react-router-dom'
-import { useSocketContext } from '../../contexts/SocketContext'
-import { useAuth } from '../../hooks/useAuth'
-import { PageHeader } from '../../components/molecules/PageHeader'
-import { PinInput } from '../../components/atoms/PinInput'
-import { Button } from '../../components/atoms/Button'
-import { Typography } from '../../components/atoms/Typography'
+import { useSocketContext } from '../contexts/SocketContext'
+import { useAuth } from '../hooks/useAuth'
+import { PageHeader } from '../components/molecules/PageHeader'
+import { PinInput } from '../components/atoms/PinInput'
+import { Button } from '../components/atoms/Button'
+import { Typography } from '../components/atoms/Typography'
 import { useState } from 'react'
 
 export function WaitingRoomPage() {
@@ -12,25 +12,20 @@ export function WaitingRoomPage() {
   const { tables, emit } = useSocketContext()
   const { login } = useAuth()
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null)
-  const [name, setName] = useState('')
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
 
   const availableTables = tables.filter((t) => t.status === 'WAITING')
 
   const handleJoinTable = async (tableId: string) => {
-    if (!name.trim()) {
-      setError('Ingresa tu nombre')
-      return
-    }
     if (!pin || pin.length !== 4) {
       setError('PIN debe tener 4 dígitos')
       return
     }
 
     try {
-      // Emit JOIN_TABLE event to server with name and pin
-      emit('JOIN_TABLE', { tableId, name: name.trim(), pin })
+      // Emit JOIN_TABLE event to server
+      emit('JOIN_TABLE', { tableId, pin, role: 'viewer' })
       
       // Store table info
       login('viewer', tableId)
@@ -83,16 +78,6 @@ export function WaitingRoomPage() {
                 
                 {selectedTableId === table.id && (
                   <div className="flex flex-col gap-2">
-                    <input
-                      type="text"
-                      placeholder="Tu nombre"
-                      value={name}
-                      onChange={(e) => {
-                        setName(e.target.value)
-                        setError('')
-                      }}
-                      className="w-full px-4 py-2 rounded-md border border-border bg-surface text-text placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary"
-                    />
                     <PinInput
                       length={4}
                       value={pin}
@@ -100,19 +85,19 @@ export function WaitingRoomPage() {
                         setPin(value)
                         setError('')
                       }}
-                      onComplete={() => handleJoinTable(table.id)}
                       disabled={false}
                       error={error}
-                      placeholder="•••••"
+                      placeholder="••••"
                     />
                     {error && (
                       <p className="text-sm text-red-500">{error}</p>
                     )}
                     <Button
+                      className='bg-primary text-primary hover:bg-primary'
                       variant="primary"
                       size="sm"
                       onClick={() => handleJoinTable(table.id)}
-                      disabled={pin.length !== 4 || !name.trim()}
+                      disabled={pin.length !== 4}
                     >
                       Unirse
                     </Button>

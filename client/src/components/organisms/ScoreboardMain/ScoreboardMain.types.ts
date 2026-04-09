@@ -23,6 +23,8 @@ export interface MatchConfigDefault {
   bestOf: number;
   handicapA?: number;
   handicapB?: number;
+  playerNameA?: string;
+  playerNameB?: string;
 }
 
 export interface MatchConfigValues {
@@ -30,6 +32,8 @@ export interface MatchConfigValues {
   bestOf: number;
   handicapA?: number;
   handicapB?: number;
+  playerNameA?: string;
+  playerNameB?: string;
 }
 
 export type MatchStatus = 'WAITING' | 'CONFIGURING' | 'LIVE' | 'FINISHED';

@@ -78,14 +78,29 @@ export function ScoreboardPage() {
     emit('SET_SERVER', { player: playerKey, tableId })
   }
 
-  const handleStartMatch = (config: { pointsPerSet: number; bestOf: number; handicapA?: number; handicapB?: number }) => {
+  const handleStartMatch = (config: { 
+    pointsPerSet: number; 
+    bestOf: number; 
+    handicapA?: number; 
+    handicapB?: number;
+    playerNameA?: string;
+    playerNameB?: string;
+  }) => {
     if (!connected) {
       console.warn('Not connected to server')
       return
     }
     console.log(`[Scoreboard] Starting match with config:`, config)
     console.log(`[Scoreboard] Emitting START_MATCH with tableId:`, tableId)
-    emit('START_MATCH', { tableId, ...config })
+    emit('START_MATCH', { 
+      tableId, 
+      pointsPerSet: config.pointsPerSet,
+      bestOf: config.bestOf,
+      handicapA: config.handicapA,
+      handicapB: config.handicapB,
+      playerNameA: config.playerNameA,
+      playerNameB: config.playerNameB
+    })
     console.log(`[Scoreboard] START_MATCH event emitted`)
   }
 

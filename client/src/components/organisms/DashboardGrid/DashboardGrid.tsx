@@ -3,13 +3,15 @@ import type { TableInfo } from '../../../shared/types';
 import { TableStatusChip } from '../../molecules/TableStatusChip';
 import { StatCard } from '../../molecules/StatCard';
 import { Body, Title } from '../../atoms/Typography';
-import { LayoutGrid, List } from 'lucide-react';
+import { LayoutGrid, List, RefreshCw } from 'lucide-react';
 
 export interface DashboardGridProps {
   tables: TableInfo[];
   onTableClick?: (tableId: string) => void;
   viewMode?: 'grid' | 'list';
   className?: string;
+  showRegeneratePin?: boolean;
+  onRegeneratePin?: (tableId: string) => void;
 }
 
 export function DashboardGrid({ 
@@ -17,6 +19,8 @@ export function DashboardGrid({
   onTableClick,
   viewMode = 'grid',
   className = '',
+  showRegeneratePin = false,
+  onRegeneratePin,
 }: DashboardGridProps) {
   if (viewMode === 'list') {
     return (
@@ -27,6 +31,7 @@ export function DashboardGrid({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
+            className="relative"
           >
             <TableStatusChip
               tableNumber={table.number}
@@ -37,6 +42,18 @@ export function DashboardGrid({
               className="cursor-pointer"
               onClick={() => onTableClick?.(table.id)}
             />
+            {showRegeneratePin && onRegeneratePin && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onRegeneratePin(table.id)
+                }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-muted-foreground hover:text-primary transition-colors"
+                title="Regenerar PIN"
+              >
+                <RefreshCw size={18} />
+              </button>
+            )}
           </motion.div>
         ))}
       </div>
@@ -54,7 +71,7 @@ export function DashboardGrid({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: index * 0.1 }}
-            className={isWide ? 'md:col-span-2' : ''}
+            className={`${isWide ? 'md:col-span-2' : ''} relative`}
           >
             <TableStatusChip
               tableNumber={table.number}
@@ -65,6 +82,18 @@ export function DashboardGrid({
               className="cursor-pointer"
               onClick={() => onTableClick?.(table.id)}
             />
+            {showRegeneratePin && onRegeneratePin && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onRegeneratePin(table.id)
+                }}
+                className="absolute top-2 right-2 p-2 text-muted-foreground hover:text-primary transition-colors"
+                title="Regenerar PIN"
+              >
+                <RefreshCw size={18} />
+              </button>
+            )}
           </motion.div>
         );
       })}
@@ -117,9 +146,9 @@ export function DashboardHeader({
       </div>
       
       <div className="grid grid-cols-3 gap-4">
-        <StatCard title="Mesas" value={totalTables} />
-        <StatCard title="Partidos" value={liveMatches} />
-        <StatCard title="Jugadores" value={activePlayers} />
+        <StatCard title="Mesas" value={totalTables ?? 0} />
+        <StatCard title="Partidos" value={liveMatches ?? 0} />
+        <StatCard title="Jugadores" value={activePlayers ?? 0} />
       </div>
     </div>
   );

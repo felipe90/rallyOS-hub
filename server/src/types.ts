@@ -92,7 +92,7 @@ export interface TableInfo {
   number: number;
   name: string;
   status: TableStatus;
-  pin: string;
+  pin?: string; // Optional - only present when authenticated (via getTableWithPin)
   playerCount: number;
   playerNames?: { a: string; b: string };
   currentScore?: Score;
@@ -108,6 +108,7 @@ export interface QRData {
   tableId: string;
   tableName: string;
   pin: string;
+  encryptedPin?: string; // PIN encriptado para QR (formato: {encrypted}:{timestamp})
   url: string;
 }
 

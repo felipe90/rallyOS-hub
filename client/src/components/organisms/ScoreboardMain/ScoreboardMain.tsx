@@ -113,7 +113,7 @@ export function ScoreboardMain({
             <PlayerScoreArea
               isReferee={isReferee}
               side={leftPlayer}
-              playerName={leftName}
+              playerName={leftName || 'Player A'}
               score={leftScore}
               setsWon={leftSets}
               totalSets={totalSets}
@@ -129,7 +129,7 @@ export function ScoreboardMain({
             <PlayerScoreArea
               isReferee={isReferee}
               side={rightPlayer}
-              playerName={rightName}
+              playerName={rightName || 'Player B'}
               score={rightScore}
               setsWon={rightSets}
               totalSets={totalSets}

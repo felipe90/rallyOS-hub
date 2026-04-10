@@ -1,5 +1,6 @@
 import { MatchEngine, Player, MatchConfig, MatchStateExtended } from './matchEngine';
 import { MatchEvent, Table, TableInfo, PlayerConnection, QRData } from './types';
+import { encryptPin } from './utils/pinEncryption';
 
 export class TableManager {
   private tables: Map<string, Table> = new Map();
@@ -96,12 +97,8 @@ export class TableManager {
     const player = table.players[index];
     table.players.splice(index, 1);
     
-    if (player.role === 'REFEREE') {
-      const newRef = table.players.find(p => p.role !== 'REFEREE');
-      if (newRef) {
-        newRef.role = 'REFEREE';
-      }
-    }
+    // RB-03: Don't auto-promote - use Kill-Switch for controlled transfer
+    // If referee leaves, table stays without referee until someone uses PIN
     
     console.log(`[TableManager] Player ${player.name} left ${table.name}`);
     this.notifyUpdate(table);
@@ -110,6 +107,13 @@ export class TableManager {
   public setReferee(tableId: string, socketId: string, pin: string): boolean {
     const table = this.tables.get(tableId);
     if (!table || table.pin !== pin) return false;
+    
+    // RB-03: Only one referee allowed - reject if already exists
+    const existingReferee = table.players.find(p => p.role === 'REFEREE');
+    if (existingReferee && existingReferee.socketId !== socketId) {
+      console.log(`[TableManager] Referee already active for ${table.name}, rejecting new attempt`);
+      return false;
+    }
     
     let player = table.players.find(p => p.socketId === socketId);
     
@@ -291,6 +295,8 @@ export class TableManager {
     const table = this.tables.get(tableId);
     if (!table) return null;
     
+    const encryptedPin = encryptPin(table.pin, table.id);
+    
     return {
       hubSsid: this.hubConfig.ssid,
       hubIp: this.hubConfig.ip,
@@ -298,7 +304,8 @@ export class TableManager {
       tableId: table.id,
       tableName: table.name,
       pin: table.pin,
-      url: `rallyhub://join/${table.id}?pin=${table.pin}`
+      encryptedPin: encryptedPin,
+      url: `rallyhub://join/${table.id}?ePin=${encodeURIComponent(encryptedPin)}`
     };
   }
   
@@ -308,6 +315,36 @@ export class TableManager {
   
   private generatePin(): string {
     return Math.floor(1000 + Math.random() * 9000).toString();
+  }
+  
+  /**
+   * Regenerate PIN for a table (Kill-Switch)
+   * @returns New PIN or null if table not found
+   */
+  public regeneratePin(tableId: string): string | null {
+    const table = this.tables.get(tableId);
+    if (!table) return null;
+    
+    const oldReferee = table.players.find(p => p.role === 'REFEREE');
+    
+    // Generate new PIN
+    table.pin = this.generatePin();
+    
+    console.log(`[TableManager] PIN regenerated for ${table.name}, old referee: ${oldReferee?.socketId || 'none'}`);
+    this.notifyUpdate(table);
+    
+    return table.pin;
+  }
+  
+  /**
+   * Get the current referee socket ID for a table (for Kill-Switch)
+   */
+  public getRefereeSocketId(tableId: string): string | null {
+    const table = this.tables.get(tableId);
+    if (!table) return null;
+    
+    const referee = table.players.find(p => p.role === 'REFEREE');
+    return referee?.socketId || null;
   }
   
   private notifyUpdate(table: Table): void {
@@ -324,12 +361,38 @@ export class TableManager {
       name: table.name,
       // Use engine status as source of truth (handles FINISHED, LIVE, WAITING)
       status: state.status,
-      pin: table.pin,
+      // SECURITY: Never expose pin in public payloads (RF-01)
+      // Use getTableWithPin() if you need the PIN for auth
       playerCount: table.players.length,
       playerNames: state.playerNames,
       currentScore: state.score.currentSet,
       currentSets: state.score.sets,
       winner: state.winner
     };
+  }
+  
+  // Get table info WITH pin - only for authenticated referee
+  public getTableWithPin(tableId: string): (TableInfo & { pin: string }) | null {
+    const table = this.tables.get(tableId);
+    if (!table) return null;
+    
+    const state = table.matchEngine.getState();
+    return {
+      id: table.id,
+      number: table.number,
+      name: table.name,
+      status: state.status,
+      pin: table.pin, // Only accessible via this method
+      playerCount: table.players.length,
+      playerNames: state.playerNames,
+      currentScore: state.score.currentSet,
+      currentSets: state.score.sets,
+      winner: state.winner
+    };
+  }
+  
+  // Get public table list (without pin) for TABLE_LIST event
+  public getPublicTableList(): TableInfo[] {
+    return Array.from(this.tables.values()).map(t => this.tableToInfo(t));
   }
 }

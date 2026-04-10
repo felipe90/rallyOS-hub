@@ -107,7 +107,19 @@ export interface QRData {
   tableId: string;
   tableName: string;
   pin: string;
+  encryptedPin?: string; // PIN encriptado para QR
   url: string;
+}
+
+// Referee revoked event (sent when Kill-Switch is used)
+export interface RefRevokedEvent {
+  tableId: string;
+  reason: 'Regenerado' | 'Expulsado';
+}
+
+// Owner verified event
+export interface OwnerVerifiedEvent {
+  token: string;
 }
 
 // Error response

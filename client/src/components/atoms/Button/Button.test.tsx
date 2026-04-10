@@ -21,7 +21,7 @@ describe('Button', () => {
   it('default variant is primary', () => {
     const { container } = render(<Button animate={false}>Primary</Button>)
     const button = container.querySelector('button')!
-    expect(button).toHaveClass('bg-gradient-primary')
+    expect(button).toHaveClass('bg-primary')
   })
 
   it('applies secondary variant styles', () => {

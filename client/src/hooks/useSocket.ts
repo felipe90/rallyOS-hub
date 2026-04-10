@@ -97,10 +97,14 @@ export function useSocket(options: UseSocketOptions = {}) {
     });
 
     socket.on('TABLE_LIST', (list: TableInfo[]) => setTables(list));
-    socket.on('TABLE_CREATED', (table: TableInfo & { pin?: string }) => {
-      if (table.pin) {
-        localStorage.setItem('tablePin', table.pin);
-      }
+    socket.on('TABLE_CREATED', (table: TableInfo) => {
+      // SECURITY: No longer storing pin - creator is auto-authorized as referee
+      // The server automatically sets the creator as referee (socketHandler.ts line 61)
+      console.log('[Socket] Table created, creator auto-authorized as referee');
+    });
+    socket.on('REF_SET', ({ tableId }: { tableId: string }) => {
+      // Referee successfully set by server
+      console.log('[Socket] Referee role confirmed for table:', tableId);
     });
     socket.on('MATCH_UPDATE', (match: MatchStateExtended) => {
       setCurrentMatch(match);

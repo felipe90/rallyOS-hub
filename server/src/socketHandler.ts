@@ -148,7 +148,32 @@ export class SocketHandler {
           });
         }
         
-        const success = this.tableManager.setReferee(data.tableId, socket.id, data.pin);
+        const validOwnerPin = process.env.TOURNAMENT_OWNER_PIN || '00000';
+        const isOwnerPin = data.pin === validOwnerPin;
+        
+        let success = false;
+        
+        if (isOwnerPin) {
+          // Owner PIN can take control regardless of existing referee
+          success = this.tableManager.setReferee(data.tableId, socket.id, data.pin);
+          
+          // If failed, force remove previous referee and retry
+          if (!success) {
+            const table = this.tableManager.getTable(data.tableId);
+            if (table) {
+              const existingRef = table.players.find(p => p.role === 'REFEREE');
+              if (existingRef) {
+                console.log(`[Socket] Owner taking control, removing old referee: ${existingRef.socketId}`);
+                // Remove old referee
+                table.players = table.players.filter(p => p.role !== 'REFEREE');
+              }
+            }
+            success = this.tableManager.setReferee(data.tableId, socket.id, data.pin);
+          }
+        } else {
+          success = this.tableManager.setReferee(data.tableId, socket.id, data.pin);
+        }
+        
         if (success) {
           socket.join(data.tableId); // Ensure referee is in the room
           socket.emit('REF_SET', { tableId: data.tableId });
@@ -373,21 +398,46 @@ export class SocketHandler {
       
       // RF-01: Verify Tournament Owner PIN
       socket.on('VERIFY_OWNER', (data: { pin: string }) => {
+        console.log(`[Socket] VERIFY_OWNER received: ${data.pin}, socket.data:`, (socket as any).data);
+        
         const validPin = process.env.TOURNAMENT_OWNER_PIN || '00000';
+        console.log(`[Socket] Comparing ${data.pin} with ${validPin}`);
         
         if (data.pin === validPin) {
+          // Mark socket as owner for future authorization
+          (socket as any).data = { ...(socket as any).data, isOwner: true };
           socket.emit('OWNER_VERIFIED', { token: 'owner-session' });
-          console.log(`[Socket] Owner verified: ${socket.id}`);
+          console.log(`[Socket] Owner verified: ${socket.id}, data:`, (socket as any).data);
         } else {
           socket.emit('ERROR', { code: 'INVALID_OWNER_PIN', message: 'PIN de organizador incorrecto' });
           console.log(`[Socket] Owner verification failed: ${socket.id}`);
         }
       });
+
+      // NEW: Get tables with PINs - Owner only
+      socket.on('GET_TABLES_WITH_PINS', (data?: { ownerPin?: string }) => {
+        console.log(`[Socket] GET_TABLES_WITH_PINS received from ${socket.id}, ownerPin:`, data?.ownerPin);
+        
+        // Check if socket is marked as owner OR if valid owner PIN provided
+        const isSocketOwner = (socket as any).data?.isOwner === true;
+        const validOwnerPin = process.env.TOURNAMENT_OWNER_PIN || '00000';
+        const isValidOwner = data?.ownerPin === validOwnerPin;
+        
+        if (!isSocketOwner && !isValidOwner) {
+          console.log(`[Socket] GET_TABLES_WITH_PINS rejected - not owner`);
+          return socket.emit('ERROR', { code: 'NOT_OWNER', message: 'No autorizado' });
+        }
+        
+        console.log(`[Socket] Owner requested tables with pins: ${socket.id}`);
+        const tables = this.tableManager.getAllTablesWithPins();
+        console.log(`[Socket] Sending tables with PINs:`, tables);
+        socket.emit('TABLE_LIST_WITH_PINS', { tables });
+      });
       
       // RF-04: Kill-Switch - Regenerate PIN and revoke previous referee
-      socket.on('REGENERATE_PIN', (data: { tableId: string; pin: string }) => {
-        if (!data?.tableId || !data?.pin) {
-          return socket.emit('ERROR', { code: 'INVALID_PARAMS', message: 'tableId and pin required' });
+      socket.on('REGENERATE_PIN', (data: { tableId: string; pin?: string }) => {
+        if (!data?.tableId) {
+          return socket.emit('ERROR', { code: 'INVALID_PARAMS', message: 'tableId required' });
         }
         
         const table = this.tableManager.getTable(data.tableId);
@@ -395,14 +445,12 @@ export class SocketHandler {
           return socket.emit('ERROR', { code: 'TABLE_NOT_FOUND', message: 'Mesa no encontrada' });
         }
         
-        // Verify the requester is the owner (simple: has valid owner PIN)
-        // For now, we verify the PIN matches the table PIN (so owner must know it)
-        if (table.pin !== data.pin) {
-          // Only owner PIN can regenerate
-          const validOwnerPin = process.env.TOURNAMENT_OWNER_PIN || '00000';
-          if (data.pin !== validOwnerPin) {
-            return socket.emit('ERROR', { code: 'UNAUTHORIZED', message: 'No autorizado' });
-          }
+        // Verify the requester is the owner (check valid owner PIN or empty pin from owner)
+        const validOwnerPin = process.env.TOURNAMENT_OWNER_PIN || '00000';
+        const isOwnerAuthorizing = !data.pin || data.pin === validOwnerPin;
+        
+        if (!isOwnerAuthorizing && table.pin !== data.pin) {
+          return socket.emit('ERROR', { code: 'UNAUTHORIZED', message: 'No autorizado' });
         }
         
         // Get old referee before regenerating

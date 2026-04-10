@@ -20,6 +20,7 @@ export interface SocketContextType {
   createTable: (name?: string) => void
   joinTable: (tableId: string, pin: string, role: string) => void
   requestTables: () => void
+  requestTablesWithPins: () => void
   scorePoint: (player: 'A' | 'B') => void
   undoLastPoint: () => void
   startMatch: (config: { pointsPerSet: number; bestOf: number }) => void

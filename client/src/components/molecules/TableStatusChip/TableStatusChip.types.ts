@@ -6,4 +6,7 @@ export interface TableStatusChipProps {
   playerCount?: number;
   className?: string;
   onClick?: () => void;
+  pin?: string;        // PIN to display (only for Owner)
+  qrCode?: string;   // QR code data URL (only for Owner)
+  onClean?: () => void;  // Clean table - always for Owner (no PIN needed)
 }

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io } from 'socket.io-client';
-import type { TableInfo, MatchStateExtended, ScoreChange } from '../../../shared/types';
+import type { TableInfo, TableInfoWithPin, MatchStateExtended, ScoreChange } from '../../../shared/types';
 
 /* useSocket Hook - Centralized socket management */
 export interface UseSocketOptions {
@@ -97,10 +97,20 @@ export function useSocket(options: UseSocketOptions = {}) {
     });
 
     socket.on('TABLE_LIST', (list: TableInfo[]) => setTables(list));
+    socket.on('TABLE_LIST_WITH_PINS', (data: { tables: TableInfoWithPin[] }) => {
+      // Only set tables with PINs (for Owner)
+      setTables(data.tables as TableInfo[]);
+    });
     socket.on('TABLE_CREATED', (table: TableInfo) => {
       // SECURITY: No longer storing pin - creator is auto-authorized as referee
       // The server automatically sets the creator as referee (socketHandler.ts line 61)
       console.log('[Socket] Table created, creator auto-authorized as referee');
+      
+      // Get ownerPin from localStorage and refresh tables with PINs
+      const ownerPin = localStorage.getItem('ownerPin')
+      if (ownerPin) {
+        socket.emit('GET_TABLES_WITH_PINS', { ownerPin })
+      }
     });
     socket.on('REF_SET', ({ tableId }: { tableId: string }) => {
       // Referee successfully set by server
@@ -142,6 +152,7 @@ export function useSocket(options: UseSocketOptions = {}) {
   const createTable = useCallback((name?: string) => emit('CREATE_TABLE', { name }), [emit]);
   const joinTable = useCallback((tableId: string, pin: string, role: string) => emit('JOIN_TABLE', { tableId, pin, role }), [emit]);
   const requestTables = useCallback(() => emit('GET_TABLES', {}), [emit]);
+  const requestTablesWithPins = useCallback((ownerPin: string) => emit('GET_TABLES_WITH_PINS', { ownerPin }), [emit]);
   const scorePoint = useCallback((player: 'A' | 'B') => currentTable?.id && emit('SCORE_POINT', { tableId: currentTable.id, player }), [emit, currentTable]);
   const undoLastPoint = useCallback(() => currentTable?.id && emit('UNDO_POINT', { tableId: currentTable.id }), [emit, currentTable]);
   const startMatch = useCallback((config: { pointsPerSet: number; bestOf: number }) => currentTable?.id && emit('START_MATCH', { tableId: currentTable.id, ...config }), [emit, currentTable]);
@@ -162,6 +173,7 @@ export function useSocket(options: UseSocketOptions = {}) {
     createTable,
     joinTable,
     requestTables,
+    requestTablesWithPins,
     scorePoint,
     undoLastPoint,
     startMatch,

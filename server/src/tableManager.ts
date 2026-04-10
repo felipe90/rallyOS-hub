@@ -318,8 +318,8 @@ export class TableManager {
   }
   
   /**
-   * Regenerate PIN for a table (Kill-Switch)
-   * @returns New PIN or null if table not found
+   * Clear/Reset table (Kill-Switch) - keeps the same PIN
+   * @returns PIN or null if table not found
    */
   public regeneratePin(tableId: string): string | null {
     const table = this.tables.get(tableId);
@@ -327,10 +327,13 @@ export class TableManager {
     
     const oldReferee = table.players.find(p => p.role === 'REFEREE');
     
-    // Generate new PIN
-    table.pin = this.generatePin();
+    // Keep the same PIN, just clear players and reset match
+    table.players = [];
+    table.matchEngine.reset();
+    table.matchEngine.setTableId(table.id, table.name);
+    table.status = 'WAITING';
     
-    console.log(`[TableManager] PIN regenerated for ${table.name}, old referee: ${oldReferee?.socketId || 'none'}`);
+    console.log(`[TableManager] Table reset (kept PIN): ${table.name}, old referee: ${oldReferee?.socketId || 'none'}`);
     this.notifyUpdate(table);
     
     return table.pin;
@@ -394,5 +397,24 @@ export class TableManager {
   // Get public table list (without pin) for TABLE_LIST event
   public getPublicTableList(): TableInfo[] {
     return Array.from(this.tables.values()).map(t => this.tableToInfo(t));
+  }
+
+  // Get all tables WITH pins - only for Owner
+  public getAllTablesWithPins(): (TableInfo & { pin: string })[] {
+    return Array.from(this.tables.values()).map(table => {
+      const state = table.matchEngine.getState();
+      return {
+        id: table.id,
+        number: table.number,
+        name: table.name,
+        status: state.status,
+        pin: table.pin,
+        playerCount: table.players.length,
+        playerNames: state.playerNames,
+        currentScore: state.score.currentSet,
+        currentSets: state.score.sets,
+        winner: state.winner
+      };
+    });
   }
 }

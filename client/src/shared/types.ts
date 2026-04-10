@@ -99,6 +99,11 @@ export interface TableInfo {
   winner?: Player | null;
 }
 
+// Table info with PIN (only for Owner)
+export interface TableInfoWithPin extends TableInfo {
+  pin?: string;
+}
+
 // QR Data
 export interface QRData {
   hubSsid: string;

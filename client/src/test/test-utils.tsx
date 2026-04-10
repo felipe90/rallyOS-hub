@@ -18,6 +18,7 @@ const defaultMockSocketContext: SocketContextType = {
   disconnect: vi.fn(),
   connect: vi.fn(),
   requestTables: vi.fn(),
+  requestTablesWithPins: vi.fn(),
   scorePoint: vi.fn(),
   undoLastPoint: vi.fn(),
   startMatch: vi.fn(),

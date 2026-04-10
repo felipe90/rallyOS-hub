@@ -24,8 +24,8 @@ export function AuthPage() {
     const handleOwnerVerified = (data: { token: string }) => {
       console.log('[AuthPage] Owner verified:', data)
       setIsLoading(false)
-      setOwner(true)
-      login('owner')
+      setOwner(true, pin)
+      login('owner', undefined, pin)
       navigate('/dashboard')
     }
 
@@ -87,10 +87,18 @@ const handlePinSubmit = (eventOrPin?: any) => {
     }
     
     // Fallback for offline mode or socket not available - accept default PIN
+    // But still emit to server so socket gets marked as owner
     if (pinToCheck === '00000') {
-      setOwner(true)
-      login('owner')
-      navigate('/dashboard')
+      if (socket && connected) {
+        socket.emit('VERIFY_OWNER', { pin: pinToCheck })
+        setIsLoading(true)
+        setOwner(true, pinToCheck)
+        login('owner', undefined, pinToCheck)
+      } else {
+        setOwner(true, pinToCheck)
+        login('owner', undefined, pinToCheck)
+        navigate('/dashboard')
+      }
       return
     }
 

@@ -1,17 +1,27 @@
 import { motion } from 'framer-motion';
-import type { TableInfo } from '../../../shared/types';
+import type { TableInfo, TableInfoWithPin } from '../../../shared/types';
 import { TableStatusChip } from '../../molecules/TableStatusChip';
 import { StatCard } from '../../molecules/StatCard';
 import { Body, Title } from '../../atoms/Typography';
 import { LayoutGrid, List, RefreshCw } from 'lucide-react';
 
+// Generate QR code URL (for Owner to share)
+// The table link can be shared with referees to directly access the scoreboard
+function generateTableUrl(tableId: string): string {
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+  return `${baseUrl}/scoreboard/${tableId}`;
+}
+
 export interface DashboardGridProps {
-  tables: TableInfo[];
+  tables: (TableInfo | TableInfoWithPin)[];
   onTableClick?: (tableId: string) => void;
   viewMode?: 'grid' | 'list';
   className?: string;
   showRegeneratePin?: boolean;
   onRegeneratePin?: (tableId: string) => void;
+  showPin?: boolean;  // Show PIN for Owner
+  showQr?: boolean;   // Show QR for Owner
+  onCleanTable?: (tableId: string) => void;  // Clean table (Owner only)
 }
 
 export function DashboardGrid({ 
@@ -21,7 +31,21 @@ export function DashboardGrid({
   className = '',
   showRegeneratePin = false,
   onRegeneratePin,
+  showPin = false,
+  showQr = false,
+  onCleanTable,
 }: DashboardGridProps) {
+  // Helper for QR code display
+  const getQrDisplay = (tableId: string) => {
+    if (!showQr) return undefined;
+    return generateTableUrl(tableId);
+  };
+
+  // Debug: log first table if showPin is true
+  if (showPin && tables.length > 0) {
+    console.log('[DashboardGrid] showPin:', showPin, 'first table:', tables[0], 'pin:', (tables[0] as any).pin);
+  }
+
   if (viewMode === 'list') {
     return (
       <div className={`flex flex-col gap-3 ${className}`}>
@@ -41,19 +65,10 @@ export function DashboardGrid({
               playerCount={table.playerCount}
               className="cursor-pointer"
               onClick={() => onTableClick?.(table.id)}
+              pin={showPin ? (table as TableInfoWithPin).pin : undefined}
+              qrCode={showQr ? getQrDisplay(table.id) : undefined}
+              onClean={onCleanTable ? () => onCleanTable(table.id) : undefined}
             />
-            {showRegeneratePin && onRegeneratePin && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onRegeneratePin(table.id)
-                }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-muted-foreground hover:text-primary transition-colors"
-                title="Regenerar PIN"
-              >
-                <RefreshCw size={18} />
-              </button>
-            )}
           </motion.div>
         ))}
       </div>
@@ -81,6 +96,8 @@ export function DashboardGrid({
               playerCount={table.playerCount}
               className="cursor-pointer"
               onClick={() => onTableClick?.(table.id)}
+              pin={showPin ? (table as TableInfoWithPin).pin : undefined}
+              qrCode={showQr ? getQrDisplay(table.id) : undefined}
             />
             {showRegeneratePin && onRegeneratePin && (
               <button
@@ -89,7 +106,7 @@ export function DashboardGrid({
                   onRegeneratePin(table.id)
                 }}
                 className="absolute top-2 right-2 p-2 text-muted-foreground hover:text-primary transition-colors"
-                title="Regenerar PIN"
+                title="Limpiar Mesa"
               >
                 <RefreshCw size={18} />
               </button>

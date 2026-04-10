@@ -3,19 +3,56 @@ import { useNavigate } from 'react-router-dom'
 import { DashboardGrid } from '@/components/organisms/DashboardGrid'
 import { DashboardHeader } from '@/components/organisms/DashboardGrid'
 import { PageHeader } from '@/components/molecules/PageHeader'
+import { PinModal } from '@/components/molecules/PinModal'
 import { useSocketContext } from '@/contexts/SocketContext'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/atoms/Button'
 import { Typography } from '@/components/atoms/Typography'
-import type { QRData } from '@/shared/types'
+import type { QRData, TableInfoWithPin } from '@/shared/types'
 
 export function DashboardPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [isCreatingTable, setIsCreatingTable] = useState(false)
   const [tableName, setTableName] = useState('')
+  const [pinModalOpen, setPinModalOpen] = useState(false)
+  const [selectedTable, setSelectedTable] = useState<TableInfoWithPin | null>(null)
+  const [pinError, setPinError] = useState<string | null>(null)
+  const [pinLoading, setPinLoading] = useState(false)
   const navigate = useNavigate()
-  const { tables, connected, createTable, socket } = useSocketContext()
-  const { logout, isReferee, isViewer, isOwner } = useAuth()
+  const { tables, connected, createTable, socket, requestTables, requestTablesWithPins, emit } = useSocketContext()
+  const { logout, isReferee, isViewer, isOwner, ownerPin } = useAuth()
+
+  // Load tables with PINs if Owner, otherwise regular tables
+  useEffect(() => {
+    console.log('[Dashboard] connected:', connected, 'isOwner:', isOwner, 'ownerPin:', ownerPin, 'tables:', tables.length)
+    
+    if (!connected) return
+    
+    // Immediate load - no delay
+    if (isOwner && ownerPin) {
+      console.log('[Dashboard] Requesting tables with PINs, ownerPin:', ownerPin)
+      requestTablesWithPins(ownerPin)
+    } else if (isOwner) {
+      console.log('[Dashboard] Requesting tables with PINs (no ownerPin)')
+      requestTablesWithPins('')
+    } else {
+      console.log('[Dashboard] Requesting regular tables')
+      requestTables()
+    }
+    
+    // Refresh every 3 seconds for updates
+    const interval = setInterval(() => {
+      if (isOwner && ownerPin) {
+        requestTablesWithPins(ownerPin)
+      } else if (isOwner) {
+        requestTablesWithPins('')
+      } else {
+        requestTables()
+      }
+    }, 3000)
+    
+    return () => clearInterval(interval)
+  }, [connected, isOwner, ownerPin, requestTables, requestTablesWithPins])
 
   // Listen for QR_DATA and PIN_REGENERATED events
   useEffect(() => {
@@ -52,8 +89,66 @@ export function DashboardPage() {
     }
   }
 
+  // Handle table click - opens PIN modal (RF-04)
   const handleTableClick = (tableId: string) => {
-    navigate(`/scoreboard/${tableId}`)
+    // Find the table to get its name
+    const table = tables.find(t => t.id === tableId)
+    if (table) {
+      setSelectedTable(table as TableInfoWithPin)
+      setPinModalOpen(true)
+      setPinError(null)
+    }
+  }
+
+  // Validate PIN and navigate if correct
+  const handlePinSubmit = async (pin: string) => {
+    if (!selectedTable || !socket) return
+    
+    // Save PIN for scoreboard auth
+    localStorage.setItem('tablePin', pin)
+    
+    // Validate PIN with server
+    setPinLoading(true)
+    socket.emit('SET_REF', { tableId: selectedTable.id, pin })
+    
+    // Listen for response
+    const handleResponse = (response: { success?: boolean; error?: string }) => {
+      socket.off('REF_SET', handleResponse)
+      socket.off('ERROR', handleError)
+      
+      setPinLoading(false)
+      
+      if (response.success || (response as any).tableId) {
+        // Success - navigate
+        navigate(`/scoreboard/${selectedTable.id}`)
+      }
+    }
+    
+    const handleError = (error: { code: string; message: string }) => {
+      socket.off('REF_SET', handleResponse)
+      socket.off('ERROR', handleError)
+      
+      setPinLoading(false)
+      setPinError(error.message)
+    }
+    
+    socket.once('REF_SET', handleResponse)
+    socket.once('ERROR', handleError)
+    
+    // Timeout after 5 seconds
+    setTimeout(() => {
+      socket.off('REF_SET', handleResponse)
+      socket.off('ERROR', handleError)
+      setPinLoading(false)
+      // Still allow navigation after timeout (trust client)
+      navigate(`/scoreboard/${selectedTable.id}`)
+    }, 5000)
+  }
+
+  const handlePinClose = () => {
+    setPinModalOpen(false)
+    setSelectedTable(null)
+    setPinError(null)
   }
 
   const handleRegeneratePin = (tableId: string) => {
@@ -70,8 +165,8 @@ export function DashboardPage() {
       ? 'Gestiona tus mesas'
       : 'Observa los partidos en vivo'
 
-  // Only Owner and Referee can see "Nueva Mesa" button
-  const canCreateTable = isOwner || isReferee
+  // Only Owner can create tables (RF-03)
+  const canCreateTable = isOwner
 
   return (
     <div className="flex flex-col h-screen bg-surface">
@@ -133,11 +228,22 @@ export function DashboardPage() {
             tables={tables} 
             onTableClick={handleTableClick} 
             viewMode={viewMode}
-            showRegeneratePin={isOwner}
-            onRegeneratePin={handleRegeneratePin}
+            showPin={isOwner}
+            showQr={isOwner}
+            onCleanTable={isOwner ? handleRegeneratePin : undefined}
           />
         </div>
       </div>
+
+      {/* PIN Modal for table access (RF-04) */}
+      <PinModal
+        isOpen={pinModalOpen}
+        tableName={selectedTable?.name || ''}
+        onClose={handlePinClose}
+        onSubmit={handlePinSubmit}
+        isLoading={pinLoading}
+        error={pinError}
+      />
     </div>
   )
 }

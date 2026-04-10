@@ -373,7 +373,7 @@ export class SocketHandler {
       
       // RF-01: Verify Tournament Owner PIN
       socket.on('VERIFY_OWNER', (data: { pin: string }) => {
-        const validPin = process.env.TOURNAMENT_OWNER_PIN || '0000';
+        const validPin = process.env.TOURNAMENT_OWNER_PIN || '00000';
         
         if (data.pin === validPin) {
           socket.emit('OWNER_VERIFIED', { token: 'owner-session' });
@@ -399,7 +399,7 @@ export class SocketHandler {
         // For now, we verify the PIN matches the table PIN (so owner must know it)
         if (table.pin !== data.pin) {
           // Only owner PIN can regenerate
-          const validOwnerPin = process.env.TOURNAMENT_OWNER_PIN || '0000';
+          const validOwnerPin = process.env.TOURNAMENT_OWNER_PIN || '00000';
           if (data.pin !== validOwnerPin) {
             return socket.emit('ERROR', { code: 'UNAUTHORIZED', message: 'No autorizado' });
           }

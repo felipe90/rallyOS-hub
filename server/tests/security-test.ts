@@ -13,6 +13,25 @@ function runTest(name, fn) {
   })
 }
 
+function test3() {
+  return new Promise((resolve, reject) => {
+    const socket = io('https://localhost:' + PORT, {
+      transports: ['polling'],
+      forceNew: true,
+      rejectUnauthorized: false,
+    })
+    socket.on('connect', () => {
+      socket.emit('VERIFY_OWNER', { pin: '00000' })
+      socket.once('OWNER_VERIFIED', (data) => {
+        if (!data.token) return reject(new Error('No token'))
+        socket.disconnect()
+        resolve()
+      })
+    })
+    socket.on('connect_error', reject)
+  })
+}
+
 async function test1() {
   return new Promise((resolve, reject) => {
     const socket = io('https://localhost:' + PORT, {
@@ -127,7 +146,7 @@ async function test5() {
     socket.on('connect', () => {
       socket.emit('CREATE_TABLE', { name: 'Kill Switch' })
       socket.once('TABLE_CREATED', (data) => {
-        socket.emit('REGENERATE_PIN', { tableId: data.id, pin: '0000' })
+        socket.emit('REGENERATE_PIN', { tableId: data.id, pin: '00000' })
         socket.once('PIN_REGENERATED', (result) => {
           if (!result.newPin) return reject(new Error('No newPin'))
           socket.disconnect()

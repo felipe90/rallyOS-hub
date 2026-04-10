@@ -75,8 +75,8 @@ export function AuthPage() {
   }
 
   const handlePinSubmit = () => {
-    if (pin.length < 4) {
-      setError('PIN debe tener 4 dígitos')
+    if (pin.length < 5) {
+      setError('PIN debe tener 5 dígitos')
       return
     }
 
@@ -154,14 +154,14 @@ export function AuthPage() {
             Ingresa el PIN de organizador del torneo
           </Typography>
           <PinInput
-            length={4}
+            length={5}
             value={pin}
             onChange={handlePinChange}
             onComplete={handlePinSubmit}
             disabled={isLoading}
             error={error}
             autoFocus
-            placeholder="••••"
+            placeholder="•••••"
           />
 
           {error && (
@@ -173,7 +173,7 @@ export function AuthPage() {
           <Button
             className='bg-primary text-primary-foreground hover:bg-primary/90'
             variant="primary"
-            disabled={pin.length !== 4 || isLoading}
+            disabled={pin.length !== 5 || isLoading}
             onClick={handlePinSubmit}
             animate={false}
           >

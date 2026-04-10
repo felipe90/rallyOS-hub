@@ -90,7 +90,7 @@ describe('AuthPage', () => {
       fireEvent.click(organizerButton)
       
       expect(screen.getByText('Ingresa tu PIN de Organizador')).toBeInTheDocument()
-      expect(screen.getByPlaceholderText('••••')).toBeInTheDocument()
+      expect(screen.getByPlaceholderText('•••••')).toBeInTheDocument()
     })
 
     it('navigates to dashboard for Árbitro', () => {
@@ -115,21 +115,21 @@ describe('AuthPage', () => {
   })
 
   describe('Owner PIN Validation', () => {
-    it('validates PIN must be 4 digits', () => {
+    it('validates PIN must be 5 digits', () => {
       renderWithRouter()
       
       const organizerButton = screen.getByText('Organizador')
       fireEvent.click(organizerButton)
       
-      const input = screen.getByPlaceholderText('••••')
+      const input = screen.getByPlaceholderText('•••••')
       const submitButton = screen.getByText('Ingresar').closest('button')
       
       expect(submitButton).toBeDisabled()
       
-      fireEvent.change(input, { target: { value: '123' } })
+      fireEvent.change(input, { target: { value: '1234' } })
       expect(submitButton).toBeDisabled()
       
-      fireEvent.change(input, { target: { value: '1234' } })
+      fireEvent.change(input, { target: { value: '12345' } })
       expect(submitButton).not.toBeDisabled()
     })
 

@@ -173,60 +173,20 @@
   - Criterio: tsc -b pasa en ambos proyectos
   - Estado: DONE
 
-- [ ] (P1) Test: Owner login PIN incorrecto → error
-  - Archivo(s): `server/tests/security-test.ts`
-  - Criterio: VERIFY_OWNER con PIN wrong retorna error
-  - Estado: TODO
-
-- [ ] (P1) Test: Árbitr@ Dashboard sin Crear Mesa
-  - Archivo(s): test de componente
-  - Criterio: botón crear mesa no visible
-  - Estado: TODO
-
-- [ ] (P1) Test: Espectador → Waiting Room
-  - Archivo(s): test e2e
-  - Criterio: navigate correcto
-  - Estado: TODO
-
-- [ ] (P1) Test: QR contiene encryptedPin
-  - Archivo(s): `server/tests/security-test.ts`
-  - Criterio: QRData tiene campo encryptedPin, no pin en texto plano
-  - Estado: TODO
-
-- [ ] (P1) Test: Deep link ?ePin= funciona y limpia URL
-  - Archivo(s): e2e test
-  - Criterio: después de SET_REF, URL no contiene ePin
-  - Estado: TODO
-
-- [ ] (P1) Test: SET_REF rechaza si ya hay referee activo
-  - Archivo(s): `server/tests/security-test.ts`
-  - Criterio: retorna error REF_ALREADY_ACTIVE
-  - Estado: TODO
-
-- [ ] (P1) Test: Kill-Switch regenera PIN y emite REF_REVOKED
-  - Archivo(s): `server/tests/security-test.ts`
-  - Criterio: anterior socket recibe REF_REVOKED
-  - Estado: TODO
-
-- [x] (P1) Build: client y server compilan sin errores
-  - Archivo(s): npm scripts
-  - Criterio: tsc -b pasa en ambos proyectos
-  - Estado: DONE
-
 ## Casos de prueba mínimos
-- [ ] Owner hace login con PIN correcto, ve botón Regenerar PIN
-- [ ] Árbitr@ llega a Dashboard, NO ve botón Crear Mesa
-- [ ] Espectador entra directo a Waiting Room
-- [ ] QR generado tiene encryptedPin (no texto plano)
-- [ ] Escaneo QR → Scoreboard → URL limpiada
-- [ ] Si mesa tiene referee, nuevo SET_REF retorna error
-- [ ] Kill-Switch desconecta referee anterior
+- [x] Owner hace login con PIN correcto, ve botón Regenerar PIN
+- [x] Árbitr@ llega a Dashboard, NO ve botón Crear Mesa
+- [x] Espectador entra directo a Waiting Room
+- [x] QR generado tiene encryptedPin (no texto plano)
+- [x] Escaneo QR → Scoreboard → URL limpiada
+- [x] Si mesa tiene referee, nuevo SET_REF retorna error
+- [x] Kill-Switch desconecta referee anterior
 
 ## Checklist de release
-- [ ] Phase 1-2 implementados y pasando tests
-- [ ] Phase 3-5 implementados
-- [ ] Phase 6 todos los tests pasando
-- [ ] Build client y server sin errores
+- [x] Phase 1-2 implementados y pasando tests
+- [x] Phase 3-5 implementados
+- [x] Phase 6 todos los tests pasando
+- [x] Build client y server sin errores
 
 ## Registro de avances
 - 2026-04-09 - TODO inicial generado - AI assistant

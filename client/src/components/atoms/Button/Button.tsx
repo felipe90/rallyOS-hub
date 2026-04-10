@@ -6,7 +6,7 @@ import type { ButtonVariant, ButtonSize, ButtonProps } from './Button.types';
 export type { ButtonVariant, ButtonSize, ButtonProps } from './Button.types';
 
 const variantStyles: Record<ButtonVariant, string> = {
-  primary: 'bg-gradient-primary text-white shadow-md hover:shadow-lg',
+  primary: 'bg-primary text-white shadow-md hover:shadow-lg',
   secondary: 'bg-surface-low text-text hover:bg-surface-high',
   ghost: 'bg-transparent text-text hover:bg-surface-low',
   live: 'bg-gradient-live text-white shadow-md hover:shadow-lg',
@@ -24,17 +24,17 @@ const sizeStyles: Record<ButtonSize, string> = {
   xl: 'px-8 py-4 text-2xl rounded-[--radius-lg]',
 };
 
-export function Button({ 
-  variant = 'primary', 
-  size = 'md', 
-  children, 
+export function Button({
+  variant = 'primary',
+  size = 'md',
+  children,
   className = '',
   disabled,
   loading,
   animate = true,
   fullWidth = false,
   icon,
-  ...props 
+  ...props
 }: ButtonProps) {
   const baseStyles = `
     inline-flex items-center justify-center gap-2 font-heading font-medium
@@ -77,15 +77,15 @@ export function Button({
 }
 
 /* Score button variant - specific to referee score controls (+/- buttons) */
-export function ScoreButton({ 
-  side, 
-  onAdd, 
+export function ScoreButton({
+  side,
+  onAdd,
   onSubtract,
   disabled,
   className = '',
-}: { 
-  side: 'A' | 'B'; 
-  onAdd: () => void; 
+}: {
+  side: 'A' | 'B';
+  onAdd: () => void;
   onSubtract: () => void;
   disabled?: boolean;
   className?: string;
@@ -111,7 +111,7 @@ export function ScoreButton({
       >
         +
       </motion.button>
-      
+
       {/* Minus button */}
       <motion.button
         className={`

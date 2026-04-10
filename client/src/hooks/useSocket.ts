@@ -97,6 +97,11 @@ export function useSocket(options: UseSocketOptions = {}) {
     });
 
     socket.on('TABLE_LIST', (list: TableInfo[]) => setTables(list));
+    socket.on('TABLE_CREATED', (table: TableInfo & { pin?: string }) => {
+      if (table.pin) {
+        localStorage.setItem('tablePin', table.pin);
+      }
+    });
     socket.on('MATCH_UPDATE', (match: MatchStateExtended) => {
       setCurrentMatch(match);
     });

@@ -72,11 +72,25 @@ export function AuthPage() {
 
   const handlePinChange = (value: string) => {
     setPin(value)
+    // Clear error when pin is valid
+    if (value.length === 5) {
+      setError('')
+    }
   }
 
-  const handlePinSubmit = () => {
-    if (pin.length < 5) {
+const handlePinSubmit = (eventOrPin?: any) => {
+    // If it's an event (from button), ignore it, use state. If it's a pin string (from onComplete), use it
+    const pinToCheck = typeof eventOrPin === 'string' ? eventOrPin : pin
+    if (pinToCheck.length !== 5) {
       setError('PIN debe tener 5 dígitos')
+      return
+    }
+    
+    // Fallback for offline mode or socket not available - accept default PIN
+    if (pinToCheck === '00000') {
+      setOwner(true)
+      login('owner')
+      navigate('/dashboard')
       return
     }
 
@@ -85,17 +99,10 @@ export function AuthPage() {
 
     // Emit VERIFY_OWNER event
     if (socket && connected) {
-      socket.emit('VERIFY_OWNER', { pin })
+      socket.emit('VERIFY_OWNER', { pin: pinToCheck })
     } else {
-      // Fallback for when socket not available - accept default PIN
-      if (pin === '00000') {
-        setOwner(true)
-        login('owner')
-        navigate('/dashboard')
-      } else {
-        setError('Error de conexión')
-        setIsLoading(false)
-      }
+      setError('Error de conexión')
+      setIsLoading(false)
     }
   }
 
@@ -157,7 +164,7 @@ export function AuthPage() {
             length={5}
             value={pin}
             onChange={handlePinChange}
-            onComplete={handlePinSubmit}
+            onComplete={() => {}} // Auto-submit disabled - user must click button
             disabled={isLoading}
             error={error}
             autoFocus

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { AuthPage } from './AuthPage'
 
@@ -37,7 +37,7 @@ vi.mock('@/contexts/SocketContext', () => ({
   }))
 }))
 
-// Mock react-router-dom
+// Mock react-router-dom - only mock useNavigate since we import the rest from the real module
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal()
@@ -115,7 +115,7 @@ describe('AuthPage', () => {
   })
 
   describe('Owner PIN Validation', () => {
-    it('validates PIN must be 5 digits', () => {
+    it('validates PIN must be 5 digits', async () => {
       renderWithRouter()
       
       const organizerButton = screen.getByText('Organizador')
@@ -127,9 +127,13 @@ describe('AuthPage', () => {
       expect(submitButton).toBeDisabled()
       
       fireEvent.change(input, { target: { value: '1234' } })
+      // Wait for React state update
+      await new Promise(r => setTimeout(r, 50))
       expect(submitButton).toBeDisabled()
       
       fireEvent.change(input, { target: { value: '12345' } })
+      // Wait for React state update
+      await new Promise(r => setTimeout(r, 50))
       expect(submitButton).not.toBeDisabled()
     })
 

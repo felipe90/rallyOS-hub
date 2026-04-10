@@ -161,7 +161,7 @@ export function ScoreboardPage() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate(isReferee ? '/dashboard' : '/waiting-room')}
             >
               Atrás
             </Button>
@@ -178,6 +178,7 @@ export function ScoreboardPage() {
           onUndo={handleUndo}
           onSettingsClick={() => handleSetServer('A')}
           onHistoryClick={() => setHistoryOpen(true)}
+          onBackClick={() => navigate(isReferee ? '/dashboard' : '/waiting-room')}
           isReferee={isReferee}
         />
       </div>

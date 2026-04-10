@@ -13,6 +13,7 @@ export interface ScoreboardMainProps {
   onUndo?: () => void;
   onHistoryClick?: () => void;
   onSettingsClick?: () => void;
+  onBackClick?: () => void;
   isReferee?: boolean;
   isConnected?: boolean;
   className?: string;
@@ -25,6 +26,7 @@ export function ScoreboardMain({
   onUndo,
   onHistoryClick,
   onSettingsClick,
+  onBackClick,
   isReferee = false,
   isConnected = true,
   className = '',
@@ -98,6 +100,7 @@ export function ScoreboardMain({
           hasHistory={hasHistory}
           onHistoryClick={onHistoryClick}
           onSettingsClick={onSettingsClick}
+          onBackClick={onBackClick}
         />
 
         {/* Main Score Display */}

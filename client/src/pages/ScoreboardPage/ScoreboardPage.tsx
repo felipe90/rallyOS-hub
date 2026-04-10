@@ -1,7 +1,8 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { useSocketContext } from '../../contexts/SocketContext'
 import { useAuth } from '../../hooks/useAuth'
-import { ScoreboardMain, MatchConfigPanel } from '../../components/organisms/ScoreboardMain'
+import { ScoreboardMain } from '../../components/organisms/ScoreboardMain'
+import { MatchConfigPanel } from '../../components/organisms/MatchConfigPanel'
 import { HistoryDrawer } from '../../components/organisms/HistoryDrawer'
 import { PageHeader } from '../../components/molecules/PageHeader'
 import { ConnectionStatus } from '../../components/atoms/ConnectionStatus'
@@ -114,7 +115,6 @@ export function ScoreboardPage() {
       <div className="flex flex-col h-screen bg-surface">
         <PageHeader
           title="Configurar Partido"
-          showStatus={false}
           actions={
             <Button
               variant="ghost"
@@ -146,7 +146,6 @@ export function ScoreboardPage() {
     <div className="flex flex-col h-screen bg-surface">
       <PageHeader
         title={`${currentMatch.playerNames?.a || 'A'} vs ${currentMatch.playerNames?.b || 'B'}`}
-        showStatus={false}
         landscape={true}
         actions={
           <>

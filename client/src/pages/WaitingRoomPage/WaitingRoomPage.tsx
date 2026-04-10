@@ -47,7 +47,6 @@ export function WaitingRoomPage() {
     <div className="flex flex-col h-screen bg-surface">
       <PageHeader
         title="Mesas Disponibles"
-        showStatus={false}
         actions={
           <Button
             variant="ghost"

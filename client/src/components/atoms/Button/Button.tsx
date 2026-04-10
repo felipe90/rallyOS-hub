@@ -91,13 +91,14 @@ export function ScoreButton({
   className?: string;
 }) {
   return (
-    <div className={`flex flex-col gap-2 w-full ${className}`}>
+    <div className={`flex flex-col justify-between items-center w-full h-full${className}`}>
       {/* Plus button */}
       <motion.button
         className={`
-          ${side === 'A' ? 'bg-surface-low' : 'bg-primary'} 
+          ${side === 'A' ? 'bg-secondary text-secondary' : 'bg-primary'} 
           text-white font-heading text-4xl
-          w-full aspect-[4/3] rounded-[--radius-lg]
+          aspect-square w-32 h-32 rounded-full
+          mb-4 mt-4 
           flex items-center justify-center
           shadow-md hover:shadow-lg
           active:scale-95 transition-transform
@@ -114,9 +115,10 @@ export function ScoreButton({
       {/* Minus button */}
       <motion.button
         className={`
-          ${side === 'A' ? 'bg-surface-low/80' : 'bg-primary/80'} 
-          text-text-h font-heading text-4xl
-          w-full aspect-[4/3] rounded-[--radius-lg]
+          ${side === 'A' ? 'bg-secondary text-secondary' : 'bg-primary'} 
+          text-white font-heading text-4xl
+          aspect-square w-32 h-32 rounded-full
+          mb-4 mt-4 
           flex items-center justify-center
           shadow-md hover:shadow-lg
           active:scale-95 transition-transform

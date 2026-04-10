@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import type { TableInfo } from '../../../shared/types';
 import { TableStatusChip } from '../../molecules/TableStatusChip';
+import { StatCard } from '../../molecules/StatCard';
 import { Body, Title } from '../../atoms/Typography';
 import { LayoutGrid, List } from 'lucide-react';
 
@@ -116,18 +117,9 @@ export function DashboardHeader({
       </div>
       
       <div className="grid grid-cols-3 gap-4">
-        <div className="p-4 bg-white rounded-xl shadow-sm">
-          <Body className="text-slate-500 text-sm">Mesas</Body>
-          <Title className="text-2xl">{totalTables}</Title>
-        </div>
-        <div className="p-4 bg-white rounded-xl shadow-sm">
-          <Body className="text-slate-500 text-sm">Partidos</Body>
-          <Title className="text-2xl text-amber-600">{liveMatches}</Title>
-        </div>
-        <div className="p-4 bg-white rounded-xl shadow-sm">
-          <Body className="text-slate-500 text-sm">Jugadores</Body>
-          <Title className="text-2xl text-teal-600">{activePlayers}</Title>
-        </div>
+        <StatCard title="Mesas" value={totalTables} />
+        <StatCard title="Partidos" value={liveMatches} />
+        <StatCard title="Jugadores" value={activePlayers} />
       </div>
     </div>
   );

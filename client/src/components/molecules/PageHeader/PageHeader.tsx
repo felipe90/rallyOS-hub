@@ -18,7 +18,8 @@ export function PageHeader({
   return (
     <>
       {showStatus && <ConnectionStatus />}
-      <div className={`pt-12 p-4 border-b border-border flex justify-between items-center ${landscape ? 'landscape:hidden' : ''}`}>
+      {showStatus && <div className="h-[48px] w-full shrink-0" />}
+      <div className={`p-4 border-b border-border flex justify-between items-center ${landscape ? 'landscape:hidden' : ''}`}>
         <div className="flex-1">
           <h1 className="text-2xl font-heading font-bold">{title}</h1>
           {subtitle && <p className="text-sm text-text-muted">{subtitle}</p>}

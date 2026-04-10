@@ -12,7 +12,6 @@ export function HistoryViewPage() {
     <div className="flex flex-col h-screen bg-surface">
       <PageHeader
         title="Historial"
-        showStatus={false}
         actions={
           <Button
             variant="ghost"

@@ -88,7 +88,7 @@ export function AuthPage() {
       socket.emit('VERIFY_OWNER', { pin })
     } else {
       // Fallback for when socket not available - accept default PIN
-      if (pin === '0000') {
+      if (pin === '00000') {
         setOwner(true)
         login('owner')
         navigate('/dashboard')

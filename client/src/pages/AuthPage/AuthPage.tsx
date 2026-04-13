@@ -5,6 +5,7 @@ import { useSocketContext } from '@/contexts/SocketContext'
 import { Button } from '@/components/atoms/Button'
 import { PinInput } from '@/components/atoms/PinInput'
 import { Typography } from '@/components/atoms/Typography'
+import { SocketEvents } from '@shared/events'
 
 export type AuthMode = 'select' | 'owner-pin'
 
@@ -90,7 +91,7 @@ const handlePinSubmit = (eventOrPin?: any) => {
 
     // Emit VERIFY_OWNER event — always go through server
     if (socket && connected) {
-      socket.emit('VERIFY_OWNER', { pin: pinToCheck })
+      socket.emit(SocketEvents.CLIENT.VERIFY_OWNER, { pin: pinToCheck })
     } else {
       setError('Error de conexión')
       setIsLoading(false)

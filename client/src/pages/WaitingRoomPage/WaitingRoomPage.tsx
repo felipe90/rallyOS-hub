@@ -4,6 +4,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { PageHeader } from '../../components/molecules/PageHeader'
 import { Button } from '../../components/atoms/Button'
 import { Typography } from '../../components/atoms/Typography'
+import { SocketEvents } from '@shared/events'
 import { useState } from 'react'
 
 export function WaitingRoomPage() {
@@ -16,7 +17,7 @@ export function WaitingRoomPage() {
   // Espectador entra directo sin PIN ni nombre
   const handleJoinTable = (tableId: string) => {
     // Emit JOIN_TABLE as spectator (no PIN needed)
-    emit('JOIN_TABLE', { tableId, name: 'Espectador', role: 'viewer' })
+    emit(SocketEvents.CLIENT.JOIN_TABLE, { tableId, name: 'Espectador', role: 'viewer' })
     
     // Store table info
     login('viewer', tableId)

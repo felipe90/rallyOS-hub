@@ -10,6 +10,7 @@ import { Button } from '../../components/atoms/Button'
 import { Typography } from '../../components/atoms/Typography'
 import { useState, useEffect } from 'react'
 import type { RefRevokedEvent } from '@/shared/types'
+import { SocketEvents } from '@shared/events'
 
 export function ScoreboardPage() {
   const { tableId } = useParams<{ tableId: string }>()
@@ -72,7 +73,7 @@ export function ScoreboardPage() {
 
           if (/^\d{4}$/.test(decrypted)) {
             // Emit SET_REF to authenticate
-            emit('SET_REF', { tableId, pin: decrypted })
+            emit(SocketEvents.CLIENT.SET_REF, { tableId, pin: decrypted })
             
             // URL Scrubbing: Clean the URL without reload
             window.history.replaceState({}, '', `/scoreboard/${tableId}`)
@@ -111,7 +112,7 @@ export function ScoreboardPage() {
   useEffect(() => {
     if (connected && tableId) {
       console.log(`[Scoreboard] Requesting match data for table: ${tableId}`)
-      emit('GET_MATCH_STATE', { tableId })
+      emit(SocketEvents.CLIENT.GET_MATCH_STATE, { tableId })
     }
   }, [tableId, connected, emit])
 
@@ -120,7 +121,7 @@ export function ScoreboardPage() {
     if (connected && tableId && isReferee) {
       const tablePin = localStorage.getItem('tablePin') || '12345'
       console.log(`[Scoreboard] Authenticating as referee for table: ${tableId} with PIN: ${tablePin}`)
-      emit('SET_REF', { tableId, pin: tablePin })
+      emit(SocketEvents.CLIENT.SET_REF, { tableId, pin: tablePin })
     }
   }, [tableId, connected, isReferee, emit])
 
@@ -155,7 +156,7 @@ export function ScoreboardPage() {
       console.warn('Not connected to server')
       return
     }
-    emit('RECORD_POINT', { player, tableId })
+    emit(SocketEvents.CLIENT.RECORD_POINT, { player, tableId })
   }
 
   const handleSubtractPoint = (player: 'A' | 'B') => {
@@ -163,7 +164,7 @@ export function ScoreboardPage() {
       console.warn('Not connected to server')
       return
     }
-    emit('SUBTRACT_POINT', { player, tableId })
+    emit(SocketEvents.CLIENT.SUBTRACT_POINT, { player, tableId })
   }
 
   const handleUndo = () => {
@@ -171,7 +172,7 @@ export function ScoreboardPage() {
       console.warn('Not connected to server')
       return
     }
-    emit('UNDO_LAST', { tableId })
+    emit(SocketEvents.CLIENT.UNDO_LAST, { tableId })
   }
 
   const handleSetServer = (player: 'A' | 'B') => {
@@ -180,7 +181,7 @@ export function ScoreboardPage() {
       return
     }
     const playerKey = player.toLowerCase() as 'a' | 'b'
-    emit('SET_SERVER', { player: playerKey, tableId })
+    emit(SocketEvents.CLIENT.SET_SERVER, { player: playerKey, tableId })
   }
 
   const handleStartMatch = (config: { 
@@ -197,7 +198,7 @@ export function ScoreboardPage() {
     }
     console.log(`[Scoreboard] Starting match with config:`, config)
     console.log(`[Scoreboard] Emitting START_MATCH with tableId:`, tableId)
-    emit('START_MATCH', { 
+    emit(SocketEvents.CLIENT.START_MATCH, { 
       tableId, 
       pointsPerSet: config.pointsPerSet,
       bestOf: config.bestOf,

@@ -8,6 +8,7 @@ import { useSocketContext } from '@/contexts/SocketContext'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/atoms/Button'
 import { Typography } from '@/components/atoms/Typography'
+import { SocketEvents } from '@shared/events'
 import type { QRData, TableInfoWithPin } from '@/shared/types'
 
 export function DashboardPage() {
@@ -109,7 +110,7 @@ export function DashboardPage() {
     
     // Validate PIN with server
     setPinLoading(true)
-    socket.emit('SET_REF', { tableId: selectedTable.id, pin })
+    socket.emit(SocketEvents.CLIENT.SET_REF, { tableId: selectedTable.id, pin })
     
     // Listen for response
     const handleResponse = (response: { success?: boolean; error?: string }) => {
@@ -153,7 +154,7 @@ export function DashboardPage() {
 
   const handleRegeneratePin = (tableId: string) => {
     if (socket && connected && ownerPin) {
-      socket.emit('REGENERATE_PIN', { tableId, pin: ownerPin })
+      socket.emit(SocketEvents.CLIENT.REGENERATE_PIN, { tableId, pin: ownerPin })
     }
   }
 

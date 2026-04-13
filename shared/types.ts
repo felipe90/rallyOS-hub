@@ -112,13 +112,23 @@ export interface QRData {
   tableId: string;
   tableName: string;
   pin: string;
-  url: string;
+  encryptedPin: string;  // required: format {iv}:{ciphertext}:{authTag}:{timestamp}
+  url: string;           // rallyhub://join/{tableId}?ePin={encryptedPin}
 }
 
 // Error response
 export interface ErrorResponse {
   code: string;
   message: string;
+}
+
+// Validation error response (from server hardening)
+export interface ValidationError {
+  code: 'VALIDATION_ERROR';
+  message: string;
+  field: string;
+  expected: string;
+  received: string;
 }
 
 // Table (internal)

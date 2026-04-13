@@ -152,9 +152,8 @@ export function DashboardPage() {
   }
 
   const handleRegeneratePin = (tableId: string) => {
-    if (socket && connected) {
-      // Owner can regenerate without knowing the current PIN (use empty string as placeholder)
-      socket.emit('REGENERATE_PIN', { tableId, pin: '' })
+    if (socket && connected && ownerPin) {
+      socket.emit('REGENERATE_PIN', { tableId, pin: ownerPin })
     }
   }
 

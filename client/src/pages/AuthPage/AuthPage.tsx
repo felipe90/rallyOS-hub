@@ -72,40 +72,23 @@ export function AuthPage() {
 
   const handlePinChange = (value: string) => {
     setPin(value)
-    // Clear error when pin is valid
-    if (value.length === 5) {
+    // Clear error when pin is within valid range
+    if (value.length >= 5 && value.length <= 8) {
       setError('')
     }
   }
 
 const handlePinSubmit = (eventOrPin?: any) => {
-    // If it's an event (from button), ignore it, use state. If it's a pin string (from onComplete), use it
     const pinToCheck = typeof eventOrPin === 'string' ? eventOrPin : pin
-    if (pinToCheck.length !== 5) {
-      setError('PIN debe tener 5 dígitos')
-      return
-    }
-    
-    // Fallback for offline mode or socket not available - accept default PIN
-    // But still emit to server so socket gets marked as owner
-    if (pinToCheck === '00000') {
-      if (socket && connected) {
-        socket.emit('VERIFY_OWNER', { pin: pinToCheck })
-        setIsLoading(true)
-        setOwner(true, pinToCheck)
-        login('owner', undefined, pinToCheck)
-      } else {
-        setOwner(true, pinToCheck)
-        login('owner', undefined, pinToCheck)
-        navigate('/dashboard')
-      }
+    if (pinToCheck.length < 5 || pinToCheck.length > 8) {
+      setError('PIN debe tener entre 5 y 8 dígitos')
       return
     }
 
     setError('')
     setIsLoading(true)
 
-    // Emit VERIFY_OWNER event
+    // Emit VERIFY_OWNER event — always go through server
     if (socket && connected) {
       socket.emit('VERIFY_OWNER', { pin: pinToCheck })
     } else {
@@ -169,14 +152,14 @@ const handlePinSubmit = (eventOrPin?: any) => {
             Ingresa el PIN de organizador del torneo
           </Typography>
           <PinInput
-            length={5}
+            length={8}
             value={pin}
             onChange={handlePinChange}
             onComplete={() => {}} // Auto-submit disabled - user must click button
             disabled={isLoading}
             error={error}
             autoFocus
-            placeholder="•••••"
+            placeholder="••••••••"
           />
 
           {error && (
@@ -188,7 +171,7 @@ const handlePinSubmit = (eventOrPin?: any) => {
           <Button
             className='bg-primary text-primary-foreground hover:bg-primary/90'
             variant="primary"
-            disabled={pin.length !== 5 || isLoading}
+            disabled={pin.length < 5 || pin.length > 8 || isLoading}
             onClick={handlePinSubmit}
             animate={false}
           >

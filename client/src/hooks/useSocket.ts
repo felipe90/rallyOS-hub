@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io } from 'socket.io-client';
-import type { TableInfo, TableInfoWithPin, MatchStateExtended, ScoreChange } from '../../../shared/types';
+import { SocketEvents } from '@shared/events';
+import type { TableInfo, TableInfoWithPin, MatchStateExtended, ScoreChange, ValidationError, ErrorResponse } from '../../../shared/types';
 
 /* useSocket Hook - Centralized socket management */
 export interface UseSocketOptions {
@@ -12,7 +13,28 @@ export interface SocketState {
   connected: boolean;
   connecting: boolean;
   error: string | null;
+  errorCode: string | null;
 }
+
+// Error messages map (Spanish)
+const ERROR_MESSAGES: Record<string, string | ((error: ValidationError) => string)> = {
+  'INVALID_PIN': 'PIN de mesa incorrecto',
+  'INVALID_OWNER_PIN': 'PIN de organizador incorrecto',
+  'RATE_LIMITED': 'Demasiados intentos. Esperá un minuto.',
+  'REF_ALREADY_ACTIVE': 'Ya hay un árbitro activo en esta mesa',
+  'TABLE_NOT_FOUND': 'Mesa no encontrada',
+  'UNAUTHORIZED': 'No autorizado',
+  'VALIDATION_ERROR': (error) => `Campo inválido: ${error.field} — ${error.message}`,
+  'NOT_OWNER': 'No tenés permisos de organizador',
+};
+
+// Client-side validation helpers
+const validateName = (name?: string): boolean =>
+  !name || (typeof name === 'string' && name.length <= 256);
+
+const validateTablePin = (pin: string): boolean => /^\d{4}$/.test(pin);
+
+const validateOwnerPin = (pin: string): boolean => /^\d{5,8}$/.test(pin);
 
 export function useSocket(options: UseSocketOptions = {}) {
   // Auto-detect server URL if not provided
@@ -77,59 +99,51 @@ export function useSocket(options: UseSocketOptions = {}) {
     console.log('[Socket] Attempting connection to:', serverUrl);
 
     socket.on('connect', () => {
-      console.log('[✓ Socket] Connected successfully');
-      setState({ connected: true, connecting: false, error: null });
+      setState({ connected: true, connecting: false, error: null, errorCode: null });
     });
     socket.on('disconnect', (reason) => {
-      console.log('[✗ Socket] Disconnected:', reason);
       setState(s => ({ ...s, connected: false }));
     });
     socket.on('connect_error', (error: Error) => {
-      console.error('[✗ Socket Error]', error.message);
-      setState({ connected: false, connecting: false, error: error.message });
+      setState({ connected: false, connecting: false, error: error.message, errorCode: null });
     });
 
-    socket.on('TABLE_UPDATE', (table: TableInfo) => {
-      setTables(prev => prev.find(t => t.id === table.id) 
-        ? prev.map(t => t.id === table.id ? table : t) 
+    socket.on(SocketEvents.SERVER.TABLE_UPDATE, (table: TableInfo) => {
+      setTables(prev => prev.find(t => t.id === table.id)
+        ? prev.map(t => t.id === table.id ? table : t)
         : [...prev, table]);
       setCurrentTable(table);
     });
 
-    socket.on('TABLE_LIST', (list: TableInfo[]) => setTables(list));
-    socket.on('TABLE_LIST_WITH_PINS', (data: { tables: TableInfoWithPin[] }) => {
-      // Only set tables with PINs (for Owner)
+    socket.on(SocketEvents.SERVER.TABLE_LIST, (list: TableInfo[]) => setTables(list));
+    socket.on(SocketEvents.SERVER.TABLE_LIST_WITH_PINS, (data: { tables: TableInfoWithPin[] }) => {
       setTables(data.tables as TableInfo[]);
     });
-    socket.on('TABLE_CREATED', (table: TableInfo) => {
-      // SECURITY: No longer storing pin - creator is auto-authorized as referee
-      // The server automatically sets the creator as referee (socketHandler.ts line 61)
-      console.log('[Socket] Table created, creator auto-authorized as referee');
-      
-      // Get ownerPin from localStorage and refresh tables with PINs
+    socket.on(SocketEvents.SERVER.TABLE_CREATED, (table: TableInfo) => {
       const ownerPin = localStorage.getItem('ownerPin')
       if (ownerPin) {
-        socket.emit('GET_TABLES_WITH_PINS', { ownerPin })
+        socket.emit(SocketEvents.CLIENT.GET_TABLES_WITH_PINS, { ownerPin })
       }
     });
-    socket.on('REF_SET', ({ tableId }: { tableId: string }) => {
+    socket.on(SocketEvents.SERVER.REF_SET, ({ tableId }: { tableId: string }) => {
       // Referee successfully set by server
-      console.log('[Socket] Referee role confirmed for table:', tableId);
     });
-    socket.on('MATCH_UPDATE', (match: MatchStateExtended) => {
+    socket.on(SocketEvents.SERVER.MATCH_UPDATE, (match: MatchStateExtended) => {
       setCurrentMatch(match);
     });
-    socket.on('HISTORY_UPDATE', (history: ScoreChange[]) => setCurrentMatch(prev => prev ? { ...prev, history } : null));
+    socket.on(SocketEvents.SERVER.HISTORY_UPDATE, (history: ScoreChange[]) => setCurrentMatch(prev => prev ? { ...prev, history } : null));
 
-    // Listen for errors
-    socket.on('ERROR', (error: { code: string; message: string }) => {
-      console.error('[Socket] Error from server:', error);
-      setState(s => ({ ...s, error: error.message }));
-    });
-
-    // Listen for REF_SET confirmation
-    socket.on('REF_SET', (data: { tableId: string }) => {
-      console.log('[Socket] REF_SET confirmed for table:', data.tableId);
+    // Differentiated error handling
+    socket.on(SocketEvents.SERVER.ERROR, (error: ErrorResponse | ValidationError) => {
+      let message: string;
+      if (error.code === 'VALIDATION_ERROR' && 'field' in error) {
+        const validationError = error as ValidationError;
+        const msgFn = ERROR_MESSAGES['VALIDATION_ERROR'];
+        message = typeof msgFn === 'function' ? msgFn(validationError) : validationError.message;
+      } else {
+        message = ERROR_MESSAGES[error.code] || error.message;
+      }
+      setState(s => ({ ...s, error: message, errorCode: error.code }));
     });
 
     socketRef.current = socket;
@@ -149,13 +163,49 @@ export function useSocket(options: UseSocketOptions = {}) {
     }
   }, []);
 
-  const createTable = useCallback((name?: string) => emit('CREATE_TABLE', { name }), [emit]);
-  const joinTable = useCallback((tableId: string, pin: string, role: string) => emit('JOIN_TABLE', { tableId, pin, role }), [emit]);
-  const requestTables = useCallback(() => emit('GET_TABLES', {}), [emit]);
-  const requestTablesWithPins = useCallback((ownerPin: string) => emit('GET_TABLES_WITH_PINS', { ownerPin }), [emit]);
-  const scorePoint = useCallback((player: 'A' | 'B') => currentTable?.id && emit('SCORE_POINT', { tableId: currentTable.id, player }), [emit, currentTable]);
-  const undoLastPoint = useCallback(() => currentTable?.id && emit('UNDO_POINT', { tableId: currentTable.id }), [emit, currentTable]);
-  const startMatch = useCallback((config: { pointsPerSet: number; bestOf: number }) => currentTable?.id && emit('START_MATCH', { tableId: currentTable.id, ...config }), [emit, currentTable]);
+  const createTable = useCallback((name?: string) => {
+    if (!validateName(name)) return;
+    emit(SocketEvents.CLIENT.CREATE_TABLE, { name });
+  }, [emit]);
+
+  const joinTable = useCallback((tableId: string, pin: string, name?: string) => {
+    if (!validateTablePin(pin)) return;
+    if (!validateName(name)) return;
+    emit(SocketEvents.CLIENT.JOIN_TABLE, { tableId, pin, name });
+  }, [emit]);
+
+  const requestTables = useCallback(() => emit(SocketEvents.CLIENT.LIST_TABLES), [emit]);
+  const requestTablesWithPins = useCallback((ownerPin: string) => emit(SocketEvents.CLIENT.GET_TABLES_WITH_PINS, { ownerPin }), [emit]);
+
+  const scorePoint = useCallback((player: 'A' | 'B') =>
+    currentTable?.id && emit(SocketEvents.CLIENT.RECORD_POINT, { tableId: currentTable.id, player }),
+    [emit, currentTable]
+  );
+
+  const undoLastPoint = useCallback(() =>
+    currentTable?.id && emit(SocketEvents.CLIENT.UNDO_LAST, { tableId: currentTable.id }),
+    [emit, currentTable]
+  );
+
+  const startMatch = useCallback(() =>
+    currentTable?.id && emit(SocketEvents.CLIENT.START_MATCH, { tableId: currentTable.id }),
+    [emit, currentTable]
+  );
+
+  const configureMatch = useCallback((config: { playerNames?: { a: string; b: string }; format?: number; ptsPerSet?: number; handicap?: { a: number; b: number } }) =>
+    currentTable?.id && emit(SocketEvents.CLIENT.CONFIGURE_MATCH, { tableId: currentTable.id, ...config }),
+    [emit, currentTable]
+  );
+
+  const setReferee = useCallback((tableId: string, pin: string) => {
+    if (!validateTablePin(pin)) return;
+    emit(SocketEvents.CLIENT.SET_REF, { tableId, pin });
+  }, [emit]);
+
+  const regeneratePin = useCallback((tableId: string, ownerPin: string) => {
+    if (!validateOwnerPin(ownerPin)) return;
+    emit(SocketEvents.CLIENT.REGENERATE_PIN, { tableId, pin: ownerPin });
+  }, [emit]);
 
   useEffect(() => {
     if (autoConnect) connect();
@@ -177,6 +227,9 @@ export function useSocket(options: UseSocketOptions = {}) {
     scorePoint,
     undoLastPoint,
     startMatch,
+    configureMatch,
+    setReferee,
+    regeneratePin,
     emit,
   };
 }

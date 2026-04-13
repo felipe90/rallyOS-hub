@@ -1,130 +1,112 @@
 /**
  * PIN Encryption Utility
- * 
- * Uses simple XOR cipher for LAN POC.
- * Format output: {encrypted}:{timestamp}
- * Key generation: tableId + daily salt (midnight timestamp)
+ *
+ * Uses AES-256-GCM encryption for secure PIN transport.
+ * Format output: {iv}:{ciphertext}:{authTag} (all hex encoded)
+ * Key derivation: HMAC-SHA256(tableId, serverSecret)
  */
 
+import crypto from 'crypto';
+import { logger } from './logger';
+
 /**
- * Generate encryption key from tableId and daily salt
+ * Get or generate server secret from environment
  */
-function generateKey(tableId: string): string {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const dailySalt = today.getTime().toString();
-  
-  // Simple hash: tableId + salt
-  let hash = 0;
-  const combined = tableId + dailySalt;
-  for (let i = 0; i < combined.length; i++) {
-    const char = combined.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32bit integer
+function getServerSecret(): string {
+  const envSecret = process.env.ENCRYPTION_SECRET;
+  if (envSecret) {
+    return envSecret;
   }
-  
-  // Convert to positive hex string for XOR
-  return (hash >>> 0).toString(16).padStart(8, '0');
+
+  // Generate a random secret at startup if not provided
+  if (!(globalThis as any)._RALLYOS_ENCRYPTION_SECRET) {
+    (globalThis as any)._RALLYOS_ENCRYPTION_SECRET = crypto.randomBytes(32).toString('hex');
+    logger.warn('ENCRYPTION_SECRET not set, using random secret generated at startup');
+  }
+  return (globalThis as any)._RALLYOS_ENCRYPTION_SECRET;
 }
 
 /**
- * XOR encrypt a string with a key
+ * Derive encryption key from tableId and server secret using HMAC-SHA256
  */
-function xorEncrypt(text: string, key: string): string {
-  let result = '';
-  for (let i = 0; i < text.length; i++) {
-    // Repeat key if shorter than text
-    const keyChar = key[i % key.length];
-    const textChar = text.charCodeAt(i);
-    const keyCharCode = keyChar.charCodeAt(0);
-    const encrypted = textChar ^ keyCharCode;
-    result += String.fromCharCode(encrypted);
-  }
-  // Convert to hex for safe transport
-  let hexResult = '';
-  for (let i = 0; i < result.length; i++) {
-    hexResult += result.charCodeAt(i).toString(16).padStart(2, '0');
-  }
-  return hexResult;
+function deriveKey(tableId: string): Buffer {
+  const serverSecret = getServerSecret();
+  return crypto.createHmac('sha256', serverSecret).update(tableId).digest();
 }
 
 /**
- * XOR decrypt a hex string
- */
-function xorDecrypt(hexText: string, key: string): string {
-  // Convert hex back to string
-  let result = '';
-  for (let i = 0; i < hexText.length; i += 2) {
-    const hexByte = hexText.substr(i, 2);
-    const charCode = parseInt(hexByte, 16);
-    const keyChar = key[i / 2 % key.length];
-    const decrypted = charCode ^ keyChar.charCodeAt(0);
-    result += String.fromCharCode(decrypted);
-  }
-  return result;
-}
-
-/**
- * Encrypt a PIN for QR code
+ * Encrypt a PIN
  * @param pin - 4 digit PIN
- * @param tableId - Table ID for key generation
- * @returns Encrypted string in format {encrypted}:{timestamp}
+ * @param tableId - Table ID for key derivation
+ * @returns Encrypted string in format {iv}:{ciphertext}:{authTag}
  */
 export function encryptPin(pin: string, tableId: string): string {
-  const key = generateKey(tableId);
-  const encrypted = xorEncrypt(pin, key);
+  const key = deriveKey(tableId);
+  const iv = crypto.randomBytes(16);
+
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  let ciphertext = cipher.update(pin, 'utf8', 'hex');
+  ciphertext += cipher.final('hex');
+  const authTag = cipher.getAuthTag();
+
   const timestamp = Date.now().toString();
-  return `${encrypted}:${timestamp}`;
+  return `${iv.toString('hex')}:${ciphertext}:${authTag.toString('hex')}:${timestamp}`;
 }
 
 /**
  * Decrypt a PIN from encrypted string
- * @param encryptedString - String in format {encrypted}:{timestamp}
- * @param tableId - Table ID for key generation
+ * @param encryptedString - String in format {iv}:{ciphertext}:{authTag}:{timestamp}
+ * @param tableId - Table ID for key derivation
  * @returns Original PIN or null if decryption fails
  */
 export function decryptPin(encryptedString: string, tableId: string): string | null {
   try {
     const parts = encryptedString.split(':');
-    if (parts.length !== 2) {
-      console.error('[PinEncryption] Invalid format - missing separator');
+    if (parts.length !== 4) {
+      logger.error('Invalid PIN format - expected iv:ciphertext:authTag:timestamp');
       return null;
     }
-    
-    const [encrypted, timestamp] = parts;
-    
-    // Optional: Check if expired (24 hours)
-    const age = Date.now() - parseInt(timestamp);
+
+    const [ivHex, ciphertext, authTagHex, timestamp] = parts;
+
+    // Check if expired (24 hours)
+    const age = Date.now() - parseInt(timestamp, 10);
     const EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
     if (age > EXPIRY_MS) {
-      console.warn('[PinEncryption] PIN expired');
+      logger.warn('PIN expired');
       return null;
     }
-    
-    const key = generateKey(tableId);
-    const decrypted = xorDecrypt(encrypted, key);
-    
+
+    const key = deriveKey(tableId);
+    const iv = Buffer.from(ivHex, 'hex');
+    const authTag = Buffer.from(authTagHex, 'hex');
+
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+    decipher.setAuthTag(authTag);
+    let decrypted = decipher.update(ciphertext, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+
     // Validate it's a 4-digit number
     if (!/^\d{4}$/.test(decrypted)) {
-      console.error('[PinEncryption] Decrypted PIN invalid format');
+      logger.error('Decrypted PIN invalid format');
       return null;
     }
-    
+
     return decrypted;
   } catch (error) {
-    console.error('[PinEncryption] Decryption failed:', error);
+    logger.error({ error }, 'Decryption failed');
     return null;
   }
 }
 
 /**
  * Encrypt PIN for URL query parameter
- * Uses same logic but URL-safe base64 encoding
+ * Uses Base64 encoding for URL safety
  */
 export function encryptPinForUrl(pin: string, tableId: string): string {
   const encrypted = encryptPin(pin, tableId);
-  // Base64 encode for URL safety
-  return btoa(encrypted);
+  // Base64 encode and make URL-safe
+  return Buffer.from(encrypted).toString('base64url');
 }
 
 /**
@@ -132,10 +114,11 @@ export function encryptPinForUrl(pin: string, tableId: string): string {
  */
 export function decryptPinFromUrl(encryptedUrl: string, tableId: string): string | null {
   try {
-    const decoded = atob(encryptedUrl);
+    // Decode from URL-safe Base64
+    const decoded = Buffer.from(encryptedUrl, 'base64url').toString('utf8');
     return decryptPin(decoded, tableId);
   } catch (error) {
-    console.error('[PinEncryption] URL decryption failed:', error);
+    logger.error({ error }, 'URL decryption failed');
     return null;
   }
 }

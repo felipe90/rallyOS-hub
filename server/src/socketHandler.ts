@@ -2,17 +2,21 @@ import { Server, Socket } from 'socket.io';
 import { TableManager } from './tableManager';
 import { MatchEngine, Player, MatchConfig } from './matchEngine';
 import { TableInfo } from './types';
+import { validateSocketPayload, ValidationRules } from './utils/validation';
+import { logger } from './utils/logger';
 
 export class SocketHandler {
   private io: Server;
   private tableManager: TableManager;
+  private ownerPin: string;
   private readonly rateLimitWindowMs = 60_000;
   private readonly rateLimitMaxAttempts = 5;
   private rateLimitAttempts: Map<string, number[]> = new Map();
 
-  constructor(io: Server, tableManager: TableManager) {
+  constructor(io: Server, tableManager: TableManager, ownerPin: string) {
     this.io = io;
     this.tableManager = tableManager;
+    this.ownerPin = ownerPin;
     
     // Set up global table update listener once
     this.tableManager.onTableUpdate = (tableInfo) => {
@@ -34,24 +38,28 @@ export class SocketHandler {
 
   private setupListeners() {
     this.io.on('connection', (socket: Socket) => {
-      console.log(`[✓ Socket] Client connected: ${socket.id}`);
-      console.log(`[Socket] Connected clients: ${this.io.engine.clientsCount}`);
-      
+      logger.info({ socketId: socket.id }, 'Client connected');
+      logger.debug({ socketId: socket.id, count: this.io.engine.clientsCount }, 'Connected clients');
+
       // Send current tables to new client
       socket.emit('TABLE_LIST', this.getPublicTableList());
-      
+
       // Handle disconnection
       socket.on('disconnect', (reason) => {
-        console.log(`[✗ Socket] Client disconnected: ${socket.id} - Reason: ${reason}`);
-        console.log(`[Socket] Connected clients: ${this.io.engine.clientsCount}`);
+        logger.info({ socketId: socket.id, reason }, 'Client disconnected');
+        logger.debug({ count: this.io.engine.clientsCount }, 'Connected clients after disconnect');
       });
-      
+
       // Handle errors
       socket.on('error', (error) => {
-        console.error(`[✗ Socket Error] ${socket.id}:`, error);
+        logger.error({ socketId: socket.id, error }, 'Socket error');
       });
       
       socket.on('CREATE_TABLE', (data?: { name?: string }) => {
+        if (!validateSocketPayload(socket, data || {}, { name: { type: 'string', maxLength: 256, required: false } }, 'CREATE_TABLE')) {
+          return;
+        }
+
         const table = this.tableManager.createTable(data?.name);
         socket.join(table.id); // Creator joins the table room
 
@@ -76,6 +84,10 @@ export class SocketHandler {
       });
 
       socket.on('GET_MATCH_STATE', (data: { tableId: string }) => {
+        if (!validateSocketPayload(socket, data, { tableId: { required: true, type: 'string', maxLength: 36 } }, 'GET_MATCH_STATE')) {
+          return;
+        }
+
         if (!data?.tableId) {
           return socket.emit('ERROR', { code: 'INVALID_PARAMS', message: 'tableId required' });
         }
@@ -89,6 +101,10 @@ export class SocketHandler {
       });
       
       socket.on('JOIN_TABLE', (data: { tableId: string; name?: string; pin?: string; role?: string }) => {
+        if (!validateSocketPayload(socket, data, { tableId: { required: true, type: 'string', maxLength: 36 }, name: { type: 'string', maxLength: 256, required: false }, pin: { type: 'string', pattern: /^\d{4}$/, required: false } }, 'JOIN_TABLE')) {
+          return;
+        }
+
         if (!data?.tableId) {
           return socket.emit('ERROR', { code: 'INVALID_PARAMS', message: 'tableId required' });
         }
@@ -121,6 +137,10 @@ export class SocketHandler {
       });
       
       socket.on('LEAVE_TABLE', (data: { tableId: string }) => {
+        if (!validateSocketPayload(socket, data, { tableId: { required: true, type: 'string', maxLength: 36 } }, 'LEAVE_TABLE')) {
+          return;
+        }
+
         if (!data?.tableId) return;
         
         socket.leave(data.tableId); // LEAVE the socket room
@@ -136,19 +156,25 @@ export class SocketHandler {
       });
       
       socket.on('SET_REF', (data: { tableId: string; pin: string }) => {
+        if (!validateSocketPayload(socket, data, { tableId: { required: true, type: 'string', maxLength: 36 }, pin: { required: true, type: 'string', pattern: /^\d{4}$/ } }, 'SET_REF')) {
+          return;
+        }
+
         if (!data?.tableId || !data?.pin) {
           return socket.emit('ERROR', { code: 'INVALID_PARAMS', message: 'tableId and pin required' });
         }
 
-        const rateLimitKey = `SET_REF:${data.tableId}:${socket.id}`;
+        const clientIp = socket.handshake.address;
+        const rateLimitKey = `SET_REF:${data.tableId}:${clientIp}`;
         if (this.isRateLimited(rateLimitKey)) {
+          logger.warn({ tableId: data.tableId, ip: clientIp }, 'SET_REF rate limit blocked');
           return socket.emit('ERROR', {
             code: 'RATE_LIMITED',
             message: 'Too many attempts. Please wait a minute before trying again.',
           });
         }
         
-        const validOwnerPin = process.env.TOURNAMENT_OWNER_PIN || '00000';
+        const validOwnerPin = this.ownerPin;
         const isOwnerPin = data.pin === validOwnerPin;
         
         let success = false;
@@ -163,7 +189,7 @@ export class SocketHandler {
             if (table) {
               const existingRef = table.players.find(p => p.role === 'REFEREE');
               if (existingRef) {
-                console.log(`[Socket] Owner taking control, removing old referee: ${existingRef.socketId}`);
+                logger.info({ tableId: data.tableId, oldRefereeId: existingRef.socketId }, 'Owner taking control, removing old referee');
                 // Remove old referee
                 table.players = table.players.filter(p => p.role !== 'REFEREE');
               }
@@ -195,13 +221,17 @@ export class SocketHandler {
         }
       });
       
-      socket.on('CONFIGURE_MATCH', (data: { 
-        tableId: string; 
-        playerNames?: { a: string; b: string }; 
-        format?: number; 
+      socket.on('CONFIGURE_MATCH', (data: {
+        tableId: string;
+        playerNames?: { a: string; b: string };
+        format?: number;
         ptsPerSet?: number;
-        handicap?: { a: number; b: number } 
+        handicap?: { a: number; b: number }
       }) => {
+        if (!validateSocketPayload(socket, data, { tableId: { required: true, type: 'string', maxLength: 36 }, playerNames: { type: 'object', required: false }, matchConfig: { type: 'object', required: false } }, 'CONFIGURE_MATCH')) {
+          return;
+        }
+
         if (!data?.tableId) {
           return socket.emit('ERROR', { code: 'INVALID_PARAMS', message: 'tableId required' });
         }
@@ -229,48 +259,41 @@ export class SocketHandler {
         }
       });
       
-      socket.on('START_MATCH', (data: { tableId: string; pointsPerSet?: number; bestOf?: number; handicapA?: number; handicapB?: number; playerNameA?: string; playerNameB?: string }) => {
-        console.log('[SocketHandler] START_MATCH received:', data);
-        
+      socket.on('START_MATCH', (data: { tableId: string }) => {
+        if (!validateSocketPayload(socket, data, { tableId: { required: true, type: 'string', maxLength: 36 } }, 'START_MATCH')) {
+          return;
+        }
+
+        logger.info({ tableId: data.tableId }, 'START_MATCH received');
+
         if (!data?.tableId) {
-          console.warn('[SocketHandler] START_MATCH: tableId missing');
+          logger.warn('START_MATCH: tableId missing');
           return socket.emit('ERROR', { code: 'INVALID_PARAMS', message: 'tableId required' });
         }
-        
+
         if (!this.tableManager.isReferee(data.tableId, socket.id)) {
-          console.warn('[SocketHandler] START_MATCH: Not a referee for table', data.tableId);
+          logger.warn({ tableId: data.tableId }, 'START_MATCH: Not a referee for table');
           return socket.emit('ERROR', { code: 'UNAUTHORIZED', message: 'No autorizado' });
         }
-        
-        console.log('[SocketHandler] START_MATCH: Calling tableManager.startMatch with config:', {
-          pointsPerSet: data.pointsPerSet || 11,
-          bestOf: data.bestOf || 3,
-          handicapA: data.handicapA || 0,
-          handicapB: data.handicapB || 0,
-          playerNameA: data.playerNameA || 'Player A',
-          playerNameB: data.playerNameB || 'Player B',
-        });
-        
-        const state = this.tableManager.startMatch(data.tableId, {
-          pointsPerSet: data.pointsPerSet || 11,
-          bestOf: data.bestOf || 3,
-          handicapA: data.handicapA || 0,
-          handicapB: data.handicapB || 0,
-          playerNameA: data.playerNameA,
-          playerNameB: data.playerNameB,
-        });
-        
-        console.log('[SocketHandler] START_MATCH: Result state:', state);
-        
+
+        // START_MATCH only initiates the match - configuration should be done via CONFIGURE_MATCH
+        const state = this.tableManager.startMatch(data.tableId);
+
+        logger.debug({ tableId: data.tableId, state }, 'START_MATCH: Result state');
+
         if (state) {
-          console.log('[SocketHandler] START_MATCH: Emitting MATCH_UPDATE to room', data.tableId);
-          this.io.to(data.tableId).emit('MATCH_UPDATE', state); // Emit only to room
+          logger.debug({ tableId: data.tableId }, 'START_MATCH: Emitting MATCH_UPDATE to room');
+          this.io.to(data.tableId).emit('MATCH_UPDATE', state);
         } else {
-          console.warn('[SocketHandler] START_MATCH: tableManager.startMatch returned null');
+          logger.warn({ tableId: data.tableId }, 'START_MATCH: tableManager.startMatch returned null');
         }
       });
       
       socket.on('RECORD_POINT', (data: { tableId: string; player: Player }) => {
+        if (!validateSocketPayload(socket, data, { tableId: { required: true, type: 'string', maxLength: 36 }, player: { required: true, type: 'string', enum: ['A', 'B'] } }, 'RECORD_POINT')) {
+          return;
+        }
+
         if (!data?.tableId || !data?.player) {
           return socket.emit('ERROR', { code: 'INVALID_PARAMS', message: 'tableId and player required' });
         }
@@ -286,6 +309,10 @@ export class SocketHandler {
       });
       
       socket.on('SUBTRACT_POINT', (data: { tableId: string; player: Player }) => {
+        if (!validateSocketPayload(socket, data, { tableId: { required: true, type: 'string', maxLength: 36 }, player: { required: true, type: 'string', enum: ['A', 'B'] } }, 'SUBTRACT_POINT')) {
+          return;
+        }
+
         if (!data?.tableId || !data?.player) {
           return socket.emit('ERROR', { code: 'INVALID_PARAMS', message: 'tableId and player required' });
         }
@@ -301,6 +328,10 @@ export class SocketHandler {
       });
       
       socket.on('UNDO_LAST', (data: { tableId: string }) => {
+        if (!validateSocketPayload(socket, data, { tableId: { required: true, type: 'string', maxLength: 36 } }, 'UNDO_LAST')) {
+          return;
+        }
+
         if (!data?.tableId) {
           return socket.emit('ERROR', { code: 'INVALID_PARAMS', message: 'tableId required' });
         }
@@ -316,6 +347,10 @@ export class SocketHandler {
       });
       
       socket.on('SET_SERVER', (data: { tableId: string; player: Player }) => {
+        if (!validateSocketPayload(socket, data, { tableId: { required: true, type: 'string', maxLength: 36 }, player: { required: true, type: 'string', enum: ['A', 'B'] } }, 'SET_SERVER')) {
+          return;
+        }
+
         if (!data?.tableId || !data?.player) {
           return socket.emit('ERROR', { code: 'INVALID_PARAMS', message: 'tableId and player required' });
         }
@@ -331,6 +366,10 @@ export class SocketHandler {
       });
       
       socket.on('RESET_TABLE', (data: { tableId: string; config?: MatchConfig }) => {
+        if (!validateSocketPayload(socket, data, { tableId: { required: true, type: 'string', maxLength: 36 }, config: { type: 'object', required: false } }, 'RESET_TABLE')) {
+          return;
+        }
+
         if (!data?.tableId) {
           return socket.emit('ERROR', { code: 'INVALID_PARAMS', message: 'tableId required' });
         }
@@ -346,6 +385,10 @@ export class SocketHandler {
       });
       
       socket.on('REQUEST_TABLE_STATE', (data: { tableId: string }) => {
+        if (!validateSocketPayload(socket, data, { tableId: { required: true, type: 'string', maxLength: 36 } }, 'REQUEST_TABLE_STATE')) {
+          return;
+        }
+
         if (!data?.tableId) {
           return socket.emit('ERROR', { code: 'INVALID_PARAMS', message: 'tableId required' });
         }
@@ -359,12 +402,18 @@ export class SocketHandler {
       });
       
       socket.on('DELETE_TABLE', (data: { tableId: string; pin: string }) => {
+        if (!validateSocketPayload(socket, data, { tableId: { required: true, type: 'string', maxLength: 36 }, pin: { required: true, type: 'string', pattern: /^\d{4}$/ } }, 'DELETE_TABLE')) {
+          return;
+        }
+
         if (!data?.tableId || !data?.pin) {
           return socket.emit('ERROR', { code: 'INVALID_PARAMS', message: 'tableId and pin required' });
         }
 
-        const rateLimitKey = `DELETE_TABLE:${data.tableId}:${socket.id}`;
+        const clientIp = socket.handshake.address;
+        const rateLimitKey = `DELETE_TABLE:${data.tableId}:${clientIp}`;
         if (this.isRateLimited(rateLimitKey)) {
+          logger.warn({ tableId: data.tableId, ip: clientIp }, 'DELETE_TABLE rate limit blocked');
           return socket.emit('ERROR', {
             code: 'RATE_LIMITED',
             message: 'Too many attempts. Please wait a minute before trying again.',
@@ -390,7 +439,7 @@ export class SocketHandler {
         const success = this.tableManager.deleteTable(data.tableId);
         
         if (success) {
-          console.log(`[Socket] Table ${data.tableId} killed by ${socket.id}`);
+          logger.info({ tableId: data.tableId, socketId: socket.id }, 'Table deleted successfully');
           // Broadcast updated list to everyone
           this.io.emit('TABLE_LIST', this.getPublicTableList());
         }
@@ -398,44 +447,55 @@ export class SocketHandler {
       
       // RF-01: Verify Tournament Owner PIN
       socket.on('VERIFY_OWNER', (data: { pin: string }) => {
-        console.log(`[Socket] VERIFY_OWNER received: ${data.pin}, socket.data:`, (socket as any).data);
-        
-        const validPin = process.env.TOURNAMENT_OWNER_PIN || '00000';
-        console.log(`[Socket] Comparing ${data.pin} with ${validPin}`);
-        
+        if (!validateSocketPayload(socket, data, { pin: { required: true, type: 'string', pattern: /^\d{5,8}$/ } }, 'VERIFY_OWNER')) {
+          return;
+        }
+
+        logger.info({ socketId: socket.id }, 'VERIFY_OWNER received');
+
+        const validPin = this.ownerPin;
+
         if (data.pin === validPin) {
           // Mark socket as owner for future authorization
           (socket as any).data = { ...(socket as any).data, isOwner: true };
           socket.emit('OWNER_VERIFIED', { token: 'owner-session' });
-          console.log(`[Socket] Owner verified: ${socket.id}, data:`, (socket as any).data);
+          logger.info({ socketId: socket.id }, 'Owner verified successfully');
         } else {
           socket.emit('ERROR', { code: 'INVALID_OWNER_PIN', message: 'PIN de organizador incorrecto' });
-          console.log(`[Socket] Owner verification failed: ${socket.id}`);
+          logger.warn({ socketId: socket.id }, 'Owner verification failed');
         }
       });
 
       // NEW: Get tables with PINs - Owner only
       socket.on('GET_TABLES_WITH_PINS', (data?: { ownerPin?: string }) => {
-        console.log(`[Socket] GET_TABLES_WITH_PINS received from ${socket.id}, ownerPin:`, data?.ownerPin);
-        
+        if (!validateSocketPayload(socket, data || {}, { ownerPin: { required: false, type: 'string', pattern: /^\d{5,8}$/ } }, 'GET_TABLES_WITH_PINS')) {
+          return;
+        }
+
+        logger.debug({ socketId: socket.id }, 'GET_TABLES_WITH_PINS received');
+
         // Check if socket is marked as owner OR if valid owner PIN provided
         const isSocketOwner = (socket as any).data?.isOwner === true;
-        const validOwnerPin = process.env.TOURNAMENT_OWNER_PIN || '00000';
+        const validOwnerPin = this.ownerPin;
         const isValidOwner = data?.ownerPin === validOwnerPin;
-        
+
         if (!isSocketOwner && !isValidOwner) {
-          console.log(`[Socket] GET_TABLES_WITH_PINS rejected - not owner`);
+          logger.warn({ socketId: socket.id }, 'GET_TABLES_WITH_PINS rejected - not owner');
           return socket.emit('ERROR', { code: 'NOT_OWNER', message: 'No autorizado' });
         }
-        
-        console.log(`[Socket] Owner requested tables with pins: ${socket.id}`);
+
+        logger.info({ socketId: socket.id }, 'Owner requested tables with pins');
         const tables = this.tableManager.getAllTablesWithPins();
-        console.log(`[Socket] Sending tables with PINs:`, tables);
+        logger.debug({ socketId: socket.id, tableCount: tables.length }, 'Sending tables with PINs');
         socket.emit('TABLE_LIST_WITH_PINS', { tables });
       });
       
       // RF-04: Kill-Switch - Regenerate PIN and revoke previous referee
       socket.on('REGENERATE_PIN', (data: { tableId: string; pin?: string }) => {
+        if (!validateSocketPayload(socket, data, { tableId: { required: true, type: 'string', maxLength: 36 }, pin: { required: false, type: 'string', pattern: /^\d{4,8}$/ } }, 'REGENERATE_PIN')) {
+          return;
+        }
+
         if (!data?.tableId) {
           return socket.emit('ERROR', { code: 'INVALID_PARAMS', message: 'tableId required' });
         }
@@ -446,7 +506,7 @@ export class SocketHandler {
         }
         
         // Verify the requester is the owner (check valid owner PIN or empty pin from owner)
-        const validOwnerPin = process.env.TOURNAMENT_OWNER_PIN || '00000';
+        const validOwnerPin = this.ownerPin;
         const isOwnerAuthorizing = !data.pin || data.pin === validOwnerPin;
         
         if (!isOwnerAuthorizing && table.pin !== data.pin) {
@@ -470,17 +530,17 @@ export class SocketHandler {
           });
           // Force disconnect from table room
           this.io.in(oldRefereeSocketId).socketsLeave(data.tableId);
-          console.log(`[Socket] Old referee ${oldRefereeSocketId} disconnected from table ${data.tableId}`);
+          logger.info({ tableId: data.tableId, oldRefereeId: oldRefereeSocketId }, 'Old referee disconnected from table');
         }
-        
+
         // Send new QR to the owner who requested regeneration
         const qrData = this.tableManager.generateQRData(data.tableId);
         if (qrData) {
           socket.emit('QR_DATA', qrData);
         }
-        
+
         socket.emit('PIN_REGENERATED', { tableId: data.tableId, newPin });
-        console.log(`[Socket] PIN regenerated for table ${data.tableId}`);
+        logger.info({ tableId: data.tableId }, 'PIN regenerated for table');
       });
       
       // REF_ROLE_CHECK: Verify if socket is referee for a table
@@ -488,14 +548,23 @@ export class SocketHandler {
         if (!data?.tableId) {
           return socket.emit('ERROR', { code: 'INVALID_PARAMS', message: 'tableId required' });
         }
-        
+
         const isReferee = this.tableManager.isReferee(data.tableId, socket.id);
         socket.emit('REF_ROLE_CHECK_RESULT', { tableId: data.tableId, isReferee });
       });
-      
+
+      // GET_RATE_LIMIT_STATUS: Return rate limit status for client's IP (debugging)
+      socket.on('GET_RATE_LIMIT_STATUS', () => {
+        const clientIp = socket.handshake.address;
+        const status = Array.from(this.rateLimitAttempts.entries())
+          .filter(([key]) => key.includes(clientIp))
+          .map(([key, timestamps]) => ({ key, attempts: timestamps.length }));
+        socket.emit('RATE_LIMIT_STATUS', status);
+      });
+
       socket.on('disconnect', () => {
-        console.log(`[Socket] Disconnected: ${socket.id}`);
-        
+        logger.info({ socketId: socket.id }, 'Socket disconnected');
+
         const allTables = this.tableManager.getAllTables();
         for (const table of allTables) {
           const t = this.tableManager.getTable(table.id);

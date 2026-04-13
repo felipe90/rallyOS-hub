@@ -1,6 +1,7 @@
 import { MatchEngine, Player, MatchConfig, MatchStateExtended } from './matchEngine';
 import { MatchEvent, Table, TableInfo, PlayerConnection, QRData } from './types';
 import { encryptPin } from './utils/pinEncryption';
+import { logger } from './utils/logger';
 
 export class TableManager {
   private tables: Map<string, Table> = new Map();
@@ -35,16 +36,16 @@ export class TableManager {
     };
     
     table.matchEngine.setTableId(id, tableName);
-    
+
     table.matchEngine.setEventCallback((event: MatchEvent) => {
       this.onMatchEvent(id, event);
     });
-    
+
     this.tables.set(id, table);
-    console.log(`[TableManager] Created ${tableName} (ID: ${id})`);
-    
+    logger.info({ tableId: id, tableName }, 'Table created');
+
     this.notifyUpdate(table);
-    
+
     return table;
   }
   
@@ -62,7 +63,7 @@ export class TableManager {
     
     // Validate PIN if provided
     if (pin && table.pin !== pin) {
-      console.log(`[TableManager] Invalid PIN for ${table.name}`);
+      logger.warn({ tableId, tableName: table.name }, 'Invalid PIN attempt');
       return false;
     }
     
@@ -82,8 +83,8 @@ export class TableManager {
     
     table.players.push(player);
     this.notifyUpdate(table);
-    
-    console.log(`[TableManager] Player ${name} joined ${table.name}`);
+
+    logger.info({ tableId, tableName: table.name, playerName: name }, 'Player joined table');
     return true;
   }
   
@@ -99,8 +100,8 @@ export class TableManager {
     
     // RB-03: Don't auto-promote - use Kill-Switch for controlled transfer
     // If referee leaves, table stays without referee until someone uses PIN
-    
-    console.log(`[TableManager] Player ${player.name} left ${table.name}`);
+
+    logger.info({ tableId, tableName: table.name, playerName: player.name }, 'Player left table');
     this.notifyUpdate(table);
   }
   
@@ -111,7 +112,7 @@ export class TableManager {
     // RB-03: Only one referee allowed - reject if already exists
     const existingReferee = table.players.find(p => p.role === 'REFEREE');
     if (existingReferee && existingReferee.socketId !== socketId) {
-      console.log(`[TableManager] Referee already active for ${table.name}, rejecting new attempt`);
+      logger.warn({ tableId, tableName: table.name }, 'Referee already active, rejecting new attempt');
       return false;
     }
     
@@ -127,8 +128,8 @@ export class TableManager {
         joinedAt: Date.now()
       });
     }
-    
-    console.log(`[TableManager] Referee authenticated for ${table.name}`);
+
+    logger.info({ tableId, tableName: table.name, socketId }, 'Referee authenticated');
     this.notifyUpdate(table);
     return true;
   }
@@ -169,11 +170,11 @@ export class TableManager {
   }
   
   public startMatch(tableId: string, config?: Partial<MatchConfig> & { playerNameA?: string; playerNameB?: string }): MatchStateExtended | null {
-    console.log('[TableManager] startMatch called for table:', tableId, 'config:', config);
-    
+    logger.info({ tableId, config }, 'startMatch called');
+
     const table = this.tables.get(tableId);
     if (!table) {
-      console.warn('[TableManager] startMatch: table not found for tableId:', tableId);
+      logger.warn({ tableId }, 'startMatch: table not found');
       return null;
     }
     
@@ -185,7 +186,7 @@ export class TableManager {
     
     // If config provided, create a new MatchEngine with it
     if (config) {
-      console.log('[TableManager] Creating new MatchEngine with config');
+      logger.debug({ tableId }, 'Creating new MatchEngine with config');
       // Preserve table info
       const tblId = table.id;
       const tblName = table.name;
@@ -214,9 +215,9 @@ export class TableManager {
     
     table.status = 'LIVE';
     const state = table.matchEngine.startMatch();
-    console.log('[TableManager] After startMatch, state status:', state?.status);
+    logger.debug({ tableId, status: state?.status }, 'After startMatch, state status');
     this.notifyUpdate(table);
-    
+
     return state;
   }
   
@@ -286,7 +287,7 @@ export class TableManager {
   public deleteTable(tableId: string): boolean {
     const deleted = this.tables.delete(tableId);
     if (deleted) {
-      console.log(`[TableManager] Deleted table ${tableId}`);
+      logger.info({ tableId }, 'Table deleted');
     }
     return deleted;
   }
@@ -332,10 +333,10 @@ export class TableManager {
     table.matchEngine.reset();
     table.matchEngine.setTableId(table.id, table.name);
     table.status = 'WAITING';
-    
-    console.log(`[TableManager] Table reset (kept PIN): ${table.name}, old referee: ${oldReferee?.socketId || 'none'}`);
+
+    logger.info({ tableId, tableName: table.name, oldRefereeId: oldReferee?.socketId || 'none' }, 'Table reset (kept PIN)');
     this.notifyUpdate(table);
-    
+
     return table.pin;
   }
   

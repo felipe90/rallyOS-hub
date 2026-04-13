@@ -1,23 +1,111 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { useSocketContext } from '../../contexts/SocketContext'
 import { useAuth } from '../../hooks/useAuth'
-import { ScoreboardMain, MatchConfigPanel } from '../../components/organisms/ScoreboardMain'
+import { ScoreboardMain } from '../../components/organisms/ScoreboardMain'
+import { MatchConfigPanel } from '../../components/organisms/MatchConfigPanel'
 import { HistoryDrawer } from '../../components/organisms/HistoryDrawer'
 import { PageHeader } from '../../components/molecules/PageHeader'
 import { ConnectionStatus } from '../../components/atoms/ConnectionStatus'
 import { Button } from '../../components/atoms/Button'
+import { Typography } from '../../components/atoms/Typography'
 import { useState, useEffect } from 'react'
+import type { RefRevokedEvent } from '@/shared/types'
 
 export function ScoreboardPage() {
   const { tableId } = useParams<{ tableId: string }>()
   const navigate = useNavigate()
-  const { currentMatch, emit, connected } = useSocketContext()
+  const { currentMatch, emit, connected, socket } = useSocketContext()
   const { isReferee } = useAuth()
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [refRevoked, setRefRevoked] = useState(false)
 
   if (!tableId) {
     return <div>Invalid table ID</div>
   }
+
+  // URL Scrubbing: Parse ?ePin= from URL and authenticate
+  useEffect(() => {
+    if (!connected || !socket) return
+
+    const params = new URLSearchParams(window.location.search)
+    const encryptedPin = params.get('ePin')
+
+    if (encryptedPin) {
+      console.log('[Scoreboard] Found encrypted PIN in URL:', encryptedPin.substring(0, 20) + '...')
+      
+      // Decode from URL-safe base64
+      try {
+        const decoded = atob(encryptedPin)
+        const parts = decoded.split(':')
+        
+        if (parts.length === 2) {
+          const [encrypted, timestamp] = parts
+          
+          // Simple XOR decryption (same logic as server)
+          // Generate key from tableId + daily salt
+          const generateKey = (tableId: string): string => {
+            const today = new Date()
+            today.setHours(0, 0, 0, 0)
+            const dailySalt = today.getTime().toString()
+            let hash = 0
+            const combined = tableId + dailySalt
+            for (let i = 0; i < combined.length; i++) {
+              const char = combined.charCodeAt(i)
+              hash = ((hash << 5) - hash) + char
+              hash = hash & hash
+            }
+            return (hash >>> 0).toString(16).padStart(8, '0')
+          }
+
+          const key = generateKey(tableId)
+          
+          // Decrypt
+          let decrypted = ''
+          for (let i = 0; i < encrypted.length; i += 2) {
+            const hexByte = encrypted.substr(i, 2)
+            const charCode = parseInt(hexByte, 16)
+            const keyChar = key[(i / 2) % key.length]
+            decrypted += String.fromCharCode(charCode ^ keyChar.charCodeAt(0))
+          }
+
+          console.log('[Scoreboard] Decrypted PIN:', decrypted)
+
+          if (/^\d{4}$/.test(decrypted)) {
+            // Emit SET_REF to authenticate
+            emit('SET_REF', { tableId, pin: decrypted })
+            
+            // URL Scrubbing: Clean the URL without reload
+            window.history.replaceState({}, '', `/scoreboard/${tableId}`)
+            console.log('[Scoreboard] URL cleaned, PIN authenticated')
+          }
+        }
+      } catch (error) {
+        console.error('[Scoreboard] Failed to decrypt PIN:', error)
+      }
+    }
+  }, [connected, socket, tableId, emit])
+
+  // Listen for REF_REVOKED event (when Kill-Switch is used)
+  useEffect(() => {
+    if (!socket) return
+
+    const handleRefRevoked = (data: RefRevokedEvent) => {
+      console.log('[Scoreboard] Referee revoked:', data)
+      if (data.tableId === tableId) {
+        setRefRevoked(true)
+        // After a delay, redirect to waiting room
+        setTimeout(() => {
+          navigate('/waiting-room')
+        }, 3000)
+      }
+    }
+
+    socket.on('REF_REVOKED', handleRefRevoked)
+
+    return () => {
+      socket.off('REF_REVOKED', handleRefRevoked)
+    }
+  }, [socket, tableId, navigate])
 
   // Request match data when component mounts or tableId changes
   useEffect(() => {
@@ -35,6 +123,23 @@ export function ScoreboardPage() {
       emit('SET_REF', { tableId, pin: tablePin })
     }
   }, [tableId, connected, isReferee, emit])
+
+  // Show revoked message if referee was kicked
+  if (refRevoked) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen bg-surface gap-4 p-4">
+        <Typography variant="headline" className="text-center">
+          Árbitr@ removido
+        </Typography>
+        <Typography variant="body" className="text-center text-muted-foreground">
+          El organizador ha regenerado el PIN de esta mesa.
+        </Typography>
+        <Typography variant="label" className="text-center">
+          Redirigiendo a sala de espera...
+        </Typography>
+      </div>
+    )
+  }
 
   if (!currentMatch) {
     return (
@@ -114,7 +219,6 @@ export function ScoreboardPage() {
       <div className="flex flex-col h-screen bg-surface">
         <PageHeader
           title="Configurar Partido"
-          showStatus={false}
           actions={
             <Button
               variant="ghost"
@@ -146,7 +250,6 @@ export function ScoreboardPage() {
     <div className="flex flex-col h-screen bg-surface">
       <PageHeader
         title={`${currentMatch.playerNames?.a || 'A'} vs ${currentMatch.playerNames?.b || 'B'}`}
-        showStatus={false}
         landscape={true}
         actions={
           <>
@@ -162,7 +265,7 @@ export function ScoreboardPage() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate(isReferee ? '/dashboard' : '/waiting-room')}
             >
               Atrás
             </Button>
@@ -179,6 +282,7 @@ export function ScoreboardPage() {
           onUndo={handleUndo}
           onSettingsClick={() => handleSetServer('A')}
           onHistoryClick={() => setHistoryOpen(true)}
+          onBackClick={() => navigate(isReferee ? '/dashboard' : '/waiting-room')}
           isReferee={isReferee}
         />
       </div>

@@ -132,6 +132,14 @@ class SocketHandler {
                     }
                 }
                 else {
+                    // Check if it's because there's already an active referee
+                    const table = this.tableManager.getTable(data.tableId);
+                    if (table) {
+                        const existingRef = table.players.find(p => p.role === 'REFEREE');
+                        if (existingRef && existingRef.socketId !== socket.id) {
+                            return socket.emit('ERROR', { code: 'REF_ALREADY_ACTIVE', message: 'Ya hay un árbitro activo en esta mesa' });
+                        }
+                    }
                     socket.emit('ERROR', { code: 'INVALID_PIN', message: 'PIN incorrecto' });
                 }
             });
@@ -296,6 +304,69 @@ class SocketHandler {
                     // Broadcast updated list to everyone
                     this.io.emit('TABLE_LIST', this.getPublicTableList());
                 }
+            });
+            // RF-01: Verify Tournament Owner PIN
+            socket.on('VERIFY_OWNER', (data) => {
+                const validPin = process.env.TOURNAMENT_OWNER_PIN || '00000';
+                if (data.pin === validPin) {
+                    socket.emit('OWNER_VERIFIED', { token: 'owner-session' });
+                    console.log(`[Socket] Owner verified: ${socket.id}`);
+                }
+                else {
+                    socket.emit('ERROR', { code: 'INVALID_OWNER_PIN', message: 'PIN de organizador incorrecto' });
+                    console.log(`[Socket] Owner verification failed: ${socket.id}`);
+                }
+            });
+            // RF-04: Kill-Switch - Regenerate PIN and revoke previous referee
+            socket.on('REGENERATE_PIN', (data) => {
+                if (!data?.tableId || !data?.pin) {
+                    return socket.emit('ERROR', { code: 'INVALID_PARAMS', message: 'tableId and pin required' });
+                }
+                const table = this.tableManager.getTable(data.tableId);
+                if (!table) {
+                    return socket.emit('ERROR', { code: 'TABLE_NOT_FOUND', message: 'Mesa no encontrada' });
+                }
+                // Verify the requester is the owner (simple: has valid owner PIN)
+                // For now, we verify the PIN matches the table PIN (so owner must know it)
+                if (table.pin !== data.pin) {
+                    // Only owner PIN can regenerate
+                    const validOwnerPin = process.env.TOURNAMENT_OWNER_PIN || '00000';
+                    if (data.pin !== validOwnerPin) {
+                        return socket.emit('ERROR', { code: 'UNAUTHORIZED', message: 'No autorizado' });
+                    }
+                }
+                // Get old referee before regenerating
+                const oldRefereeSocketId = this.tableManager.getRefereeSocketId(data.tableId);
+                // Regenerate PIN
+                const newPin = this.tableManager.regeneratePin(data.tableId);
+                if (!newPin) {
+                    return socket.emit('ERROR', { code: 'PIN_REGEN_FAILED', message: 'Error al regenerar PIN' });
+                }
+                // Emit REF_REVOKED to old referee if exists
+                if (oldRefereeSocketId) {
+                    this.io.to(oldRefereeSocketId).emit('REF_REVOKED', {
+                        tableId: data.tableId,
+                        reason: 'Regenerado'
+                    });
+                    // Force disconnect from table room
+                    this.io.in(oldRefereeSocketId).socketsLeave(data.tableId);
+                    console.log(`[Socket] Old referee ${oldRefereeSocketId} disconnected from table ${data.tableId}`);
+                }
+                // Send new QR to the owner who requested regeneration
+                const qrData = this.tableManager.generateQRData(data.tableId);
+                if (qrData) {
+                    socket.emit('QR_DATA', qrData);
+                }
+                socket.emit('PIN_REGENERATED', { tableId: data.tableId, newPin });
+                console.log(`[Socket] PIN regenerated for table ${data.tableId}`);
+            });
+            // REF_ROLE_CHECK: Verify if socket is referee for a table
+            socket.on('REF_ROLE_CHECK', (data) => {
+                if (!data?.tableId) {
+                    return socket.emit('ERROR', { code: 'INVALID_PARAMS', message: 'tableId required' });
+                }
+                const isReferee = this.tableManager.isReferee(data.tableId, socket.id);
+                socket.emit('REF_ROLE_CHECK_RESULT', { tableId: data.tableId, isReferee });
             });
             socket.on('disconnect', () => {
                 console.log(`[Socket] Disconnected: ${socket.id}`);

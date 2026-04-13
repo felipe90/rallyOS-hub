@@ -1,8 +1,8 @@
-import { 
-  Player, 
-  Score, 
-  MatchConfig, 
-  MatchState, 
+import {
+  Player,
+  Score,
+  MatchConfig,
+  MatchState,
   MatchConfigExtended,
   MatchStateExtended,
   ScoreChange,
@@ -11,6 +11,7 @@ import {
   MatchWonEvent,
   TableStatus
 } from './types';
+import { logger } from './utils/logger';
 
 export type { Player, Score, MatchConfig, MatchState, MatchConfigExtended, MatchStateExtended };
 
@@ -140,7 +141,7 @@ export class MatchEngine {
       if (scoreA >= 5 || scoreB >= 5) {
         this.state.swappedSides = !this.state.swappedSides;
         this.state.midSetSwapped = true;
-        console.log('[Match] Decisive set midpoint reached: Swapping sides');
+        logger.info('Decisive set midpoint reached: Swapping sides');
       }
     }
   }
@@ -211,9 +212,9 @@ export class MatchEngine {
         const oldSide = this.state.swappedSides;
         this.state.swappedSides = !this.state.swappedSides;
         this.state.midSetSwapped = false;
-        console.log(`[Match] Set finished. Swapping sides for next set: ${oldSide} -> ${this.state.swappedSides}`);
+        logger.debug({ oldSide, newSide: this.state.swappedSides }, 'Set finished. Swapping sides for next set');
       } else {
-        console.log(`[Match] Match finished. Keeping sides as is.`);
+        logger.debug('Match finished. Keeping sides as is');
       }
     }
   }

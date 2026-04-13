@@ -1,1 +1,13 @@
 node_modules
+dist
+.env
+*.pem
+.git
+.gitignore
+.dockerignore
+Dockerfile
+docker-compose.yml
+.env.example
+tests
+jest.config.js
+tsconfig.test.json

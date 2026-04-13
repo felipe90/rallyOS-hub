@@ -1,155 +1,81 @@
-import express from 'express';
-import { createServer } from 'https';
-import { Server } from 'socket.io';
-import cors from 'cors';
-import { SocketHandler } from './socketHandler';
+/**
+ * rallyOS-hub Entry Point
+ *
+ * Orchestrates app, server, and socket initialization.
+ * This file only imports and wires modules together.
+ */
+
+import crypto from 'crypto';
+import { app } from './app';
+import { createSecureServer, gracefulShutdown } from './server';
+import { createSocketServer } from './socket';
 import { TableManager } from './tableManager';
-import path from 'path';
-import fs from 'fs';
+import { logger } from './utils/logger';
 
-const app = express();
-
-const defaultAllowedOrigins = [
-  'http://localhost:5173',
-  'https://localhost:5173',
-  'http://localhost:3000',
-  'https://localhost:3000',
-  'http://127.0.0.1:5173',
-  'https://127.0.0.1:5173',
-  'http://127.0.0.1:3000',
-  'https://127.0.0.1:3000',
-  'http://orangepi.local:3000',
-  'https://orangepi.local:3000',
-];
-
-const allowedOrigins = (process.env.HUB_ALLOWED_ORIGINS || '')
-  .split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean);
-
-const effectiveAllowedOrigins = allowedOrigins.length > 0 ? allowedOrigins : defaultAllowedOrigins;
-
-const corsOriginValidator = (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-  // Allow requests without Origin header (curl, local tools, server-to-server)
-  if (!origin) {
-    callback(null, true);
-    return;
-  }
-
-  if (effectiveAllowedOrigins.includes(origin)) {
-    callback(null, true);
-    return;
-  }
-
-  console.warn(`[CORS] Blocked origin: ${origin}`);
-  callback(null, false);
-};
-
-app.use(cors({ origin: corsOriginValidator, credentials: true }));
-
-// Path to SSL Certificates (must be generated via OpenSSL locally or via Docker)
-const keyPath = path.join(__dirname, '../key.pem');
-const certPath = path.join(__dirname, '../cert.pem');
-
-if (!fs.existsSync(keyPath) || !fs.existsSync(certPath)) {
-  console.error(`
-  ❌ ERROR: SSL Certificates not found!
-  --------------------------------------------------
-  To run rallyOS-hub, you need self-signed certificates.
-  RUN THIS COMMAND IN THE 'server' DIRECTORY:
-  
-  openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes -subj "/C=AR/ST=BA/L=City/O=RallyOS/OU=Dev/CN=localhost"
-  
-  Then restart the server.
-  --------------------------------------------------
-  `);
-  process.exit(1);
+// Owner PIN initialization - mandatory with random fallback
+const ownerPin = process.env.TOURNAMENT_OWNER_PIN || crypto.randomInt(10000000, 99999999).toString();
+if (!process.env.TOURNAMENT_OWNER_PIN) {
+  logger.warn({ ownerPin }, 'TOURNAMENT_OWNER_PIN not set. Generated random owner PIN');
+  logger.warn('SAVE THIS PIN - it changes on every restart!');
 }
 
-const httpsOptions = {
-  key: fs.readFileSync(keyPath),
-  cert: fs.readFileSync(certPath)
-};
+export { ownerPin };
 
-// Serve the React client (from dist, public, or client src)
-// Priority: dist > public > src (for development)
-const clientDistPath = path.join(__dirname, '../public/dist');
-const clientPublicPath = path.join(__dirname, '../public');
-const clientSrcPath = path.join(__dirname, '../../client');
-
-let clientPath: string;
-let indexPath: string;
-
-// Determine which path to use based on what exists
-if (fs.existsSync(clientDistPath)) {
-  clientPath = clientDistPath;
-  indexPath = path.join(clientDistPath, 'index.html');
-  console.log('✓ Using built client (dist)');
-} else if (fs.existsSync(clientPublicPath) && fs.existsSync(path.join(clientPublicPath, 'index.html'))) {
-  clientPath = clientPublicPath;
-  indexPath = path.join(clientPublicPath, 'index.html');
-  console.log('✓ Using public client');
-} else if (fs.existsSync(clientSrcPath)) {
-  clientPath = clientSrcPath;
-  indexPath = path.join(clientSrcPath, 'index.html');
-  console.log('⚠️  Using client source (development mode)');
-} else {
-  console.warn('⚠️  Client files not found in any expected location');
-  clientPath = __dirname; // Fallback to app directory
-  indexPath = path.join(__dirname, 'index.html');
-}
-
-app.use(express.static(clientPath));
-
-// Serve the Hub UI
-app.get('/', (req, res) => {
-  if (fs.existsSync(indexPath)) {
-    res.sendFile(indexPath);
-  } else {
-    res.status(404).send('Client not found. Build the client first.');
-  }
-});
-
-// API health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: Date.now() });
-});
-
-const httpServer = createServer(httpsOptions, app);
-const io = new Server(httpServer, {
-  cors: {
-    origin: corsOriginValidator,
-    methods: ['GET', 'POST'],
-    credentials: true,
-  },
-  transports: ['websocket', 'polling'],  // Support both WebSocket and HTTP polling fallback
-});
+// Create secure server
+const { httpsServer, io } = createSecureServer(app);
 
 const PORT = process.env.PORT || 3000;
 
 const hubConfig = {
   ssid: process.env.HUB_SSID || 'RallyOS',
   ip: process.env.HUB_IP || '192.168.4.1',
-  port: parseInt(process.env.PORT || '3000')
+  port: parseInt(process.env.PORT || '3000'),
+  ownerPin,
 };
 
-// CRITICAL: Create TableManager first, then pass it to SocketHandler
+// Create TableManager and SocketHandler
 const tableManager = new TableManager(hubConfig);
-new SocketHandler(io, tableManager);
+createSocketServer(io, tableManager, ownerPin);
 
-// Log Socket.IO debug info
-console.log('[🔌 Socket.IO] Initialized');
-console.log('[🔌 Socket.IO] Transports:', io.engine.opts.transports);
-console.log('[🔌 Socket.IO] Allowed CORS origins:', effectiveAllowedOrigins.join(', '));
+// Start listening
+httpsServer.listen(PORT, () => {
+  logger.info({ port: PORT }, 'rallyOS-hub is live (SECURE)');
+  logger.info({ url: `https://localhost:${PORT}` }, 'Local URL');
+  logger.info({ url: `https://YOUR_IP:${PORT}` }, 'Network URL - Connect mobile phone to same WiFi');
+});
 
-httpServer.listen(PORT, () => {
-  console.log(`
-  🚀 rallyOS-hub is live (SECURE)!
-  -----------------------
-  Local:   https://localhost:${PORT}
-  Network: https://YOUR_IP:${PORT}
-  -----------------------
-  Connect your mobile phone to the same WiFi and visit the Network URL.
-  (Remember to accept the self-signed certificate warning in your browser)
-  `);
+// Graceful shutdown handlers
+process.on('SIGTERM', () => gracefulShutdown(
+  httpsServer,
+  io,
+  () => {
+    const allTables = tableManager.getAllTables();
+    for (const table of allTables) {
+      tableManager.deleteTable(table.id);
+    }
+    logger.info({ tableCount: allTables.length }, 'Active tables cleared');
+  },
+  'SIGTERM'
+));
+
+process.on('SIGINT', () => gracefulShutdown(
+  httpsServer,
+  io,
+  () => {
+    const allTables = tableManager.getAllTables();
+    for (const table of allTables) {
+      tableManager.deleteTable(table.id);
+    }
+    logger.info({ tableCount: allTables.length }, 'Active tables cleared');
+  },
+  'SIGINT'
+));
+
+// Global error handling
+process.on('uncaughtException', (error) => {
+  logger.error({ error, stack: error.stack }, 'Uncaught exception');
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error({ reason, promise }, 'Unhandled promise rejection');
 });

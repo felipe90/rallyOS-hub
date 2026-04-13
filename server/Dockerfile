@@ -32,4 +32,4 @@ RUN apk add --no-cache openssl && \
 EXPOSE 3000
 
 # Run compiled code
-CMD ["node", "dist/index.js"]
+CMD ["node", "dist/server/src/index.js"]

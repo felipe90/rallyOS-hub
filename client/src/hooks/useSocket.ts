@@ -76,6 +76,7 @@ export function useSocket(options: UseSocketOptions = {}) {
     connected: false,
     connecting: false,
     error: null,
+    errorCode: null,
   });
 
   const [tables, setTables] = useState<TableInfo[]>([]);
@@ -136,12 +137,13 @@ export function useSocket(options: UseSocketOptions = {}) {
     // Differentiated error handling
     socket.on(SocketEvents.SERVER.ERROR, (error: ErrorResponse | ValidationError) => {
       let message: string;
+      const code = error.code as keyof typeof ERROR_MESSAGES;
       if (error.code === 'VALIDATION_ERROR' && 'field' in error) {
         const validationError = error as ValidationError;
-        const msgFn = ERROR_MESSAGES['VALIDATION_ERROR'];
-        message = typeof msgFn === 'function' ? msgFn(validationError) : validationError.message;
+        message = validationError.message;
       } else {
-        message = ERROR_MESSAGES[error.code] || error.message;
+        const msgFn = ERROR_MESSAGES[code];
+        message = typeof msgFn === 'function' ? msgFn(error as ValidationError) : (msgFn || error.message);
       }
       setState(s => ({ ...s, error: message, errorCode: error.code }));
     });
@@ -153,7 +155,7 @@ export function useSocket(options: UseSocketOptions = {}) {
     if (socketRef.current) {
       socketRef.current.disconnect();
       socketRef.current = null;
-      setState({ connected: false, connecting: false, error: null });
+      setState({ connected: false, connecting: false, error: null, errorCode: null });
     }
   }, []);
 
@@ -187,8 +189,8 @@ export function useSocket(options: UseSocketOptions = {}) {
     [emit, currentTable]
   );
 
-  const startMatch = useCallback(() =>
-    currentTable?.id && emit(SocketEvents.CLIENT.START_MATCH, { tableId: currentTable.id }),
+  const startMatch = useCallback((config: { pointsPerSet: number; bestOf: number; playerNameA?: string; playerNameB?: string } = { pointsPerSet: 15, bestOf: 3 }) =>
+    currentTable?.id && emit(SocketEvents.CLIENT.START_MATCH, { tableId: currentTable.id, ...config }),
     [emit, currentTable]
   );
 

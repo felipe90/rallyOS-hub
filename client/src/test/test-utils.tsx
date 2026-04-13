@@ -11,6 +11,7 @@ const defaultMockSocketContext: SocketContextType = {
   connected: true,
   connecting: false,
   error: null,
+  errorCode: null,
   currentTable: null,
   emit: vi.fn(),
   createTable: vi.fn(),
@@ -22,6 +23,9 @@ const defaultMockSocketContext: SocketContextType = {
   scorePoint: vi.fn(),
   undoLastPoint: vi.fn(),
   startMatch: vi.fn(),
+  configureMatch: vi.fn(),
+  setReferee: vi.fn(),
+  regeneratePin: vi.fn(),
 }
 
 interface WrapperProps {

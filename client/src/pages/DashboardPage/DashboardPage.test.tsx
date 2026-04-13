@@ -44,6 +44,7 @@ const renderDashboard = (mockSocketContext?: Partial<SocketContextType>) => {
     connected: true,
     connecting: false,
     error: null,
+    errorCode: null,
     currentTable: null,
     emit: vi.fn(),
     createTable: mockCreateTable as unknown as (name?: string) => void,
@@ -55,6 +56,9 @@ const renderDashboard = (mockSocketContext?: Partial<SocketContextType>) => {
     scorePoint: vi.fn(),
     undoLastPoint: vi.fn(),
     startMatch: vi.fn(),
+    configureMatch: vi.fn(),
+    setReferee: vi.fn(),
+    regeneratePin: vi.fn(),
     ...mockSocketContext,
   }
 

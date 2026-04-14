@@ -185,6 +185,81 @@ QR scan → /scoreboard/:id/referee?ePin=encrypted
 
 ---
 
+## Testing Strategy
+
+### Unit Tests (REQUIRED)
+
+Todos los cambios de código deben incluir tests unitarios:
+
+| Area | Tests | Coverage Target |
+|------|-------|---------------|
+| Routes | Tests de routing (cada ruta) | 100% |
+| ScoreboardPage | Props parsing, mode selection | 100% |
+| RefereeView | Acciones de referee | 100% |
+| SpectatorView | Display rendering | 100% |
+| OwnerDashboard | Crear/limpiar mesa | 100% |
+| RefereeDashboard | Join flow | 100% |
+| useScoreboardAuth | Auth hook | 100% |
+
+### Test Files Structure
+
+```
+/client/src/
+  /pages/ScoreboardPage/
+    ScoreboardPage.test.tsx    (ya existe - actualizar)
+    RefereeView.test.tsx       (NUEVO)
+    SpectatorView.test.tsx      (NUEVO)
+  /hooks/
+    useScoreboardAuth.test.ts (NUEVO)
+  /pages/DashboardPage/
+    OwnerDashboard.test.tsx  (NUEVO)
+    RefereeDashboard.test.tsx  (NUEVO)
+```
+
+### Test Cases
+
+#### Routes Tests
+```typescript
+// scoreboard routes
+test('/scoreboard/:id redirects to /view')
+test('/scoreboard/:id/referee shows referee view')
+test('/scoreboard/:id/view shows spectator view')
+
+// dashboard routes  
+test('/dashboard redirects to /owner')
+test('/dashboard/owner shows owner view')
+test('/dashboard/referee shows referee view')
+```
+
+#### Scoreboard Tests
+```typescript
+// RefereeView
+test('shows +1 +2 +3 buttons when mode=referee')
+test('calls onAddScore with correct params')
+test('shows undo button')
+test('calls onUndo')
+
+// SpectatorView
+test('hides all control buttons')
+test('displays score correctly')
+test('shows no PIN input')
+```
+
+#### Dashboard Tests
+```typescript
+// OwnerDashboard
+test('shows create table button')
+test('shows PIN for each table')
+test('shows clean table button')
+
+// RefereeDashboard  
+test('hides create table button')
+test('hides PIN display')
+test('shows join with PIN modal')
+```
+
+---
+
 ## Parte 2: Dashboard Routes (Owner vs Referee)
 
 ### Problema similar

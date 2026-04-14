@@ -36,6 +36,48 @@
 - [ ] (P1) Verificar/crear TableCard en organisms
 - [ ] (P1) Verificar/crear TableList en organisms
 
+### Fase 7 - Testing (REQUIRED para cada change)
+- [ ] (P0) Tests para Scoreboard routes
+  - test('/scoreboard/:id redirects to /view')
+  - test('/scoreboard/:id/referee shows referee')
+  - test('/scoreboard/:id/view shows spectator')
+
+- [ ] (P0) Tests para ScoreboardPage refactored
+  - test ScoreboardPage receives mode prop correctly
+  - test renders RefereeView when mode=referee
+  - test renders SpectatorView when mode=view
+
+- [ ] (P1) Tests para RefereeView
+  - test shows +1,+2,+3 buttons
+  - test calls onAddScore correctly
+  - test undo functionality
+  - test reset functionality
+
+- [ ] (P1) Tests para SpectatorView
+  - test hides all control buttons
+  - test displays score correctly
+  - test shows back button
+
+- [ ] (P1) Tests para useScoreboardAuth hook
+  - test checks localStorage for tablePin
+  - test authenticates with PIN
+  - test shows PIN input when needed
+
+- [ ] (P2) Tests para Dashboard routes
+  - test('/dashboard redirects to /owner')
+  - test('/dashboard/owner shows owner')
+  - test('/dashboard/referee shows referee')
+
+- [ ] (P2) Tests para OwnerDashboard
+  - test shows create table
+  - test shows PINs
+  - test clean table
+
+- [ ] (P2) Tests para RefereeDashboard
+  - test hides create table
+  - test hides PINs
+  - test join flow
+
 ---
 
 ## Estado del backlog

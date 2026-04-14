@@ -233,6 +233,72 @@ export interface SpectatorViewProps {
 ### DRY Principles
 
 - **Same data, different display**: TableCard se muestra diferente en Owner vs Referee
+
+---
+
+## Testing Requirements (REQUIRED)
+
+### Unit Tests Coverage
+
+Todos los componentes nuevos deben tener tests:
+
+| Component | Test File | Lines Target |
+|-----------|----------|-------------|
+| ScoreboardPage (refactored) | ScoreboardPage.test.tsx | Existing - update |
+| RefereeView | RefereeView.test.tsx | New - 100% |
+| SpectatorView | SpectatorView.test.tsx | New - 100% |
+| useScoreboardAuth | useScoreboardAuth.test.ts | New - 100% |
+| OwnerDashboard | OwnerDashboard.test.tsx | New - 100% |
+| RefereeDashboard | RefereeDashboard.test.tsx | New - 100% |
+
+### Test Patterns
+
+#### Route Testing
+```typescript
+// Using react-router-dom's createMemoryRouter
+const routes = [
+  { path: '/scoreboard/:id', redirectTo: '/scoreboard/:id/view' },
+  { path: '/scoreboard/:id/referee', element: <ScoreboardPage mode="referee" /> },
+  { path: '/scoreboard/:id/view', element: <ScoreboardPage mode="view" /> },
+]
+
+test('should redirect to view when hitting root route')
+```
+
+#### Component Testing
+```typescript
+// RefereeView tests
+render(<RefereeView mode="referee" onAddScore={fn} />)
+fireEvent.click(screen.getByText('+1'))
+expect(fn).toHaveBeenCalledWith('a', 1)
+
+render(<SpectatorView mode="view" />)
+expect(screen.queryByText('+1')).not.toBeInTheDocument()
+```
+
+#### Auth Hook Testing
+```typescript
+test('should check localStorage for tablePin')
+test('should emit SET_REF when authenticated')
+test('should show PIN input when not authenticated')
+```
+
+### Test Running
+
+```bash
+# Run all tests
+npm run test
+
+# Run with coverage
+npm run test:coverage
+
+# Run specific
+npm run test -- ScoreboardPage
+```
+
+---
+
+## Acceptance Criteria (Updated)
 - **Prop**: `showMeta?: boolean` (PINs, admin controls) para controlar qué mostrar
 - **One component, multiple uses**: No duplicar lógica de display
 

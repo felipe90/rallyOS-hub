@@ -1,5 +1,5 @@
-import type { ButtonHTMLAttributes, ReactNode, MouseEvent } from 'react';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- MouseEvent may be needed for onClick handler typing
+import type { ButtonHTMLAttributes, ReactNode as _ReactNode, MouseEvent as _MouseEvent } from 'react';
+ 
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'live' | 'score' | 'danger' | 'success' | 'outline';
 
@@ -8,10 +8,10 @@ export type ButtonSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {
   variant?: ButtonVariant;
   size?: ButtonSize;
-  children?: ReactNode;  // Made optional for icon-only buttons
+  children?: _ReactNode;  // Made optional for icon-only buttons
   loading?: boolean;
   animate?: boolean;
   fullWidth?: boolean;
-  icon?: ReactNode;
+  icon?: _ReactNode;
   stopPropagation?: boolean;  // Stop event propagation and prevent default
 }

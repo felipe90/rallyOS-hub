@@ -117,7 +117,7 @@ export class TableManager {
       logger.info({ tableId, tableName: table.name, oldReferee: existingReferee.socketId, newReferee: socketId }, 'Replacing existing referee');
     }
     
-    let player = table.players.find(p => p.socketId === socketId);
+    const player = table.players.find(p => p.socketId === socketId);
     
     if (player) {
       player.role = 'REFEREE';

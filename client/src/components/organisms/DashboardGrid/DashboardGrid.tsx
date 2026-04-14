@@ -83,10 +83,10 @@ export function DashboardGrid({
   }
 
   return (
-    <div className={`grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 ${className}`}>
+    <div className={`grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 ${className}`}>
       {tables.map((table, index) => {
-        // Only make items wide on large screens (lg+) and when there are enough items to justify it
-        const shouldSpan = index > 0 && (tables.length > 3) && ((index + 1) % 3 === 0);
+        // NO spanning - let each card be its own size
+        // This prevents the overflow/alignment issues with spans
         
         return (
           <motion.div
@@ -94,7 +94,7 @@ export function DashboardGrid({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: index * 0.1 }}
-            className={`${shouldSpan ? 'lg:col-span-2' : ''} relative`}
+            className="relative"
           >
             <TableStatusChip
               tableNumber={table.number}

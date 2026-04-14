@@ -196,6 +196,48 @@ export interface SpectatorViewProps {
 
 ---
 
+## Parte 2: Dashboard Routes (Owner vs Referee)
+
+### Architecture
+
+```
+/pages/DashboardPage/
+  DashboardPage.tsx       (container - routing)
+  OwnerDashboard.tsx       (presentational - admin)
+  RefereeDashboard.tsx      (presentational - join only)
+  
+/organisms/
+  TableCard/              (reusable - extracted)
+  TableList/             (reusable - extracted)
+  
+/molecules/
+  MetricCard/            (reusable - already exists?)
+```
+
+### Reusable Components Analysis
+
+| Component | Current Location | Target Location | Reused In |
+|-----------|--------------|-------------|----------|
+| TableCard | DashboardPage inline? | organisms/TableCard | Owner + Referee |
+| TableList | DashboardGrid | organisms/TableList | Owner + Referee |
+| MetricCard | StatCard.molecule | molecules/StatCard | Both dashboards |
+| PinModal | DashboardPage inline? | molecules/PinModal | Owner dashboard |
+| CreateTableModal | Not exists | molecules/CreateTableModal | Owner dashboard |
+
+### Component Extraction Goals
+
+1. **TableCard** - Card que muestra info de una mesa (nombre, estado, players, PIN si owner)
+2. **TableList** - Lista de TableCards con grid/list view toggle
+3. **MetricCard** - Ya existe como StatCard, verificar si reusable
+
+### DRY Principles
+
+- **Same data, different display**: TableCard se muestra diferente en Owner vs Referee
+- **Prop**: `showMeta?: boolean` (PINs, admin controls) para controlar qué mostrar
+- **One component, multiple uses**: No duplicar lógica de display
+
+---
+
 **Owner:** raikenwolf  
 **Created:** 2026-04-15  
-**Status:** READY FOR IMPLEMENTATION
+**Status:** READY FOR IMPLEMENTATION (PART 1: Scoreboard, PART 2: Dashboard)

@@ -185,6 +185,51 @@ QR scan → /scoreboard/:id/referee?ePin=encrypted
 
 ---
 
+## Parte 2: Dashboard Routes (Owner vs Referee)
+
+### Problema similar
+
+El Dashboard actual mezcla responsabilidades de Owner y Referee:
+- Owner ve PINs, puede crear/limpiar mesas
+- Referee también ve todo, debería solo unirse
+
+### Solución propuesta
+
+Igual patrón que scoreboard:
+
+| Ruta | Vista | Funcionalidad |
+|------|-------|-------------|
+| `/dashboard` | → redirect a /owner (default) |
+| `/dashboard/owner` | Owner | Full admin: crear, limpiar, ver PINs |
+| `/dashboard/referee` | Referee | Join only: unirse con PIN |
+
+### RF-05: Dashboard Owner
+- Ver todas las mesas con PINs
+- Crear nueva mesa
+- Limpiar mesa (reset)
+- Unirse a mesa como árbitro
+
+### RF-06: Dashboard Referee
+- Ver lista de mesas (sin PINs)
+- Unirse a mesa con PIN
+- No visible: crear mesa, limpiar mesa
+
+### Reusable Components (DRY)
+
+**Importante**: Al crear estas vistas, debemos identificar componentes reutilizables:
+
+| Componente | Ubicación | Reusable en |
+|-----------|----------|------------|
+| TableCard | organisms | Owner + Referee dashboard |
+| TableList | organisms | Owner + Referee dashboard |
+| MetricCard | molecules | Owner + Referee dashboard |
+| PinModal | molecules | Owner dashboard |
+| CreateTableModal | molecules | Owner dashboard |
+
+**Objetivo**: Extraer componentes existentes de DashboardPage a atoms/molecules/organisms para DRY.
+
+---
+
 ## Checklist de implementación
 
 - [ ] (P0) Crear rutas en App.tsx (referee, view)
@@ -195,8 +240,19 @@ QR scan → /scoreboard/:id/referee?ePin=encrypted
 - [ ] (P2) Cleanup código condicional
 - [ ] (P2) Buscar y actualizar otros links
 
+### Dashboard Routes
+
+- [ ] (P1) Agregar ruta `/dashboard/owner` en App.tsx
+- [ ] (P1) Agregar ruta `/dashboard/referee` en App.tsx
+- [ ] (P1) Actualizar `/dashboard` redirect a /owner
+- [ ] (P1) Crear OwnerDashboard component (extraer de existente)
+- [ ] (P1) Crear RefereeDashboard component
+- [ ] (P2) Identificar componentes reutilizables
+- [ ] (P2) Mover TableCard a organisms (si no existe)
+- [ ] (P2) Mover TableList a organisms (si no existe)
+
 ---
 
 **Owner:** raikenwolf  
 **Fecha:** 2026-04-15  
-**Estado:** TODO
+**Estado:** TODO (PART 1: Scoreboard, PART 2: Dashboard)

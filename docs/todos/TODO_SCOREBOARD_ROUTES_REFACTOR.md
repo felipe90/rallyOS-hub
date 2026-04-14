@@ -1,4 +1,4 @@
-# TODO - Scoreboard Routes Refactor
+# TODO - Routes Refactor (Scoreboard + Dashboard)
 
 ## Prioridad
 - **P0** (high) - Refactor crítico de rutas
@@ -8,39 +8,33 @@
 
 ## Backlog por fases
 
-### Fase 1 - Rutas (P0)
+### Fase 1 - Scoreboard Rutas (P0)
 - [ ] (P0) Agregar ruta `/scoreboard/:id/referee` en App.tsx
-  - Estado: TODO
-  
 - [ ] (P0) Agregar ruta `/scoreboard/:id/view` en App.tsx
-  - Estado: TODO
-  
-- [ ] (P0) Actualizar redirect de `/scoreboard/:id` → `/scoreboard/:id/view`
-  - Estado: TODO
+- [ ] (P0) Actualizar redirect `/scoreboard/:id` → `/scoreboard/:id/view`
 
-### Fase 2 - Wiring (P0)
+### Fase 2 - Scoreboard Wiring (P0)
 - [ ] (P0) Actualizar Dashboard navigate a `/scoreboard/:id/referee`
-  - Estado: TODO
-  
 - [ ] (P0) Actualizar QRCodeURL a `/scoreboard/:id/referee`
-  - Estado: TODO
 
-### Fase 3 - Componentes (P1)
+### Fase 3 - Scoreboard Componentes (P1)
 - [ ] (P1) ScoreboardPage acepte prop `mode: 'referee' | 'view'`
-  - Estado: TODO
-  
 - [ ] (P1) Crear RefereeView con controles completos
-  - Estado: TODO
-  
 - [ ] (P1) Crear SpectatorView sin controles
-  - Estado: TODO
 
-### Fase 4 - Cleanup (P2)
+### Fase 4 - Scoreboard Cleanup (P2)
 - [ ] (P2) Remover lógica `canReferee` condicional
-  - Estado: TODO
-  
-- [ ] (P2) Buscar otros links a /scoreboard que actualizar
-  - Estado: TODO
+
+### Fase 5 - Dashboard Rutas (P1)
+- [ ] (P1) Agregar ruta `/dashboard/owner` en App.tsx
+- [ ] (P1) Agregar ruta `/dashboard/referee` en App.tsx
+- [ ] (P1) Actualizar `/dashboard` redirect a /owner
+
+### Fase 6 - Dashboard Componentes (P1)
+- [ ] (P1) Crear OwnerDashboard component (extraer de existente)
+- [ ] (P1) Crear RefereeDashboard component
+- [ ] (P1) Verificar/crear TableCard en organisms
+- [ ] (P1) Verificar/crear TableList en organisms
 
 ---
 
@@ -48,19 +42,21 @@
 
 | Fase | Estado |
 |------|--------|
-| Rutas (P0) | TODO |
-| Wiring (P0) | TODO |
-| Componentes (P1) | TODO |
-| Cleanup (P2) | TODO |
+| Scoreboard Rutas (P0) | TODO |
+| Scoreboard Wiring (P0) | TODO |
+| Scoreboard Componentes (P1) | TODO |
+| Scoreboard Cleanup (P2) | TODO |
+| Dashboard Rutas (P1) | TODO |
+| Dashboard Componentes (P1) | TODO |
 
 ---
 
 ## Registro de avances
 
-- 2026-04-15 - PRD creado - raikenwolf
+- 2026-04-15 - PRD y SDD creados (incluye Dashboard routes) - raikenwolf
 
 ---
 
 **Owner:** raikenwolf  
 **Fecha:** 2026-04-15  
-**Estado:** TODO
+**STATUS:** TODO (PART 1: Scoreboard, PART 2: Dashboard)

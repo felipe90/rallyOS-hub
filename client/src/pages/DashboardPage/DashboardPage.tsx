@@ -7,7 +7,8 @@ import { PinModal } from '@/components/molecules/PinModal'
 import { useSocketContext } from '@/contexts/SocketContext'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/atoms/Button'
-import { Typography } from '@/components/atoms/Typography'
+// Typography reserved for future use
+// import { Typography } from '@/components/atoms/Typography'
 import { SocketEvents } from '@shared/events'
 import type { QRData, TableInfoWithPin } from '@/shared/types'
 
@@ -24,8 +25,8 @@ export function DashboardPage() {
   const [cleanConfirmTableId, setCleanConfirmTableId] = useState<string | null>(null)
   const [pinLoading, setPinLoading] = useState(false)
   const navigate = useNavigate()
-  const { tables, connected, createTable, socket, requestTables, requestTablesWithPins, emit } = useSocketContext()
-  const { logout, isReferee, isViewer, isOwner, ownerPin } = useAuth()
+  const { tables, connected, createTable, socket, requestTables, requestTablesWithPins, emit: _emit } = useSocketContext()
+  const { logout, isReferee, isViewer: _isViewer, isOwner, ownerPin } = useAuth()
 
   // Load tables with PINs if Owner, otherwise regular tables
   useEffect(() => {

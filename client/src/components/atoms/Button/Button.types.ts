@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, ReactNode, MouseEvent } from 'react';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- MouseEvent may be needed for onClick handler typing
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'live' | 'score' | 'danger' | 'success' | 'outline';
 

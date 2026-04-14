@@ -102,7 +102,7 @@ export function useSocket(options: UseSocketOptions = {}) {
     socket.on('connect', () => {
       setState({ connected: true, connecting: false, error: null, errorCode: null });
     });
-    socket.on('disconnect', (reason) => {
+    socket.on('disconnect', (_reason) => {
       setState(s => ({ ...s, connected: false }));
     });
     socket.on('connect_error', (error: Error) => {
@@ -120,13 +120,13 @@ export function useSocket(options: UseSocketOptions = {}) {
     socket.on(SocketEvents.SERVER.TABLE_LIST_WITH_PINS, (data: { tables: TableInfoWithPin[] }) => {
       setTables(data.tables as TableInfo[]);
     });
-    socket.on(SocketEvents.SERVER.TABLE_CREATED, (table: TableInfo) => {
+    socket.on(SocketEvents.SERVER.TABLE_CREATED, (_table: TableInfo) => {
       const ownerPin = localStorage.getItem('ownerPin')
       if (ownerPin) {
         socket.emit(SocketEvents.CLIENT.GET_TABLES_WITH_PINS, { ownerPin })
       }
     });
-    socket.on(SocketEvents.SERVER.REF_SET, ({ tableId }: { tableId: string }) => {
+    socket.on(SocketEvents.SERVER.REF_SET, ({ tableId: _tableId }: { tableId: string }) => {
       // Referee successfully set by server
     });
     socket.on(SocketEvents.SERVER.MATCH_UPDATE, (match: MatchStateExtended) => {

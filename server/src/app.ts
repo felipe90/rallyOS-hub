@@ -51,14 +51,21 @@ const corsOriginValidator = (origin: string | undefined, callback: (err: Error |
 app.use(cors({ origin: corsOriginValidator, credentials: true }));
 
 // Serve the React client (from dist, public, or client src)
-const clientDistPath = path.join(__dirname, '../public/dist');
-const clientPublicPath = path.join(__dirname, '../public');
-const clientSrcPath = path.join(__dirname, '../../client');
+const rootDir = process.cwd();
+const clientDistPath = path.join(rootDir, '../client/dist');
+const clientPublicPath = path.join(rootDir, '../client/public');
+const clientSrcPath = path.join(rootDir, '../client');
+// Docker production path
+const dockerPublicPath = path.join(rootDir, 'public/dist');
 
 let clientPath: string;
 let indexPath: string;
 
-if (fs.existsSync(clientDistPath)) {
+if (fs.existsSync(dockerPublicPath)) {
+  clientPath = dockerPublicPath;
+  indexPath = path.join(dockerPublicPath, 'index.html');
+  logger.info('Using Docker production client (public/dist)');
+} else if (fs.existsSync(clientDistPath)) {
   clientPath = clientDistPath;
   indexPath = path.join(clientDistPath, 'index.html');
   logger.info('Using built client (dist)');

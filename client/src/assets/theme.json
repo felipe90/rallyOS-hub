@@ -1,0 +1,87 @@
+{
+  "schemes": {
+    "light": {
+      "primary": "#14B8A6",
+      "onPrimary": "#FFFFFF",
+      "primaryContainer": "#CCFBF1",
+      "onPrimaryContainer": "#115E59",
+      "secondary": "#2D6A4F",
+      "onSecondary": "#FFFFFF",
+      "secondaryContainer": "#A7F3D0",
+      "onSecondaryContainer": "#064E3B",
+      "tertiary": "#F59E0B",
+      "onTertiary": "#FFFFFF",
+      "tertiaryContainer": "#FEF3C7",
+      "onTertiaryContainer": "#92400E",
+      "background": "#F1F5F9",
+      "onBackground": "#0F172A",
+      "surface": "#F1F5F9",
+      "onSurface": "#0F172A",
+      "outline": "#94A3B8"
+    },
+    "dark": {
+      "primary": "#5EEAD4",
+      "onPrimary": "#003733",
+      "primaryContainer": "#00504B",
+      "onPrimaryContainer": "#99F6E4",
+      "secondary": "#6EE7B7",
+      "onSecondary": "#003827",
+      "secondaryContainer": "#064E3B",
+      "onSecondaryContainer": "#A7F3D0",
+      "tertiary": "#FBBF24",
+      "onTertiary": "#451A03",
+      "tertiaryContainer": "#78350F",
+      "onTertiaryContainer": "#FEF3C7",
+      "background": "#0F172A",
+      "onBackground": "#F1F5F9",
+      "surface": "#1E293B",
+      "onSurface": "#F1F5F9",
+      "outline": "#475569"
+    }
+  },
+  "coreColors": {
+    "primary": "#14B8A6",
+    "secondary": "#A7F3D0",
+    "tertiary": "#F59E0B",
+    "neutral": "#94A3B8"
+  },
+  "metadata": {
+    "app_name": "RallyOS",
+    "version": "1.0.0",
+    "description": "Profesionalización del deporte amateur con integridad competitiva.",
+    "keywords": [
+      "Competitive Integrity",
+      "Social Racket Sports",
+      "Dynamic Handicap System",
+      "Offline-First Scorekeeping",
+      "ELO Ledger Transparency",
+      "Community Hub",
+      "Automated Brackets"
+    ],
+    "tech_stack": {
+      "frontend": [
+        "React Native",
+        "Expo",
+        "NativeWind (Tailwind CSS)",
+        "TanStack Query (Data Fetching)",
+        "Zustand (State Management)"
+      ],
+      "backend": [
+        "Supabase",
+        "PostgreSQL (3NF Schema)",
+        "PostgREST",
+        "GoTrue (Auth)"
+      ],
+      "infrastructure": [
+        "Local-First Sync",
+        "SQLite (Local Cache)",
+        "Edge Functions"
+      ]
+    },
+    "vibe_foundations": {
+      "aesthetic": "High-Tech Clubhouse",
+      "ui_philosophy": "Glassmorphism, High-Border-Radius, Tactile Feedback",
+      "ux_priority": "Zero-Latency Score Entry"
+    }
+  }
+}

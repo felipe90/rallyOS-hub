@@ -25,8 +25,8 @@ export interface SocketContextType {
   requestTablesWithPins: (ownerPin?: string) => void
   scorePoint: (player: 'A' | 'B') => void
   undoLastPoint: () => void
-  startMatch: (config: { pointsPerSet: number; bestOf: number }) => void
-  configureMatch: (config: { tableId: string; playerNames?: { a: string; b: string }; format?: number; ptsPerSet?: number; handicap?: { a: number; b: number } }) => void
+  startMatch: (config?: { pointsPerSet: number; bestOf: number; playerNameA?: string; playerNameB?: string }) => void
+  configureMatch: (config: { tableId?: string; playerNames?: { a: string; b: string }; format?: number; ptsPerSet?: number; handicap?: { a: number; b: number } }) => void | string | undefined
   setReferee: (tableId: string, pin: string) => void
   regeneratePin: (tableId: string) => void
 }

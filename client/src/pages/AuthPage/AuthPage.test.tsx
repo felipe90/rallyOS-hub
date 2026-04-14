@@ -39,13 +39,10 @@ vi.mock('@/contexts/SocketContext', () => ({
 
 // Mock react-router-dom - only mock useNavigate since we import the rest from the real module
 const mockNavigate = vi.fn()
-vi.mock('react-router-dom', async (importOriginal) => {
-  const actual = await importOriginal()
-  return {
-    ...actual,
-    useNavigate: () => mockNavigate
-  }
-})
+vi.mock('react-router-dom', () => ({
+  ...vi.importActual('react-router-dom'),
+  useNavigate: () => mockNavigate
+}))
 
 const renderWithRouter = (initialEntries = ['/auth']) => {
   return render(

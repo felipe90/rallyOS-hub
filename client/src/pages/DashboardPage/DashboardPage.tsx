@@ -162,7 +162,7 @@ export function DashboardPage() {
   const pageSubtitle = isOwner 
     ? 'Crea mesas, gestiona árbitros y partidos' 
     : isReferee 
-      ? 'Gestiona tus mesas'
+      ? 'Gestiona tu mesa y arbitra'
       : 'Observa los partidos en vivo'
 
   // Only Owner can create tables (RF-03)

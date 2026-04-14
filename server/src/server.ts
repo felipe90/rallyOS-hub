@@ -13,8 +13,8 @@ import fs from 'fs';
 import { logger } from './utils/logger';
 
 function validateCertificates(): { key: Buffer; cert: Buffer } {
-  const keyPath = path.join(__dirname, '../key.pem');
-  const certPath = path.join(__dirname, '../cert.pem');
+  const keyPath = path.join(process.cwd(), 'key.pem');
+  const certPath = path.join(process.cwd(), 'cert.pem');
 
   if (!fs.existsSync(keyPath) || !fs.existsSync(certPath)) {
     logger.error(`

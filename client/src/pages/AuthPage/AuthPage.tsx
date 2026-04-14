@@ -5,6 +5,7 @@ import { useSocketContext } from '@/contexts/SocketContext'
 import { Button } from '@/components/atoms/Button'
 import { PinInput } from '@/components/atoms/PinInput'
 import { Typography } from '@/components/atoms/Typography'
+import logoBig from '@/assets/logo-big.png'
 import { SocketEvents } from '@shared/events'
 
 export type AuthMode = 'select' | 'owner-pin'
@@ -107,7 +108,7 @@ const handlePinSubmit = (eventOrPin?: any) => {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-surface gap-8 p-4">
       <div className="flex flex-col items-center gap-4">
-        <Typography variant="headline">RallyOS</Typography>
+        <img src={logoBig} alt="RallyOS" className="w-32 h-auto mb-2" />
         <Typography variant="title">
           {mode === 'select' ? 'Elige tu rol' : 'Ingresa tu PIN de Organizador'}
         </Typography>

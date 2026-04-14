@@ -194,10 +194,11 @@ export function useSocket(options: UseSocketOptions = {}) {
     [emit, currentTable]
   );
 
-  const configureMatch = useCallback((config: { playerNames?: { a: string; b: string }; format?: number; ptsPerSet?: number; handicap?: { a: number; b: number } }) =>
-    currentTable?.id && emit(SocketEvents.CLIENT.CONFIGURE_MATCH, { tableId: currentTable.id, ...config }),
-    [emit, currentTable]
-  );
+  const configureMatch = useCallback((config: { tableId?: string; playerNames?: { a: string; b: string }; format?: number; ptsPerSet?: number; handicap?: { a: number; b: number } }) => {
+    if (currentTable?.id) {
+      emit(SocketEvents.CLIENT.CONFIGURE_MATCH, { tableId: currentTable.id, ...config });
+    }
+  }, [emit, currentTable]);
 
   const setReferee = useCallback((tableId: string, pin: string) => {
     if (!validateTablePin(pin)) return;

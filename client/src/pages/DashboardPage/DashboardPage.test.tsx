@@ -56,7 +56,7 @@ const renderDashboard = (mockSocketContext?: Partial<SocketContextType>) => {
     scorePoint: vi.fn(),
     undoLastPoint: vi.fn(),
     startMatch: vi.fn(),
-    configureMatch: vi.fn(),
+    configureMatch: vi.fn((config: { tableId?: string; playerNames?: { a: string; b: string }; format?: number; ptsPerSet?: number; handicap?: { a: number; b: number } }) => {}),
     setReferee: vi.fn(),
     regeneratePin: vi.fn(),
     ...mockSocketContext,

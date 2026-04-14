@@ -13,10 +13,14 @@ import { TableManager } from './tableManager';
 import { logger } from './utils/logger';
 
 // Owner PIN initialization - mandatory with random fallback
-const ownerPin = process.env.TOURNAMENT_OWNER_PIN || crypto.randomInt(10000000, 99999999).toString();
+let ownerPin: string;
 if (!process.env.TOURNAMENT_OWNER_PIN) {
-  logger.warn({ ownerPin }, 'TOURNAMENT_OWNER_PIN not set. Generated random owner PIN');
-  logger.warn('SAVE THIS PIN - it changes on every restart!');
+  ownerPin = crypto.randomInt(10000000, 99999999).toString();
+  console.log('\n🎯 OWNER PIN (randomly generated):', ownerPin);
+  console.log('⚠️  SAVE THIS PIN - it changes on every restart!\n');
+} else {
+  ownerPin = process.env.TOURNAMENT_OWNER_PIN;
+  console.log('\n🎯 OWNER PIN (from env):', ownerPin, '\n');
 }
 
 export { ownerPin };

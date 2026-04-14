@@ -140,7 +140,8 @@ main() {
     # Start server
     print_step "Starting server on port $SERVER_PORT..."
     cd "$SERVER_DIR"
-    NODE_ENV=development node --enable-source-maps dist/index.js &
+    # Let server generate random PIN (shown in console)
+    NODE_ENV=development node --enable-source-maps dist/server/src/index.js &
     SERVER_PID=$!
     print_success "Server started (PID: $SERVER_PID)"
     
@@ -174,6 +175,9 @@ main() {
     echo -e "${GREEN}╔════════════════════════════════════════════════╗${NC}"
     echo -e "${GREEN}║  ✅ Development Environment Ready!             ║${NC}"
     echo -e "${GREEN}╚════════════════════════════════════════════════╝${NC}"
+    echo ""
+    echo -e "🔑 ${YELLOW}Owner PIN: Check server console output${NC}"
+    echo -e "   (or set TOURNAMENT_OWNER_PIN env var for fixed PIN)"
     echo ""
     echo -e "🌐 ${YELLOW}Frontend (Vite)${NC}"
     echo -e "   Local:   http://localhost:$CLIENT_PORT"

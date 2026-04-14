@@ -292,7 +292,7 @@ describe('SocketContext', () => {
       { id: 'table-2', name: 'Table 2', pin: '5678', players: [], status: 'waiting' }
     ]
     
-    let setTablesCallback: ((tables: any[]) => void) | null = null
+    const setTablesCallback: ((tables: any[]) => void) | null = null
     
     const mockSocketValue = {
       connected: true,

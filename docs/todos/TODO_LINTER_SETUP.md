@@ -9,8 +9,15 @@
 ## Backlog por fases
 
 ### Fase 1 - Client ESLint
-- [ ] (P0) Instalar dependencias en client
-  - `npm install -D eslint @typescript-eslint/parser @typescript-eslint/eslint-plugin eslint-plugin-react eslint-plugin-react-hooks`
+- [ ] (P0) Instalar dependencias en client (VERSIONES LOCKED)
+  - `npm install -D eslint@^8.57.0 @typescript-eslint/parser@^6.21.0 @typescript-eslint/eslint-plugin@^6.21.0 eslint-plugin-react@^4.3.0 eslint-plugin-react-hooks@^4.6.0`
+  - Estado: TODO
+
+- [ ] (P0) Initial scan - CORRER LINT PRIMERO
+  - `npm run lint -- --output-file lint-client-results.txt`
+  - Contar errors vs warnings
+  - Documentar en archivo para tracking
+  - Ajustar estrategia según cantidad
   - Estado: TODO
 
 - [ ] (P0) Crear `.eslintrc.js` en client/
@@ -21,12 +28,17 @@
   - Script: `eslint src --ext .ts,.tsx`
   - Estado: TODO
 
-- [ ] (P0) Correr lint y fix errores críticos
+- [ ] (P0) Fixear errores encontrados (según initial scan)
   - Estado: TODO
 
 ### Fase 2 - Server ESLint
-- [ ] (P0) Instalar dependencias en server
-  - `npm install -D eslint @typescript-eslint/parser @typescript-eslint/eslint-plugin`
+- [ ] (P0) Instalar dependencias en server (VERSIONES LOCKED)
+  - `npm install -D eslint@^8.57.0 @typescript-eslint/parser@^6.21.0 @typescript-eslint/eslint-plugin@^6.21.0`
+  - Estado: TODO
+
+- [ ] (P0) Initial scan - CORRER LINT PRIMERO
+  - `npm run lint -- --output-file lint-server-results.txt`
+  - Contar errors vs warnings
   - Estado: TODO
 
 - [ ] (P0) Crear `.eslintrc.js` en server/
@@ -41,20 +53,24 @@
   - Estado: TODO
 
 ### Fase 3 - Pre-commit Hook
-- [ ] (P0) Instalar husky + lint-staged
-  - `npm install -D husky lint-staged`
+- [ ] (P0) Instalar husky + lint-staged (VERSIONES LOCKED)
+  - `npm install -D husky@^8.0.0 lint-staged@^14.0.0`
   - Estado: TODO
 
 - [ ] (P0) Configurar husky hook
   - `.husky/pre-commit` corre `lint-staged`
   - Estado: TODO
 
-- [ ] (P0) Configurar lint-staged
+- [ ] (P0) Configurar lint-staged con --cache
   - Solo lint changed files
+  - Usar `eslint --cache` para performance
   - Estado: TODO
 
 ### Fase 4 - CI Integration
-- [ ] (P1) Agregar lint step a GitHub Actions
+- [ ] (P1) Crear `.github/workflows/lint.yml`
+  - on push y pull_request
+  - Solo errors bloquean merge
+  - Warnings reportados pero no bloquean
   - Estado: TODO
 
 ### Fase 5 - Code Base Audit (CRÍTICO - MÁS IMPORTANTE)

@@ -60,17 +60,56 @@ Configurar ESLint con soporte TypeScript para client y server:
 - Si lint fails, commit se rechaza
 
 ### RF-04: CI Integration
-- GitHub Actions corre `npm run lint` en PR checks
-- Merge blocked si lint fails
+
+**Workflow**: `.github/workflows/lint.yml`
+```yaml
+name: Lint
+on: [push, pull_request]
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run lint
+        working-directory: client
+      - run: npm run lint
+        working-directory: server
+```
+
+**Reglas**:
+- Solo `errors` bloquean merge
+- `warnings` se reportan pero NO bloquean
+- Usar `--max-warnings=0` si se quiere bloquear warnings
 
 ### RF-05: Code Base Audit (CRÍTICO)
-- Correr `npm run lint` en TODA la base de código de client
-- Correr `npm run lint` en TODA la base de código de server
-- Listar TODOS los errores (errors) encontrados
-- Listar TODOS los warnings encontrados
-- Fixear CADA error hasta que lint pase sin errores
-- Fixear CADA warning (o documentar si es necesario disable)
-- Commitear los fixes con mensaje descriptivo
+
+**PASO 0 (REQUIRED) - Initial Scan:**
+- Correr `npm run lint` en todo client/src → guardar output
+- Correr `npm run lint` en todo server/src → guardar output
+- Contar errors vs warnings
+- **Decidir estrategia de fix** según cantidad:
+  - <50 errors: fixear todos en una sesión
+  - 50-100 errors: priorizar critical files, остальные en follow-up
+  - >100 errors: crear tracking issue con todos los errores
+
+**PASO 1 - Fix errors:**
+- Fixear CADA error hasta que lint pase con 0 errors
+- Commits individuales por módulo o batch por feature
+
+**PASO 2 - Fix warnings:**
+- Fixear CADA warning O
+- Usar `eslint-disable` con justificación técnica en comentario
+- Documentar cada disable en eslintrc rules
+
+**eslint-disable policy:**
+- Solo usar si hay razón técnica documentada
+- Siempre incluir comentario: `// eslint-disable-next-line -- razón`
+- Registrar en eslintrc si es patrón repetido
 
 **Este es el item más importante del setup**. Sin código limpio, el linter no tiene valor.
 
@@ -78,18 +117,28 @@ Configurar ESLint con soporte TypeScript para client y server:
 
 ## Configuración propuesta
 
+### ESLint Version
+**Usar ESLint v8** con `.eslintrc.js` (formato legacy, más estable con TypeScript en 2026).
+
 ### Client (React + TypeScript)
 ```json
 {
+  "root": true,
+  "parser": "@typescript-eslint/parser",
+  "plugins": ["@typescript-eslint", "react", "react-hooks"],
   "extends": [
     "eslint:recommended",
-    "plugin:react/recommended",
     "plugin:@typescript-eslint/recommended",
+    "plugin:react/recommended",
     "plugin:react-hooks/recommended"
   ],
   "rules": {
     "react/react-in-jsx-scope": "off",
-    "@typescript-eslint/no-unused-vars": "error"
+    "@typescript-eslint/no-unused-vars": "error",
+    "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }]
+  },
+  "settings": {
+    "react": { "version": "detect" }
   }
 }
 ```
@@ -97,15 +146,24 @@ Configurar ESLint con soporte TypeScript para client y server:
 ### Server (Node + TypeScript)
 ```json
 {
+  "root": true,
+  "parser": "@typescript-eslint/parser",
+  "plugins": ["@typescript-eslint"],
   "extends": [
     "eslint:recommended",
     "plugin:@typescript-eslint/recommended"
   ],
   "rules": {
-    "@typescript-eslint/no-unused-vars": "error"
+    "@typescript-eslint/no-unused-vars": "error",
+    "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }]
   }
 }
 ```
+
+### Prettier vs ESLint
+**Decisión**: Usar ESLint para formatting también. NO usar Prettier.
+- `prettier/prettier`: "error" → NO habilitamos esta regla
+- Conflicto resuelto: solo ESLint, sin Prettier
 
 ---
 
@@ -122,21 +180,21 @@ Configurar ESLint con soporte TypeScript para client y server:
 
 ## Technical notes
 
-### Dependencias cliente
-- `eslint`
-- `@typescript-eslint/parser`
-- `@typescript-eslint/eslint-plugin`
-- `eslint-plugin-react`
-- `eslint-plugin-react-hooks`
-- `husky`
-- `lint-staged`
+### Dependencias cliente (VERSIONES LOCKED)
+- `eslint@^8.57.0`
+- `@typescript-eslint/parser@^6.21.0`
+- `@typescript-eslint/eslint-plugin@^6.21.0`
+- `eslint-plugin-react@^4.3.0`
+- `eslint-plugin-react-hooks@^4.6.0`
+- `husky@^8.0.0`
+- `lint-staged@^14.0.0`
 
-### Dependencias servidor
-- `eslint`
-- `@typescript-eslint/parser`
-- `@typescript-eslint/eslint-plugin`
-- `husky`
-- `lint-staged`
+### Dependencias servidor (VERSIONES LOCKED)
+- `eslint@^8.57.0`
+- `@typescript-eslint/parser@^6.21.0`
+- `@typescript-eslint/eslint-plugin@^6.21.0`
+- `husky@^8.0.0`
+- `lint-staged@^14.0.0`
 
 ### Alternativas consideradas
 - **TSLint**: DEPCiado desde 2019, no mantener

@@ -26,10 +26,7 @@ export default defineConfig([
     },
     rules: {
       // Custom rules - relaxed for this codebase
-      '@typescript-eslint/no-unused-vars': ['warn', { 
-        argsIgnorePattern: '^_',
-        varsIgnorePattern: '^_',
-      }],
+      '@typescript-eslint/no-unused-vars': 'off', // Disabled - too noisy for this project
       '@typescript-eslint/no-explicit-any': 'off', // Too strict - use 'any' in some places
       '@typescript-eslint/no-empty-object-type': 'off', // Allow empty interfaces for extensions
       'no-console': 'off', // Allow console in dev

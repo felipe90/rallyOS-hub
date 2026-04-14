@@ -57,6 +57,35 @@
 - [ ] (P1) Agregar lint step a GitHub Actions
   - Estado: TODO
 
+### Fase 5 - Code Base Audit (CRÍTICO - MÁS IMPORTANTE)
+- [ ] (P0) Correr `npm run lint` en todo client/src
+  - Estado: TODO
+  - Listar TODOS errores y warnings en un archivo
+
+- [ ] (P0) Correr `npm run lint` en todo server/src
+  - Estado: TODO
+  - Listar TODOS errores y warnings en un archivo
+
+- [ ] (P0) Fixear TODOS los errores en client
+  - Estado: TODO
+  - Cada fix committeado individualmente o en batch por módulo
+
+- [ ] (P0) Fixear TODOS los errores en server
+  - Estado: TODO
+  - Cada fix committeado individualmente o en batch por módulo
+
+- [ ] (P1) Fixear TODOS los warnings en client (o disable con justificación)
+  - Estado: TODO
+  - Documentar en eslintrc si se usa disable
+
+- [ ] (P1) Fixear TODOS los warnings en server (o disable con justificación)
+  - Estado: TODO
+  - Documentar en eslintrc si se usa disable
+
+- [ ] (P0) Commitear fixes con mensaje descriptivo
+  - Estado: TODO
+  - Ej: "lint: fix unused vars in ScoreboardMain"
+
 ---
 
 ## Estado del backlog

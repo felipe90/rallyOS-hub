@@ -31,10 +31,11 @@ Configurar ESLint con soporte TypeScript para client y server:
 - [ ] Agregar script `npm run lint` en ambos packages
 - [ ] Agregar pre-commit hook (husky)
 - [ ] Integrar en build pipeline
+- **[CRÍTICO] Correr lint en TODA la base de código**
+- **[CRÍTICO] Fixear TODOS los errores y warnings**
 
 ### Out of scope
 - Cambios de arquitectura
-- Refactor existing código para pasar lint
 - Configuración de Prettier (separado)
 
 ---
@@ -61,6 +62,17 @@ Configurar ESLint con soporte TypeScript para client y server:
 ### RF-04: CI Integration
 - GitHub Actions corre `npm run lint` en PR checks
 - Merge blocked si lint fails
+
+### RF-05: Code Base Audit (CRÍTICO)
+- Correr `npm run lint` en TODA la base de código de client
+- Correr `npm run lint` en TODA la base de código de server
+- Listar TODOS los errores (errors) encontrados
+- Listar TODOS los warnings encontrados
+- Fixear CADA error hasta que lint pase sin errores
+- Fixear CADA warning (o documentar si es necesario disable)
+- Commitear los fixes con mensaje descriptivo
+
+**Este es el item más importante del setup**. Sin código limpio, el linter no tiene valor.
 
 ---
 

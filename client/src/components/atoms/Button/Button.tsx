@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactNode as _ReactNode, MouseEvent } from 'react';
 // Note: ButtonHTMLAttributes and MouseEvent not currently used but may be needed for future expanded props
 import { motion } from 'framer-motion';
 import type { HTMLMotionProps } from 'framer-motion';

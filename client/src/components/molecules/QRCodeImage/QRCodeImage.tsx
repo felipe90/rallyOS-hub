@@ -4,7 +4,7 @@ import { QRCodeSVG } from 'qrcode.react';
 export interface QRCodeImageProps {
   tableId: string;
   pin: string;
-  size?: number;
+  size?: number; // Ignored - now uses 100% width/height
 }
 
 // XOR encryption with daily key (matches ScoreboardPage decryption)
@@ -37,7 +37,7 @@ const encryptPin = (pin: string, tableId: string): string => {
   return encrypted
 }
 
-export function QRCodeImage({ tableId, pin, size = 80 }: QRCodeImageProps) {
+export function QRCodeImage({ tableId, pin }: QRCodeImageProps) {
   // Encrypt PIN for secure URL (same logic as server)
   const encryptedPin = encryptPin(pin, tableId)
   
@@ -45,11 +45,13 @@ export function QRCodeImage({ tableId, pin, size = 80 }: QRCodeImageProps) {
   const joinUrl = `${window.location.origin}/scoreboard/${tableId}?ePin=${encryptedPin}`;
   
   return (
-    <QRCodeSVG
-      value={joinUrl}
-      size={size}
-      level="M"
-      includeMargin={false}
-    />
+    <div className="w-full h-full flex items-center justify-center">
+      <QRCodeSVG
+        value={joinUrl}
+        level="M"
+        includeMargin={false}
+        className="!rounded-none"
+      />
+    </div>
   );
 }

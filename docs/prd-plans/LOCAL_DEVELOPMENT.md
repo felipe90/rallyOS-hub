@@ -74,6 +74,30 @@ El script `dev.sh` automáticamente configura:
 VITE_SERVER_URL="https://localhost:3000"
 ```
 
+### VITE_TABLE_REFRESH_MS - Intervalo de polling del Dashboard
+
+Intervalo en milisegundos para actualizar la lista de mesas en el Dashboard (polling).
+
+```typescript
+// En client/src/pages/DashboardPage/DashboardPage.tsx
+const TABLE_REFRESH_INTERVAL = parseInt(import.meta.env.VITE_TABLE_REFRESH_MS || '3000', 10)
+```
+
+**Variable de entorno:**
+- `VITE_TABLE_REFRESH_MS` - Intervalo en ms (default: 3000 = 3 segundos)
+- Valor `0` desactiva el polling (confía en actualizaciones via socket)
+
+**Ejemplos:**
+```bash
+# Actualizar cada 5 segundos
+VITE_TABLE_REFRESH_MS=5000
+
+# Desactivar polling (usar solo socket push)
+VITE_TABLE_REFRESH_MS=0
+```
+
+**Nota:** El polling es útil cuando el socket push no funciona confiablemente. Para producción con buena conexión, se recomienda `0` o un valor alto (10000+).
+
 ## Troubleshooting
 
 ### Cliente no se conecta al servidor

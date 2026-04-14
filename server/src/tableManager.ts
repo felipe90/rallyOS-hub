@@ -109,11 +109,12 @@ export class TableManager {
     const table = this.tables.get(tableId);
     if (!table || table.pin !== pin) return false;
     
-    // RB-03: Only one referee allowed - reject if already exists
+    // RB-03: Replace existing referee if PIN is correct (allow replacement)
     const existingReferee = table.players.find(p => p.role === 'REFEREE');
     if (existingReferee && existingReferee.socketId !== socketId) {
-      logger.warn({ tableId, tableName: table.name }, 'Referee already active, rejecting new attempt');
-      return false;
+      // Remove the old referee from the table
+      table.players = table.players.filter(p => p.socketId !== existingReferee.socketId);
+      logger.info({ tableId, tableName: table.name, oldReferee: existingReferee.socketId, newReferee: socketId }, 'Replacing existing referee');
     }
     
     let player = table.players.find(p => p.socketId === socketId);
@@ -328,13 +329,16 @@ export class TableManager {
     
     const oldReferee = table.players.find(p => p.role === 'REFEREE');
     
-    // Keep the same PIN, just clear players and reset match
+    // Generate new PIN and clear/reset everything
+    table.pin = this.generatePin();
     table.players = [];
+    table.playerNames = { a: 'Player A', b: 'Player B' };
     table.matchEngine.reset();
     table.matchEngine.setTableId(table.id, table.name);
+    table.matchEngine.setPlayerNames({ a: 'Player A', b: 'Player B' });
     table.status = 'WAITING';
 
-    logger.info({ tableId, tableName: table.name, oldRefereeId: oldReferee?.socketId || 'none' }, 'Table reset (kept PIN)');
+    logger.info({ tableId, tableName: table.name, oldRefereeId: oldReferee?.socketId || 'none', newPin: table.pin }, 'Table reset with new PIN');
     this.notifyUpdate(table);
 
     return table.pin;

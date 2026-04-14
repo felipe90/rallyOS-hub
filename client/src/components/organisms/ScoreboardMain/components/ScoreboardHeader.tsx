@@ -1,5 +1,6 @@
 import { Wifi, WifiOff, ChevronLeft } from 'lucide-react';
 import { ScoreboardActions } from './ScoreboardActions';
+import { Button } from '../../../atoms/Button';
 
 export interface ScoreboardHeaderProps {
   isConnected: boolean;
@@ -23,13 +24,14 @@ export function ScoreboardHeader({
       {/* Left: Back Button */}
       <div className="flex-1 flex justify-start">
         {onBackClick && (
-          <button 
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<ChevronLeft size={18} />}
             onClick={onBackClick}
-            className="flex items-center justify-center p-2 rounded-full hover:bg-surface-low text-text-muted hover:text-text transition-colors border border-outline/10 bg-background/50"
+            className="!p-2 border border-outline/10 bg-background/50"
             title="Atrás"
-          >
-            <ChevronLeft size={18} />
-          </button>
+          />
         )}
       </div>
       

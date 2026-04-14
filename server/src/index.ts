@@ -49,31 +49,31 @@ httpsServer.listen(PORT, () => {
 });
 
 // Graceful shutdown handlers
-process.on('SIGTERM', () => gracefulShutdown(
-  httpsServer,
-  io,
-  () => {
-    const allTables = tableManager.getAllTables();
-    for (const table of allTables) {
-      tableManager.deleteTable(table.id);
-    }
-    logger.info({ tableCount: allTables.length }, 'Active tables cleared');
-  },
-  'SIGTERM'
-));
+let isShuttingDown = false;
 
-process.on('SIGINT', () => gracefulShutdown(
-  httpsServer,
-  io,
-  () => {
-    const allTables = tableManager.getAllTables();
-    for (const table of allTables) {
-      tableManager.deleteTable(table.id);
-    }
-    logger.info({ tableCount: allTables.length }, 'Active tables cleared');
-  },
-  'SIGINT'
-));
+const shutdown = (signal: 'SIGTERM' | 'SIGINT') => {
+  if (isShuttingDown) return; // Prevent multiple shutdown attempts
+  isShuttingDown = true;
+  
+  gracefulShutdown(
+    httpsServer,
+    io,
+    () => {
+      const allTables = tableManager.getAllTables();
+      for (const table of allTables) {
+        tableManager.deleteTable(table.id);
+      }
+      logger.info({ tableCount: allTables.length }, 'Active tables cleared');
+    },
+    signal
+  ).catch((err) => {
+    logger.error({ error: err }, 'Shutdown failed');
+    process.exit(1);
+  });
+};
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
 // Global error handling
 process.on('uncaughtException', (error) => {

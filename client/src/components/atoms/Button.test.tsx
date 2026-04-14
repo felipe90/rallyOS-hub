@@ -20,8 +20,8 @@ describe('Button', () => {
   it('applies primary variant styles', () => {
     render(<Button variant="primary">Primary</Button>)
     const button = screen.getByRole('button', { name: /primary/i })
-    // Primary variant uses bg-gradient-primary, not bg-primary
-    expect(button.className).toContain('bg-gradient-primary')
+    // Primary variant uses bg-primary
+    expect(button.className).toContain('bg-primary')
   })
 
   it('applies secondary variant styles', () => {

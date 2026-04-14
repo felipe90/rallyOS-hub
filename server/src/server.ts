@@ -92,6 +92,25 @@ export async function gracefulShutdown(
 ): Promise<void> {
   logger.info({ signal }, 'Graceful shutdown initiated');
 
+  // Disconnect all Socket.IO clients immediately
+  try {
+    io.disconnectSockets();
+    logger.info('Socket.IO clients disconnected');
+  } catch (err) {
+    logger.error({ error: err }, 'Error disconnecting sockets');
+  }
+
+  // Force close HTTP server after timeout
+  const forceClose = () => {
+    logger.warn('Force closing HTTP server');
+    httpsServer.close(() => {
+      logger.info('HTTP server closed (forced)');
+    });
+  };
+
+  // Give sockets time to close, then force close
+  setTimeout(forceClose, 1000);
+
   // Close HTTP/HTTPS server
   await new Promise<void>((resolve, reject) => {
     httpsServer.close((err) => {
@@ -106,14 +125,16 @@ export async function gracefulShutdown(
 
   logger.info('HTTP server closed');
 
-  // Close Socket.IO connections
-  await io.close();
-  logger.info('Socket.IO server closed');
-
   // Clear active tables
   if (cleanupTables) {
     cleanupTables();
   }
 
   logger.info('Graceful shutdown complete');
+  
+  // Force exit after 2 seconds to prevent hanging
+  setTimeout(() => {
+    logger.info('Forcing process exit');
+    process.exit(0);
+  }, 2000).unref();
 }

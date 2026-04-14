@@ -78,19 +78,15 @@ export function MatchConfigPanel({
           <Body className="font-medium text-lg">Puntos por set</Body>
           <div className="flex gap-2">
             {[11, 15, 21].map((points) => (
-              <button
+              <Button
                 key={points}
-                className={`
-                  flex-1 p-4 rounded-[--radius-md]
-                  font-heading text-lg font-medium transition-colors
-                  ${pointsPerSet === points 
-                    ? 'bg-primary text-white' 
-                    : 'bg-surface-low hover:bg-surface-high'}
-                `}
+                variant={pointsPerSet === points ? 'primary' : 'secondary'}
+                size="lg"
+                fullWidth
                 onClick={() => setPointsPerSet(points)}
               >
                 {points}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
@@ -100,19 +96,15 @@ export function MatchConfigPanel({
           <Body className="font-medium text-lg">Mejor de</Body>
           <div className="flex gap-2">
             {[1, 3, 5].map((bo) => (
-              <button
+              <Button
                 key={bo}
-                className={`
-                  flex-1 p-4 rounded-[--radius-md]
-                  font-heading text-lg font-medium transition-colors
-                  ${bestOf === bo 
-                    ? 'bg-primary text-white' 
-                    : 'bg-surface-low hover:bg-surface-high'}
-                `}
+                variant={bestOf === bo ? 'primary' : 'secondary'}
+                size="lg"
+                fullWidth
                 onClick={() => setBestOf(bo)}
               >
                 {bo}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
@@ -124,41 +116,49 @@ export function MatchConfigPanel({
             <div className="flex flex-col gap-2 items-center">
               <Label>Equipo A</Label>
               <div className="flex items-center gap-2 bg-surface-low rounded-[--radius-md] p-2">
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setHandicapA(handicapA - 1)}
-                  className="p-2 hover:bg-surface-high rounded-[--radius-sm] transition-colors"
+                  className="!p-2"
                 >
                   −
-                </button>
+                </Button>
                 <div className="w-12 text-center font-heading text-xl font-bold">
                   {handicapA}
                 </div>
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setHandicapA(handicapA + 1)}
-                  className="p-2 hover:bg-surface-high rounded-[--radius-sm] transition-colors"
+                  className="!p-2"
                 >
                   +
-                </button>
+                </Button>
               </div>
             </div>
             <div className="flex flex-col gap-2 items-center">
               <Label>Equipo B</Label>
               <div className="flex items-center gap-2 bg-surface-low rounded-[--radius-md] p-2">
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setHandicapB(handicapB - 1)}
-                  className="p-2 hover:bg-surface-high rounded-[--radius-sm] transition-colors"
+                  className="!p-2"
                 >
                   −
-                </button>
+                </Button>
                 <div className="w-12 text-center font-heading text-xl font-bold">
                   {handicapB}
                 </div>
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setHandicapB(handicapB + 1)}
-                  className="p-2 hover:bg-surface-high rounded-[--radius-sm] transition-colors"
+                  className="!p-2"
                 >
                   +
-                </button>
+                </Button>
               </div>
             </div>
           </div>

@@ -3,6 +3,7 @@ import type { TableInfo, TableInfoWithPin } from '../../../shared/types';
 import { TableStatusChip } from '../../molecules/TableStatusChip';
 import { StatCard } from '../../molecules/StatCard';
 import { Body, Title } from '../../atoms/Typography';
+import { Button } from '../../atoms/Button';
 import { LayoutGrid, List, RefreshCw } from 'lucide-react';
 
 // Generate QR code URL (for Owner to share)
@@ -17,11 +18,12 @@ export interface DashboardGridProps {
   onTableClick?: (tableId: string) => void;
   viewMode?: 'grid' | 'list';
   className?: string;
-  showRegeneratePin?: boolean;
-  onRegeneratePin?: (tableId: string) => void;
   showPin?: boolean;  // Show PIN for Owner
   showQr?: boolean;   // Show QR for Owner
-  onCleanTable?: (tableId: string) => void;  // Clean table (Owner only)
+  onCleanTable?: (tableId: string) => void;  // Clean/reset table (Owner only)
+  cleanTableId?: string | null;  // Table ID being confirmed for cleaning
+  onCleanTableConfirm?: () => void;  // Confirm clean
+  onCleanTableCancel?: () => void;    // Cancel clean
 }
 
 export function DashboardGrid({ 
@@ -29,11 +31,12 @@ export function DashboardGrid({
   onTableClick,
   viewMode = 'grid',
   className = '',
-  showRegeneratePin = false,
-  onRegeneratePin,
   showPin = false,
   showQr = false,
   onCleanTable,
+  cleanTableId,
+  onCleanTableConfirm,
+  onCleanTableCancel,
 }: DashboardGridProps) {
   // Helper for QR code display
   const getQrDisplay = (tableId: string) => {
@@ -63,11 +66,15 @@ export function DashboardGrid({
               status={table.status}
               playerNames={table.playerNames}
               playerCount={table.playerCount}
+              currentSets={table.currentSets as { a: number; b: number } | undefined}
               className="cursor-pointer"
               onClick={() => onTableClick?.(table.id)}
               pin={showPin ? (table as TableInfoWithPin).pin : undefined}
-              qrCode={showQr ? getQrDisplay(table.id) : undefined}
+              tableId={showPin ? table.id : undefined}
               onClean={onCleanTable ? () => onCleanTable(table.id) : undefined}
+              showCleanConfirm={cleanTableId === table.id}
+              onCleanConfirm={onCleanTableConfirm}
+              onCleanCancel={onCleanTableCancel}
             />
           </motion.div>
         ))}
@@ -94,23 +101,16 @@ export function DashboardGrid({
               status={table.status}
               playerNames={table.playerNames}
               playerCount={table.playerCount}
+              currentSets={table.currentSets as { a: number; b: number } | undefined}
               className="cursor-pointer"
               onClick={() => onTableClick?.(table.id)}
               pin={showPin ? (table as TableInfoWithPin).pin : undefined}
-              qrCode={showQr ? getQrDisplay(table.id) : undefined}
+              tableId={showPin ? table.id : undefined}
+              onClean={onCleanTable ? () => onCleanTable(table.id) : undefined}
+              showCleanConfirm={cleanTableId === table.id}
+              onCleanConfirm={onCleanTableConfirm}
+              onCleanCancel={onCleanTableCancel}
             />
-            {showRegeneratePin && onRegeneratePin && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onRegeneratePin(table.id)
-                }}
-                className="absolute top-2 right-2 p-2 text-muted-foreground hover:text-primary transition-colors"
-                title="Limpiar Mesa"
-              >
-                <RefreshCw size={18} />
-              </button>
-            )}
           </motion.div>
         );
       })}
@@ -139,26 +139,22 @@ export function DashboardHeader({
         <Title>Dashboard</Title>
         
         <div className="flex gap-1 p-1 bg-slate-100 rounded-full">
-          <button
+          <Button
+            variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+            size="sm"
             onClick={() => onViewModeChange('grid')}
-            className={`
-              p-2 rounded-full transition-colors
-              ${viewMode === 'grid' ? 'bg-white text-slate-900' : 'text-slate-500'}
-            `}
+            className={viewMode === 'grid' ? '!bg-white !text-slate-900' : '!text-slate-500'}
             aria-label="Grid view"
-          >
-            <LayoutGrid size={20} />
-          </button>
-          <button
+            icon={<LayoutGrid size={20} />}
+          />
+          <Button
+            variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+            size="sm"
             onClick={() => onViewModeChange('list')}
-            className={`
-              p-2 rounded-full transition-colors
-              ${viewMode === 'list' ? 'bg-white text-slate-900' : 'text-slate-500'}
-            `}
+            className={viewMode === 'list' ? '!bg-white !text-slate-900' : '!text-slate-500'}
             aria-label="List view"
-          >
-            <List size={20} />
-          </button>
+            icon={<List size={20} />}
+          />
         </div>
       </div>
       

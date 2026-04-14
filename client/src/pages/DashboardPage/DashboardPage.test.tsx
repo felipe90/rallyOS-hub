@@ -82,11 +82,13 @@ describe('DashboardPage', () => {
     mockNavigate.mockClear()
     
     mockUseAuth.mockReturnValue({
-      role: 'referee',
+      role: 'owner',
       tableId: null,
-      isReferee: true,
+      isReferee: false,
       isViewer: false,
+      isOwner: true,
       isAuthenticated: true,
+      ownerPin: '12345678',
       login: vi.fn(),
       logout: vi.fn()
     })
@@ -245,10 +247,21 @@ describe('DashboardPage', () => {
     })
 
     it('shows referee view for referee', () => {
+      // Override mock to be referee for this test
+      mockUseAuth.mockReturnValue({
+        role: 'referee',
+        tableId: null,
+        isReferee: true,
+        isViewer: false,
+        isOwner: false,
+        isAuthenticated: true,
+        login: vi.fn(),
+        logout: vi.fn()
+      })
       renderDashboard()
       
       expect(screen.getByText('Panel de Árbitro')).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /nueva mesa/i })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /nueva mesa/i })).not.toBeInTheDocument()
     })
   })
 })

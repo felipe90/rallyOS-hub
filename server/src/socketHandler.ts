@@ -253,13 +253,28 @@ export class SocketHandler {
           matchConfig: matchConfig
         });
 
+        // Emit TABLE_UPDATE so Dashboard sees the updated player names
+        const table = this.tableManager.getTable(data.tableId);
+        if (table) {
+          const tableInfo = this.tableManager.tableToInfo(table);
+          this.io.emit(SocketEvents.SERVER.TABLE_UPDATE, this.toPublicTableInfo(tableInfo));
+        }
+
         const state = this.tableManager.getMatchState(data.tableId);
         if (state) {
           this.io.to(data.tableId).emit(SocketEvents.SERVER.MATCH_UPDATE, state); // Emit only to room
         }
       });
 
-      socket.on(SocketEvents.CLIENT.START_MATCH, (data: { tableId: string }) => {
+      socket.on(SocketEvents.CLIENT.START_MATCH, (data: { 
+        tableId: string;
+        pointsPerSet?: number;
+        bestOf?: number;
+        handicapA?: number;
+        handicapB?: number;
+        playerNameA?: string;
+        playerNameB?: string;
+      }) => {
         if (!validateSocketPayload(socket, data, { tableId: { required: true, type: 'string', maxLength: 36 } }, 'START_MATCH')) {
           return;
         }
@@ -276,10 +291,27 @@ export class SocketHandler {
           return socket.emit(SocketEvents.SERVER.ERROR, { code: 'UNAUTHORIZED', message: 'No autorizado' });
         }
 
+        // Configure player names before starting match
+        if (data.playerNameA || data.playerNameB) {
+          this.tableManager.configureMatch(data.tableId, {
+            playerNames: { 
+              a: data.playerNameA || 'Player A', 
+              b: data.playerNameB || 'Player B' 
+            }
+          });
+        }
+
         // START_MATCH only initiates the match - configuration should be done via CONFIGURE_MATCH
         const state = this.tableManager.startMatch(data.tableId);
 
         logger.debug({ tableId: data.tableId, state }, 'START_MATCH: Result state');
+
+        // Emit TABLE_UPDATE so Dashboard sees updated player names
+        const table = this.tableManager.getTable(data.tableId);
+        if (table) {
+          const tableInfo = this.tableManager.tableToInfo(table);
+          this.io.emit(SocketEvents.SERVER.TABLE_UPDATE, this.toPublicTableInfo(tableInfo));
+        }
 
         if (state) {
           logger.debug({ tableId: data.tableId }, 'START_MATCH: Emitting MATCH_UPDATE to room');
@@ -516,7 +548,7 @@ export class SocketHandler {
         // Get old referee before regenerating
         const oldRefereeSocketId = this.tableManager.getRefereeSocketId(data.tableId);
 
-        // Regenerate PIN
+        // Regenerate PIN and reset everything (already handles status = WAITING)
         const newPin = this.tableManager.regeneratePin(data.tableId);
         if (!newPin) {
           return socket.emit(SocketEvents.SERVER.ERROR, { code: 'PIN_REGEN_FAILED', message: 'Error al regenerar PIN' });
@@ -540,6 +572,11 @@ export class SocketHandler {
         }
 
         socket.emit(SocketEvents.SERVER.PIN_REGENERATED, { tableId: data.tableId, newPin });
+        
+        // Emit TABLE_UPDATE so Dashboard reflects the reset
+        const tableInfo = this.tableManager.tableToInfo(table);
+        this.io.emit(SocketEvents.SERVER.TABLE_UPDATE, this.toPublicTableInfo(tableInfo));
+        
         logger.info({ tableId: data.tableId }, 'PIN regenerated for table');
       });
 

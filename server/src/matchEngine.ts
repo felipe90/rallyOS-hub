@@ -69,6 +69,11 @@ export class MatchEngine {
     this.onMatchEvent = cb;
   }
 
+  public reset(): void {
+    // Reset to initial state with default player names
+    this.state = this.getInitialState(INITIAL_CONFIG);
+  }
+
   public setPlayerNames(names: { a: string; b: string }): MatchStateExtended {
     this.state.playerNames = names;
     return this.getState();

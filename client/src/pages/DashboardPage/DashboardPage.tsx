@@ -11,6 +11,9 @@ import { Typography } from '@/components/atoms/Typography'
 import { SocketEvents } from '@shared/events'
 import type { QRData, TableInfoWithPin } from '@/shared/types'
 
+// Polling interval for table refresh (in ms) - configurable via env
+const TABLE_REFRESH_INTERVAL = parseInt(import.meta.env.VITE_TABLE_REFRESH_MS || '3000', 10)
+
 export function DashboardPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [isCreatingTable, setIsCreatingTable] = useState(false)
@@ -18,6 +21,7 @@ export function DashboardPage() {
   const [pinModalOpen, setPinModalOpen] = useState(false)
   const [selectedTable, setSelectedTable] = useState<TableInfoWithPin | null>(null)
   const [pinError, setPinError] = useState<string | null>(null)
+  const [cleanConfirmTableId, setCleanConfirmTableId] = useState<string | null>(null)
   const [pinLoading, setPinLoading] = useState(false)
   const navigate = useNavigate()
   const { tables, connected, createTable, socket, requestTables, requestTablesWithPins, emit } = useSocketContext()
@@ -41,7 +45,7 @@ export function DashboardPage() {
       requestTables()
     }
     
-    // Refresh every 3 seconds for updates
+    // Refresh tables periodically for updates
     const interval = setInterval(() => {
       if (isOwner && ownerPin) {
         requestTablesWithPins(ownerPin)
@@ -50,7 +54,7 @@ export function DashboardPage() {
       } else {
         requestTables()
       }
-    }, 3000)
+    }, TABLE_REFRESH_INTERVAL)
     
     return () => clearInterval(interval)
   }, [connected, isOwner, ownerPin, requestTables, requestTablesWithPins])
@@ -68,12 +72,12 @@ export function DashboardPage() {
       console.log('[Dashboard] PIN regenerated:', data)
     }
 
-    socket.on('QR_DATA', handleQRData)
-    socket.on('PIN_REGENERATED', handlePinRegenerated)
+    socket.on(SocketEvents.SERVER.QR_DATA, handleQRData)
+    socket.on(SocketEvents.SERVER.PIN_REGENERATED, handlePinRegenerated)
 
     return () => {
-      socket.off('QR_DATA', handleQRData)
-      socket.off('PIN_REGENERATED', handlePinRegenerated)
+      socket.off(SocketEvents.SERVER.QR_DATA, handleQRData)
+      socket.off(SocketEvents.SERVER.PIN_REGENERATED, handlePinRegenerated)
     }
   }, [socket])
 
@@ -83,11 +87,10 @@ export function DashboardPage() {
   }
 
   const handleCreateTable = () => {
-    if (tableName.trim()) {
-      createTable(tableName.trim())
-      setTableName('')
-      setIsCreatingTable(false)
-    }
+    // Allow creating table without name (server will assign default name)
+    createTable(tableName.trim() || undefined)
+    setTableName('')
+    setIsCreatingTable(false)
   }
 
   // Handle table click - opens PIN modal (RF-04)
@@ -152,10 +155,19 @@ export function DashboardPage() {
     setPinError(null)
   }
 
-  const handleRegeneratePin = (tableId: string) => {
-    if (socket && connected && ownerPin) {
-      socket.emit(SocketEvents.CLIENT.REGENERATE_PIN, { tableId, pin: ownerPin })
+  const handleCleanTableRequest = (tableId: string) => {
+    setCleanConfirmTableId(tableId)
+  }
+
+  const handleCleanTableConfirm = () => {
+    if (cleanConfirmTableId && socket && connected && ownerPin) {
+      socket.emit(SocketEvents.CLIENT.REGENERATE_PIN, { tableId: cleanConfirmTableId, pin: ownerPin })
     }
+    setCleanConfirmTableId(null)
+  }
+
+  const handleCleanTableCancel = () => {
+    setCleanConfirmTableId(null)
   }
 
   const pageTitle = isOwner ? 'Panel de Organizador' : isReferee ? 'Panel de Árbitro' : 'Espectador'
@@ -219,8 +231,12 @@ export function DashboardPage() {
         <div className="p-4">
           <DashboardHeader
             totalTables={tables.length || 0}
-            liveMatches={tables.filter(t => t.status === 'LIVE').length || 0}
-            activePlayers={tables.reduce((acc, t) => acc + (t.playerCount || 0), 0) || 0}
+            liveMatches={tables.filter(t => t.status === 'LIVE' || t.status === 'CONFIGURING').length || 0}
+            activePlayers={tables.reduce((acc, t) => {
+              // Count 2 players if there are player names (match in progress)
+              const hasPlayers = t.playerNames?.a || t.playerNames?.b;
+              return acc + (hasPlayers ? 2 : (t.playerCount || 0));
+            }, 0) || 0}
             viewMode={viewMode}
             onViewModeChange={setViewMode}
           />
@@ -230,7 +246,10 @@ export function DashboardPage() {
             viewMode={viewMode}
             showPin={isOwner}
             showQr={isOwner}
-            onCleanTable={isOwner ? handleRegeneratePin : undefined}
+            onCleanTable={isOwner ? handleCleanTableRequest : undefined}
+            cleanTableId={cleanConfirmTableId}
+            onCleanTableConfirm={handleCleanTableConfirm}
+            onCleanTableCancel={handleCleanTableCancel}
           />
         </div>
       </div>

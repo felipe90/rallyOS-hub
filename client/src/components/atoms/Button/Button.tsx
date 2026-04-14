@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import type { ButtonHTMLAttributes, ReactNode, MouseEvent } from 'react';
 import { motion } from 'framer-motion';
 import type { HTMLMotionProps } from 'framer-motion';
 import type { ButtonVariant, ButtonSize, ButtonProps } from './Button.types';
@@ -34,6 +34,8 @@ export function Button({
   animate = true,
   fullWidth = false,
   icon,
+  stopPropagation = false,
+  onClick,
   ...props
 }: ButtonProps) {
   const baseStyles = `
@@ -47,6 +49,15 @@ export function Button({
     ${className}
   `;
 
+  // Handler to stop propagation if needed
+  const handleClick = (e: MouseEvent<HTMLButtonElement>) => {
+    if (stopPropagation) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    onClick?.(e);
+  };
+
   if (animate) {
     return (
       <motion.button
@@ -54,6 +65,7 @@ export function Button({
         whileHover={{ scale: disabled ? 1 : 1.02 }}
         whileTap={{ scale: disabled ? 1 : 0.98 }}
         disabled={disabled || loading}
+        onClick={handleClick}
         {...(props as HTMLMotionProps<'button'>)}
       >
         {icon && <span className="flex items-center justify-center">{icon}</span>}
@@ -66,7 +78,7 @@ export function Button({
   }
 
   return (
-    <button className={baseStyles} disabled={disabled || loading} {...props}>
+    <button className={baseStyles} disabled={disabled || loading} onClick={handleClick} {...props}>
       {icon && <span className="flex items-center justify-center">{icon}</span>}
       {loading ? (
         <span className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full" />

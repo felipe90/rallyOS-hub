@@ -1,6 +1,8 @@
 import type { TableStatus } from '../../../shared/types';
 import { WaitingBadge, ConfiguringBadge, LiveBadge, FinishedBadge } from '../../atoms/Badge';
 import { Body } from '../../atoms/Typography';
+import { Button } from '../../atoms/Button';
+import { QRCodeImage } from '../QRCodeImage';
 import { RefreshCw } from 'lucide-react';
 
 /* TableStatusChip Molecule - Table info card component */
@@ -10,11 +12,15 @@ export interface TableStatusChipProps {
   status: TableStatus;
   playerNames?: { a: string; b: string };
   playerCount?: number;
+  currentSets?: { a: number; b: number };  // Sets score for display
   className?: string;
   onClick?: () => void;
   pin?: string;        // PIN to display (only for Owner)
-  qrCode?: string;   // QR code data URL (only for Owner)
+  tableId?: string;   // Table ID for QR generation (only for Owner)
   onClean?: () => void;  // Clean table (only for Owner)
+  showCleanConfirm?: boolean;  // Show confirmation dialog
+  onCleanConfirm?: () => void;  // Confirm clean action
+  onCleanCancel?: () => void;   // Cancel clean action
 }
 
 const statusBadge: Record<TableStatus, typeof WaitingBadge> = {
@@ -30,11 +36,15 @@ export function TableStatusChip({
   status,
   playerNames,
   playerCount = 0,
+  currentSets,
   className = '',
   onClick,
   pin,
-  qrCode,
+  tableId,
   onClean,
+  showCleanConfirm = false,
+  onCleanConfirm,
+  onCleanCancel,
 }: TableStatusChipProps) {
   const StatusBadgeComponent = statusBadge[status];
   
@@ -64,6 +74,18 @@ export function TableStatusChip({
         </div>
       )}
 
+      {/* Sets score for live matches */}
+      {currentSets && (currentSets.a > 0 || currentSets.b > 0) && (
+        <div className="flex items-center gap-2 mt-1">
+          <Body className="text-xs text-text/50">Sets:</Body>
+          <div className="flex gap-1">
+            <span className="text-sm font-bold text-text-h">{currentSets.a}</span>
+            <span className="text-text/30">-</span>
+            <span className="text-sm font-bold text-text-h">{currentSets.b}</span>
+          </div>
+        </div>
+      )}
+
       {/* PIN and QR for Owner (RF-01, RF-02) */}
       {pin && (
         <div className="flex items-center gap-2 mt-1 pt-2 border-t border-border/30">
@@ -71,23 +93,47 @@ export function TableStatusChip({
             <Body className="text-xs text-text/50">PIN:</Body>
             <Body className="text-sm font-mono font-bold text-primary">{pin}</Body>
           </div>
-          {qrCode && (
-            <img src={qrCode} alt="QR" className="w-12 h-12 ml-auto" />
+          {pin && tableId && (
+            <div className="ml-auto">
+              <QRCodeImage tableId={tableId} pin={pin} size={48} />
+            </div>
           )}
         </div>
       )}
 
       {/* Clean button for Owner */}
       {onClean && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            onClean()
-          }}
-          className="mt-2 py-2 px-3 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+        <Button
+          variant="primary"
+          size="sm"
+          icon={<RefreshCw size={16} />}
+          onClick={() => onClean()}
+          stopPropagation
+          className="mt-2"
         >
           Limpiar Mesa
-        </button>
+        </Button>
+      )}
+
+      {/* Clean confirmation - rendered inline */}
+      {showCleanConfirm && onCleanConfirm && onCleanCancel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={onCleanCancel} />
+          <div className="relative bg-surface rounded-lg shadow-xl p-6 w-full max-w-sm">
+            <Body className="text-xl font-heading text-center mb-2">Limpiar Mesa</Body>
+            <Body className="text-center text-text/70 mb-6">
+              ¿Estás seguro de resetear esta mesa? Se borrarán los nombres, el score y se generará un nuevo PIN.
+            </Body>
+            <div className="flex gap-3">
+              <Button variant="secondary" onClick={() => onCleanCancel()} stopPropagation className="flex-1">
+                Cancelar
+              </Button>
+              <Button variant="danger" onClick={() => onCleanConfirm()} stopPropagation className="flex-1">
+                Limpiar
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

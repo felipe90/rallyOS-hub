@@ -10,28 +10,11 @@ import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
 import { logger } from './utils/logger';
+import { getAllowedOrigins } from './config/allowedOrigins';
 
 const app = express();
 
-const defaultAllowedOrigins = [
-  'http://localhost:5173',
-  'https://localhost:5173',
-  'http://localhost:3000',
-  'https://localhost:3000',
-  'http://127.0.0.1:5173',
-  'https://127.0.0.1:5173',
-  'http://127.0.0.1:3000',
-  'https://127.0.0.1:3000',
-  'http://orangepi.local:3000',
-  'https://orangepi.local:3000',
-];
-
-const allowedOrigins = (process.env.HUB_ALLOWED_ORIGINS || '')
-  .split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean);
-
-export const effectiveAllowedOrigins = allowedOrigins.length > 0 ? allowedOrigins : defaultAllowedOrigins;
+export const effectiveAllowedOrigins = getAllowedOrigins();
 
 const corsOriginValidator = (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
   if (!origin) {

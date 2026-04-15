@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { MatchEngine, Player, MatchConfig, MatchStateExtended } from './matchEngine';
 import { MatchEvent, Table, TableInfo, PlayerConnection, QRData } from './types';
 import { encryptPin } from './utils/pinEncryption';

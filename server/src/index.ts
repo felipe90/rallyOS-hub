@@ -16,11 +16,10 @@ import { logger } from './utils/logger';
 let ownerPin: string;
 if (!process.env.TOURNAMENT_OWNER_PIN) {
   ownerPin = crypto.randomInt(10000000, 99999999).toString();
-  console.log('\n🎯 OWNER PIN (randomly generated):', ownerPin);
-  console.log('⚠️  SAVE THIS PIN - it changes on every restart!\n');
+  logger.warn({ ownerPin }, 'OWNER PIN randomly generated — SAVE THIS PIN, it changes on every restart');
 } else {
   ownerPin = process.env.TOURNAMENT_OWNER_PIN;
-  console.log('\n🎯 OWNER PIN (from env):', ownerPin, '\n');
+  logger.info({ ownerPin }, 'OWNER PIN loaded from environment');
 }
 
 export { ownerPin };

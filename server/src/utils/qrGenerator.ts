@@ -1,5 +1,6 @@
 import QRCode from 'qrcode';
 import { QRData } from '../types';
+import { logger } from './logger';
 
 export async function generateQRDataUrl(data: QRData): Promise<string> {
   try {
@@ -15,7 +16,7 @@ export async function generateQRDataUrl(data: QRData): Promise<string> {
     });
     return dataUrl;
   } catch (error) {
-    console.error('[QRGenerator] Error generating QR:', error);
+    logger.error({ error }, 'QR code generation failed');
     throw error;
   }
 }

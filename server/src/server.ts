@@ -11,6 +11,7 @@ import { Express } from 'express';
 import path from 'path';
 import fs from 'fs';
 import { logger } from './utils/logger';
+import { getAllowedOrigins } from './config/allowedOrigins';
 
 function validateCertificates(): { key: Buffer; cert: Buffer } {
   const keyPath = path.join(process.cwd(), 'key.pem');
@@ -49,23 +50,7 @@ export function createSecureServer(app: Express): {
           return;
         }
 
-        const allowedOrigins = (process.env.HUB_ALLOWED_ORIGINS || '')
-          .split(',')
-          .map((o) => o.trim())
-          .filter(Boolean);
-
-        const effectiveAllowedOrigins = allowedOrigins.length > 0 ? allowedOrigins : [
-          'http://localhost:5173',
-          'https://localhost:5173',
-          'http://localhost:3000',
-          'https://localhost:3000',
-          'http://127.0.0.1:5173',
-          'https://127.0.0.1:5173',
-          'http://127.0.0.1:3000',
-          'https://127.0.0.1:3000',
-          'http://orangepi.local:3000',
-          'https://orangepi.local:3000',
-        ];
+        const effectiveAllowedOrigins = getAllowedOrigins();
 
         if (effectiveAllowedOrigins.includes(origin)) {
           callback(null, true);

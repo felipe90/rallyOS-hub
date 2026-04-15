@@ -31,11 +31,8 @@
 | Socket Handler Decomposition | ✅ DONE |
 | Triple Role Architecture | ✅ DONE |
 
-### Previous
-- Scoreboard Routes Refactor (partial)
-- Table PIN Auth
-- QR Code Display
-- Client Security Alignment
+### Previous PRDs
+- TRIPLE_ROLE_ARCHITECTURE_PRD (archived)
 
 ---
 

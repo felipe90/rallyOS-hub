@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '@/hooks/useAuth'
+import { useAuthContext } from '@/contexts/AuthContext'
 import { useSocketContext } from '@/contexts/SocketContext'
 import { Button } from '@/components/atoms/Button'
 import { PinInput } from '@/components/atoms/PinInput'
@@ -16,7 +16,7 @@ export function AuthPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [mode, setMode] = useState<AuthMode>('select')
   const navigate = useNavigate()
-  const { login, setOwner } = useAuth()
+  const { login, setOwner } = useAuthContext()
   const { socket, connected } = useSocketContext()
 
   // Listen for OWNER_VERIFIED event

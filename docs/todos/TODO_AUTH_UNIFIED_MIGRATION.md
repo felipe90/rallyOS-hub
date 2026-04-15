@@ -25,23 +25,26 @@
   - Estado: DONE
 
 ### Fase 2 - P0: Migrar páginas (una por una, commit independiente)
-- [ ] (P0) Migrar `AuthPage.tsx` de useAuth a useAuthContext
-  - Estado: IN_PROGRESS
+- [x] (P0) Migrar `AuthPage.tsx` de useAuth a useAuthContext
+  - Estado: DONE (2026-04-15)
 
 - [x] (P0) Migrar `DashboardPage.tsx` de useAuth a useAuthContext
   - Estado: DONE (2026-04-15)
 
-- [ ] (P0) Migrar `ScoreboardPage.tsx` de useAuth a useAuthContext
-  - Estado: TODO
+- [x] (P0) Migrar `ScoreboardPage.tsx` de useAuth a useAuthContext
+  - Estado: DONE (2026-04-15)
 
-- [ ] (P0) Migrar `WaitingRoomPage.tsx` de useAuth a useAuthContext
-  - Estado: TODO
+- [x] (P0) Migrar `WaitingRoomPage.tsx` de useAuth a useAuthContext
+  - Estado: DONE (2026-04-15)
 
-- [ ] (P0) Migrar `HistoryViewPage.tsx` de useAuth a useAuthContext
-  - Estado: TODO
+- [x] (P0) Migrar `PrivateRoute.tsx` de useAuth a useAuthContext
+  - Estado: DONE (2026-04-15)
 
-- [ ] (P0) Migrar `PrivateRoute.tsx` de useAuth a useAuthContext (si no lo usa ya)
-  - Estado: TODO
+- [x] (P0) Migrar tests: AuthPage, DashboardPage, ScoreboardPage, WaitingRoomPage, PrivateRoute
+  - Estado: DONE (2026-04-15)
+
+- [ ] (P0) Migrar `HistoryViewPage.tsx` de useAuth a useAuthContext (si usa auth)
+  - Estado: TODO (no se encontró uso de useAuth)
 
 ### Fase 3 - P1: Eliminar useAuth hook
 - [ ] (P1) Marcar `useAuth.ts` como deprecado con warning

@@ -2,14 +2,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { RouterProvider, createMemoryRouter } from 'react-router-dom'
 import { PrivateRoute } from './PrivateRoute'
+import { AuthProvider } from '../../../contexts/AuthContext'
 
-vi.mock('../../../hooks/useAuth', () => ({
-  useAuth: vi.fn(),
+vi.mock('../../../contexts/AuthContext', () => ({
+  useAuthContext: vi.fn(),
+  AuthProvider: ({ children }: { children: React.ReactNode }) => children,
 }))
 
-import { useAuth } from '../../../hooks/useAuth'
+import { useAuthContext } from '../../../contexts/AuthContext'
 
-const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
+const mockUseAuthContext = useAuthContext as ReturnType<typeof vi.fn>
 
 const mockNavigate = vi.fn()
 
@@ -25,13 +27,18 @@ vi.mock('react-router-dom', async () => {
 })
 
 const mockAuth = (isAuthenticated: boolean, role: string = 'referee') => {
-  mockUseAuth.mockReturnValue({
+  mockUseAuthContext.mockReturnValue({
     isAuthenticated,
-    user: isAuthenticated ? { id: '1', name: 'Test User', role } : null,
-    pin: '',
+    role,
+    tableId: 'table-1',
+    ownerPin: '12345',
+    isOwner: role === 'owner',
+    isReferee: role === 'referee',
+    isViewer: role === 'viewer',
     login: vi.fn(),
     logout: vi.fn(),
-    isLoading: false,
+    setOwner: vi.fn(),
+    setTablePin: vi.fn(),
   })
 }
 

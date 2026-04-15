@@ -4,7 +4,16 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { vi } from 'vitest'
 import { DashboardPage } from './index'
 import { SocketContext, SocketContextType } from '@/contexts/SocketContext'
-import { useAuth } from '@/hooks/useAuth'
+import { AuthProvider } from '@/contexts/AuthContext'
+
+vi.mock('@/contexts/AuthContext', () => ({
+  useAuthContext: vi.fn(),
+  AuthProvider: ({ children }: { children: React.ReactNode }) => children,
+}))
+
+import { useAuthContext } from '@/contexts/AuthContext'
+
+const mockUseAuthContext = useAuthContext as ReturnType<typeof vi.fn>
 
 const mockTables = [
   { id: 'table-1', number: 1, name: 'Mesa 1', status: 'LIVE' as const, playerCount: 2 },
@@ -21,12 +30,6 @@ const mockCreateTable = vi.fn((name?: string) => Promise.resolve({
 }))
 
 const mockNavigate = vi.fn()
-
-vi.mock('@/hooks/useAuth', () => ({
-  useAuth: vi.fn()
-}))
-
-const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
 
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual: Record<string, unknown> = await importOriginal()
@@ -64,13 +67,15 @@ const renderDashboard = (mockSocketContext?: Partial<SocketContextType>) => {
 
   return render(
     <MemoryRouter initialEntries={['/dashboard']}>
-      <SocketContext.Provider value={socketValue}>
-        <Routes>
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/scoreboard/:tableId" element={<div>Scoreboard</div>} />
-          <Route path="/auth" element={<div>Auth</div>} />
-        </Routes>
-      </SocketContext.Provider>
+      <AuthProvider>
+        <SocketContext.Provider value={socketValue}>
+          <Routes>
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/scoreboard/:tableId" element={<div>Scoreboard</div>} />
+            <Route path="/auth" element={<div>Auth</div>} />
+          </Routes>
+        </SocketContext.Provider>
+      </AuthProvider>
     </MemoryRouter>
   )
 }
@@ -81,7 +86,7 @@ describe('DashboardPage', () => {
     vi.clearAllMocks()
     mockNavigate.mockClear()
     
-    mockUseAuth.mockReturnValue({
+    mockUseAuthContext.mockReturnValue({
       role: 'owner',
       tableId: null,
       isReferee: false,
@@ -90,7 +95,9 @@ describe('DashboardPage', () => {
       isAuthenticated: true,
       ownerPin: '12345678',
       login: vi.fn(),
-      logout: vi.fn()
+      logout: vi.fn(),
+      setOwner: vi.fn(),
+      setTablePin: vi.fn(),
     })
   })
 
@@ -179,14 +186,16 @@ describe('DashboardPage', () => {
   describe('Logout', () => {
     it('logout works correctly', () => {
       const mockLogout = vi.fn()
-      mockUseAuth.mockReturnValue({
+      mockUseAuthContext.mockReturnValue({
         role: 'referee',
         tableId: null,
         isReferee: true,
         isViewer: false,
         isAuthenticated: true,
         login: vi.fn(),
-        logout: mockLogout
+        logout: mockLogout,
+        setOwner: vi.fn(),
+        setTablePin: vi.fn(),
       })
       
       renderDashboard()

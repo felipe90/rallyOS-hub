@@ -2,9 +2,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { WaitingRoomPage } from './WaitingRoomPage'
+import { AuthProvider } from '../../contexts/AuthContext'
 
-vi.mock('../../hooks/useAuth', () => ({
-  useAuth: vi.fn()
+vi.mock('../../contexts/AuthContext', () => ({
+  useAuthContext: vi.fn(),
+  AuthProvider: ({ children }: { children: React.ReactNode }) => children,
 }))
 
 vi.mock('../../contexts/SocketContext', () => ({
@@ -19,10 +21,10 @@ vi.mock('react-router-dom', async () => {
   }
 })
 
-import { useAuth } from '../../hooks/useAuth'
+import { useAuthContext } from '../../contexts/AuthContext'
 import { useSocketContext } from '../../contexts/SocketContext'
 
-const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
+const mockUseAuthContext = useAuthContext as ReturnType<typeof vi.fn>
 const mockUseSocketContext = useSocketContext as ReturnType<typeof vi.fn>
 
 const createMockTables = () => [
@@ -72,18 +74,23 @@ const defaultMockAuth = () => ({
   isReferee: false,
   isViewer: true,
   isAuthenticated: true,
+  ownerPin: null,
   login: vi.fn(),
-  logout: vi.fn()
+  logout: vi.fn(),
+  setOwner: vi.fn(),
+  setTablePin: vi.fn(),
 })
 
 const renderWithRouter = (ui: React.ReactElement) => {
   return render(
     <MemoryRouter initialEntries={['/waitingroom']}>
-      <Routes>
-        <Route path="/waitingroom" element={ui} />
-        <Route path="/scoreboard/:tableId" element={<div>Scoreboard</div>} />
-        <Route path="/auth" element={<div>Auth</div>} />
-      </Routes>
+      <AuthProvider>
+        <Routes>
+          <Route path="/waitingroom" element={ui} />
+          <Route path="/scoreboard/:tableId" element={<div>Scoreboard</div>} />
+          <Route path="/auth" element={<div>Auth</div>} />
+        </Routes>
+      </AuthProvider>
     </MemoryRouter>
   )
 }
@@ -94,7 +101,7 @@ describe('WaitingRoomPage', () => {
     localStorage.clear()
     
     mockUseSocketContext.mockReturnValue(defaultMockContext())
-    mockUseAuth.mockReturnValue(defaultMockAuth())
+    mockUseAuthContext.mockReturnValue(defaultMockAuth())
   })
 
   afterEach(() => {
@@ -103,7 +110,7 @@ describe('WaitingRoomPage', () => {
 
   it('renders available tables', () => {
     mockUseSocketContext.mockReturnValue(defaultMockContext())
-    mockUseAuth.mockReturnValue(defaultMockAuth())
+    mockUseAuthContext.mockReturnValue(defaultMockAuth())
     
     renderWithRouter(<WaitingRoomPage />)
 
@@ -116,7 +123,7 @@ describe('WaitingRoomPage', () => {
       ...defaultMockContext(),
       tables: []
     })
-    mockUseAuth.mockReturnValue(defaultMockAuth())
+    mockUseAuthContext.mockReturnValue(defaultMockAuth())
     
     renderWithRouter(<WaitingRoomPage />)
 
@@ -125,7 +132,7 @@ describe('WaitingRoomPage', () => {
 
   it('filters out non-WAITING tables', () => {
     mockUseSocketContext.mockReturnValue(defaultMockContext())
-    mockUseAuth.mockReturnValue(defaultMockAuth())
+    mockUseAuthContext.mockReturnValue(defaultMockAuth())
     
     renderWithRouter(<WaitingRoomPage />)
 
@@ -134,7 +141,7 @@ describe('WaitingRoomPage', () => {
 
   it('shows title "Mesas Disponibles"', () => {
     mockUseSocketContext.mockReturnValue(defaultMockContext())
-    mockUseAuth.mockReturnValue(defaultMockAuth())
+    mockUseAuthContext.mockReturnValue(defaultMockAuth())
     
     renderWithRouter(<WaitingRoomPage />)
 
@@ -143,7 +150,7 @@ describe('WaitingRoomPage', () => {
 
   it('displays table names with player names', () => {
     mockUseSocketContext.mockReturnValue(defaultMockContext())
-    mockUseAuth.mockReturnValue(defaultMockAuth())
+    mockUseAuthContext.mockReturnValue(defaultMockAuth())
     
     renderWithRouter(<WaitingRoomPage />)
 

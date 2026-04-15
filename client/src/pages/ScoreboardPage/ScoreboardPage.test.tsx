@@ -2,9 +2,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { ScoreboardPage } from './ScoreboardPage'
+import { AuthProvider } from '../../contexts/AuthContext'
 
-vi.mock('../../hooks/useAuth', () => ({
-  useAuth: vi.fn()
+vi.mock('../../contexts/AuthContext', () => ({
+  useAuthContext: vi.fn(),
+  AuthProvider: ({ children }: { children: React.ReactNode }) => children,
 }))
 
 vi.mock('../../contexts/SocketContext', () => ({
@@ -19,10 +21,10 @@ vi.mock('react-router-dom', async () => {
   }
 })
 
-import { useAuth } from '../../hooks/useAuth'
+import { useAuthContext } from '../../contexts/AuthContext'
 import { useSocketContext } from '../../contexts/SocketContext'
 
-const mockUseAuth = useAuth as ReturnType<typeof vi.fn>
+const mockUseAuthContext = useAuthContext as ReturnType<typeof vi.fn>
 const mockUseSocketContext = useSocketContext as ReturnType<typeof vi.fn>
 
 const createMockMatch = (overrides = {}) => ({
@@ -44,10 +46,12 @@ const createMockMatch = (overrides = {}) => ({
 const renderWithRouter = (ui: React.ReactElement, { route = '/scoreboard/table-1' } = {}) => {
   return render(
     <MemoryRouter initialEntries={[route]}>
-      <Routes>
-        <Route path="/scoreboard/:tableId" element={ui} />
-        <Route path="/dashboard" element={<div>Dashboard</div>} />
-      </Routes>
+      <AuthProvider>
+        <Routes>
+          <Route path="/scoreboard/:tableId" element={ui} />
+          <Route path="/dashboard" element={<div>Dashboard</div>} />
+        </Routes>
+      </AuthProvider>
     </MemoryRouter>
   )
 }
@@ -70,14 +74,17 @@ describe('ScoreboardPage', () => {
       disconnect: vi.fn()
     })
 
-    mockUseAuth.mockReturnValue({
+    mockUseAuthContext.mockReturnValue({
       role: 'referee',
       tableId: 'table-1',
       isReferee: true,
       isViewer: false,
       isAuthenticated: true,
+      ownerPin: '12345',
       login: vi.fn(),
-      logout: vi.fn()
+      logout: vi.fn(),
+      setOwner: vi.fn(),
+      setTablePin: vi.fn(),
     })
   })
 
@@ -94,14 +101,17 @@ describe('ScoreboardPage', () => {
   })
 
   it('authenticates as referee when page loads', async () => {
-    mockUseAuth.mockReturnValue({
+    mockUseAuthContext.mockReturnValue({
       role: 'referee',
       tableId: 'table-1',
       isReferee: true,
       isViewer: false,
       isAuthenticated: true,
+      ownerPin: '12345',
       login: vi.fn(),
-      logout: vi.fn()
+      logout: vi.fn(),
+      setOwner: vi.fn(),
+      setTablePin: vi.fn(),
     })
 
     renderWithRouter(<ScoreboardPage />)
@@ -140,14 +150,17 @@ describe('ScoreboardPage', () => {
       disconnect: vi.fn()
     })
 
-    mockUseAuth.mockReturnValue({
+    mockUseAuthContext.mockReturnValue({
       role: 'referee',
       tableId: 'table-1',
       isReferee: true,
       isViewer: false,
       isAuthenticated: true,
+      ownerPin: '12345',
       login: vi.fn(),
-      logout: vi.fn()
+      logout: vi.fn(),
+      setOwner: vi.fn(),
+      setTablePin: vi.fn(),
     })
 
     renderWithRouter(<ScoreboardPage />)
@@ -167,14 +180,17 @@ describe('ScoreboardPage', () => {
       disconnect: vi.fn()
     })
 
-    mockUseAuth.mockReturnValue({
+    mockUseAuthContext.mockReturnValue({
       role: 'viewer',
       tableId: 'table-1',
       isReferee: false,
       isViewer: true,
       isAuthenticated: true,
+      ownerPin: '12345',
       login: vi.fn(),
-      logout: vi.fn()
+      logout: vi.fn(),
+      setOwner: vi.fn(),
+      setTablePin: vi.fn(),
     })
 
     renderWithRouter(<ScoreboardPage />)

@@ -5,7 +5,7 @@ import { DashboardHeader } from '@/components/organisms/DashboardGrid'
 import { PageHeader } from '@/components/molecules/PageHeader'
 import { PinModal } from '@/components/molecules/PinModal'
 import { useSocketContext } from '@/contexts/SocketContext'
-import { useAuth } from '@/hooks/useAuth'
+import { useAuthContext } from '@/contexts/AuthContext'
 import { Button } from '@/components/atoms/Button'
 // Typography reserved for future use
 // import { Typography } from '@/components/atoms/Typography'
@@ -30,7 +30,7 @@ export function DashboardPage({ viewMode: routeViewMode, mode = 'owner' }: Dashb
   const [pinLoading, setPinLoading] = useState(false)
   const navigate = useNavigate()
   const { tables, connected, createTable, socket, requestTables, requestTablesWithPins, emit: _emit } = useSocketContext()
-  const { logout, isReferee, isViewer: _isViewer, isOwner, ownerPin } = useAuth()
+  const { logout, isReferee, isViewer: _isViewer, isOwner, ownerPin } = useAuthContext()
 
   // Load tables with PINs if Owner, otherwise regular tables
   // Single request on mount - updates come via WebSocket TABLE_UPDATE events

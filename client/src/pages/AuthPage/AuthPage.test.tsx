@@ -2,24 +2,28 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { AuthPage } from './AuthPage'
+import { AuthProvider } from '@/contexts/AuthContext'
 
-// Mock useAuth
+// Mock useAuthContext
 const mockSetOwner = vi.fn()
 const mockLogin = vi.fn()
 const mockLogout = vi.fn()
 
-vi.mock('@/hooks/useAuth', () => ({
-  useAuth: vi.fn(() => ({
+vi.mock('@/contexts/AuthContext', () => ({
+  useAuthContext: vi.fn(() => ({
     role: null,
     tableId: null,
     isReferee: false,
     isViewer: false,
     isOwner: false,
     isAuthenticated: false,
+    ownerPin: null,
     login: mockLogin,
     logout: mockLogout,
-    setOwner: mockSetOwner
-  }))
+    setOwner: mockSetOwner,
+    setTablePin: vi.fn()
+  })),
+  AuthProvider: ({ children }: { children: React.ReactNode }) => children,
 }))
 
 // Mock useSocketContext
@@ -50,11 +54,13 @@ vi.mock('react-router-dom', async () => {
 const renderWithRouter = (initialEntries = ['/auth']) => {
   return render(
     <MemoryRouter initialEntries={initialEntries}>
-      <Routes>
-        <Route path="/auth" element={<AuthPage />} />
-        <Route path="/dashboard" element={<div>Dashboard</div>} />
-        <Route path="/waiting-room" element={<div>Waiting Room</div>} />
-      </Routes>
+      <AuthProvider>
+        <Routes>
+          <Route path="/auth" element={<AuthPage />} />
+          <Route path="/dashboard" element={<div>Dashboard</div>} />
+          <Route path="/waiting-room" element={<div>Waiting Room</div>} />
+        </Routes>
+      </AuthProvider>
     </MemoryRouter>
   )
 }

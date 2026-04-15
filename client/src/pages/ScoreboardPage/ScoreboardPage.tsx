@@ -1,6 +1,6 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { useSocketContext } from '../../contexts/SocketContext'
-import { useAuth } from '../../hooks/useAuth'
+import { useAuthContext } from '../../contexts/AuthContext'
 import { ScoreboardMain } from '../../components/organisms/ScoreboardMain'
 import { MatchConfigPanel } from '../../components/organisms/MatchConfigPanel'
 import { HistoryDrawer } from '../../components/organisms/HistoryDrawer'
@@ -20,7 +20,7 @@ export function ScoreboardPage({ mode = 'view' }: ScoreboardPageProps) {
   const { tableId } = useParams<{ tableId: string }>()
   const navigate = useNavigate()
   const { currentMatch, emit, connected, socket } = useSocketContext()
-  const { isReferee } = useAuth()
+  const { isReferee } = useAuthContext()
   const [historyOpen, setHistoryOpen] = useState(false)
   const [refRevoked, setRefRevoked] = useState(false)
   

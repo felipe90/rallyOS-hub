@@ -1,16 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
-
-export type UserRole = 'referee' | 'viewer' | null
-
-interface AuthContextValue {
-  role: UserRole
-  tableId: string | null
-  isReferee: boolean
-  isViewer: boolean
-  isAuthenticated: boolean
-  login: (newRole: UserRole, tId?: string) => void
-  logout: () => void
-}
+import type { AuthContextValue, UserRole } from './AuthContext.types'
 
 export const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
@@ -28,8 +17,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     return null
   })
+  
+  const [ownerPin, setOwnerPin] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('ownerPin') || null
+    }
+    return null
+  })
 
-  const login = (newRole: UserRole, tId?: string) => {
+  const [tablePin, setTablePinState] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('tablePin') || null
+    }
+    return null
+  })
+
+  const login = (newRole: UserRole, tId?: string, pin?: string) => {
     if (newRole) {
       localStorage.setItem('role', newRole)
       setRole(newRole)
@@ -38,23 +41,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('tableId', tId)
       setTableId(tId)
     }
+    if (pin) {
+      localStorage.setItem('ownerPin', pin)
+      setOwnerPin(pin)
+    }
   }
 
   const logout = () => {
     localStorage.removeItem('role')
     localStorage.removeItem('tableId')
+    localStorage.removeItem('ownerPin')
+    localStorage.removeItem('tablePin')
     setRole(null)
     setTableId(null)
+    setOwnerPin(null)
+    setTablePinState(null)
+  }
+
+  const setOwner = (isOwner: boolean, pin?: string) => {
+    if (isOwner) {
+      localStorage.setItem('role', 'owner')
+      setRole('owner')
+      if (pin) {
+        localStorage.setItem('ownerPin', pin)
+        setOwnerPin(pin)
+      }
+    }
+  }
+
+  const setTablePin = (pin: string) => {
+    localStorage.setItem('tablePin', pin)
+    setTablePinState(pin)
   }
 
   const value: AuthContextValue = {
     role,
     tableId,
+    ownerPin,
+    isOwner: role === 'owner',
     isReferee: role === 'referee',
     isViewer: role === 'viewer',
     isAuthenticated: !!role,
     login,
     logout,
+    setOwner,
+    setTablePin,
   }
 
   return (

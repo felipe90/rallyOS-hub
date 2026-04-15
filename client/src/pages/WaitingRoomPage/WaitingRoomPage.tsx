@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useSocketContext } from '../../contexts/SocketContext'
-import { useAuth } from '../../hooks/useAuth'
+import { useAuthContext } from '../../contexts/AuthContext'
 import { PageHeader } from '../../components/molecules/PageHeader'
 import { Button } from '../../components/atoms/Button'
 import { Typography } from '../../components/atoms/Typography'
@@ -10,7 +10,7 @@ import { useState } from 'react'
 export function WaitingRoomPage() {
   const navigate = useNavigate()
   const { tables, emit } = useSocketContext()
-  const { login } = useAuth()
+  const { login } = useAuthContext()
 
   const availableTables = tables.filter((t) => t.status === 'WAITING')
 

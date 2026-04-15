@@ -2,6 +2,14 @@
 
 > Última actualización: 2026-04-15
 
+## 🔄 Cambios Recientes
+
+- **2026-04-15**: Archive cleanup - 17 archivos DONE movidos a `docs/archived/`
+  - 6 TODOs archivados
+  - 7 SDDs archivados
+  - 1 PRD archivado (Triple Role Architecture)
+  - STATUS.md creado como índice central
+
 ## 🎯 Active TODOs (pending work)
 
 | TODO | Prioridad | Estado |

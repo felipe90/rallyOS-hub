@@ -12,13 +12,21 @@ import { useState, useEffect } from 'react'
 import type { RefRevokedEvent } from '@/shared/types'
 import { SocketEvents } from '@shared/events'
 
-export function ScoreboardPage() {
+export interface ScoreboardPageProps {
+  mode?: 'referee' | 'view';  // 'referee' = full controls, 'view' = display only
+}
+
+export function ScoreboardPage({ mode = 'view' }: ScoreboardPageProps) {
   const { tableId } = useParams<{ tableId: string }>()
   const navigate = useNavigate()
   const { currentMatch, emit, connected, socket } = useSocketContext()
   const { isReferee } = useAuth()
   const [historyOpen, setHistoryOpen] = useState(false)
   const [refRevoked, setRefRevoked] = useState(false)
+  
+  // Determine if user has referee controls
+  const isRefereeMode = mode === 'referee'
+  const showControls = isRefereeMode && isReferee
 
   if (!tableId) {
     return <div>Invalid table ID</div>

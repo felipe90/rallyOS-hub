@@ -15,8 +15,15 @@ import type { QRData, TableInfoWithPin } from '@/shared/types'
 // Polling interval for table refresh (in ms) - configurable via env
 const TABLE_REFRESH_INTERVAL = parseInt(import.meta.env.VITE_TABLE_REFRESH_MS || '3000', 10)
 
-export function DashboardPage() {
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+export interface DashboardPageProps {
+  viewMode?: 'grid' | 'list';  // Display mode (from component)
+  mode?: 'owner' | 'referee';  // Route mode - 'owner' = full admin, 'referee' = join only
+}
+
+export function DashboardPage({ viewMode: routeViewMode, mode = 'owner' }: DashboardPageProps) {
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>(routeViewMode || 'grid')
+  const isOwnerDashboard = mode === 'owner'
+  const isRefereeDashboard = mode === 'referee'
   const [isCreatingTable, setIsCreatingTable] = useState(false)
   const [tableName, setTableName] = useState('')
   const [pinModalOpen, setPinModalOpen] = useState(false)
@@ -124,8 +131,8 @@ export function DashboardPage() {
       setPinLoading(false)
       
       if (response.success || (response as any).tableId) {
-        // Success - navigate
-        navigate(`/scoreboard/${selectedTable.id}`)
+        // Success - navigate to referee view (with full controls)
+        navigate(`/scoreboard/${selectedTable.id}/referee`)
       }
     }
     
@@ -145,8 +152,8 @@ export function DashboardPage() {
       socket.off('REF_SET', handleResponse)
       socket.off('ERROR', handleError)
       setPinLoading(false)
-      // Still allow navigation after timeout (trust client)
-      navigate(`/scoreboard/${selectedTable.id}`)
+      // Still allow navigation after timeout (trust client) - go to referee view
+      navigate(`/scoreboard/${selectedTable.id}/referee`)
     }, 5000)
   }
 
@@ -171,15 +178,15 @@ export function DashboardPage() {
     setCleanConfirmTableId(null)
   }
 
-  const pageTitle = isOwner ? 'Panel de Organizador' : isReferee ? 'Panel de Árbitro' : 'Espectador'
-  const pageSubtitle = isOwner 
+  const pageTitle = isOwnerDashboard ? 'Panel de Organizador' : 'Panel de Árbitro'
+  const pageSubtitle = isOwnerDashboard 
     ? 'Crea mesas, gestiona árbitros y partidos' 
     : isReferee 
       ? 'Gestiona tu mesa y arbitra'
       : 'Observa los partidos en vivo'
 
   // Only Owner can create tables (RF-03)
-  const canCreateTable = isOwner
+  const canCreateTable = isOwnerDashboard
 
   return (
     <div className="flex flex-col h-screen bg-surface">
@@ -245,9 +252,9 @@ export function DashboardPage() {
             tables={tables} 
             onTableClick={handleTableClick} 
             viewMode={viewMode}
-            showPin={isOwner}
-            showQr={isOwner}
-            onCleanTable={isOwner ? handleCleanTableRequest : undefined}
+            showPin={isOwnerDashboard}
+            showQr={isOwnerDashboard}
+            onCleanTable={isOwnerDashboard ? handleCleanTableRequest : undefined}
             cleanTableId={cleanConfirmTableId}
             onCleanTableConfirm={handleCleanTableConfirm}
             onCleanTableCancel={handleCleanTableCancel}

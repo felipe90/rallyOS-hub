@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import './index.css'
 import { SocketProvider } from './contexts/SocketContext'
 import { PrivateRoute } from './components/utilities/PrivateRoute'
@@ -15,10 +15,18 @@ function AppRoutes() {
       <Route path="/auth" element={<AuthPage />} />
       <Route path="/waiting-room" element={<WaitingRoomPage />} />
 
-      {/* Protected routes (require authentication) */}
+{/* Protected routes (require authentication) */}
       <Route element={<PrivateRoute />}>
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/scoreboard/:tableId" element={<ScoreboardPage />} />
+        {/* Dashboard routes */}
+        <Route path="/dashboard" element={<Navigate to="/dashboard/owner" replace />} />
+        <Route path="/dashboard/owner" element={<DashboardPage mode="owner" />} />
+        <Route path="/dashboard/referee" element={<DashboardPage mode="referee" />} />
+        
+        {/* Scoreboard routes - separate referee and spectator */}
+        <Route path="/scoreboard/:tableId" element={<Navigate to="/scoreboard/:tableId/view" replace />} />
+        <Route path="/scoreboard/:tableId/referee" element={<ScoreboardPage mode="referee" />} />
+        <Route path="/scoreboard/:tableId/view" element={<ScoreboardPage mode="view" />} />
+        
         <Route path="/history" element={<HistoryViewPage />} />
       </Route>
 

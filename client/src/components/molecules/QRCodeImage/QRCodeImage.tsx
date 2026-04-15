@@ -41,8 +41,8 @@ export function QRCodeImage({ tableId, pin }: QRCodeImageProps) {
   // Encrypt PIN for secure URL (same logic as server)
   const encryptedPin = encryptPin(pin, tableId)
   
-  // Generate the URL that referee will use to join
-  const joinUrl = `${window.location.origin}/scoreboard/${tableId}?ePin=${encryptedPin}`;
+  // Generate the URL that referee will use to join (goes to referee view for controls)
+  const joinUrl = `${window.location.origin}/scoreboard/${tableId}/referee?ePin=${encryptedPin}`;
   
   return (
     <div className="w-full h-full flex items-center justify-center">

@@ -22,8 +22,8 @@ export function WaitingRoomPage() {
     // Store table info
     login('viewer', tableId)
     
-    // Navigate to scoreboard directly
-    navigate(`/scoreboard/${tableId}`)
+    // Navigate to scoreboard spectator view (no controls)
+    navigate(`/scoreboard/${tableId}/view`)
   }
 
   return (

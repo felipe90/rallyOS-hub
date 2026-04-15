@@ -4,6 +4,12 @@
 
 ## 🔄 Cambios Recientes
 
+- **2026-04-15**: Refactor - Centralizar UserRole constants
+  - UserRoles object (OWNER, REFEREE, VIEWER) en AuthContext.types
+  - DashboardMode y ScoreboardMode tipos centralizados
+  - DefaultDashboardMode y DefaultScoreboardMode constants
+  - useAuth marcado como deprecated
+
 - **2026-04-15**: Archive cleanup - 17 archivos DONE movidos a `docs/archived/`
   - 6 TODOs archivados
   - 7 SDDs archivados

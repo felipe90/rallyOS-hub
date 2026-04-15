@@ -9,6 +9,12 @@ import { AuthProvider } from '@/contexts/AuthContext'
 vi.mock('@/contexts/AuthContext', () => ({
   useAuthContext: vi.fn(),
   AuthProvider: ({ children }: { children: React.ReactNode }) => children,
+  UserRoles: {
+    OWNER: 'owner',
+    REFEREE: 'referee',
+    VIEWER: 'viewer',
+  },
+  DefaultDashboardMode: 'owner',
 }))
 
 import { useAuthContext } from '@/contexts/AuthContext'

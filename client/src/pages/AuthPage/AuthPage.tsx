@@ -126,7 +126,7 @@ const handlePinSubmit = (eventOrPin?: any) => {
             Organizador
           </Button>
           <Button
-            className='bg-secondary text-secondary-foreground hover:bg-secondary/90'
+            // className='bg-secondary text-secondary-foreground hover:bg-secondary/90'
             variant="secondary"
             size="lg"
             onClick={handleRefereeClick}

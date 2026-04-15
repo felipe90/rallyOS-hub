@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import type { AuthContextValue, UserRole } from './AuthContext.types'
+import { UserRoles } from './AuthContext.types'
 
 export const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
@@ -60,8 +61,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const setOwner = (isOwner: boolean, pin?: string) => {
     if (isOwner) {
-      localStorage.setItem('role', 'owner')
-      setRole('owner')
+      localStorage.setItem('role', UserRoles.OWNER)
+      setRole(UserRoles.OWNER)
       if (pin) {
         localStorage.setItem('ownerPin', pin)
         setOwnerPin(pin)
@@ -78,9 +79,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     role,
     tableId,
     ownerPin,
-    isOwner: role === 'owner',
-    isReferee: role === 'referee',
-    isViewer: role === 'viewer',
+    isOwner: role === UserRoles.OWNER,
+    isReferee: role === UserRoles.REFEREE,
+    isViewer: role === UserRoles.VIEWER,
     isAuthenticated: !!role,
     login,
     logout,

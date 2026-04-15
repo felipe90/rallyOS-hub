@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react'
 import { RouterProvider, createMemoryRouter } from 'react-router-dom'
 import { PrivateRoute } from './PrivateRoute'
 import { AuthProvider } from '../../../contexts/AuthContext'
+import { UserRoles } from '../../../contexts/AuthContext/AuthContext.types'
 
 vi.mock('../../../contexts/AuthContext', () => ({
   useAuthContext: vi.fn(),
@@ -26,15 +27,15 @@ vi.mock('react-router-dom', async () => {
   }
 })
 
-const mockAuth = (isAuthenticated: boolean, role: string = 'referee') => {
+const mockAuth = (isAuthenticated: boolean, role: string = UserRoles.REFEREE) => {
   mockUseAuthContext.mockReturnValue({
     isAuthenticated,
     role,
     tableId: 'table-1',
     ownerPin: '12345',
-    isOwner: role === 'owner',
-    isReferee: role === 'referee',
-    isViewer: role === 'viewer',
+    isOwner: role === UserRoles.OWNER,
+    isReferee: role === UserRoles.REFEREE,
+    isViewer: role === UserRoles.VIEWER,
     login: vi.fn(),
     logout: vi.fn(),
     setOwner: vi.fn(),
@@ -83,7 +84,7 @@ describe('PrivateRoute', () => {
   })
 
   it('works with different roles - referee', () => {
-    mockAuth(true, 'referee')
+    mockAuth(true, UserRoles.REFEREE)
 
     const routes = [
       {
@@ -100,7 +101,7 @@ describe('PrivateRoute', () => {
   })
 
   it('works with different roles - viewer', () => {
-    mockAuth(true, 'viewer')
+    mockAuth(true, UserRoles.VIEWER)
 
     const routes = [
       {

@@ -5,7 +5,7 @@ import { DashboardHeader } from '@/components/organisms/DashboardGrid'
 import { PageHeader } from '@/components/molecules/PageHeader'
 import { PinModal } from '@/components/molecules/PinModal'
 import { useSocketContext } from '@/contexts/SocketContext'
-import { useAuthContext } from '@/contexts/AuthContext'
+import { useAuthContext, UserRoles, type DashboardMode, DefaultDashboardMode } from '@/contexts/AuthContext'
 import { Button } from '@/components/atoms/Button'
 // Typography reserved for future use
 // import { Typography } from '@/components/atoms/Typography'
@@ -14,13 +14,13 @@ import type { QRData, TableInfoWithPin } from '@/shared/types'
 
 export interface DashboardPageProps {
   viewMode?: 'grid' | 'list';  // Display mode (from component)
-  mode?: 'owner' | 'referee';  // Route mode - 'owner' = full admin, 'referee' = join only
+  mode?: DashboardMode;        // Route mode - 'owner' = full admin, 'referee' = join only
 }
 
-export function DashboardPage({ viewMode: routeViewMode, mode = 'owner' }: DashboardPageProps) {
+export function DashboardPage({ viewMode: routeViewMode, mode = DefaultDashboardMode }: DashboardPageProps) {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(routeViewMode || 'grid')
-  const isOwnerDashboard = mode === 'owner'
-  const isRefereeDashboard = mode === 'referee'
+  const isOwnerDashboard = mode === UserRoles.OWNER
+  const isRefereeDashboard = mode === UserRoles.REFEREE
   const [isCreatingTable, setIsCreatingTable] = useState(false)
   const [tableName, setTableName] = useState('')
   const [pinModalOpen, setPinModalOpen] = useState(false)

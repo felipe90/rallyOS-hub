@@ -1,5 +1,22 @@
 export type UserRole = 'owner' | 'referee' | 'viewer' | null
 
+// Centralized role constants to avoid magic strings
+export const UserRoles = {
+  OWNER: 'owner' as const,
+  REFEREE: 'referee' as const,
+  VIEWER: 'viewer' as const,
+}
+
+export type UserRoleType = typeof UserRoles[keyof typeof UserRoles]
+
+// Page mode types for Dashboard and Scoreboard
+export type DashboardMode = 'owner' | 'referee'
+export type ScoreboardMode = 'referee' | 'view'
+
+// Default modes
+export const DefaultDashboardMode: DashboardMode = 'owner'
+export const DefaultScoreboardMode: ScoreboardMode = 'view'
+
 export interface AuthContextValue {
   role: UserRole
   tableId: string | null

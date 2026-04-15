@@ -1,3 +1,6 @@
+// @deprecated - Use useAuthContext from @/contexts/AuthContext instead
+import { UserRoles } from '@/contexts/AuthContext/AuthContext.types'
+
 export type UserRole = 'referee' | 'viewer' | 'owner' | null
 
 export function useAuth() {
@@ -25,7 +28,7 @@ export function useAuth() {
 
   const setOwner = (isOwner: boolean, pin?: string) => {
     if (isOwner) {
-      localStorage.setItem('role', 'owner')
+      localStorage.setItem('role', UserRoles.OWNER)
       if (pin) {
         localStorage.setItem('ownerPin', pin)
       }
@@ -36,9 +39,9 @@ export function useAuth() {
     role,
     tableId,
     ownerPin,
-    isReferee: role === 'referee',
-    isViewer: role === 'viewer',
-    isOwner: role === 'owner',
+    isReferee: role === UserRoles.REFEREE,
+    isViewer: role === UserRoles.VIEWER,
+    isOwner: role === UserRoles.OWNER,
     isAuthenticated: !!role,
     login,
     logout,

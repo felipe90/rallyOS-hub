@@ -2,11 +2,27 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { ScoreboardPage } from './ScoreboardPage'
+import { useAuthContext, UserRoles } from '../../contexts/AuthContext'
+import { useSocketContext } from '../../contexts/SocketContext'
 import { AuthProvider } from '../../contexts/AuthContext'
+
+const mockUseAuthContext = useAuthContext as ReturnType<typeof vi.fn>
+const mockUseSocketContext = useSocketContext as ReturnType<typeof vi.fn>
+
+// Define role constants for tests
+const ROLE_REFEREE = 'referee'
+const ROLE_VIEWER = 'viewer'
+const ROLE_OWNER = 'owner'
 
 vi.mock('../../contexts/AuthContext', () => ({
   useAuthContext: vi.fn(),
   AuthProvider: ({ children }: { children: React.ReactNode }) => children,
+  UserRoles: {
+    OWNER: 'owner',
+    REFEREE: 'referee',
+    VIEWER: 'viewer',
+  },
+  DefaultScoreboardMode: 'view',
 }))
 
 vi.mock('../../contexts/SocketContext', () => ({
@@ -20,12 +36,6 @@ vi.mock('react-router-dom', async () => {
     useNavigate: () => vi.fn()
   }
 })
-
-import { useAuthContext } from '../../contexts/AuthContext'
-import { useSocketContext } from '../../contexts/SocketContext'
-
-const mockUseAuthContext = useAuthContext as ReturnType<typeof vi.fn>
-const mockUseSocketContext = useSocketContext as ReturnType<typeof vi.fn>
 
 const createMockMatch = (overrides = {}) => ({
   tableId: 'table-1',
@@ -75,7 +85,7 @@ describe('ScoreboardPage', () => {
     })
 
     mockUseAuthContext.mockReturnValue({
-      role: 'referee',
+      role: ROLE_REFEREE,
       tableId: 'table-1',
       isReferee: true,
       isViewer: false,
@@ -102,7 +112,7 @@ describe('ScoreboardPage', () => {
 
   it('authenticates as referee when page loads', async () => {
     mockUseAuthContext.mockReturnValue({
-      role: 'referee',
+      role: ROLE_REFEREE,
       tableId: 'table-1',
       isReferee: true,
       isViewer: false,
@@ -151,7 +161,7 @@ describe('ScoreboardPage', () => {
     })
 
     mockUseAuthContext.mockReturnValue({
-      role: 'referee',
+      role: ROLE_REFEREE,
       tableId: 'table-1',
       isReferee: true,
       isViewer: false,
@@ -181,7 +191,7 @@ describe('ScoreboardPage', () => {
     })
 
     mockUseAuthContext.mockReturnValue({
-      role: 'viewer',
+      role: ROLE_VIEWER,
       tableId: 'table-1',
       isReferee: false,
       isViewer: true,

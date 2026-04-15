@@ -1,6 +1,6 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { useSocketContext } from '../../contexts/SocketContext'
-import { useAuthContext } from '../../contexts/AuthContext'
+import { useAuthContext, type ScoreboardMode, DefaultScoreboardMode } from '../../contexts/AuthContext'
 import { ScoreboardMain } from '../../components/organisms/ScoreboardMain'
 import { MatchConfigPanel } from '../../components/organisms/MatchConfigPanel'
 import { HistoryDrawer } from '../../components/organisms/HistoryDrawer'
@@ -13,10 +13,10 @@ import type { RefRevokedEvent } from '@/shared/types'
 import { SocketEvents } from '@shared/events'
 
 export interface ScoreboardPageProps {
-  mode?: 'referee' | 'view';  // 'referee' = full controls, 'view' = display only
+  mode?: ScoreboardMode;  // 'referee' = full controls, 'view' = display only
 }
 
-export function ScoreboardPage({ mode = 'view' }: ScoreboardPageProps) {
+export function ScoreboardPage({ mode = DefaultScoreboardMode }: ScoreboardPageProps) {
   const { tableId } = useParams<{ tableId: string }>()
   const navigate = useNavigate()
   const { currentMatch, emit, connected, socket } = useSocketContext()

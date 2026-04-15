@@ -77,4 +77,4 @@
 
 **Owner:** Por definir
 **Fecha inicio:** 2026-04-14
-**Estado general:** TODO
+**Estado general:** DONE ✅ (2026-04-15)

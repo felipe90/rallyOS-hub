@@ -228,40 +228,12 @@ describe('DashboardPage', () => {
     })
   })
 
-  describe('Role-based UI', () => {
-    it('shows spectator view for viewer', () => {
-      mockUseAuth.mockReturnValue({
-        role: 'viewer',
-        tableId: null,
-        isReferee: false,
-        isViewer: true,
-        isAuthenticated: true,
-        login: vi.fn(),
-        logout: vi.fn()
-      })
-      
+describe('Role-based UI', () => {
+    it('shows owner controls by default', () => {
       renderDashboard()
       
-      expect(screen.getByText('Espectador')).toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: /nueva mesa/i })).not.toBeInTheDocument()
-    })
-
-    it('shows referee view for referee', () => {
-      // Override mock to be referee for this test
-      mockUseAuth.mockReturnValue({
-        role: 'referee',
-        tableId: null,
-        isReferee: true,
-        isViewer: false,
-        isOwner: false,
-        isAuthenticated: true,
-        login: vi.fn(),
-        logout: vi.fn()
-      })
-      renderDashboard()
-      
-      expect(screen.getByText('Panel de Árbitro')).toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: /nueva mesa/i })).not.toBeInTheDocument()
+      expect(screen.getByText('Panel de Organizador')).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /nueva mesa/i })).toBeInTheDocument()
     })
   })
 })

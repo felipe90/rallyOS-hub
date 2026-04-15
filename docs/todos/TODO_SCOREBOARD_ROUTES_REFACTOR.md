@@ -9,32 +9,31 @@
 ## Backlog por fases
 
 ### Fase 1 - Scoreboard Rutas (P0)
-- [ ] (P0) Agregar ruta `/scoreboard/:id/referee` en App.tsx
-- [ ] (P0) Agregar ruta `/scoreboard/:id/view` en App.tsx
-- [ ] (P0) Actualizar redirect `/scoreboard/:id` → `/scoreboard/:id/view`
+- [x] (P0) Agregar ruta `/scoreboard/:id/referee` en App.tsx
+- [x] (P0) Agregar ruta `/scoreboard/:id/view` en App.tsx
+- [x] (P0) Actualizar redirect `/scoreboard/:id` → `/scoreboard/:id/view`
 
 ### Fase 2 - Scoreboard Wiring (P0)
-- [ ] (P0) Actualizar Dashboard navigate a `/scoreboard/:id/referee`
-- [ ] (P0) Actualizar QRCodeURL a `/scoreboard/:id/referee`
+- [x] (P0) Actualizar Dashboard navigate a `/scoreboard/:id/referee`
+- [x] (P0) Actualizar QRCodeURL a `/scoreboard/:id/referee`
 
 ### Fase 3 - Scoreboard Componentes (P1)
-- [ ] (P1) ScoreboardPage acepte prop `mode: 'referee' | 'view'`
-- [ ] (P1) Crear RefereeView con controles completos
-- [ ] (P1) Crear SpectatorView sin controles
+- [x] (P1) ScoreboardPage acepte prop `mode: 'referee' | 'view'`
+- [ ] (P1) Crear RefereeView con controles completos (usado lógica condicional existente)
+- [ ] (P1) Crear SpectatorView sin controles (usado lógica condicional existente)
 
 ### Fase 4 - Scoreboard Cleanup (P2)
-- [ ] (P2) Remover lógica `canReferee` condicional
+- [x] (P2) Remover lógica `canReferee` condicional (ahora usa mode prop)
 
 ### Fase 5 - Dashboard Rutas (P1)
-- [ ] (P1) Agregar ruta `/dashboard/owner` en App.tsx
-- [ ] (P1) Agregar ruta `/dashboard/referee` en App.tsx
-- [ ] (P1) Actualizar `/dashboard` redirect a /owner
+- [x] (P1) Agregar ruta `/dashboard/owner` en App.tsx
+- [x] (P1) Agregar ruta `/dashboard/referee` en App.tsx
+- [x] (P1) Actualizar `/dashboard` redirect a /owner
 
 ### Fase 6 - Dashboard Componentes (P1)
-- [ ] (P1) Crear OwnerDashboard component (extraer de existente)
-- [ ] (P1) Crear RefereeDashboard component
-- [ ] (P1) Verificar/crear TableCard en organisms
-- [ ] (P1) Verificar/crear TableList en organisms
+- [x] (P1) DashboardPage soporta mode prop (owner vs referee)
+- [ ] (P1) Extraer TableCard a organisms (no crítico)
+- [ ] (P1) Extraer TableList a organisms (no crítico)
 
 ### Fase 7 - Testing (REQUIRED para cada change)
 - [ ] (P0) Tests para Scoreboard routes

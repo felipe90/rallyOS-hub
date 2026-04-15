@@ -40,16 +40,14 @@ export function ScoreboardPage({ mode = 'view' }: ScoreboardPageProps) {
     const encryptedPin = params.get('ePin')
 
     if (encryptedPin) {
-      console.log('[Scoreboard] Found encrypted PIN in URL:', encryptedPin.substring(0, 20) + '...')
-      
       // Decode from URL-safe base64
       try {
         const decoded = atob(encryptedPin)
         const parts = decoded.split(':')
-        
+
         if (parts.length === 2) {
           const [encrypted, timestamp] = parts
-          
+
           // Simple XOR decryption (same logic as server)
           // Generate key from tableId + daily salt
           const generateKey = (tableId: string): string => {
@@ -67,7 +65,7 @@ export function ScoreboardPage({ mode = 'view' }: ScoreboardPageProps) {
           }
 
           const key = generateKey(tableId)
-          
+
           // Decrypt
           let decrypted = ''
           for (let i = 0; i < encrypted.length; i += 2) {
@@ -77,19 +75,16 @@ export function ScoreboardPage({ mode = 'view' }: ScoreboardPageProps) {
             decrypted += String.fromCharCode(charCode ^ keyChar.charCodeAt(0))
           }
 
-          console.log('[Scoreboard] Decrypted PIN:', decrypted)
-
           if (/^\d{4}$/.test(decrypted)) {
             // Emit SET_REF to authenticate
             emit(SocketEvents.CLIENT.SET_REF, { tableId, pin: decrypted })
-            
+
             // URL Scrubbing: Clean the URL without reload
             window.history.replaceState({}, '', `/scoreboard/${tableId}`)
-            console.log('[Scoreboard] URL cleaned, PIN authenticated')
           }
         }
       } catch (error) {
-        console.error('[Scoreboard] Failed to decrypt PIN:', error)
+        // Decryption failed - silently ignore
       }
     }
   }, [connected, socket, tableId, emit])
@@ -99,7 +94,6 @@ export function ScoreboardPage({ mode = 'view' }: ScoreboardPageProps) {
     if (!socket) return
 
     const handleRefRevoked = (data: RefRevokedEvent) => {
-      console.log('[Scoreboard] Referee revoked:', data)
       if (data.tableId === tableId) {
         setRefRevoked(true)
         // After a delay, redirect to waiting room
@@ -119,7 +113,6 @@ export function ScoreboardPage({ mode = 'view' }: ScoreboardPageProps) {
   // Request match data when component mounts or tableId changes
   useEffect(() => {
     if (connected && tableId) {
-      console.log(`[Scoreboard] Requesting match data for table: ${tableId}`)
       emit(SocketEvents.CLIENT.GET_MATCH_STATE, { tableId })
     }
   }, [tableId, connected, emit])
@@ -128,7 +121,6 @@ export function ScoreboardPage({ mode = 'view' }: ScoreboardPageProps) {
   useEffect(() => {
     if (connected && tableId && isReferee) {
       const tablePin = localStorage.getItem('tablePin') || '12345'
-      console.log(`[Scoreboard] Authenticating as referee for table: ${tableId} with PIN: ${tablePin}`)
       emit(SocketEvents.CLIENT.SET_REF, { tableId, pin: tablePin })
     }
   }, [tableId, connected, isReferee, emit])
@@ -160,54 +152,37 @@ export function ScoreboardPage({ mode = 'view' }: ScoreboardPageProps) {
   }
 
   const handleScorePoint = (player: 'A' | 'B') => {
-    if (!connected) {
-      console.warn('Not connected to server')
-      return
-    }
+    if (!connected) return
     emit(SocketEvents.CLIENT.RECORD_POINT, { player, tableId })
   }
 
   const handleSubtractPoint = (player: 'A' | 'B') => {
-    if (!connected) {
-      console.warn('Not connected to server')
-      return
-    }
+    if (!connected) return
     emit(SocketEvents.CLIENT.SUBTRACT_POINT, { player, tableId })
   }
 
   const handleUndo = () => {
-    if (!connected) {
-      console.warn('Not connected to server')
-      return
-    }
+    if (!connected) return
     emit(SocketEvents.CLIENT.UNDO_LAST, { tableId })
   }
 
   const handleSetServer = (player: 'A' | 'B') => {
-    if (!connected) {
-      console.warn('Not connected to server')
-      return
-    }
+    if (!connected) return
     const playerKey = player.toLowerCase() as 'a' | 'b'
     emit(SocketEvents.CLIENT.SET_SERVER, { player: playerKey, tableId })
   }
 
-  const handleStartMatch = (config: { 
-    pointsPerSet: number; 
-    bestOf: number; 
-    handicapA?: number; 
+  const handleStartMatch = (config: {
+    pointsPerSet: number;
+    bestOf: number;
+    handicapA?: number;
     handicapB?: number;
     playerNameA?: string;
     playerNameB?: string;
   }) => {
-    if (!connected) {
-      console.warn('Not connected to server')
-      return
-    }
-    console.log(`[Scoreboard] Starting match with config:`, config)
-    console.log(`[Scoreboard] Emitting START_MATCH with tableId:`, tableId)
-    emit(SocketEvents.CLIENT.START_MATCH, { 
-      tableId, 
+    if (!connected) return
+    emit(SocketEvents.CLIENT.START_MATCH, {
+      tableId,
       pointsPerSet: config.pointsPerSet,
       bestOf: config.bestOf,
       handicapA: config.handicapA,
@@ -215,7 +190,6 @@ export function ScoreboardPage({ mode = 'view' }: ScoreboardPageProps) {
       playerNameA: config.playerNameA,
       playerNameB: config.playerNameB
     })
-    console.log(`[Scoreboard] START_MATCH event emitted`)
   }
 
   const handleCancelMatch = () => {

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { io } from 'socket.io-client';
+import { io, Socket } from 'socket.io-client';
 import { SocketEvents } from '@shared/events';
 import type { TableInfo, TableInfoWithPin, MatchStateExtended, ScoreChange, ValidationError, ErrorResponse } from '../../../shared/types';
 
@@ -71,7 +71,7 @@ export function useSocket(options: UseSocketOptions = {}) {
     autoConnect = true,
   } = options;
 
-  const socketRef = useRef<any>(null);
+  const socketRef = useRef<Socket | null>(null);
   const [state, setState] = useState<SocketState>({
     connected: false,
     connecting: false,
@@ -89,15 +89,12 @@ export function useSocket(options: UseSocketOptions = {}) {
     setState(s => ({ ...s, connecting: true, error: null }));
 
     // Socket.io options: auto-detect namespace and use both websocket and http long-polling as fallback
-    const socket = io(serverUrl, { 
+    const socket = io(serverUrl, {
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionAttempts: 5,
     });
-    
-    // Debug logging
-    console.log('[Socket] Attempting connection to:', serverUrl);
 
     socket.on('connect', () => {
       setState({ connected: true, connecting: false, error: null, errorCode: null });
@@ -107,6 +104,16 @@ export function useSocket(options: UseSocketOptions = {}) {
     });
     socket.on('connect_error', (error: Error) => {
       setState({ connected: false, connecting: false, error: error.message, errorCode: null });
+    });
+
+    // Reconnect listener: re-request tables when socket reconnects (may have missed updates)
+    socket.on('reconnect', () => {
+      const ownerPin = localStorage.getItem('ownerPin');
+      if (ownerPin) {
+        socket.emit(SocketEvents.CLIENT.GET_TABLES_WITH_PINS, { ownerPin });
+      } else {
+        socket.emit(SocketEvents.CLIENT.LIST_TABLES);
+      }
     });
 
     socket.on(SocketEvents.SERVER.TABLE_UPDATE, (table: TableInfo) => {

@@ -12,9 +12,6 @@ import { Button } from '@/components/atoms/Button'
 import { SocketEvents } from '@shared/events'
 import type { QRData, TableInfoWithPin } from '@/shared/types'
 
-// Polling interval for table refresh (in ms) - configurable via env
-const TABLE_REFRESH_INTERVAL = parseInt(import.meta.env.VITE_TABLE_REFRESH_MS || '3000', 10)
-
 export interface DashboardPageProps {
   viewMode?: 'grid' | 'list';  // Display mode (from component)
   mode?: 'owner' | 'referee';  // Route mode - 'owner' = full admin, 'referee' = join only
@@ -36,35 +33,18 @@ export function DashboardPage({ viewMode: routeViewMode, mode = 'owner' }: Dashb
   const { logout, isReferee, isViewer: _isViewer, isOwner, ownerPin } = useAuth()
 
   // Load tables with PINs if Owner, otherwise regular tables
+  // Single request on mount - updates come via WebSocket TABLE_UPDATE events
   useEffect(() => {
-    console.log('[Dashboard] connected:', connected, 'isOwner:', isOwner, 'ownerPin:', ownerPin, 'tables:', tables.length)
-    
     if (!connected) return
-    
+
     // Immediate load - no delay
     if (isOwner && ownerPin) {
-      console.log('[Dashboard] Requesting tables with PINs, ownerPin:', ownerPin)
       requestTablesWithPins(ownerPin)
     } else if (isOwner) {
-      console.log('[Dashboard] Requesting tables with PINs (no ownerPin)')
       requestTablesWithPins('')
     } else {
-      console.log('[Dashboard] Requesting regular tables')
       requestTables()
     }
-    
-    // Refresh tables periodically for updates
-    const interval = setInterval(() => {
-      if (isOwner && ownerPin) {
-        requestTablesWithPins(ownerPin)
-      } else if (isOwner) {
-        requestTablesWithPins('')
-      } else {
-        requestTables()
-      }
-    }, TABLE_REFRESH_INTERVAL)
-    
-    return () => clearInterval(interval)
   }, [connected, isOwner, ownerPin, requestTables, requestTablesWithPins])
 
   // Listen for QR_DATA and PIN_REGENERATED events
@@ -72,12 +52,11 @@ export function DashboardPage({ viewMode: routeViewMode, mode = 'owner' }: Dashb
     if (!socket) return
 
     const handleQRData = (qrData: QRData) => {
-      console.log('[Dashboard] QR Data received:', qrData)
       // Could show a modal or toast with the new QR
     }
 
     const handlePinRegenerated = (data: { tableId: string; newPin: string }) => {
-      console.log('[Dashboard] PIN regenerated:', data)
+      // PIN regenerated - UI updates automatically via TABLE_UPDATE
     }
 
     socket.on(SocketEvents.SERVER.QR_DATA, handleQRData)

@@ -1,4 +1,5 @@
 import type { TableInfo, MatchStateExtended } from '@/shared/types'
+import type { Socket } from 'socket.io-client'
 
 export interface SocketState {
   connected: boolean
@@ -8,7 +9,7 @@ export interface SocketState {
 }
 
 export interface SocketContextType {
-  socket: unknown
+  socket: Socket | null
   connected: boolean
   connecting: boolean
   error: string | null

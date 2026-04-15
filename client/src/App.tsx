@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import './index.css'
 import { SocketProvider } from './contexts/SocketContext'
+import { AuthProvider } from './contexts/AuthContext'
 import { PrivateRoute } from './components/utilities/PrivateRoute'
 import { AuthPage } from './pages/AuthPage'
 import { DashboardPage } from './pages/DashboardPage'
@@ -38,9 +39,11 @@ function AppRoutes() {
 
 function App() {
   return (
-    <SocketProvider>
-      <AppRoutes />
-    </SocketProvider>
+    <AuthProvider>
+      <SocketProvider>
+        <AppRoutes />
+      </SocketProvider>
+    </AuthProvider>
   )
 }
 

@@ -44,11 +44,6 @@ export function DashboardGrid({
     return generateTableUrl(tableId);
   };
 
-  // Debug: log first table if showPin is true
-  if (showPin && tables.length > 0) {
-    console.log('[DashboardGrid] showPin:', showPin, 'first table:', tables[0], 'pin:', (tables[0] as any).pin);
-  }
-
   if (viewMode === 'list') {
     return (
       <div className={`flex flex-col gap-3 ${className}`}>

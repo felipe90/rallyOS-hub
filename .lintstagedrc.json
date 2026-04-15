@@ -1,4 +1,1 @@
-{
-  "*.{ts,tsx}": ["eslint --cache"],
-  "*.{js,json}": ["eslint --cache"]
-}
+{}

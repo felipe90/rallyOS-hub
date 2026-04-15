@@ -24,7 +24,6 @@ export function AuthPage() {
     if (!socket) return
 
     const handleOwnerVerified = (data: { token: string }) => {
-      console.log('[AuthPage] Owner verified:', data)
       setIsLoading(false)
       setOwner(true, pin)
       login('owner', undefined, pin)
@@ -67,7 +66,6 @@ export function AuthPage() {
       navigate('/waiting-room')
     } catch (err) {
       setError('Error durante login')
-      console.error(err)
       setIsLoading(false)
     }
   }

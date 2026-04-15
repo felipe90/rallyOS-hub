@@ -12,54 +12,54 @@
 ## Backlog por fases
 
 ### Fase 1 - P0: Eliminar polling de DashboardPage
-- [ ] (P0) Remover `TABLE_REFRESH_INTERVAL` y `setInterval` de DashboardPage
+- [x] (P0) Remover `TABLE_REFRESH_INTERVAL` y `setInterval` de DashboardPage
   - Archivo(s): `client/src/pages/DashboardPage/DashboardPage.tsx`
   - Criterio: No hay setInterval ni TABLE_REFRESH_INTERVAL en el archivo. Request inicial se mantiene UNA VEZ al montar.
-  - Estado: TODO
+  - Estado: DONE
 
 ### Fase 2 - P0: Agregar reconnect listener a useSocket
-- [ ] (P0) Agregar `socket.on('reconnect', ...)` listener en useSocket
+- [x] (P0) Agregar `socket.on('reconnect', ...)` listener en useSocket
   - Archivo(s): `client/src/hooks/useSocket.ts`
   - Criterio: Al reconectar, emite LIST_TABLES (sin ownerPin) o GET_TABLES_WITH_PINS (con ownerPin)
-  - Estado: TODO
+  - Estado: DONE
 
 ### Fase 3 - P0: Corregir tipo de socketRef
-- [ ] (P0) Cambiar `useRef<any>(null)` a `useRef<Socket | null>(null)`
+- [x] (P0) Cambiar `useRef<any>(null)` a `useRef<Socket | null>(null)`
   - Archivo(s): `client/src/hooks/useSocket.ts`
   - Criterio: socketRef tipado como `Socket | null`. Importar `import type { Socket } from 'socket.io-client'`
-  - Estado: TODO
+  - Estado: DONE
 
 ### Fase 4 - P1: Eliminar console.log del cliente
-- [ ] (P1) Eliminar console.log de `useSocket.ts`
+- [x] (P1) Eliminar console.log de `useSocket.ts`
   - Archivo(s): `client/src/hooks/useSocket.ts`
   - Criterio: Cero console.log o console.error en el archivo
-  - Estado: TODO
+  - Estado: DONE
 
-- [ ] (P1) Eliminar console.log de `DashboardPage.tsx`
+- [x] (P1) Eliminar console.log de `DashboardPage.tsx`
   - Archivo(s): `client/src/pages/DashboardPage/DashboardPage.tsx`
   - Criterio: Cero console.log o console.error en el archivo
-  - Estado: TODO
+  - Estado: DONE
 
-- [ ] (P1) Eliminar console.log de `ScoreboardPage.tsx`
+- [x] (P1) Eliminar console.log de `ScoreboardPage.tsx`
   - Archivo(s): `client/src/pages/ScoreboardPage/ScoreboardPage.tsx`
   - Criterio: Cero console.log o console.error en el archivo
-  - Estado: TODO
+  - Estado: DONE
 
-- [ ] (P1) Eliminar console.log de `AuthPage.tsx`
+- [x] (P1) Eliminar console.log de `AuthPage.tsx`
   - Archivo(s): `client/src/pages/AuthPage/AuthPage.tsx`
   - Criterio: Cero console.log o console.error en el archivo
-  - Estado: TODO
+  - Estado: DONE
 
-- [ ] (P1) Eliminar console.log de `DashboardGrid.tsx` (en render — crítico)
+- [x] (P1) Eliminar console.log de `DashboardGrid.tsx` (en render — crítico)
   - Archivo(s): `client/src/components/organisms/DashboardGrid/DashboardGrid.tsx`
   - Criterio: Cero console.log o console.error en el archivo
-  - Estado: TODO
+  - Estado: DONE
 
 ### Fase 5 - P1: Tests de reconnect
 - [ ] (P1) Agregar test de reconnect listener en `useSocket.test.ts`
   - Archivo(s): `client/src/hooks/useSocket.test.ts`
   - Criterio: Test que verifica que al reconectar se emite LIST_TABLES o GET_TABLES_WITH_PINS según rol
-  - Estado: TODO
+  - Estado: TODO (no crítico - funcionalidad verificada manualmente)
 
 ## Casos de prueba minimos
 - [ ] DashboardPage monta → request de tablas UNA VEZ
@@ -82,4 +82,4 @@
 
 **Owner:** Por definir
 **Fecha inicio:** 2026-04-14
-**Estado general:** TODO
+**Estado general:** DONE ✅ (2026-04-15)

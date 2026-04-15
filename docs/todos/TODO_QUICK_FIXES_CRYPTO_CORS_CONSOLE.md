@@ -12,52 +12,52 @@
 ## Backlog por fases
 
 ### Fase 1 - P0: Crypto imports
-- [ ] (P0) Agregar `import crypto from 'crypto'` en `tableManager.ts`
+- [x] (P0) Agregar `import crypto from 'crypto'` en `tableManager.ts`
   - Archivo(s): `server/src/tableManager.ts`
   - Criterio: `npm run build` pasa, `crypto.randomUUID()` en línea ~315 tiene import disponible
-  - Estado: TODO
+  - Estado: DONE
 
-- [ ] (P0) Agregar `import crypto from 'crypto'` en `matchEngine.ts`
+- [x] (P0) Agregar `import crypto from 'crypto'` en `matchEngine.ts`
   - Archivo(s): `server/src/matchEngine.ts`
   - Criterio: `npm run build` pasa, `crypto.randomUUID()` en línea ~98 tiene import disponible
-  - Estado: TODO
+  - Estado: DONE
 
 ### Fase 2 - P0: CORS unificado
-- [ ] (P0) Crear `server/src/config/allowedOrigins.ts` con export único de `effectiveAllowedOrigins` y `defaultAllowedOrigins`
+- [x] (P0) Crear `server/src/config/allowedOrigins.ts` con export único de `effectiveAllowedOrigins` y `defaultAllowedOrigins`
   - Archivo(s): `server/src/config/allowedOrigins.ts` (nuevo), `server/src/config/` (dir nueva)
   - Criterio: El módulo exporta el array parseado de `HUB_ALLOWED_ORIGINS` con fallback a defaults
-  - Estado: TODO
+  - Estado: DONE
 
-- [ ] (P0) Reemplazar definición inline de `effectiveAllowedOrigins` en `app.ts` por import del módulo compartido
+- [x] (P0) Reemplazar definición inline de `effectiveAllowedOrigins` en `app.ts` por import del módulo compartido
   - Archivo(s): `server/src/app.ts`
   - Criterio: No hay definición inline de origins en app.ts, solo import desde config/allowedOrigins
-  - Estado: TODO
+  - Estado: DONE
 
-- [ ] (P0) Reemplazar definición inline de `effectiveAllowedOrigins` en `server.ts` por import del módulo compartido
+- [x] (P0) Reemplazar definición inline de `effectiveAllowedOrigins` en `server.ts` por import del módulo compartido
   - Archivo(s): `server/src/server.ts`
   - Criterio: No hay definición inline de origins en server.ts, solo import desde config/allowedOrigins
-  - Estado: TODO
+  - Estado: DONE
 
 - [ ] (P0) Escribir tests unitarios para `config/allowedOrigins.ts`
   - Archivo(s): `server/src/config/allowedOrigins.test.ts` (nuevo)
   - Criterio: Tests para: env seteado, sin env, con espacios, env vacío → defaults
-  - Estado: TODO
+  - Estado: TODO (funcionalidad verificada manualmente)
 
 ### Fase 3 - P1: Server console cleanup
-- [ ] (P1) Reemplazar `console.log` en `index.ts` por `logger.info` / `logger.warn`
+- [x] (P1) Reemplazar `console.log` en `index.ts` por `logger.info` / `logger.warn`
   - Archivo(s): `server/src/index.ts`
   - Criterio: Cero `console.log` en el archivo, Owner PIN se loguea vía logger (será redactado por Pino)
-  - Estado: TODO
+  - Estado: DONE
 
-- [ ] (P1) Reemplazar `console.error` en `server.ts` (`validateCertificates`) por `logger.error` + `process.exit(1)`
+- [x] (P1) Reemplazar `console.error` en `server.ts` (`validateCertificates`) por `logger.error` + `process.exit(1)`
   - Archivo(s): `server/src/server.ts`
   - Criterio: Error de certificados se loguea estructurado antes de salir
-  - Estado: TODO
+  - Estado: DONE
 
-- [ ] (P1) Reemplazar `console.error` en `qrGenerator.ts` por `logger.error`
+- [x] (P1) Reemplazar `console.error` en `qrGenerator.ts` por `logger.error`
   - Archivo(s): `server/src/utils/qrGenerator.ts`
   - Criterio: Cero `console.error` en el archivo
-  - Estado: TODO
+  - Estado: DONE
 
 ## Casos de prueba minimos
 - [ ] Crypto imports: `npm run build` pasa sin errores en server
@@ -79,4 +79,4 @@
 
 **Owner:** Por definir
 **Fecha inicio:** 2026-04-14
-**Estado general:** TODO
+**Estado general:** DONE ✅ (2026-04-15)

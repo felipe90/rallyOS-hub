@@ -20,15 +20,15 @@ export interface ScoreboardAuth {
 }
 
 export function useScoreboardAuth(): ScoreboardAuth {
-  const { isReferee } = useAuthContext()
+  const { isReferee, isOwner } = useAuthContext()
   const { isRefereeMode } = useScoreboardMode()
 
-  // Can edit only if user is referee AND in referee URL mode
-  const canEdit = isReferee && isRefereeMode
+  // Can edit if user is referee OR owner, AND in referee URL mode
+  // (owner can arbitrate if needed)
+  const canEdit = (isReferee || isOwner) && isRefereeMode
 
-  // Can configure only if referee and in referee mode
-  // (configuration happens before match starts)
-  const canConfigure = isReferee && isRefereeMode
+  // Can configure if referee or owner, and in referee mode
+  const canConfigure = (isReferee || isOwner) && isRefereeMode
 
   // Can view history only if referee (even in view mode, 
   // owner might want to see history from spectator view)

@@ -28,7 +28,8 @@ export function AuthPage() {
       setIsLoading(false)
       setOwner(true, pin)
       login('owner', undefined, pin)
-      navigate('/dashboard')
+      console.log('🔑 Owner PIN:', pin)  // DEV: copy this to test locally
+      navigate(Routes.DASHBOARD_OWNER)
     }
 
     const handleError = (error: { code: string; message: string }) => {

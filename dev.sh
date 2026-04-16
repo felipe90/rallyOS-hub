@@ -137,6 +137,13 @@ main() {
     print_success "Server compilation complete"
     cd "$SCRIPT_DIR"
     
+    # Build client for development (served by server on port 3000)
+    print_step "Building client..."
+    cd "$CLIENT_DIR"
+    npm run build > /dev/null 2>&1
+    print_success "Client build complete"
+    cd "$SCRIPT_DIR"
+    
     # Start server
     print_step "Starting server on port $SERVER_PORT..."
     cd "$SERVER_DIR"

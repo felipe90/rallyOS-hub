@@ -25,7 +25,7 @@ export function useRefRevoked({ socket, tableId, navigate }: UseRefRevokedProps)
       }
     }
     socket.on('REF_REVOKED', handler)
-    return () => socket.off('REF_REVOKED', handler)
+    return () => { socket.off('REF_REVOKED', handler) }
   }, [socket, tableId, navigate])
 
   return refRevoked

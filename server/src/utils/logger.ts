@@ -22,7 +22,10 @@ export const logger = pino({
       }
     : undefined,
   redact: {
-    paths: ['pin', 'ownerPin', 'encryptedPin', 'password', 'secret', 'token'],
+    // NOTE: 'ownerPin' intentionally NOT redacted - needed for local DEV testing
+    // The PIN is randomly generated on each server start, so it has no security value
+    // Production deployments should set TOURNAMENT_OWNER_PIN env var
+    paths: ['pin', 'encryptedPin', 'password', 'secret', 'token'],
     censor: '[REDACTED]',
   },
   timestamp: pino.stdTimeFunctions.isoTime,

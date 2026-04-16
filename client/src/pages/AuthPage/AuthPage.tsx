@@ -77,10 +77,6 @@ export function AuthPage() {
     if (value.length >= 5 && value.length <= 8) {
       setError('')
     }
-    // DEV: log PIN as you type so you can copy it
-    if (value.length === 8) {
-      console.log('🔑 Owner PIN (copiá esto):', value)
-    }
   }
 
 const handlePinSubmit = (eventOrPin?: any) => {

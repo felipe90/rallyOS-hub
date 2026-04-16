@@ -7,6 +7,7 @@ import { PinInput } from '@/components/atoms/PinInput'
 import { Typography } from '@/components/atoms/Typography'
 import logoBig from '@/assets/logo-big.png'
 import { SocketEvents } from '@shared/events'
+import { Routes } from '@/routes'
 
 export type AuthMode = 'select' | 'owner-pin'
 
@@ -61,9 +62,9 @@ export function AuthPage() {
   const handleSpectatorClick = async () => {
     setIsLoading(true)
     try {
-      // RF-04: Espectador goes directly to Waiting Room
+      // RF-04: Espectador goes directly to Spectator Dashboard
       login('viewer')
-      navigate('/waiting-room')
+      navigate(Routes.DASHBOARD_SPECTATOR)
     } catch (err) {
       setError('Error durante login')
       setIsLoading(false)
@@ -116,7 +117,6 @@ const handlePinSubmit = (eventOrPin?: any) => {
         // Selection Mode - 3 buttons
         <div className="flex flex-col gap-4 w-full max-w-sm">
           <Button
-            className='bg-primary text-primary-foreground hover:bg-primary/90'
             variant="primary"
             size="lg"
             onClick={handleOwnerClick}

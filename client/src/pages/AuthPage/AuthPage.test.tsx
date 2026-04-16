@@ -58,7 +58,7 @@ const renderWithRouter = (initialEntries = ['/auth']) => {
         <Routes>
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/dashboard" element={<div>Dashboard</div>} />
-          <Route path="/waiting-room" element={<div>Waiting Room</div>} />
+          <Route path="/dashboard/spectator" element={<div>Waiting Room</div>} />
         </Routes>
       </AuthProvider>
     </MemoryRouter>
@@ -117,7 +117,7 @@ describe('AuthPage', () => {
       fireEvent.click(spectatorButton)
       
       expect(mockLogin).toHaveBeenCalledWith('viewer')
-      expect(mockNavigate).toHaveBeenCalledWith('/waiting-room')
+      expect(mockNavigate).toHaveBeenCalledWith('/dashboard/spectator')
     })
   })
 

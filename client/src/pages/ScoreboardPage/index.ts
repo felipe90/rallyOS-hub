@@ -1,2 +1,6 @@
 export { ScoreboardPage } from './ScoreboardPage'
-export type { ScoreboardPageProps, ScoreboardHandlers } from './ScoreboardPage.types'
+export { useScoreboardEvents } from './useScoreboardEvents'
+export { useMatchState } from './useMatchState'
+export { useRefAuth } from './useRefAuth'
+export { useRefRevoked } from './useRefRevoked'
+export type { ScoreboardPageProps } from './ScoreboardPage.types'

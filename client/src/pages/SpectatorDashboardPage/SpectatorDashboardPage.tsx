@@ -1,13 +1,19 @@
-import { useNavigate } from 'react-router-dom'
-import { useSocketContext } from '../../contexts/SocketContext'
-import { useAuthContext } from '../../contexts/AuthContext'
-import { PageHeader } from '../../components/molecules/PageHeader'
-import { Button } from '../../components/atoms/Button'
-import { Typography } from '../../components/atoms/Typography'
-import { SocketEvents } from '@shared/events'
-import { useState } from 'react'
+/**
+ * Spectator Dashboard Page
+ * Allows spectators to view available tables and join as viewers (no PIN required)
+ */
 
-export function WaitingRoomPage() {
+import { useNavigate } from 'react-router-dom'
+import { useSocketContext } from '@/contexts/SocketContext'
+import { useAuthContext } from '@/contexts/AuthContext'
+import { PageHeader } from '@/components/molecules/PageHeader'
+import { Button } from '@/components/atoms/Button'
+import { Typography } from '@/components/atoms/Typography'
+import { SocketEvents } from '@shared/events'
+
+export interface SpectatorDashboardPageProps {}
+
+export function SpectatorDashboardPage(_props: SpectatorDashboardPageProps) {
   const navigate = useNavigate()
   const { tables, emit } = useSocketContext()
   const { login } = useAuthContext()

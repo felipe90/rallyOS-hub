@@ -1,20 +1,21 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { ScoreboardPage } from './ScoreboardPage'
-import { useAuthContext, UserRoles } from '../../contexts/AuthContext'
-import { useSocketContext } from '../../contexts/SocketContext'
-import { AuthProvider } from '../../contexts/AuthContext'
+import { useAuthContext } from '@/contexts/AuthContext'
+import { useSocketContext } from '@/contexts/SocketContext'
+import { useScoreboardAuth } from '@/hooks/useScoreboardAuth'
 
 const mockUseAuthContext = useAuthContext as ReturnType<typeof vi.fn>
 const mockUseSocketContext = useSocketContext as ReturnType<typeof vi.fn>
+const mockUseScoreboardAuth = useScoreboardAuth as ReturnType<typeof vi.fn>
 
 // Define role constants for tests
 const ROLE_REFEREE = 'referee'
 const ROLE_VIEWER = 'viewer'
 const ROLE_OWNER = 'owner'
 
-vi.mock('../../contexts/AuthContext', () => ({
+vi.mock('@/contexts/AuthContext', () => ({
   useAuthContext: vi.fn(),
   AuthProvider: ({ children }: { children: React.ReactNode }) => children,
   UserRoles: {
@@ -22,20 +23,33 @@ vi.mock('../../contexts/AuthContext', () => ({
     REFEREE: 'referee',
     VIEWER: 'viewer',
   },
-  DefaultScoreboardMode: 'view',
 }))
 
-vi.mock('../../contexts/SocketContext', () => ({
-  useSocketContext: vi.fn()
+vi.mock('@/contexts/SocketContext', () => ({
+  useSocketContext: vi.fn(),
+}))
+
+vi.mock('@/hooks/useScoreboardAuth', () => ({
+  useScoreboardAuth: vi.fn(),
+}))
+
+vi.mock('@/hooks/useScoreboardUrl', () => ({
+  useScoreboardUrl: vi.fn(),
 }))
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom')
   return {
     ...actual,
-    useNavigate: () => vi.fn()
+    useNavigate: () => vi.fn(),
   }
 })
+
+// Use actual hooks from ./ (they call mockEmit from mocked useSocketContext)
+// Only mock useScoreboardUrl since it manipulates window.history
+vi.mock('@/hooks/useScoreboardUrl', () => ({
+  useScoreboardUrl: vi.fn(),
+}))
 
 const createMockMatch = (overrides = {}) => ({
   tableId: 'table-1',
@@ -50,18 +64,18 @@ const createMockMatch = (overrides = {}) => ({
   winner: null,
   history: [],
   undoAvailable: true,
-  ...overrides
+  ...overrides,
 })
 
 const renderWithRouter = (ui: React.ReactElement, { route = '/scoreboard/table-1' } = {}) => {
   return render(
     <MemoryRouter initialEntries={[route]}>
-      <AuthProvider>
-        <Routes>
-          <Route path="/scoreboard/:tableId" element={ui} />
-          <Route path="/dashboard" element={<div>Dashboard</div>} />
-        </Routes>
-      </AuthProvider>
+      <Routes>
+        <Route path="/scoreboard/:tableId" element={ui} />
+        <Route path="/dashboard/owner" element={<div>Dashboard Owner</div>} />
+        <Route path="/dashboard/referee" element={<div>Dashboard Referee</div>} />
+        <Route path="/dashboard/spectator" element={<div>Waiting Room</div>} />
+      </Routes>
     </MemoryRouter>
   )
 }
@@ -72,7 +86,7 @@ describe('ScoreboardPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     localStorage.clear()
-    
+
     mockUseSocketContext.mockReturnValue({
       currentMatch: createMockMatch(),
       tables: [],
@@ -81,7 +95,7 @@ describe('ScoreboardPage', () => {
       createTable: vi.fn(),
       joinTable: vi.fn(),
       leaveTable: vi.fn(),
-      disconnect: vi.fn()
+      disconnect: vi.fn(),
     })
 
     mockUseAuthContext.mockReturnValue({
@@ -89,12 +103,20 @@ describe('ScoreboardPage', () => {
       tableId: 'table-1',
       isReferee: true,
       isViewer: false,
+      isOwner: false,
       isAuthenticated: true,
       ownerPin: '12345',
       login: vi.fn(),
       logout: vi.fn(),
       setOwner: vi.fn(),
       setTablePin: vi.fn(),
+    })
+
+    mockUseScoreboardAuth.mockReturnValue({
+      isReferee: true,
+      canEdit: true,
+      canConfigure: true,
+      canViewHistory: true,
     })
   })
 
@@ -110,20 +132,7 @@ describe('ScoreboardPage', () => {
     })
   })
 
-  it('authenticates as referee when page loads', async () => {
-    mockUseAuthContext.mockReturnValue({
-      role: ROLE_REFEREE,
-      tableId: 'table-1',
-      isReferee: true,
-      isViewer: false,
-      isAuthenticated: true,
-      ownerPin: '12345',
-      login: vi.fn(),
-      logout: vi.fn(),
-      setOwner: vi.fn(),
-      setTablePin: vi.fn(),
-    })
-
+  it('authenticates as referee when page loads in referee mode', async () => {
     renderWithRouter(<ScoreboardPage />)
 
     await waitFor(() => {
@@ -140,7 +149,7 @@ describe('ScoreboardPage', () => {
       createTable: vi.fn(),
       joinTable: vi.fn(),
       leaveTable: vi.fn(),
-      disconnect: vi.fn()
+      disconnect: vi.fn(),
     })
 
     renderWithRouter(<ScoreboardPage />)
@@ -148,7 +157,7 @@ describe('ScoreboardPage', () => {
     expect(screen.getByText('Juan vs Pedro')).toBeInTheDocument()
   })
 
-  it('shows config panel for non-LIVE match when referee', () => {
+  it('shows config panel for non-LIVE match when canConfigure', () => {
     mockUseSocketContext.mockReturnValue({
       currentMatch: createMockMatch({ status: 'WAITING' }),
       tables: [],
@@ -157,20 +166,14 @@ describe('ScoreboardPage', () => {
       createTable: vi.fn(),
       joinTable: vi.fn(),
       leaveTable: vi.fn(),
-      disconnect: vi.fn()
+      disconnect: vi.fn(),
     })
 
-    mockUseAuthContext.mockReturnValue({
-      role: ROLE_REFEREE,
-      tableId: 'table-1',
+    mockUseScoreboardAuth.mockReturnValue({
       isReferee: true,
-      isViewer: false,
-      isAuthenticated: true,
-      ownerPin: '12345',
-      login: vi.fn(),
-      logout: vi.fn(),
-      setOwner: vi.fn(),
-      setTablePin: vi.fn(),
+      canEdit: true,
+      canConfigure: true,
+      canViewHistory: true,
     })
 
     renderWithRouter(<ScoreboardPage />)
@@ -178,7 +181,7 @@ describe('ScoreboardPage', () => {
     expect(screen.getAllByText('Configurar Partido').length).toBeGreaterThan(0)
   })
 
-  it('shows scoreboard for non-LIVE match when viewer', () => {
+  it('shows scoreboard for non-LIVE match when viewer (cannot configure)', () => {
     mockUseSocketContext.mockReturnValue({
       currentMatch: createMockMatch({ status: 'WAITING' }),
       tables: [],
@@ -187,7 +190,7 @@ describe('ScoreboardPage', () => {
       createTable: vi.fn(),
       joinTable: vi.fn(),
       leaveTable: vi.fn(),
-      disconnect: vi.fn()
+      disconnect: vi.fn(),
     })
 
     mockUseAuthContext.mockReturnValue({
@@ -195,36 +198,25 @@ describe('ScoreboardPage', () => {
       tableId: 'table-1',
       isReferee: false,
       isViewer: true,
+      isOwner: false,
       isAuthenticated: true,
-      ownerPin: '12345',
+      ownerPin: null,
       login: vi.fn(),
       logout: vi.fn(),
       setOwner: vi.fn(),
       setTablePin: vi.fn(),
     })
 
+    mockUseScoreboardAuth.mockReturnValue({
+      isReferee: false,
+      canEdit: false,
+      canConfigure: false,
+      canViewHistory: false,
+    })
+
     renderWithRouter(<ScoreboardPage />)
 
     expect(screen.getByText('Juan vs Pedro')).toBeInTheDocument()
-  })
-
-  it('navigates back to dashboard', async () => {
-    mockUseSocketContext.mockReturnValue({
-      currentMatch: createMockMatch({ status: 'LIVE' }),
-      tables: [],
-      connected: true,
-      emit: mockEmit,
-      createTable: vi.fn(),
-      joinTable: vi.fn(),
-      leaveTable: vi.fn(),
-      disconnect: vi.fn()
-    })
-
-    renderWithRouter(<ScoreboardPage />)
-
-    await waitFor(() => {
-      expect(screen.getByText('Juan vs Pedro')).toBeInTheDocument()
-    })
   })
 
   it('shows loading state when no match data', () => {
@@ -236,7 +228,7 @@ describe('ScoreboardPage', () => {
       createTable: vi.fn(),
       joinTable: vi.fn(),
       leaveTable: vi.fn(),
-      disconnect: vi.fn()
+      disconnect: vi.fn(),
     })
 
     renderWithRouter(<ScoreboardPage />)
@@ -253,7 +245,7 @@ describe('ScoreboardPage', () => {
       createTable: vi.fn(),
       joinTable: vi.fn(),
       leaveTable: vi.fn(),
-      disconnect: vi.fn()
+      disconnect: vi.fn(),
     })
 
     renderWithRouter(<ScoreboardPage />)

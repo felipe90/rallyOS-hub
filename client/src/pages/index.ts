@@ -1,9 +1,9 @@
 export { AuthPage } from './AuthPage'
 
-export { DashboardPage } from './DashboardPage'
+export { OwnerDashboardPage } from './OwnerDashboardPage'
+export { RefereeDashboardPage } from './RefereeDashboardPage'
+export { SpectatorDashboardPage } from './SpectatorDashboardPage'
 
 export { ScoreboardPage } from './ScoreboardPage'
-
-export { WaitingRoomPage } from './WaitingRoomPage'
 
 export { HistoryViewPage } from './HistoryViewPage'

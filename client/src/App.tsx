@@ -1,39 +1,40 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes as ReactRoutes, Route, Navigate } from 'react-router-dom'
 import './index.css'
 import { SocketProvider } from './contexts/SocketContext'
 import { AuthProvider } from './contexts/AuthContext'
 import { PrivateRoute } from './components/utilities/PrivateRoute'
+import { Routes } from './routes'
 import { AuthPage } from './pages/AuthPage'
-import { DashboardPage } from './pages/DashboardPage'
+import { OwnerDashboardPage } from './pages/OwnerDashboardPage'
+import { RefereeDashboardPage } from './pages/RefereeDashboardPage'
+import { SpectatorDashboardPage } from './pages/SpectatorDashboardPage'
 import { ScoreboardPage } from './pages/ScoreboardPage'
-import { WaitingRoomPage } from './pages/WaitingRoomPage'
 import { HistoryViewPage } from './pages/HistoryViewPage'
 
 function AppRoutes() {
   return (
-    <Routes>
+    <ReactRoutes>
       {/* Public routes */}
-      <Route path="/auth" element={<AuthPage />} />
-      <Route path="/waiting-room" element={<WaitingRoomPage />} />
+      <Route path={Routes.AUTH} element={<AuthPage />} />
 
-{/* Protected routes (require authentication) */}
+      {/* Protected routes (require authentication) */}
       <Route element={<PrivateRoute />}>
         {/* Dashboard routes */}
-        <Route path="/dashboard" element={<Navigate to="/dashboard/owner" replace />} />
-        <Route path="/dashboard/owner" element={<DashboardPage mode="owner" />} />
-        <Route path="/dashboard/referee" element={<DashboardPage mode="referee" />} />
-        
+        <Route path={Routes.DASHBOARD_OWNER} element={<OwnerDashboardPage />} />
+        <Route path={Routes.DASHBOARD_REFEREE} element={<RefereeDashboardPage />} />
+        <Route path={Routes.DASHBOARD_SPECTATOR} element={<SpectatorDashboardPage />} />
+
         {/* Scoreboard routes - separate referee and spectator */}
         <Route path="/scoreboard/:tableId" element={<Navigate to="/scoreboard/:tableId/view" replace />} />
-        <Route path="/scoreboard/:tableId/referee" element={<ScoreboardPage mode="referee" />} />
-        <Route path="/scoreboard/:tableId/view" element={<ScoreboardPage mode="view" />} />
-        
-        <Route path="/history" element={<HistoryViewPage />} />
+        <Route path={Routes.SCOREBOARD_REFEREE} element={<ScoreboardPage />} />
+        <Route path={Routes.SCOREBOARD_VIEW} element={<ScoreboardPage />} />
+
+        <Route path={Routes.HISTORY} element={<HistoryViewPage />} />
       </Route>
 
-      {/* Redirect to auth if no match */}
-      <Route path="/" element={<AuthPage />} />
-    </Routes>
+      {/* Redirect root to auth */}
+      <Route path="/" element={<Navigate to={Routes.AUTH} replace />} />
+    </ReactRoutes>
   )
 }
 

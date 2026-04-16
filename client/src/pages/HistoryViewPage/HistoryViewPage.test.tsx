@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { renderWithProviders } from '@/test/test-utils'
+import { useDashboardAuth } from '@/hooks/useDashboardAuth'
 import type { MatchStateExtended } from '@/shared/types'
 
 const mockNavigate = vi.fn()
@@ -13,6 +14,12 @@ vi.mock('react-router-dom', async () => {
     useNavigate: () => mockNavigate,
   }
 })
+
+vi.mock('@/hooks/useDashboardAuth', () => ({
+  useDashboardAuth: vi.fn(),
+}))
+
+const mockUseDashboardAuth = useDashboardAuth as ReturnType<typeof vi.fn>
 
 const createMockMatch = (history: MatchStateExtended['history'] = []): MatchStateExtended => ({
   tableId: 'test-table',
@@ -49,6 +56,14 @@ const createScoreChange = (player: 'A' | 'B', action: 'POINT' | 'CORRECTION', ti
 describe('HistoryViewPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // Default: user is owner, so page renders normally
+    mockUseDashboardAuth.mockReturnValue({
+      isOwner: true,
+      isReferee: false,
+      canCreateTable: true,
+      showPinColumn: true,
+      showQrColumn: true,
+    })
   })
 
   afterEach(() => {
@@ -170,5 +185,30 @@ describe('HistoryViewPage', () => {
     )
 
     expect(screen.getByText(/↩️ Deshacer/)).toBeInTheDocument()
+  })
+
+  it('redirige a non-owners', async () => {
+    const { HistoryViewPage } = await import('./HistoryViewPage')
+    
+    // Set user as non-owner
+    mockUseDashboardAuth.mockReturnValue({
+      isOwner: false,
+      isReferee: true,
+      canCreateTable: false,
+      showPinColumn: false,
+      showQrColumn: false,
+    })
+    
+    renderWithProviders(
+      <MemoryRouter>
+        <Routes>
+          <Route path="/" element={<HistoryViewPage />} />
+        </Routes>
+      </MemoryRouter>,
+      { mockSocketContext: { currentMatch: createMockMatch([]) } }
+    )
+
+    // Page should redirect (calls navigate) and render nothing visible
+    expect(mockNavigate).toHaveBeenCalledWith('/dashboard/owner')
   })
 })

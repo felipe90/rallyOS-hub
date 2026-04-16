@@ -1,23 +1,40 @@
+/**
+ * History View Page
+ * Owner-only page for viewing match history across all tables
+ */
+
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useSocketContext } from '../../contexts/SocketContext'
-import { PageHeader } from '../../components/molecules/PageHeader'
-import { Button } from '../../components/atoms/Button'
-import { Typography } from '../../components/atoms/Typography'
+import { useSocketContext } from '@/contexts/SocketContext'
+import { useDashboardAuth } from '@/hooks/useDashboardAuth'
+import { PageHeader } from '@/components/molecules/PageHeader'
+import { Button } from '@/components/atoms/Button'
+import { Typography } from '@/components/atoms/Typography'
+import { Routes } from '@/routes'
 
 export function HistoryViewPage() {
   const navigate = useNavigate()
   const { currentMatch } = useSocketContext()
+  const { isOwner } = useDashboardAuth()
+
+  // Redirect non-owners to their appropriate dashboard
+  useEffect(() => {
+    if (!isOwner) {
+      navigate(Routes.DASHBOARD_OWNER)
+    }
+  }, [isOwner, navigate])
+
+  // Don't render anything while checking auth
+  if (!isOwner) {
+    return null
+  }
 
   return (
     <div className="flex flex-col h-screen bg-surface">
       <PageHeader
         title="Historial"
         actions={
-          <Button
-            variant="ghost"
-            onClick={() => navigate(-1)}
-            size="sm"
-          >
+          <Button variant="ghost" onClick={() => navigate(-1)} size="sm">
             Atrás
           </Button>
         }

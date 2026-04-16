@@ -97,7 +97,7 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
           onSettingsClick={() => handleSetServer('A')}
           onHistoryClick={() => setHistoryOpen(true)}
           onBackClick={() => navigate(backRoute)}
-          isReferee={isReferee}
+          isReferee={canEdit}
         />
       </div>
       <HistoryDrawer

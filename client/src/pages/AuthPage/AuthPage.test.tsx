@@ -107,7 +107,7 @@ describe('AuthPage', () => {
       fireEvent.click(refereeButton)
       
       expect(mockLogin).toHaveBeenCalledWith('referee')
-      expect(mockNavigate).toHaveBeenCalledWith('/dashboard')
+      expect(mockNavigate).toHaveBeenCalledWith('/dashboard/referee')
     })
 
     it('navigates to waiting room for Espectador', () => {

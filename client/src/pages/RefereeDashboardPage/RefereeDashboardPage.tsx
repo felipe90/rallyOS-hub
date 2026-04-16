@@ -13,6 +13,7 @@ import { useSocketContext } from '@/contexts/SocketContext'
 import { useAuthContext } from '@/contexts/AuthContext'
 import { Button } from '@/components/atoms/Button'
 import { SocketEvents } from '@shared/events'
+import { Routes, buildScoreboardRoute } from '@/routes'
 import type { TableInfoWithPin } from '@/shared/types'
 
 export interface RefereeDashboardPageProps {
@@ -37,7 +38,7 @@ export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashb
 
   const handleLogout = () => {
     logout()
-    navigate('/auth')
+    navigate(Routes.AUTH)
   }
 
   const handleTableClick = (tableId: string) => {
@@ -62,7 +63,7 @@ export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashb
       setPinLoading(false)
       
       if (response.success || (response as any).tableId) {
-        navigate(`/scoreboard/${selectedTable.id}/referee`)
+        navigate(buildScoreboardRoute(selectedTable.id, 'referee'))
       }
     }
     
@@ -80,7 +81,7 @@ export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashb
       socket.off('REF_SET', handleResponse)
       socket.off('ERROR', handleError)
       setPinLoading(false)
-      navigate(`/scoreboard/${selectedTable.id}/referee`)
+      navigate(buildScoreboardRoute(selectedTable.id, 'referee'))
     }, 5000)
   }
 
@@ -98,7 +99,7 @@ export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashb
         showStatus={true}
         actions={
           <Button variant="ghost" onClick={handleLogout} size="sm" animate={false}>
-            Salir
+            Atrás
           </Button>
         }
       />

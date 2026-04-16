@@ -15,14 +15,18 @@ import { Routes } from '@/routes'
 export function HistoryViewPage() {
   const navigate = useNavigate()
   const { currentMatch } = useSocketContext()
-  const { isOwner } = useDashboardAuth()
+  const { isOwner, isReferee } = useDashboardAuth()
 
-  // Redirect non-owners to their appropriate dashboard
+  // Redirect non-owners to their appropriate dashboard based on role
   useEffect(() => {
     if (!isOwner) {
-      navigate(Routes.DASHBOARD_OWNER)
+      if (isReferee) {
+        navigate(Routes.DASHBOARD_REFEREE)
+      } else {
+        navigate(Routes.DASHBOARD_SPECTATOR)
+      }
     }
-  }, [isOwner, navigate])
+  }, [isOwner, isReferee, navigate])
 
   // Don't render anything while checking auth
   if (!isOwner) {

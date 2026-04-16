@@ -56,7 +56,7 @@ export function AuthPage() {
   const handleRefereeClick = () => {
     // RF-02: Árbitr@ goes to Dashboard but can't create tables
     login('referee')
-    navigate('/dashboard')
+    navigate(Routes.DASHBOARD_REFEREE)
   }
 
   const handleSpectatorClick = async () => {
@@ -126,7 +126,6 @@ const handlePinSubmit = (eventOrPin?: any) => {
             Organizador
           </Button>
           <Button
-            // className='bg-secondary text-secondary-foreground hover:bg-secondary/90'
             variant="secondary"
             size="lg"
             onClick={handleRefereeClick}

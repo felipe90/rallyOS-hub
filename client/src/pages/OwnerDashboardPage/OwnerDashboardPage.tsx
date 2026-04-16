@@ -14,6 +14,7 @@ import { useAuthContext } from '@/contexts/AuthContext'
 import { useDashboardAuth } from '@/hooks/useDashboardAuth'
 import { Button } from '@/components/atoms/Button'
 import { SocketEvents } from '@shared/events'
+import { Routes, buildScoreboardRoute } from '@/routes'
 import type { QRData, TableInfoWithPin } from '@/shared/types'
 
 export interface OwnerDashboardPageProps {
@@ -63,7 +64,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
 
   const handleLogout = () => {
     logout()
-    navigate('/auth')
+    navigate(Routes.AUTH)
   }
 
   const handleCreateTable = () => {
@@ -94,7 +95,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
       setPinLoading(false)
       
       if (response.success || (response as any).tableId) {
-        navigate(`/scoreboard/${selectedTable.id}/referee`)
+        navigate(buildScoreboardRoute(selectedTable.id, 'referee'))
       }
     }
     
@@ -112,7 +113,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
       socket.off('REF_SET', handleResponse)
       socket.off('ERROR', handleError)
       setPinLoading(false)
-      navigate(`/scoreboard/${selectedTable.id}/referee`)
+      navigate(buildScoreboardRoute(selectedTable.id, 'referee'))
     }, 5000)
   }
 
@@ -173,7 +174,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
               </div>
             )}
             <Button variant="ghost" onClick={handleLogout} size="sm" animate={false}>
-              Salir
+              Atrás
             </Button>
           </div>
         }

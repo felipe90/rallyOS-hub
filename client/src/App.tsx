@@ -25,7 +25,7 @@ function AppRoutes() {
         <Route path={Routes.DASHBOARD_SPECTATOR} element={<SpectatorDashboardPage />} />
 
         {/* Scoreboard routes - separate referee and spectator */}
-        <Route path="/scoreboard/:tableId" element={<Navigate to="/scoreboard/:tableId/view" replace />} />
+        <Route path="/scoreboard/:tableId" element={<Navigate to={Routes.SCOREBOARD_VIEW} replace />} />
         <Route path={Routes.SCOREBOARD_REFEREE} element={<ScoreboardPage />} />
         <Route path={Routes.SCOREBOARD_VIEW} element={<ScoreboardPage />} />
 

@@ -10,6 +10,7 @@ import { PageHeader } from '@/components/molecules/PageHeader'
 import { Button } from '@/components/atoms/Button'
 import { Typography } from '@/components/atoms/Typography'
 import { SocketEvents } from '@shared/events'
+import { Routes, buildScoreboardRoute } from '@/routes'
 
 export interface SpectatorDashboardPageProps {}
 
@@ -29,7 +30,7 @@ export function SpectatorDashboardPage(_props: SpectatorDashboardPageProps) {
     login('viewer', tableId)
     
     // Navigate to scoreboard spectator view (no controls)
-    navigate(`/scoreboard/${tableId}/view`)
+    navigate(buildScoreboardRoute(tableId, 'view'))
   }
 
   return (
@@ -39,7 +40,7 @@ export function SpectatorDashboardPage(_props: SpectatorDashboardPageProps) {
         actions={
           <Button
             variant="ghost"
-            onClick={() => navigate('/auth')}
+            onClick={() => navigate(Routes.AUTH)}
             size="sm"
           >
             Atrás

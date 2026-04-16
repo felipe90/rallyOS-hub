@@ -20,7 +20,7 @@ export interface ScoreboardAuth {
 }
 
 export function useScoreboardAuth(): ScoreboardAuth {
-  const { isReferee, isOwner } = useAuthContext()
+  const { isReferee } = useAuthContext()
   const { isRefereeMode } = useScoreboardMode()
 
   // Can edit if user is referee OR owner, AND in referee URL mode

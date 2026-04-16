@@ -190,7 +190,7 @@ describe('HistoryViewPage', () => {
   it('redirige a non-owners', async () => {
     const { HistoryViewPage } = await import('./HistoryViewPage')
     
-    // Set user as non-owner
+    // Set user as non-owner (referee)
     mockUseDashboardAuth.mockReturnValue({
       isOwner: false,
       isReferee: true,
@@ -208,7 +208,32 @@ describe('HistoryViewPage', () => {
       { mockSocketContext: { currentMatch: createMockMatch([]) } }
     )
 
-    // Page should redirect (calls navigate) and render nothing visible
-    expect(mockNavigate).toHaveBeenCalledWith('/dashboard/owner')
+    // Page should redirect to referee dashboard for referees
+    expect(mockNavigate).toHaveBeenCalledWith('/dashboard/referee')
+  })
+
+  it('redirige spectators a spectator dashboard', async () => {
+    const { HistoryViewPage } = await import('./HistoryViewPage')
+    
+    // Set user as viewer (spectator)
+    mockUseDashboardAuth.mockReturnValue({
+      isOwner: false,
+      isReferee: false,
+      canCreateTable: false,
+      showPinColumn: false,
+      showQrColumn: false,
+    })
+    
+    renderWithProviders(
+      <MemoryRouter>
+        <Routes>
+          <Route path="/" element={<HistoryViewPage />} />
+        </Routes>
+      </MemoryRouter>,
+      { mockSocketContext: { currentMatch: createMockMatch([]) } }
+    )
+
+    // Page should redirect to spectator dashboard for viewers
+    expect(mockNavigate).toHaveBeenCalledWith('/dashboard/spectator')
   })
 })

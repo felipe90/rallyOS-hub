@@ -28,7 +28,6 @@ export function AuthPage() {
       setIsLoading(false)
       setOwner(true, pin)
       login('owner', undefined, pin)
-      console.log('🔑 Owner PIN:', pin)  // DEV: copy this to test locally
       navigate(Routes.DASHBOARD_OWNER)
     }
 
@@ -77,6 +76,10 @@ export function AuthPage() {
     // Clear error when pin is within valid range
     if (value.length >= 5 && value.length <= 8) {
       setError('')
+    }
+    // DEV: log PIN as you type so you can copy it
+    if (value.length === 8) {
+      console.log('🔑 Owner PIN (copiá esto):', value)
     }
   }
 

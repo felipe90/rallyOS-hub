@@ -45,7 +45,7 @@ export function AuthPage() {
       socket.off('OWNER_VERIFIED', handleOwnerVerified)
       socket.off('ERROR', handleError)
     }
-  }, [socket, login, navigate, setOwner])
+  }, [socket, login, navigate, setOwner, pin])
 
   const handleOwnerClick = () => {
     setMode('owner-pin')

@@ -73,12 +73,13 @@ jobs:
         run: |
           cd client
           npm run dev &
-          sleep 10
-      
+          sleep 15
+          curl -f http://localhost:5173 || exit 1
+
       - name: Run E2E tests
         run: |
           cd client
-          npm run test:e2e
+          npx playwright test --project=chromium
         env:
           CI: true
       

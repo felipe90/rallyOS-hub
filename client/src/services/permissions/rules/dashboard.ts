@@ -5,14 +5,14 @@
  * No React dependencies - testable in isolation.
  */
 
-import type { UserRole } from '@/contexts/AuthContext/AuthContext.types'
+import { UserRoles, type UserRole } from '@/contexts/AuthContext/AuthContext.types'
 
 /**
  * Determine if user can create new tables.
  * Only the tournament owner can create tables.
  */
 export function canCreateTable(role: UserRole): boolean {
-  return role === 'owner'
+  return role === UserRoles.OWNER
 }
 
 /**
@@ -20,7 +20,7 @@ export function canCreateTable(role: UserRole): boolean {
  * Only owner can see PINs.
  */
 export function shouldShowPinColumn(role: UserRole): boolean {
-  return role === 'owner'
+  return role === UserRoles.OWNER
 }
 
 /**
@@ -28,5 +28,5 @@ export function shouldShowPinColumn(role: UserRole): boolean {
  * Only owner can see QR codes.
  */
 export function shouldShowQrColumn(role: UserRole): boolean {
-  return role === 'owner'
+  return role === UserRoles.OWNER
 }

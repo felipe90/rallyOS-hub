@@ -5,7 +5,7 @@
  * No React dependencies - testable in isolation.
  */
 
-import type { UserRole, ScoreboardMode } from '@/contexts/AuthContext/AuthContext.types'
+import { UserRoles, type UserRole, type ScoreboardMode } from '@/contexts/AuthContext/AuthContext.types'
 
 /**
  * Determine if user can edit the scoreboard.
@@ -18,7 +18,7 @@ export function canEditScoreboard(
 ): boolean {
   if (!role) return false
 
-  const isAuthorizedRole = role === 'owner' || role === 'referee'
+  const isAuthorizedRole = role === UserRoles.OWNER || role === UserRoles.REFEREE
   return isAuthorizedRole && mode === 'referee'
 }
 
@@ -33,7 +33,7 @@ export function canConfigureMatch(
 ): boolean {
   if (!role) return false
 
-  const isAuthorizedRole = role === 'owner' || role === 'referee'
+  const isAuthorizedRole = role === UserRoles.OWNER || role === UserRoles.REFEREE
   // TODO: add status check once match status is available
   // const isNotLive = status !== 'live'
   return isAuthorizedRole && mode === 'referee'
@@ -44,5 +44,5 @@ export function canConfigureMatch(
  * Referee and Owner can view history from the scoreboard.
  */
 export function canViewMatchHistory(role: UserRole): boolean {
-  return role === 'referee' || role === 'owner'
+  return role === UserRoles.REFEREE || role === UserRoles.OWNER
 }

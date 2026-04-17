@@ -2,9 +2,9 @@
  * Scoreboard URL hook
  * Extracts and decrypts PIN from URL search params (?ePin=...)
  *
- * The ePin param is base64-encoded as "hex:originalPin" for integrity.
- * This hook decodes the base64, extracts the hex portion, and decrypts
- * it using the daily XOR key.
+ * This hook has been refactored:
+ * - Pure parsing logic moved to services/permissions/rules/url.ts
+ * - This hook only handles React lifecycle (useState, useEffect, URL cleanup)
  *
  * Returns:
  * - tableId: from URL params (passed separately, not from useParams here)
@@ -15,7 +15,7 @@
 
 import { useSearchParams } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { generateKey, decryptPin } from '@/shared/crypto/pinEncryption'
+import { parseEncryptedPin } from '@/services/permissions/rules/url'
 
 export interface ScoreboardUrlState {
   ePin: string | null
@@ -35,35 +35,24 @@ export function useScoreboardUrl(tableId: string | undefined): ScoreboardUrlStat
   const ePin = searchParams.get('ePin')
 
   useEffect(() => {
-    if (!ePin || !tableId) {
+    if (!tableId) {
       setDecryptedPin(null)
       setIsValidPin(false)
       return
     }
 
-    try {
-      const decoded = atob(ePin)
-      const parts = decoded.split(':')
+    // Use pure function from services
+    const result = parseEncryptedPin(ePin, tableId)
 
-      if (parts.length === 2) {
-        const [encrypted] = parts
-        const key = generateKey(tableId)
-        const decrypted = decryptPin(encrypted, key)
-
-        if (/^\d{4}$/.test(decrypted)) {
-          setDecryptedPin(decrypted)
-          setIsValidPin(true)
-          // Clean URL — remove ePin param after successful decryption
-          window.history.replaceState({}, '', window.location.pathname)
-          return
-        }
-      }
-    } catch {
-      // Decryption failed — silently ignore
+    if (result.isValid) {
+      setDecryptedPin(result.pin)
+      setIsValidPin(true)
+      // Clean URL — remove ePin param after successful decryption
+      window.history.replaceState({}, '', window.location.pathname)
+    } else {
+      setDecryptedPin(null)
+      setIsValidPin(false)
     }
-
-    setDecryptedPin(null)
-    setIsValidPin(false)
   }, [ePin, tableId])
 
   return {

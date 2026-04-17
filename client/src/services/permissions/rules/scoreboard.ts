@@ -41,8 +41,8 @@ export function canConfigureMatch(
 
 /**
  * Determine if user can view match history.
- * Only referees can view history from the scoreboard.
+ * Referee and Owner can view history from the scoreboard.
  */
 export function canViewMatchHistory(role: UserRole): boolean {
-  return role === 'referee'
+  return role === 'referee' || role === 'owner'
 }

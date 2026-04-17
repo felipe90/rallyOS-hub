@@ -62,8 +62,8 @@ describe('canViewMatchHistory', () => {
     expect(canViewMatchHistory('referee')).toBe(true)
   })
 
-  it('returns false for owner', () => {
-    expect(canViewMatchHistory('owner')).toBe(false)
+  it('returns true for owner', () => {
+    expect(canViewMatchHistory('owner')).toBe(true)
   })
 
   it('returns false for viewer', () => {

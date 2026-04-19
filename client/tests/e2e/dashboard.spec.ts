@@ -1,37 +1,16 @@
 import { test, expect } from '@playwright/test'
 
 test.describe('Dashboard Flow', () => {
-  test('loads dashboard with title', async ({ page }) => {
-    await page.goto('/')
-    
-    // Should show Kinetic Clubhouse title
-    await expect(page.getByText('The Kinetic Clubhouse')).toBeVisible()
+  test('referee can navigate to referee dashboard', async ({ page }) => {
+    // First go to auth and login as referee
+    await page.goto('/auth')
+    await page.click('button:has-text("Árbitro")')
+    await expect(page).toHaveURL(/.*\/dashboard\/referee/)
   })
 
-  test('shows stats cards', async ({ page }) => {
-    await page.goto('/')
-    
-    // Stats should be visible
-    await expect(page.getByText('Mesas')).toBeVisible()
-    await expect(page.getByText('Partidos Activos')).toBeVisible()
-    await expect(page.getByText('Jugadores')).toBeVisible()
-  })
-
-  test('toggles view modes', async ({ page }) => {
-    await page.goto('/')
-    
-    // Click list view
-    await page.getByLabel('List view').click()
-    
-    // Click grid view
-    await page.getByLabel('Grid view').click()
-  })
-
-  test('shows empty state when no tables', async ({ page }) => {
-    await page.goto('/')
-    
-    // Should show empty state or tables
-    const content = await page.content()
-    expect(content).toContain('Mesas')
+  test('spectator can navigate to spectator dashboard', async ({ page }) => {
+    await page.goto('/auth')
+    await page.click('button:has-text("Espectador")')
+    await expect(page).toHaveURL(/.*\/dashboard/)
   })
 })

@@ -1,17 +1,24 @@
 /**
  * Dashboard authorization hook
  * Derives UI flags from user role for the dashboard context
- * 
+ *
  * Returns:
  * - isOwner: true if user is the tournament organizer
  * - isReferee: true if user is a referee
  * - canCreateTable: true if user can create new tables (owner only)
  * - showPinColumn: true if PINs should be visible (owner only)
  * - showQrColumn: true if QR codes should be visible (owner only)
+ *
+ * @deprecated Use usePermissions() or useCan() instead.
+ * This hook is maintained for backward compatibility.
  */
 
 import { useAuthContext } from '@/contexts/AuthContext'
-import { UserRoles } from '@/contexts/AuthContext/AuthContext.types'
+import {
+  canCreateTable,
+  shouldShowPinColumn,
+  shouldShowQrColumn,
+} from '@/services/permissions/rules/dashboard'
 
 export interface DashboardAuth {
   isOwner: boolean
@@ -24,18 +31,14 @@ export interface DashboardAuth {
 export function useDashboardAuth(): DashboardAuth {
   const { role, isOwner, isReferee } = useAuthContext()
 
-  // Derive UI flags from role
-  // Owner has full dashboard controls
-  // Referee and viewer have limited view access
-  const canCreateTable = role === UserRoles.OWNER
-  const showPinColumn = role === UserRoles.OWNER
-  const showQrColumn = role === UserRoles.OWNER
+  // Determine effective role for permission checks
+  const effectiveRole = isOwner ? 'owner' : isReferee ? 'referee' : role
 
   return {
     isOwner,
     isReferee,
-    canCreateTable,
-    showPinColumn,
-    showQrColumn,
+    canCreateTable: canCreateTable(effectiveRole),
+    showPinColumn: shouldShowPinColumn(effectiveRole),
+    showQrColumn: shouldShowQrColumn(effectiveRole),
   }
 }

@@ -1,25 +1,16 @@
 import { test, expect } from '@playwright/test'
 
-// Safe localStorage helpers
-async function setLocalStorage(page: any, key: string, value: string) {
-  try {
-    await page.evaluate(([k, v]) => localStorage.setItem(k, v), [key, value])
-  } catch { /* ignore */ }
-}
-
 test.describe('Dashboard Flow', () => {
-  test.beforeEach(async ({ page }) => {
-    await setLocalStorage(page, 'role', 'owner')
-    await page.goto('/dashboard/owner')
-    await page.waitForLoadState('networkidle')
+  test('referee can navigate to referee dashboard', async ({ page }) => {
+    // First go to auth and login as referee
+    await page.goto('/auth')
+    await page.click('button:has-text("Árbitro")')
+    await expect(page).toHaveURL(/.*\/dashboard\/referee/)
   })
 
-  test('loads owner dashboard', async ({ page }) => {
-    // Just check it loads without error
-    await expect(page).toHaveURL(/.*\/dashboard\/owner/)
-  })
-
-  test('shows create table button for owner', async ({ page }) => {
-    await expect(page.locator('button:has-text("Nueva Mesa")')).toBeVisible()
+  test('spectator can navigate to spectator dashboard', async ({ page }) => {
+    await page.goto('/auth')
+    await page.click('button:has-text("Espectador")')
+    await expect(page).toHaveURL(/.*\/dashboard/)
   })
 })

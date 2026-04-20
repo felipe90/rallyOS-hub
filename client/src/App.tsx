@@ -10,6 +10,7 @@ import { RefereeDashboardPage } from './pages/RefereeDashboardPage'
 import { SpectatorDashboardPage } from './pages/SpectatorDashboardPage'
 import { ScoreboardPage } from './pages/ScoreboardPage'
 import { HistoryViewPage } from './pages/HistoryViewPage'
+import { useAutoUpdateBanner } from './hooks/useAutoUpdate'
 
 function AppRoutes() {
   return (
@@ -39,10 +40,13 @@ function AppRoutes() {
 }
 
 function App() {
+  const { Banner } = useAutoUpdateBanner()
+
   return (
     <AuthProvider>
       <SocketProvider>
         <AppRoutes />
+        {Banner}
       </SocketProvider>
     </AuthProvider>
   )

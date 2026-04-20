@@ -103,7 +103,15 @@ export function useSocket(options: UseSocketOptions = {}) {
       setState(s => ({ ...s, connected: false }));
     });
     socket.on('connect_error', (error: Error) => {
-      setState({ connected: false, connecting: false, error: error.message, errorCode: null });
+      // Friendly error message when server is unreachable
+      const isServerDown = error.message.includes('Connection refused') ||
+                        error.message.includes('ECONNREFUSED') ||
+                        error.message.includes('net::ERR_CONNECTION_REFUSED') ||
+                        error.message.includes('timeout');
+      const friendlyMessage = isServerDown
+        ? 'Servidor no disponible. Verificá la red.'
+        : error.message;
+      setState({ connected: false, connecting: false, error: friendlyMessage, errorCode: null });
     });
 
     // Reconnect listener: re-request tables when socket reconnects (may have missed updates)

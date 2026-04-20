@@ -180,8 +180,8 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
         }
       />
 
-      <div className="flex-1 overflow-auto">
-        <div className="p-4">
+      <div className="flex-1 overflow-auto ">
+        <div className="p-4 ">
           <DashboardHeader
             totalTables={tables.length || 0}
             liveMatches={tables.filter(t => t.status === 'LIVE' || t.status === 'CONFIGURING').length || 0}

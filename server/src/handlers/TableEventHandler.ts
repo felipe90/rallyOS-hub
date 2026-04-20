@@ -133,17 +133,17 @@ export class TableEventHandler extends SocketHandlerBase {
       }
     });
 
-    // DELETE_TABLE: Delete a table (requires PIN)
-    socket.on(SocketEvents.CLIENT.DELETE_TABLE, (data: { tableId: string; pin: string }) => {
-      if (!validateSocketPayload(socket, data, { 
-        tableId: { required: true, type: 'string', maxLength: 36 }, 
-        pin: { required: true, type: 'string', pattern: /^\d{4}$/ } 
+    // DELETE_TABLE: Delete a table (owner only - no PIN needed)
+    socket.on(SocketEvents.CLIENT.DELETE_TABLE, (data: { tableId: string; pin?: string }) => {
+      if (!validateSocketPayload(socket, data, {
+        tableId: { required: true, type: 'string', maxLength: 36 },
+        pin: { required: false, type: 'string', pattern: /^\d{4}$/ }
       }, 'DELETE_TABLE')) {
         return;
       }
 
-      if (!data?.tableId || !data?.pin) {
-        return this.emitError(socket, 'INVALID_PARAMS', 'tableId and pin required');
+      if (!data?.tableId) {
+        return this.emitError(socket, 'INVALID_PARAMS', 'tableId required');
       }
 
       const clientIp = socket.handshake.address;
@@ -158,7 +158,8 @@ export class TableEventHandler extends SocketHandlerBase {
         return this.emitError(socket, 'TABLE_NOT_FOUND', 'Mesa no encontrada');
       }
 
-      if (table.pin !== data.pin) {
+      // Only validate PIN if provided (for backwards compatibility with referees)
+      if (data.pin && table.pin !== data.pin) {
         return this.emitError(socket, 'INVALID_PIN', 'PIN incorrecto');
       }
 

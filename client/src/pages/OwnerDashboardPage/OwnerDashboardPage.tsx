@@ -29,6 +29,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
   const [selectedTable, setSelectedTable] = useState<TableInfoWithPin | null>(null)
   const [pinError, setPinError] = useState<string | null>(null)
   const [cleanConfirmTableId, setCleanConfirmTableId] = useState<string | null>(null)
+  const [deleteConfirmTableId, setDeleteConfirmTableId] = useState<string | null>(null)
   const [pinLoading, setPinLoading] = useState(false)
   const navigate = useNavigate()
   const { tables, connected, createTable, socket, requestTablesWithPins, emit: _emit } = useSocketContext()
@@ -46,11 +47,12 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
     if (!socket) return
 
     const handleQRData = (_qrData: QRData) => {
-      // Could show a modal or toast with the new QR
+      // QR received - could show modal if needed
     }
 
     const handlePinRegenerated = (_data: { tableId: string; newPin: string }) => {
-      // PIN regenerated - UI updates automatically via TABLE_UPDATE
+      // Request updated table list with PINs (similar to TABLE_CREATED flow)
+      requestTablesWithPins(ownerPin || '')
     }
 
     socket.on(SocketEvents.SERVER.QR_DATA, handleQRData)
@@ -60,7 +62,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
       socket.off(SocketEvents.SERVER.QR_DATA, handleQRData)
       socket.off(SocketEvents.SERVER.PIN_REGENERATED, handlePinRegenerated)
     }
-  }, [socket])
+  }, [socket, ownerPin, requestTablesWithPins])
 
   const handleLogout = () => {
     logout()
@@ -128,14 +130,31 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
   }
 
   const handleCleanTableConfirm = () => {
-    if (cleanConfirmTableId && socket && connected && ownerPin) {
-      socket.emit(SocketEvents.CLIENT.REGENERATE_PIN, { tableId: cleanConfirmTableId, pin: ownerPin })
+    if (cleanConfirmTableId && socket && connected) {
+      socket.emit(SocketEvents.CLIENT.REGENERATE_PIN, { tableId: cleanConfirmTableId })
     }
     setCleanConfirmTableId(null)
   }
 
   const handleCleanTableCancel = () => {
     setCleanConfirmTableId(null)
+  }
+
+  // Delete table handlers
+  const handleDeleteTableRequest = (tableId: string) => {
+    setDeleteConfirmTableId(tableId)
+  }
+
+  const handleDeleteTableConfirm = () => {
+    if (deleteConfirmTableId && socket && connected) {
+      // Owner already authenticated in dashboard, no PIN needed
+      socket.emit(SocketEvents.CLIENT.DELETE_TABLE, { tableId: deleteConfirmTableId })
+    }
+    setDeleteConfirmTableId(null)
+  }
+
+  const handleDeleteTableCancel = () => {
+    setDeleteConfirmTableId(null)
   }
 
   return (
@@ -202,6 +221,10 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
             cleanTableId={cleanConfirmTableId}
             onCleanTableConfirm={handleCleanTableConfirm}
             onCleanTableCancel={handleCleanTableCancel}
+            onDeleteTable={handleDeleteTableRequest}
+            showDeleteConfirm={deleteConfirmTableId}
+            onDeleteTableConfirm={handleDeleteTableConfirm}
+            onDeleteTableCancel={handleDeleteTableCancel}
           />
         </div>
       </div>

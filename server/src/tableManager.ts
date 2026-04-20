@@ -6,7 +6,6 @@ import { logger } from './utils/logger';
 
 export class TableManager {
   private tables: Map<string, Table> = new Map();
-  private tableCounter: number = 0;
   private hubConfig: { ssid: string; ip: string; port: number };
   
   public onTableUpdate: (table: TableInfo) => void = () => {};
@@ -15,11 +14,26 @@ export class TableManager {
   constructor(hubConfig: { ssid: string; ip: string; port: number }) {
     this.hubConfig = hubConfig;
   }
+
+  /**
+   * Find the next available table number (lowest positive integer not in use)
+   */
+  private getNextTableNumber(): number {
+    const usedNumbers = new Set<number>();
+    for (const table of this.tables.values()) {
+      usedNumbers.add(table.number);
+    }
+
+    // Find the lowest positive integer not in use
+    let nextNumber = 1;
+    while (usedNumbers.has(nextNumber)) {
+      nextNumber++;
+    }
+    return nextNumber;
+  }
   
   public createTable(name?: string): Table {
-    this.tableCounter++;
-    const id = this.generateId();
-    const tableNumber = this.tableCounter;
+    const tableNumber = this.getNextTableNumber();
     const tableName = name || `Mesa ${tableNumber}`;
     const pin = this.generatePin();
     

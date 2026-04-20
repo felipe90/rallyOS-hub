@@ -74,11 +74,10 @@ export class AdminHandler extends SocketHandlerBase {
       }
 
       socket.emit(SocketEvents.SERVER.PIN_REGENERATED, { tableId: data.tableId, newPin });
-      
-      // Emit TABLE_UPDATE so Dashboard reflects the reset
-      const tableInfo = this.tableManager.tableToInfo(table);
-      this.io.emit(SocketEvents.SERVER.TABLE_UPDATE, this.toPublicTableInfo(tableInfo));
-      
+
+      // NOTE: Don't emit TABLE_UPDATE here - client will fetch TABLE_LIST_WITH_PINS after PIN_REGENERATED
+      // This avoids UI flicker from TABLE_UPDATE (no PIN) followed by TABLE_LIST_WITH_PINS (with PIN)
+
       logger.info({ tableId: data.tableId }, 'PIN regenerated for table');
     });
 

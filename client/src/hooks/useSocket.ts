@@ -135,6 +135,9 @@ export function useSocket(options: UseSocketOptions = {}) {
     socket.on(SocketEvents.SERVER.TABLE_LIST_WITH_PINS, (data: { tables: TableInfoWithPin[] }) => {
       setTables(data.tables as TableInfo[]);
     });
+    socket.on(SocketEvents.SERVER.TABLE_DELETED, ({ tableId }: { tableId: string }) => {
+      setTables(prev => prev.filter(t => t.id !== tableId));
+    });
     socket.on(SocketEvents.SERVER.TABLE_CREATED, (_table: TableInfo) => {
       const ownerPin = localStorage.getItem('ownerPin')
       if (ownerPin) {

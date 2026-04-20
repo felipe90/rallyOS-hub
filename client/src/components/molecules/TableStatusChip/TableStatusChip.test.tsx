@@ -53,4 +53,81 @@ describe('TableStatusChip', () => {
     screen.getByText('Mesa 1').parentElement?.click();
     expect(handleClick).toHaveBeenCalledTimes(1);
   });
+
+  describe('delete button', () => {
+    it('renders delete button when onDelete is provided', () => {
+      const handleDelete = vi.fn();
+      render(<TableStatusChip tableNumber={1} tableName="Test" status="WAITING" onDelete={handleDelete} />);
+      expect(screen.getByRole('button', { name: /Eliminar Mesa/i })).toBeInTheDocument();
+    });
+
+    it('does not render delete button when onDelete is not provided', () => {
+      render(<TableStatusChip tableNumber={1} tableName="Test" status="WAITING" />);
+      expect(screen.queryByRole('button', { name: /Eliminar Mesa/i })).not.toBeInTheDocument();
+    });
+
+    it('calls onDelete when delete button is clicked', () => {
+      const handleDelete = vi.fn();
+      render(<TableStatusChip tableNumber={1} tableName="Test" status="WAITING" onDelete={handleDelete} />);
+      screen.getByRole('button', { name: /Eliminar Mesa/i }).click();
+      expect(handleDelete).toHaveBeenCalledTimes(1);
+    });
+
+    it('renders delete confirmation dialog when showDeleteConfirm is true', () => {
+      const handleDelete = vi.fn();
+      const handleDeleteConfirm = vi.fn();
+      const handleDeleteCancel = vi.fn();
+      render(
+        <TableStatusChip 
+          tableNumber={1} 
+          tableName="Test" 
+          status="WAITING" 
+          onDelete={handleDelete}
+          showDeleteConfirm={true}
+          onDeleteConfirm={handleDeleteConfirm}
+          onDeleteCancel={handleDeleteCancel}
+        />
+      );
+      // ConfirmDialog shows with the specific message about table deletion
+      expect(screen.getByText(/Estás seguro de eliminar la mesa/)).toBeInTheDocument();
+    });
+
+    it('calls onDeleteConfirm when confirming delete', () => {
+      const handleDelete = vi.fn();
+      const handleDeleteConfirm = vi.fn();
+      const handleDeleteCancel = vi.fn();
+      render(
+        <TableStatusChip 
+          tableNumber={1} 
+          tableName="Test" 
+          status="WAITING" 
+          onDelete={handleDelete}
+          showDeleteConfirm={true}
+          onDeleteConfirm={handleDeleteConfirm}
+          onDeleteCancel={handleDeleteCancel}
+        />
+      );
+      screen.getByRole('button', { name: /Eliminar$/i }).click();
+      expect(handleDeleteConfirm).toHaveBeenCalledTimes(1);
+    });
+
+    it('calls onDeleteCancel when canceling delete', () => {
+      const handleDelete = vi.fn();
+      const handleDeleteConfirm = vi.fn();
+      const handleDeleteCancel = vi.fn();
+      render(
+        <TableStatusChip 
+          tableNumber={1} 
+          tableName="Test" 
+          status="WAITING" 
+          onDelete={handleDelete}
+          showDeleteConfirm={true}
+          onDeleteConfirm={handleDeleteConfirm}
+          onDeleteCancel={handleDeleteCancel}
+        />
+      );
+      screen.getByRole('button', { name: /^Cancelar$/i }).click();
+      expect(handleDeleteCancel).toHaveBeenCalledTimes(1);
+    });
+  });
 });

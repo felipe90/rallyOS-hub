@@ -12,4 +12,8 @@ export interface TableStatusChipProps {
   showCleanConfirm?: boolean;
   onCleanConfirm?: () => void;
   onCleanCancel?: () => void;
+  onDelete?: () => void;           // Delete table - for Owner
+  showDeleteConfirm?: boolean;     // Show delete confirmation
+  onDeleteConfirm?: () => void;  // Confirm delete action
+  onDeleteCancel?: () => void;   // Cancel delete action
 }

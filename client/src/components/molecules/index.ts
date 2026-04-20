@@ -16,3 +16,6 @@ export type { HistoryListProps, ScoreChange } from './HistoryList'
 
 export { MatchContext, SetScore } from './MatchContext'
 export type { MatchContextProps, SetScoreProps } from './MatchContext'
+
+export { ConfirmDialog } from './ConfirmDialog'
+export type { ConfirmDialogProps, ConfirmDialogSeverity } from './ConfirmDialog'

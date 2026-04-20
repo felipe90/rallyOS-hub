@@ -16,54 +16,27 @@
 }
 
 /* Clubhouse Design Tokens - The Kinetic Clubhouse */
-/* Colors from theme.json - Single Source of Truth (Light Mode Default) */
 @theme {
-  /* Primary - from theme.json schemes.light */
-  --color-primary: #14B8A6;
-  --color-primary-light: #5EEAD4;
-  --color-primary-dark: #0D9488;
-  --color-onPrimary: #FFFFFF;
-  --color-primaryContainer: #CCFBF1;
-  --color-onPrimaryContainer: #115E59;
-
-  /* Secondary - from theme.json schemes.light */
-  --color-secondary: #2D6A4F;
-  --color-secondary-light: #6EE7B7;
-  --color-secondary-dark: #059669;
-  --color-onSecondary: #FFFFFF;
-  --color-secondaryContainer: #A7F3D0;
-  --color-onSecondaryContainer: #064E3B;
-
-  /* Tertiary - from theme.json schemes.light */
-  --color-tertiary: #F59E0B;
-  --color-tertiary-light: #FBBF24;
-  --color-tertiary-dark: #D97706;
-  --color-onTertiary: #FFFFFF;
-  --color-tertiaryContainer: #FEF3C7;
-  --color-onTertiaryContainer: #92400E;
-
-  /* Amber (alias for tertiary) */
-  --color-amber: #F59E0B;
-  --color-amber-light: #FBBF24;
-  --color-amber-dark: #D97706;
-
-  /* Surface - from theme.json schemes.light */
-  --color-background: #F1F5F9;
-  --color-surface: #F1F5F9;
-  --color-surface-low: #E2E8F0;
-  --color-surface-high: #CBD5E1;
+  --color-primary: #006b5f;
+  --color-primary-light: #00897b;
+  --color-primary-dark: #004d40;
+  --color-tertiary: #855300;
+  --color-tertiary-light: #b27500;
+  --color-tertiary-dark: #5e3800;
+  --color-amber: #da8a00;
+  --color-amber-light: #ffaa00;
   
-  /* Text - from theme.json schemes.light */
-  --color-text: #0F172A;
-  --color-text-h: #0F172A;
+  --color-background: #f7f9fb;
+  --color-surface-low: #f2f4f6;
+  --color-surface: #ffffff;
+  --color-surface-high: #e8eaed;
   
-  /* Border */
-  --color-border: #94A3B8;
-  --color-outline: #94A3B8;
+  --color-text: #6b6375;
+  --color-text-h: #08060d;
+  --color-border: #e5e4e7;
   
-  /* Gradients - derived from theme.json coreColors */
-  --color-gradient-primary: linear-gradient(135deg, #14B8A6 0%, #2D6A4F 100%);
-  --color-gradient-live: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+  --color-gradient-primary: linear-gradient(135deg, #006b5f 0%, #00897b 100%);
+  --color-gradient-live: linear-gradient(135deg, #da8a00 0%, #b27500 100%);
   
   --shadow-sm: 0 2px 8px rgba(25, 28, 30, 0.04);
   --shadow-md: 0 8px 24px rgba(25, 28, 30, 0.06);
@@ -81,69 +54,26 @@
 }
 
 /* Base styles layer */
-/* PWA Standalone Mode - Hide browser UI elements */
 @layer base {
-  /* When running as standalone PWA (installed app) */
-  :root.pwa-installed {
-    /* Hide scrollbars and overflow for app-like experience */
-    overflow: hidden;
-    height: 100dvh;
-    position: fixed;
-    inset: 0;
-  }
-  
-  /* iOS safe area handling */
-  body {
-    padding-top: env(safe-area-inset-top);
-    padding-bottom: env(safe-area-inset-bottom);
-    padding-left: env(safe-area-inset-left);
-    padding-right: env(safe-area-inset-right);
-  }
-  
-  /* Hide browser chrome when in standalone mode */
-  @supports (-webkit-touch-callout: none) {
-    .pwa-installed body {
-      /* iOS-specific fixes */
-      min-height: -webkit-fill-available;
-    }
-  }
-  
   :root {
-    /* Define CSS variables - from theme.json schemes.light */
-    --color-primary: #14B8A6;
-    --color-primary-light: #5EEAD4;
-    --color-primary-dark: #0D9488;
-    --color-onPrimary: #FFFFFF;
-    --color-primaryContainer: #CCFBF1;
-    --color-onPrimaryContainer: #115E59;
-
-    --color-secondary: #2D6A4F;
-    --color-secondary-light: #6EE7B7;
-    --color-secondary-dark: #059669;
-    --color-onSecondary: #FFFFFF;
-    --color-secondaryContainer: #A7F3D0;
-    --color-onSecondaryContainer: #064E3B;
-
-    --color-tertiary: #F59E0B;
-    --color-tertiary-light: #FBBF24;
-    --color-tertiary-dark: #D97706;
-    --color-onTertiary: #FFFFFF;
-    --color-tertiaryContainer: #FEF3C7;
-    --color-onTertiaryContainer: #92400E;
-
-    --color-amber: #F59E0B;
-    --color-amber-light: #FBBF24;
-    --color-amber-dark: #D97706;
-
-    --color-background: #F1F5F9;
-    --color-surface: #F1F5F9;
-    --color-surface-low: #E2E8F0;
-    --color-surface-high: #CBD5E1;
+    /* Define CSS variables for use in base styles */
+    --color-primary: #006b5f;
+    --color-primary-light: #00897b;
+    --color-primary-dark: #004d40;
+    --color-tertiary: #855300;
+    --color-tertiary-light: #b27500;
+    --color-tertiary-dark: #5e3800;
+    --color-amber: #da8a00;
+    --color-amber-light: #ffaa00;
     
-    --color-text: #0F172A;
-    --color-text-h: #0F172A;
-    --color-border: #94A3B8;
-    --color-outline: #94A3B8;
+    --color-background: #f7f9fb;
+    --color-surface-low: #f2f4f6;
+    --color-surface: #ffffff;
+    --color-surface-high: #e8eaed;
+    
+    --color-text: #6b6375;
+    --color-text-h: #08060d;
+    --color-border: #e5e4e7;
     
     --shadow-sm: 0 2px 8px rgba(25, 28, 30, 0.04);
     --shadow-md: 0 8px 24px rgba(25, 28, 30, 0.06);
@@ -163,17 +93,14 @@
     font: 18px/145% var(--font-body);
     letter-spacing: 0.18px;
     color: var(--color-text);
-background: var(--color-background);
+    background: var(--color-background);
     color-scheme: light;
     font-synthesis: none;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
-
-  /* Dark mode styles (currently disabled - ignore system preference) */
-  /* Future: enable with .dark class or JS toggle */
-    
+  
   #root {
     min-height: 100svh;
     display: flex;

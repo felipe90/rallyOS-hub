@@ -26,12 +26,21 @@ SERVER_URL="https://localhost:$SERVER_PORT"
 # Track process IDs for cleanup
 SERVER_PID=""
 CLIENT_PID=""
+SERVER_LOG_PID=""
+CLIENT_LOG_PID=""
+SERVER_LOG=""
+CLIENT_LOG=""
 
 # Cleanup function
 cleanup() {
     echo ""
     echo -e "${YELLOW}🛑 Shutting down...${NC}"
     
+    # Kill log streaming processes
+    [ -n "$SERVER_LOG_PID" ] && kill "$SERVER_LOG_PID" 2>/dev/null || true
+    [ -n "$CLIENT_LOG_PID" ] && kill "$CLIENT_LOG_PID" 2>/dev/null || true
+    
+    # Kill server and client
     if [ -n "$SERVER_PID" ] && kill -0 "$SERVER_PID" 2>/dev/null; then
         echo -e "${YELLOW}  Stopping server (PID: $SERVER_PID)...${NC}"
         kill "$SERVER_PID" 2>/dev/null || true
@@ -43,6 +52,9 @@ cleanup() {
         kill "$CLIENT_PID" 2>/dev/null || true
         wait "$CLIENT_PID" 2>/dev/null || true
     fi
+    
+    # Clean up named pipes
+    rm -f "$SERVER_LOG" "$CLIENT_LOG"
     
     echo -e "${GREEN}✓ Shutdown complete${NC}"
     exit 0
@@ -144,13 +156,36 @@ main() {
     print_success "Client build complete"
     cd "$SCRIPT_DIR"
     
+    # Create pipes for real-time log streaming
+    SERVER_LOG=$(mktemp -u)
+    CLIENT_LOG=$(mktemp -u)
+    mkfifo "$SERVER_LOG" "$CLIENT_LOG"
+    
+    # Colors for log output
+    SERVER_COLOR='\033[0;34m'  # Blue
+    CLIENT_COLOR='\033[0;32m'  # Green
+    ERROR_COLOR='\033[0;31m'   # Red
+    NC='\033[0m'
+    
+    # Function to log output with prefix
+    log_with_prefix() {
+        local prefix="$1"
+        local color="$2"
+        while IFS= read -r line; do
+            echo -e "${color}${prefix}${NC} $line"
+        done
+    }
+    
     # Start server
     print_step "Starting server on port $SERVER_PORT..."
     cd "$SERVER_DIR"
-    # Let server generate random PIN (shown in console)
-    NODE_ENV=development node --enable-source-maps dist/server/src/index.js &
+    NODE_ENV=development node --enable-source-maps dist/server/src/index.js > "$SERVER_LOG" 2>&1 &
     SERVER_PID=$!
     print_success "Server started (PID: $SERVER_PID)"
+    
+    # Start log streaming for server
+    log_with_prefix "🔌 SERVER" "$SERVER_COLOR" < "$SERVER_LOG" &
+    SERVER_LOG_PID=$!
     
     # Wait for server to start
     echo -e "${YELLOW}  Waiting for server to be ready...${NC}"
@@ -163,6 +198,7 @@ main() {
         if [ $i -eq 30 ]; then
             print_error "Server failed to start"
             kill $SERVER_PID 2>/dev/null || true
+            rm -f "$SERVER_LOG" "$CLIENT_LOG"
             exit 1
         fi
     done
@@ -173,9 +209,13 @@ main() {
     # Start client
     print_step "Starting client development server on port $CLIENT_PORT..."
     cd "$CLIENT_DIR"
-    VITE_SERVER_URL="$SERVER_URL" npm run dev &
+    VITE_SERVER_URL="$SERVER_URL" npm run dev > "$CLIENT_LOG" 2>&1 &
     CLIENT_PID=$!
     print_success "Client started (PID: $CLIENT_PID)"
+    
+    # Start log streaming for client
+    log_with_prefix "🌐 CLIENT" "$CLIENT_COLOR" < "$CLIENT_LOG" &
+    CLIENT_LOG_PID=$!
     
     # Display connection info
     echo ""
@@ -203,11 +243,37 @@ main() {
     echo -e "   • Client auto-reloads on code changes (HMR)"
     echo -e "   • Server requires manual restart after code changes"
     echo -e "   • Press CTRL+C to stop both server and client"
-    echo -e "   • Check browser console for WebSocket errors"
+    echo -e "   • Watch logs above for any errors!"
+    echo ""
+    echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${YELLOW} Monitoring logs... (Ctrl+C to stop)${NC}"
+    echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
     
-    # Wait for processes
-    wait
+    # Monitor processes - exit if either dies
+    while true; do
+        # Check if server is still running
+        if [ -n "$SERVER_PID" ] && ! kill -0 "$SERVER_PID" 2>/dev/null; then
+            echo ""
+            echo -e "${ERROR_COLOR}╔════════════════════════════════════════════════╗${NC}"
+            echo -e "${ERROR_COLOR}║  🔌 SERVER DIED! Check logs above for error   ║${NC}"
+            echo -e "${ERROR_COLOR}╚════════════════════════════════════════════════╝${NC}"
+            wait "$CLIENT_PID" 2>/dev/null || true
+            exit 1
+        fi
+        
+        # Check if client is still running
+        if [ -n "$CLIENT_PID" ] && ! kill -0 "$CLIENT_PID" 2>/dev/null; then
+            echo ""
+            echo -e "${ERROR_COLOR}╔════════════════════════════════════════════════╗${NC}"
+            echo -e "${ERROR_COLOR}║  🌐 CLIENT DIED! Check logs above for error  ║${NC}"
+            echo -e "${ERROR_COLOR}╚════════════════════════════════════════════════╝${NC}"
+            kill "$SERVER_PID" 2>/dev/null || true
+            exit 1
+        fi
+        
+        sleep 1
+    done
 }
 
 # Run main

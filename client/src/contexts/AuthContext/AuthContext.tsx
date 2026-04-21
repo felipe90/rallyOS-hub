@@ -21,7 +21,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   
   const [ownerPin, setOwnerPin] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('ownerPin') || null
+      return sessionStorage.getItem('ownerPin') || null
     }
     return null
   })
@@ -43,7 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setTableId(tId)
     }
     if (pin) {
-      localStorage.setItem('ownerPin', pin)
+      sessionStorage.setItem('ownerPin', pin)
       setOwnerPin(pin)
     }
   }
@@ -51,7 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = () => {
     localStorage.removeItem('role')
     localStorage.removeItem('tableId')
-    localStorage.removeItem('ownerPin')
+    sessionStorage.removeItem('ownerPin')
     localStorage.removeItem('tablePin')
     setRole(null)
     setTableId(null)
@@ -64,7 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('role', UserRoles.OWNER)
       setRole(UserRoles.OWNER)
       if (pin) {
-        localStorage.setItem('ownerPin', pin)
+        sessionStorage.setItem('ownerPin', pin)
         setOwnerPin(pin)
       }
     }

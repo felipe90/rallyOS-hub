@@ -103,15 +103,21 @@ export function ScoreButton({
   disabled?: boolean;
   className?: string;
 }) {
+  // Player A: bg-surface-low text-primary
+  // Player B: bg-primary text-surface
+  const buttonColorClass = side === 'A'
+    ? 'bg-surface-low text-primary'
+    : 'bg-primary text-surface';
+
   return (
     <div className={`flex flex-col justify-between items-center w-full h-full${className}`}>
       {/* Plus button */}
       <motion.button
         className={`
-          ${side === 'A' ? 'bg-secondary text-secondary' : 'bg-primary'} 
-          text-white font-heading text-4xl
+          ${buttonColorClass}
+          font-heading text-4xl
           aspect-square w-32 h-32 rounded-full
-          mb-4 mt-4 
+          mb-4 mt-4
           flex items-center justify-center
           shadow-md hover:shadow-lg
           active:scale-95 transition-transform
@@ -128,10 +134,10 @@ export function ScoreButton({
       {/* Minus button */}
       <motion.button
         className={`
-          ${side === 'A' ? 'bg-secondary text-secondary' : 'bg-primary'} 
-          text-white font-heading text-4xl
+          ${buttonColorClass}
+          font-heading text-4xl
           aspect-square w-32 h-32 rounded-full
-          mb-4 mt-4 
+          mb-4 mt-4
           flex items-center justify-center
           shadow-md hover:shadow-lg
           active:scale-95 transition-transform

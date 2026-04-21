@@ -1,10 +1,12 @@
 import { useMatchDisplay } from '../../../hooks/useMatchDisplay';
 import type { MatchStateExtended } from '../../../shared/types';
 import { MatchConfigPanel } from '../MatchConfigPanel';
-import { ScoreboardSidebar } from './components/ScoreboardSidebar';
+import { ScoreboardBar } from './components/ScoreboardBar';
 import { ScoreboardHeader } from './components/ScoreboardHeader';
 import { PlayerScoreArea } from './components/PlayerScoreArea';
 import { VSDivider, BackgroundDecor } from './components/ScoreDecorations';
+import { ToggleButton } from '../../atoms/Button/ToggleButton';
+import { Maximize2, Minimize2 } from 'lucide-react';
 
 export interface ScoreboardMainProps {
   match: MatchStateExtended;
@@ -16,6 +18,8 @@ export interface ScoreboardMainProps {
   onBackClick?: () => void;
   isReferee?: boolean;
   isConnected?: boolean;
+  isLandscape?: boolean;
+  onOrientationToggle?: () => void;
   className?: string;
 }
 
@@ -29,6 +33,8 @@ export function ScoreboardMain({
   onBackClick,
   isReferee = false,
   isConnected = true,
+  isLandscape = false,
+  onOrientationToggle,
   className = '',
 }: ScoreboardMainProps) {
   const { status, history, config } = match;
@@ -76,11 +82,12 @@ export function ScoreboardMain({
 
   return (
     <div className={`
-      flex flex-col h-full
-      landscape:flex-row landscape:gap-0
+      flex flex-col h-full relative
+      ${isLandscape ? 'flex-row' : ''}
       ${className}
     `}>
-      <ScoreboardSidebar 
+      {/* ScoreboardBar - responsive based on orientation */}
+      <ScoreboardBar 
         tableName={match.tableName}
         isConnected={isConnected}
         status={status}
@@ -89,27 +96,50 @@ export function ScoreboardMain({
         hasHistory={hasHistory}
         onHistoryClick={onHistoryClick}
         onSettingsClick={onSettingsClick}
+        isLandscape={isLandscape}
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col landscape:min-h-screen relative">
-        <ScoreboardHeader 
-          isConnected={isConnected}
-          setsA={setsA}
-          setsB={setsB}
-          hasHistory={hasHistory}
-          onHistoryClick={onHistoryClick}
-          onSettingsClick={onSettingsClick}
-          onBackClick={onBackClick}
-        />
+      <div className={`
+        flex-1 flex flex-col relative
+        ${isLandscape ? 'min-h-screen' : ''}
+      `}>
+        {/* Header - hidden in landscape mode */}
+        {!isLandscape && (
+          <ScoreboardHeader 
+            isConnected={isConnected}
+            setsA={setsA}
+            setsB={setsB}
+            hasHistory={hasHistory}
+            onHistoryClick={onHistoryClick}
+            onSettingsClick={onSettingsClick}
+            onBackClick={onBackClick}
+          />
+        )}
+
+        {/* Orientation Toggle Button - visible for all roles */}
+        {onOrientationToggle && (
+          <ToggleButton
+            icon={isLandscape ? (
+              <Minimize2 className="w-5 h-5" />
+            ) : (
+              <Maximize2 className="w-5 h-5" />
+            )}
+            onClick={onOrientationToggle}
+            active={isLandscape}
+            position="bottom-right"
+            size="md"
+            className="z-50"
+          />
+        )}
 
         {/* Main Score Display */}
-        <div className="
+        <div className={`
           flex-1 flex items-center justify-center 
-          p-4 landscape:p-8 bg-surface
+          p-4 ${isLandscape ? 'py-2' : 'landscape:p-8'} bg-surface
           min-h-0
-        ">
-          <div className="flex w-full h-full landscape:flex-row">
+        `}>
+          <div className={`flex w-full h-full ${isLandscape ? 'flex-row' : ''}`}>
             <PlayerScoreArea
               isReferee={isReferee}
               side={leftPlayer}

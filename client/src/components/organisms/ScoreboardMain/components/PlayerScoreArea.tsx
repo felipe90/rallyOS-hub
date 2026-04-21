@@ -30,7 +30,7 @@ export function PlayerScoreArea({
   isLeft,
 }: PlayerScoreAreaProps) {
   const bgClass = isLeft 
-    ? 'bg-surface-container-low' 
+    ? 'bg-surface-low' 
     : 'bg-surface';
   
   return (
@@ -50,6 +50,11 @@ export function PlayerScoreArea({
       
       {/* Score Overlay */}
       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
+        {/* Serving Indicator - ABOVE player name */}
+        {isServing && (
+          <ServingIndicator side={side} />
+        )}
+        
         <div className="text-center mb-[-1rem]">
           <Title className="text-xl tracking-tight">{playerName || `Player ${side}`}</Title>
           {isReferee && handicap !== undefined && handicap !== 0 && (
@@ -62,7 +67,8 @@ export function PlayerScoreArea({
           )}
         </div>
         
-        <div className="font-heading font-bold text-[18rem] leading-none text-text-h tracking-tighter drop-shadow-2xl">
+        {/* Responsive score font with clamp */}
+        <div className="font-heading font-bold text-[clamp(8rem,20vw,18rem)] leading-none text-text-h tracking-tighter drop-shadow-2xl">
           {score}
         </div>
         
@@ -74,15 +80,11 @@ export function PlayerScoreArea({
                 key={i}
                 className={`
                   w-3 h-3 rounded-full shadow-[0_0_8px_rgba(0,107,95,0.5)]
-                  ${i < setsWon ? 'bg-primary' : 'bg-outline/30'}
+                  ${i < setsWon ? 'bg-primary' : 'bg-border/30'}
                 `}
               />
             ))}
           </div>
-        )}
-        
-        {isServing && (
-          <ServingIndicator side={side} />
         )}
       </div>
     </section>

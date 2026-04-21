@@ -34,7 +34,7 @@ const validateName = (name?: string): boolean =>
 
 const validateTablePin = (pin: string): boolean => /^\d{4}$/.test(pin);
 
-const validateOwnerPin = (pin: string): boolean => /^\d{5,8}$/.test(pin);
+const validateOwnerPin = (pin: string): boolean => /^\d{8}$/.test(pin);
 
 export function useSocket(options: UseSocketOptions = {}) {
   // Auto-detect server URL if not provided
@@ -116,7 +116,7 @@ export function useSocket(options: UseSocketOptions = {}) {
 
     // Reconnect listener: re-request tables when socket reconnects (may have missed updates)
     socket.on('reconnect', () => {
-      const ownerPin = localStorage.getItem('ownerPin');
+      const ownerPin = sessionStorage.getItem('ownerPin');
       if (ownerPin) {
         socket.emit(SocketEvents.CLIENT.GET_TABLES_WITH_PINS, { ownerPin });
       } else {
@@ -139,7 +139,7 @@ export function useSocket(options: UseSocketOptions = {}) {
       setTables(prev => prev.filter(t => t.id !== tableId));
     });
     socket.on(SocketEvents.SERVER.TABLE_CREATED, (_table: TableInfo) => {
-      const ownerPin = localStorage.getItem('ownerPin')
+      const ownerPin = sessionStorage.getItem('ownerPin')
       if (ownerPin) {
         socket.emit(SocketEvents.CLIENT.GET_TABLES_WITH_PINS, { ownerPin })
       }

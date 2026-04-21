@@ -57,7 +57,7 @@ export class TableEventHandler extends SocketHandlerBase {
 
     // GET_TABLES_WITH_PINS: Owner only
     socket.on(SocketEvents.CLIENT.GET_TABLES_WITH_PINS, (data?: { ownerPin?: string }) => {
-      if (!validateSocketPayload(socket, data || {}, { ownerPin: { required: false, type: 'string', pattern: /^\d{5,8}$/ } }, 'GET_TABLES_WITH_PINS')) {
+      if (!validateSocketPayload(socket, data || {}, { ownerPin: { required: false, type: 'string', pattern: /^\d{8}$/ } }, 'GET_TABLES_WITH_PINS')) {
         return;
       }
 
@@ -158,9 +158,10 @@ export class TableEventHandler extends SocketHandlerBase {
         return this.emitError(socket, 'TABLE_NOT_FOUND', 'Mesa no encontrada');
       }
 
-      // Only validate PIN if provided (for backwards compatibility with referees)
-      if (data.pin && table.pin !== data.pin) {
-        return this.emitError(socket, 'INVALID_PIN', 'PIN incorrecto');
+      const isOwner = (socket as any).data?.isOwner === true;
+      const isRef = this.tableManager.isReferee(data.tableId, socket.id);
+      if (!isOwner && !isRef) {
+        return this.emitError(socket, 'UNAUTHORIZED', 'No autorizado');
       }
 
       // Notify room and delete

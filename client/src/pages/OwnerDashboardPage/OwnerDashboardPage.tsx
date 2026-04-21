@@ -11,7 +11,6 @@ import { PageHeader } from '@/components/molecules/PageHeader'
 import { PinModal } from '@/components/molecules/PinModal'
 import { useSocketContext } from '@/contexts/SocketContext'
 import { useAuthContext } from '@/contexts/AuthContext'
-import { useDashboardAuth } from '@/hooks/useDashboardAuth'
 import { Button } from '@/components/atoms/Button'
 import { SocketEvents } from '@shared/events'
 import { Routes, buildScoreboardRoute } from '@/routes'
@@ -33,8 +32,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
   const [pinLoading, setPinLoading] = useState(false)
   const navigate = useNavigate()
   const { tables, connected, createTable, socket, requestTablesWithPins, emit: _emit } = useSocketContext()
-  const { logout, ownerPin } = useAuthContext()
-  const { isOwner } = useDashboardAuth()
+  const { logout, ownerPin, isOwner } = useAuthContext()
 
   // Owner always gets tables with PINs
   useEffect(() => {

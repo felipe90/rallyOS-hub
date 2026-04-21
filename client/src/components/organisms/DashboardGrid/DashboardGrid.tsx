@@ -24,6 +24,10 @@ export interface DashboardGridProps {
   cleanTableId?: string | null;  // Table ID being confirmed for cleaning
   onCleanTableConfirm?: () => void;  // Confirm clean
   onCleanTableCancel?: () => void;    // Cancel clean
+  onDeleteTable?: (tableId: string) => void;  // Delete table (Owner only)
+  showDeleteConfirm?: string | null;  // Table ID being confirmed for deletion
+  onDeleteTableConfirm?: () => void;  // Confirm delete
+  onDeleteTableCancel?: () => void;    // Cancel delete
 }
 
 export function DashboardGrid({ 
@@ -37,6 +41,10 @@ export function DashboardGrid({
   cleanTableId,
   onCleanTableConfirm,
   onCleanTableCancel,
+  onDeleteTable,
+  showDeleteConfirm,
+  onDeleteTableConfirm,
+  onDeleteTableCancel,
 }: DashboardGridProps) {
   // Helper for QR code display
   const getQrDisplay = (tableId: string) => {
@@ -70,6 +78,10 @@ export function DashboardGrid({
               showCleanConfirm={cleanTableId === table.id}
               onCleanConfirm={onCleanTableConfirm}
               onCleanCancel={onCleanTableCancel}
+              onDelete={onDeleteTable ? () => onDeleteTable(table.id) : undefined}
+              showDeleteConfirm={showDeleteConfirm === table.id}
+              onDeleteConfirm={onDeleteTableConfirm}
+              onDeleteCancel={onDeleteTableCancel}
             />
           </motion.div>
         ))}
@@ -106,6 +118,10 @@ export function DashboardGrid({
               showCleanConfirm={cleanTableId === table.id}
               onCleanConfirm={onCleanTableConfirm}
               onCleanCancel={onCleanTableCancel}
+              onDelete={onDeleteTable ? () => onDeleteTable(table.id) : undefined}
+              showDeleteConfirm={showDeleteConfirm === table.id}
+              onDeleteConfirm={onDeleteTableConfirm}
+              onDeleteCancel={onDeleteTableCancel}
             />
           </motion.div>
         );
@@ -131,9 +147,7 @@ export function DashboardHeader({
 }: Partial<DashboardHeaderProps> & { viewMode?: 'grid' | 'list'; onViewModeChange?: (mode: 'grid' | 'list') => void } = {}) {
   return (
     <div className="flex flex-col gap-4 mb-6">
-      <div className="flex items-center justify-between">
-        <Title>Dashboard</Title>
-        
+      <div className="flex items-center justify-end">
         <div className="flex gap-1 p-1 bg-slate-100 rounded-full">
           <Button
             variant={viewMode === 'grid' ? 'secondary' : 'ghost'}

@@ -81,7 +81,6 @@ describe('DashboardHeader', () => {
         onViewModeChange={() => {}}
       />
     );
-    expect(screen.getByText('Dashboard')).toBeInTheDocument();
     expect(screen.getByText('5')).toBeInTheDocument();
     expect(screen.getByText('2')).toBeInTheDocument();
     expect(screen.getByText('10')).toBeInTheDocument();

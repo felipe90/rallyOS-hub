@@ -9,6 +9,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useSocketContext, useAuthContext } from '@/contexts'
 import { useScoreboardAuth } from '@/hooks/useScoreboardAuth'
 import { useScoreboardUrl } from '@/hooks/useScoreboardUrl'
+import { useOrientation } from '@/hooks/useOrientation'
 import { useScoreboardEvents } from './useScoreboardEvents'
 import { useMatchState, useRefAuth, useRefRevoked } from './'
 import { ScoreboardMain } from '@/components/organisms/ScoreboardMain'
@@ -48,6 +49,7 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
   const { currentMatch, emit, connected, socket } = useSocketContext()
   const { isReferee } = useAuthContext()
   const { canEdit, canConfigure, canViewHistory } = useScoreboardAuth()
+  const { isLandscape, toggle: toggleOrientation } = useOrientation()
 
   useScoreboardUrl(tableId)
   const { handleScorePoint, handleSubtractPoint, handleUndo, handleSetServer, handleStartMatch, handleCancelMatch } =
@@ -82,7 +84,7 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
     <div className="flex flex-col h-screen bg-surface">
       <PageHeader
         title={`${currentMatch.playerNames?.a || 'A'} vs ${currentMatch.playerNames?.b || 'B'}`}
-        landscape={true}
+        landscape={isLandscape}
         actions={<>
           {canViewHistory && <Button variant="secondary" size="sm" onClick={() => setHistoryOpen(true)}>Historial</Button>}
           <Button variant="ghost" size="sm" onClick={() => navigate(backRoute)}>Atrás</Button>
@@ -98,6 +100,8 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
           onHistoryClick={() => setHistoryOpen(true)}
           onBackClick={() => navigate(backRoute)}
           isReferee={canEdit}
+          isLandscape={isLandscape}
+          onOrientationToggle={toggleOrientation}
         />
       </div>
       <HistoryDrawer

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { renderWithProviders } from '@/test/test-utils'
-import { useDashboardAuth } from '@/hooks/useDashboardAuth'
+import { useAuthContext } from '@/contexts/AuthContext'
 import type { MatchStateExtended } from '@/shared/types'
 
 const mockNavigate = vi.fn()
@@ -15,11 +15,15 @@ vi.mock('react-router-dom', async () => {
   }
 })
 
-vi.mock('@/hooks/useDashboardAuth', () => ({
-  useDashboardAuth: vi.fn(),
-}))
+vi.mock('@/contexts/AuthContext', async () => {
+  const actual = await vi.importActual('@/contexts/AuthContext')
+  return {
+    ...(actual as any),
+    useAuthContext: vi.fn(),
+  }
+})
 
-const mockUseDashboardAuth = useDashboardAuth as ReturnType<typeof vi.fn>
+const mockUseAuthContext = useAuthContext as ReturnType<typeof vi.fn>
 
 const createMockMatch = (history: MatchStateExtended['history'] = []): MatchStateExtended => ({
   tableId: 'test-table',
@@ -57,12 +61,18 @@ describe('HistoryViewPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     // Default: user is owner, so page renders normally
-    mockUseDashboardAuth.mockReturnValue({
+    mockUseAuthContext.mockReturnValue({
       isOwner: true,
       isReferee: false,
-      canCreateTable: true,
-      showPinColumn: true,
-      showQrColumn: true,
+      role: 'owner',
+      isViewer: false,
+      isAuthenticated: true,
+      tableId: null,
+      ownerPin: null,
+      login: vi.fn(),
+      logout: vi.fn(),
+      setOwner: vi.fn(),
+      setTablePin: vi.fn(),
     })
   })
 
@@ -191,12 +201,18 @@ describe('HistoryViewPage', () => {
     const { HistoryViewPage } = await import('./HistoryViewPage')
     
     // Set user as non-owner (referee)
-    mockUseDashboardAuth.mockReturnValue({
+    mockUseAuthContext.mockReturnValue({
       isOwner: false,
       isReferee: true,
-      canCreateTable: false,
-      showPinColumn: false,
-      showQrColumn: false,
+      role: 'referee',
+      isViewer: false,
+      isAuthenticated: true,
+      tableId: null,
+      ownerPin: null,
+      login: vi.fn(),
+      logout: vi.fn(),
+      setOwner: vi.fn(),
+      setTablePin: vi.fn(),
     })
     
     renderWithProviders(
@@ -216,12 +232,18 @@ describe('HistoryViewPage', () => {
     const { HistoryViewPage } = await import('./HistoryViewPage')
     
     // Set user as viewer (spectator)
-    mockUseDashboardAuth.mockReturnValue({
+    mockUseAuthContext.mockReturnValue({
       isOwner: false,
       isReferee: false,
-      canCreateTable: false,
-      showPinColumn: false,
-      showQrColumn: false,
+      role: 'viewer',
+      isViewer: true,
+      isAuthenticated: true,
+      tableId: null,
+      ownerPin: null,
+      login: vi.fn(),
+      logout: vi.fn(),
+      setOwner: vi.fn(),
+      setTablePin: vi.fn(),
     })
     
     renderWithProviders(

@@ -96,7 +96,7 @@ check_env_files() {
     
     if [ -f ".env" ]; then
         check_pass ".env file exists"
-        echo "  REFEREE_PIN: $(grep REFEREE_PIN .env 2>/dev/null | cut -d= -f2 || echo 'not set')"
+        echo "  TOURNAMENT_OWNER_PIN: $(grep TOURNAMENT_OWNER_PIN .env 2>/dev/null | cut -d= -f2 || echo 'not set')"
         echo "  PORT: $(grep '^PORT=' .env 2>/dev/null | cut -d= -f2 || echo '3000')"
     else
         check_warn ".env not found (using defaults)"

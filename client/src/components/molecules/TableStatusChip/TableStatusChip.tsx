@@ -1,9 +1,11 @@
+import { useState, useEffect } from 'react';
 import type { TableStatus } from '../../../shared/types';
 import { WaitingBadge, ConfiguringBadge, LiveBadge, FinishedBadge } from '../../atoms/Badge';
 import { Body } from '../../atoms/Typography';
 import { Button } from '../../atoms/Button';
 import { QRCodeImage } from '../QRCodeImage';
-import { RefreshCw } from 'lucide-react';
+import { ConfirmDialog } from '../ConfirmDialog';
+import { RefreshCw, Trash2 } from 'lucide-react';
 
 /* TableStatusChip Molecule - Table info card component */
 export interface TableStatusChipProps {
@@ -21,6 +23,10 @@ export interface TableStatusChipProps {
   showCleanConfirm?: boolean;  // Show confirmation dialog
   onCleanConfirm?: () => void;  // Confirm clean action
   onCleanCancel?: () => void;   // Cancel clean action
+  onDelete?: () => void;           // Delete table (only for Owner)
+  showDeleteConfirm?: boolean;        // Show delete confirmation
+  onDeleteConfirm?: () => void;       // Confirm delete action
+  onDeleteCancel?: () => void;        // Cancel delete action
 }
 
 const statusBadge: Record<TableStatus, typeof WaitingBadge> = {
@@ -45,9 +51,26 @@ export function TableStatusChip({
   showCleanConfirm = false,
   onCleanConfirm,
   onCleanCancel,
+  onDelete,
+  showDeleteConfirm = false,
+  onDeleteConfirm,
+  onDeleteCancel,
 }: TableStatusChipProps) {
   const StatusBadgeComponent = statusBadge[status];
-  
+
+  // Keep last known PIN to prevent flicker during updates
+  const [lastKnownPin, setLastKnownPin] = useState(pin);
+
+  useEffect(() => {
+    if (pin) {
+      setLastKnownPin(pin);
+    }
+  }, [pin]);
+
+  // Use last known PIN if current pin is undefined (during transition)
+  const displayPin = pin || lastKnownPin;
+  const hasPin = !!displayPin;
+
   return (
     <div
       onClick={onClick}
@@ -87,15 +110,15 @@ export function TableStatusChip({
       )}
 
       {/* PIN and QR for Owner (RF-01, RF-02) */}
-      {pin && (
+      {hasPin && (
         <div className="flex items-center gap-2 mt-1 pt-2 border-t border-border/30">
           <div className="flex items-center gap-1">
             <Body className="text-xs text-text/50">PIN:</Body>
-            <Body className="text-sm font-mono font-bold text-primary">{pin}</Body>
+            <Body className="text-sm font-mono font-bold text-primary">{displayPin}</Body>
           </div>
-          {pin && tableId && (
+          {displayPin && tableId && (
             <div className="ml-auto">
-              <QRCodeImage tableId={tableId} pin={pin} size={48} />
+              <QRCodeImage tableId={tableId} pin={displayPin} size={48} />
             </div>
           )}
         </div>
@@ -115,26 +138,43 @@ export function TableStatusChip({
         </Button>
       )}
 
-      {/* Clean confirmation - rendered inline */}
-      {showCleanConfirm && onCleanConfirm && onCleanCancel && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50" onClick={onCleanCancel} />
-          <div className="relative bg-surface rounded-lg shadow-xl p-6 w-full max-w-sm">
-            <Body className="text-xl font-heading text-center mb-2">Limpiar Mesa</Body>
-            <Body className="text-center text-text/70 mb-6">
-              ¿Estás seguro de resetear esta mesa? Se borrarán los nombres, el score y se generará un nuevo PIN.
-            </Body>
-            <div className="flex gap-3">
-              <Button variant="secondary" onClick={() => onCleanCancel()} stopPropagation className="flex-1">
-                Cancelar
-              </Button>
-              <Button variant="danger" onClick={() => onCleanConfirm()} stopPropagation className="flex-1">
-                Limpiar
-              </Button>
-            </div>
-          </div>
-        </div>
+      {/* Delete button for Owner */}
+      {onDelete && (
+        <Button
+          variant="secondary"
+          size="sm"
+          icon={<Trash2 size={16} />}
+          onClick={() => onDelete()}
+          stopPropagation
+          className="mt-2 text-red-500 hover:text-red-600"
+        >
+          Eliminar Mesa
+        </Button>
       )}
+
+      {/* Clean confirmation - using ConfirmDialog component */}
+      <ConfirmDialog
+        isOpen={showCleanConfirm && !!onCleanConfirm && !!onCleanCancel}
+        title="Limpiar Mesa"
+        message="¿Estás seguro de resetear esta mesa? Se borrarán los nombres, el score y se generará un nuevo PIN."
+        severity="warning"
+        confirmLabel="Limpiar"
+        cancelLabel="Cancelar"
+        onConfirm={() => onCleanConfirm?.()}
+        onCancel={() => onCleanCancel?.()}
+      />
+
+      {/* Delete confirmation - using ConfirmDialog component */}
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        title="Eliminar Mesa"
+        message={`¿Estás seguro de eliminar la mesa "${tableName}"? Esta acción no se puede deshacer.`}
+        severity="error"
+        confirmLabel="Eliminar"
+        cancelLabel="Cancelar"
+        onConfirm={() => onDeleteConfirm?.()}
+        onCancel={() => onDeleteCancel?.()}
+      />
     </div>
   );
 }

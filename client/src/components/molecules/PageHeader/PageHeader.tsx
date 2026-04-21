@@ -17,8 +17,10 @@ export function PageHeader({
 }: PageHeaderProps) {
   return (
     <>
-      {showStatus && <ConnectionStatus />}
-      {showStatus && <div className="h-[48px] w-full shrink-0" />}
+      {showStatus && <div className={`${landscape ? 'landscape:hidden' : ''}`}>
+        <ConnectionStatus />
+        <div className="h-[48px] w-full shrink-0" />
+      </div>}
       <header className={`p-4 m-2 border-b border-border flex justify-between items-center ${landscape ? 'landscape:hidden' : ''}`}>
         <div className="flex-1">
           <h1 className="text-2xl font-heading font-bold">{title}</h1>

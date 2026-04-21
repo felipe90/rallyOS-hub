@@ -55,10 +55,12 @@ export class MatchEventHandler extends SocketHandlerBase {
       ptsPerSet?: number;
       handicap?: { a: number; b: number }
     }) => {
-      if (!validateSocketPayload(socket, data, { 
-        tableId: { required: true, type: 'string', maxLength: 36 }, 
-        playerNames: { type: 'object', required: false }, 
-        matchConfig: { type: 'object', required: false } 
+      if (!validateSocketPayload(socket, data, {
+        tableId: { required: true, type: 'string', maxLength: 36 },
+        playerNames: { type: 'object', required: false },
+        format: { type: 'number', required: false, min: 1, max: 9 },
+        ptsPerSet: { type: 'number', required: false, min: 1, max: 99 },
+        handicap: { type: 'object', required: false },
       }, 'CONFIGURE_MATCH')) {
         return;
       }
@@ -242,9 +244,12 @@ export class MatchEventHandler extends SocketHandlerBase {
 
       if (!this.validateReferee(socket, data.tableId)) return;
 
-      const state = this.tableManager.resetTable(data.tableId, data.config);
-      if (state) {
-        this.io.to(data.tableId).emit(SocketEvents.SERVER.MATCH_UPDATE, state);
+      this.tableManager.resetTable(data.tableId, data.config);
+
+      const table = this.tableManager.getTable(data.tableId);
+      if (table) {
+        const tableInfo = this.tableManager.tableToInfo(table);
+        this.io.to(data.tableId).emit(SocketEvents.SERVER.TABLE_UPDATE, this.toPublicTableInfo(tableInfo));
       }
     });
 

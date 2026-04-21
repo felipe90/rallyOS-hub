@@ -78,8 +78,16 @@ main() {
     print_step "Pre-building client locally..."
     if [ -f "client/package.json" ]; then
         cd "$SCRIPT_DIR/client"
-        npm ci --force 2>&1 | tail -2
-        npm run build 2>&1 | grep -E "built|errors" | tail -3
+        if ! npm ci --force 2>&1 | tail -2; then
+            print_error "npm ci failed for client!"
+            exit 1
+        fi
+        if ! npm run build 2>&1 | tee /tmp/client-build.log | grep -E "built|error" | tail -3; then
+            print_error "Client build failed!"
+            echo -e "${YELLOW}📋 Error log:${NC}"
+            cat /tmp/client-build.log | grep -E "error|Error|ERROR" | head -20
+            exit 1
+        fi
         cd "$SCRIPT_DIR"
         print_success "Client pre-build complete"
     else
@@ -90,8 +98,16 @@ main() {
     print_step "Pre-building server locally..."
     if [ -f "server/package.json" ]; then
         cd "$SCRIPT_DIR/server"
-        npm ci --force 2>&1 | tail -2
-        npm run build 2>&1 | grep -E "tsc|errors" | tail -3
+        if ! npm ci --force 2>&1 | tail -2; then
+            print_error "npm ci failed for server!"
+            exit 1
+        fi
+        if ! npm run build 2>&1 | tee /tmp/server-build.log | grep -E "tsc|error" | tail -3; then
+            print_error "Server build failed!"
+            echo -e "${YELLOW}📋 Error log:${NC}"
+            cat /tmp/server-build.log | grep -E "error|Error|ERROR" | head -20
+            exit 1
+        fi
         cd "$SCRIPT_DIR"
         print_success "Server pre-build complete"
     else
@@ -101,13 +117,23 @@ main() {
     
     print_step "Building Docker image..."
     print_step "This may take 2-5 minutes on Orange Pi Zero..."
-    docker-compose build --no-cache
+    if ! docker-compose build --no-cache 2>&1; then
+        print_error "Docker build failed!"
+        echo -e "${YELLOW}📋 Build logs:${NC}"
+        docker-compose build --no-cache 2>&1 | tail -50 || true
+        exit 1
+    fi
     
     print_step "Stopping any existing containers..."
     docker-compose down 2>/dev/null || true
     
     print_step "Starting application..."
-    docker-compose up -d
+    if ! docker-compose up -d 2>&1; then
+        print_error "Failed to start containers!"
+        echo -e "${YELLOW}📋 Container logs:${NC}"
+        docker-compose logs --tail=30 hub 2>&1 || true
+        exit 1
+    fi
     
     # Wait for service to be ready
     print_step "Waiting for service to start (up to 30 seconds)..."
@@ -148,8 +174,10 @@ main() {
         echo -e "${GREEN}════════════════════════════════════════════════════════════${NC}"
     else
         print_error "Service failed to start"
-        print_step "Checking logs..."
-        docker-compose logs --tail=50
+        print_step "Container logs:"
+        docker-compose logs --tail=50 2>&1 || true
+        print_step "Container status:"
+        docker ps -a --filter "name=rally" 2>&1 || true
         print_error "Try running: docker-compose logs -f hub"
         exit 1
     fi

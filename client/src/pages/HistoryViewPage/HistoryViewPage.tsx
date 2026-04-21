@@ -6,7 +6,7 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSocketContext } from '@/contexts/SocketContext'
-import { useDashboardAuth } from '@/hooks/useDashboardAuth'
+import { useAuthContext } from '@/contexts/AuthContext'
 import { PageHeader } from '@/components/molecules/PageHeader'
 import { Button } from '@/components/atoms/Button'
 import { Typography } from '@/components/atoms/Typography'
@@ -15,7 +15,7 @@ import { Routes } from '@/routes'
 export function HistoryViewPage() {
   const navigate = useNavigate()
   const { currentMatch } = useSocketContext()
-  const { isOwner, isReferee } = useDashboardAuth()
+  const { isOwner, isReferee } = useAuthContext()
 
   // Redirect non-owners to their appropriate dashboard based on role
   useEffect(() => {

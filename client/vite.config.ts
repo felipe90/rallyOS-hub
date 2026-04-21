@@ -14,7 +14,7 @@ export default defineConfig({
         description: 'Real-time scoreboard for rally events',
         theme_color: '#1a1a2e',
         background_color: '#1a1a2e',
-        display: 'standalone',
+        display: 'fullscreen',
         orientation: 'portrait',
         start_url: '/',
         scope: '/',

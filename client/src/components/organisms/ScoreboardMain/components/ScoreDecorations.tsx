@@ -23,11 +23,9 @@ export function BackgroundDecor() {
 
 export function ServingIndicator({ side }: { side: 'A' | 'B' }) {
   return (
-    <div
-    // className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse`}
-    >
-      <div className={`w-4 h-4 bg-amber rounded-full`} />
-      <span className="text-amber text-lg">Servicio</span>
+    <div className="flex items-center gap-2 mb-2">
+      <div className="w-4 h-4 bg-amber rounded-full animate-pulse" />
+      <span className="text-tertiary text-lg font-medium">Servicio</span>
     </div>
   );
 }

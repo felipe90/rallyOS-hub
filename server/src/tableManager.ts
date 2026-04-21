@@ -6,7 +6,6 @@ import { logger } from './utils/logger';
 
 export class TableManager {
   private tables: Map<string, Table> = new Map();
-  private tableCounter: number = 0;
   private hubConfig: { ssid: string; ip: string; port: number };
   
   public onTableUpdate: (table: TableInfo) => void = () => {};
@@ -15,13 +14,30 @@ export class TableManager {
   constructor(hubConfig: { ssid: string; ip: string; port: number }) {
     this.hubConfig = hubConfig;
   }
+
+  /**
+   * Find the next available table number (lowest positive integer not in use)
+   */
+  private getNextTableNumber(): number {
+    const usedNumbers = new Set<number>();
+    for (const table of this.tables.values()) {
+      usedNumbers.add(table.number);
+    }
+
+    // Find the lowest positive integer not in use
+    let nextNumber = 1;
+    while (usedNumbers.has(nextNumber)) {
+      nextNumber++;
+    }
+    return nextNumber;
+  }
   
   public createTable(name?: string): Table {
-    this.tableCounter++;
-    const id = this.generateId();
-    const tableNumber = this.tableCounter;
+    const tableNumber = this.getNextTableNumber();
     const tableName = name || `Mesa ${tableNumber}`;
     const pin = this.generatePin();
+    
+    const id = this.generateId();
     
     const table: Table = {
       id,
@@ -263,9 +279,9 @@ export class TableManager {
     return state;
   }
   
-  public resetTable(tableId: string, config?: MatchConfig): MatchStateExtended | null {
+  public resetTable(tableId: string, config?: MatchConfig): void {
     const table = this.tables.get(tableId);
-    if (!table) return null;
+    if (!table) return;
     
     table.matchEngine = new MatchEngine(config);
     table.matchEngine.setTableId(table.id, table.name);
@@ -275,8 +291,6 @@ export class TableManager {
     
     table.status = 'WAITING';
     this.notifyUpdate(table);
-    
-    return table.matchEngine.startMatch();
   }
   
   public getMatchState(tableId: string): MatchStateExtended | null {
@@ -317,7 +331,7 @@ export class TableManager {
   }
   
   private generatePin(): string {
-    return Math.floor(1000 + Math.random() * 9000).toString();
+    return crypto.randomInt(1000, 9999).toString();
   }
   
   /**

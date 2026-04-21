@@ -45,8 +45,16 @@ fi
 echo -e "${YELLOW}📦 Pre-building client...${NC}"
 if [ -f "client/package.json" ]; then
     cd "$PROJECT_DIR/client"
-    npm ci --force 2>&1 | tail -3
-    npm run build 2>&1 | grep -E "built|errors|✓|✗" | tail -5
+    if ! npm ci --force 2>&1 | tail -3; then
+        echo -e "${RED}✗ npm ci failed for client!${NC}"
+        exit 1
+    fi
+    if ! npm run build 2>&1 | tee /tmp/client-build.log | grep -E "built|error" | tail -5; then
+        echo -e "${RED}✗ Client build failed!${NC}"
+        echo -e "${YELLOW}📋 Error log:${NC}"
+        cat /tmp/client-build.log | grep -E "error|Error|ERROR" | head -20
+        exit 1
+    fi
     cd "$PROJECT_DIR"
     echo -e "${GREEN}✓${NC} Client pre-build complete"
 else
@@ -58,8 +66,16 @@ fi
 echo -e "${YELLOW}📦 Pre-building server...${NC}"
 if [ -f "server/package.json" ]; then
     cd "$PROJECT_DIR/server"
-    npm ci --force 2>&1 | tail -3
-    npm run build 2>&1 | grep -E "tsc|errors|✓|✗" | tail -5
+    if ! npm ci --force 2>&1 | tail -3; then
+        echo -e "${RED}✗ npm ci failed for server!${NC}"
+        exit 1
+    fi
+    if ! npm run build 2>&1 | tee /tmp/server-build.log | grep -E "tsc|error" | tail -5; then
+        echo -e "${RED}✗ Server build failed!${NC}"
+        echo -e "${YELLOW}📋 Error log:${NC}"
+        cat /tmp/server-build.log | grep -E "error|Error|ERROR" | head -20
+        exit 1
+    fi
     cd "$PROJECT_DIR"
     echo -e "${GREEN}✓${NC} Server pre-build complete"
 else
@@ -69,15 +85,18 @@ fi
 
 # Build and start containers
 echo -e "${YELLOW}🔨 Building Docker image (this may take a few minutes)...${NC}"
-if ! docker-compose build --no-cache; then
+if ! docker-compose build --no-cache 2>&1; then
     echo -e "${RED}✗ Docker build failed!${NC}"
+    echo -e "${YELLOW}📋 Build logs:${NC}"
+    docker-compose build --no-cache 2>&1 | tail -50 || true
     exit 1
 fi
 
 echo -e "${YELLOW}🚀 Starting containers...${NC}"
-if ! docker-compose up -d; then
+if ! docker-compose up -d 2>&1; then
     echo -e "${RED}✗ Failed to start containers!${NC}"
-    docker-compose logs
+    echo -e "${YELLOW}📋 Container logs:${NC}"
+    docker-compose logs --tail=30 hub 2>&1 || true
     exit 1
 fi
 
@@ -91,8 +110,11 @@ for i in {1..30}; do
     echo -n "."
     sleep 1
     if [ $i -eq 30 ]; then
-        echo -e "\n${RED}⚠️  Service did not become healthy in time. Check logs:${NC}"
-        docker-compose logs --tail=50 hub
+        echo -e "\n${RED}⚠️  Service did not become healthy in time.${NC}"
+        echo -e "${YELLOW}📋 Container logs:${NC}"
+        docker-compose logs --tail=50 hub 2>&1 || true
+        echo -e "${YELLOW}📋 Container status:${NC}"
+        docker ps -a --filter "name=rally" 2>&1 || true
         exit 1
     fi
 done

@@ -11,4 +11,4 @@ export interface AuthPageState {
   mode: AuthMode
 }
 
-export const REFEREE_PIN = '12345'
+export const DEFAULT_TABLE_PIN = '12345'

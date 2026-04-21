@@ -87,8 +87,15 @@ export class AuthHandler extends SocketHandlerBase {
 
     // VERIFY_OWNER: Verify tournament owner PIN
     socket.on(SocketEvents.CLIENT.VERIFY_OWNER, (data: { pin: string }) => {
-      if (!validateSocketPayload(socket, data, { pin: { required: true, type: 'string', pattern: /^\d{5,8}$/ } }, 'VERIFY_OWNER')) {
+      if (!validateSocketPayload(socket, data, { pin: { required: true, type: 'string', pattern: /^\d{8}$/ } }, 'VERIFY_OWNER')) {
         return;
+      }
+
+      const clientIp = socket.handshake.address;
+      const rateLimitKey = `VERIFY_OWNER:${clientIp}`;
+      if (this.isRateLimited(rateLimitKey)) {
+        this.logRateLimitBlocked('VERIFY_OWNER', 'owner-verify', clientIp);
+        return this.emitError(socket, 'RATE_LIMITED', 'Too many attempts. Please wait a minute before trying again.');
       }
 
       logger.info({ socketId: socket.id }, 'VERIFY_OWNER received');

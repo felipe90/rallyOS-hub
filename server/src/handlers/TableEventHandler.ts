@@ -57,7 +57,7 @@ export class TableEventHandler extends SocketHandlerBase {
 
     // GET_TABLES_WITH_PINS: Owner only
     socket.on(SocketEvents.CLIENT.GET_TABLES_WITH_PINS, (data?: { ownerPin?: string }) => {
-      if (!validateSocketPayload(socket, data || {}, { ownerPin: { required: false, type: 'string', pattern: /^\d{5,8}$/ } }, 'GET_TABLES_WITH_PINS')) {
+      if (!validateSocketPayload(socket, data || {}, { ownerPin: { required: false, type: 'string', pattern: /^\d{8}$/ } }, 'GET_TABLES_WITH_PINS')) {
         return;
       }
 
@@ -133,17 +133,17 @@ export class TableEventHandler extends SocketHandlerBase {
       }
     });
 
-    // DELETE_TABLE: Delete a table (requires PIN)
-    socket.on(SocketEvents.CLIENT.DELETE_TABLE, (data: { tableId: string; pin: string }) => {
-      if (!validateSocketPayload(socket, data, { 
-        tableId: { required: true, type: 'string', maxLength: 36 }, 
-        pin: { required: true, type: 'string', pattern: /^\d{4}$/ } 
+    // DELETE_TABLE: Delete a table (owner only - no PIN needed)
+    socket.on(SocketEvents.CLIENT.DELETE_TABLE, (data: { tableId: string; pin?: string }) => {
+      if (!validateSocketPayload(socket, data, {
+        tableId: { required: true, type: 'string', maxLength: 36 },
+        pin: { required: false, type: 'string', pattern: /^\d{4}$/ }
       }, 'DELETE_TABLE')) {
         return;
       }
 
-      if (!data?.tableId || !data?.pin) {
-        return this.emitError(socket, 'INVALID_PARAMS', 'tableId and pin required');
+      if (!data?.tableId) {
+        return this.emitError(socket, 'INVALID_PARAMS', 'tableId required');
       }
 
       const clientIp = socket.handshake.address;
@@ -158,8 +158,10 @@ export class TableEventHandler extends SocketHandlerBase {
         return this.emitError(socket, 'TABLE_NOT_FOUND', 'Mesa no encontrada');
       }
 
-      if (table.pin !== data.pin) {
-        return this.emitError(socket, 'INVALID_PIN', 'PIN incorrecto');
+      const isOwner = (socket as any).data?.isOwner === true;
+      const isRef = this.tableManager.isReferee(data.tableId, socket.id);
+      if (!isOwner && !isRef) {
+        return this.emitError(socket, 'UNAUTHORIZED', 'No autorizado');
       }
 
       // Notify room and delete

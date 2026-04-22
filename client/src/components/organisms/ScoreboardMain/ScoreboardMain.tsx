@@ -6,6 +6,7 @@ import { ScoreboardHeader } from './components/ScoreboardHeader';
 import { PlayerScoreArea } from './components/PlayerScoreArea';
 import { VSDivider, BackgroundDecor } from './components/ScoreDecorations';
 import { ToggleButton } from '../../atoms/Button/ToggleButton';
+import { MatchHistoryTicker } from '../../molecules/MatchHistoryTicker';
 import { Maximize2, Minimize2 } from 'lucide-react';
 
 export interface ScoreboardMainProps {
@@ -15,6 +16,7 @@ export interface ScoreboardMainProps {
   onUndo?: () => void;
   onHistoryClick?: () => void;
   onSettingsClick?: () => void;
+  onSwapSides?: () => void;
   onBackClick?: () => void;
   isReferee?: boolean;
   isConnected?: boolean;
@@ -30,6 +32,7 @@ export function ScoreboardMain({
   onUndo,
   onHistoryClick,
   onSettingsClick,
+  onSwapSides,
   onBackClick,
   isReferee = false,
   isConnected = true,
@@ -135,7 +138,7 @@ export function ScoreboardMain({
 
         {/* Main Score Display */}
         <div className={`
-          flex-1 flex items-center justify-center 
+          flex-1 flex items-center justify-center
           p-4 ${isLandscape ? 'py-2' : 'landscape:p-8'} bg-surface
           min-h-0
         `}>
@@ -153,9 +156,9 @@ export function ScoreboardMain({
               onSubtractPoint={onSubtractPoint}
               isLeft={true}
             />
-            
-            <VSDivider />
-            
+
+            <VSDivider onSwapSides={isReferee ? onSwapSides : undefined} />
+
             <PlayerScoreArea
               isReferee={isReferee}
               side={rightPlayer}
@@ -174,6 +177,9 @@ export function ScoreboardMain({
           </div>
         </div>
       </div>
+
+      {/* Match History Ticker - Broadcast Overlay */}
+      <MatchHistoryTicker history={history || []} />
     </div>
   );
 }

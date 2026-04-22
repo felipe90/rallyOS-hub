@@ -104,7 +104,7 @@ export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashb
         }
       />
 
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto bg-primary/10">
         <div className="p-4">
           <DashboardHeader
             totalTables={tables.length || 0}

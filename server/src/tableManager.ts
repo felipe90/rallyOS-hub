@@ -278,6 +278,15 @@ export class TableManager {
     if (state) this.notifyUpdate(table);
     return state;
   }
+
+  public swapSides(tableId: string): MatchStateExtended | null {
+    const table = this.tables.get(tableId);
+    if (!table || table.status !== 'LIVE') return null;
+    
+    const state = table.matchEngine.swapSides();
+    if (state) this.notifyUpdate(table);
+    return state;
+  }
   
   public resetTable(tableId: string, config?: MatchConfig): void {
     const table = this.tables.get(tableId);

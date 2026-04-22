@@ -146,11 +146,24 @@ export function TableStatusChip({
           icon={<Trash2 size={16} />}
           onClick={() => onDelete()}
           stopPropagation
-          className="mt-2 text-red-500 hover:text-red-600"
+          className="mt-2"
+          aria-label={`Eliminar mesa ${tableName}`}
         >
           Eliminar Mesa
         </Button>
       )}
+
+      {/* Delete confirmation dialog */}
+      <ConfirmDialog
+        isOpen={showDeleteConfirm && !!onDeleteConfirm && !!onDeleteCancel}
+        title="Eliminar Mesa"
+        message="¿Estás seguro de eliminar la mesa? Esta acción no se puede deshacer."
+        severity="error"
+        confirmLabel="Eliminar"
+        cancelLabel="Cancelar"
+        onConfirm={() => onDeleteConfirm?.()}
+        onCancel={() => onDeleteCancel?.()}
+      />
 
       {/* Clean confirmation - using ConfirmDialog component */}
       <ConfirmDialog
@@ -164,17 +177,6 @@ export function TableStatusChip({
         onCancel={() => onCleanCancel?.()}
       />
 
-      {/* Delete confirmation - using ConfirmDialog component */}
-      <ConfirmDialog
-        isOpen={showDeleteConfirm}
-        title="Eliminar Mesa"
-        message={`¿Estás seguro de eliminar la mesa "${tableName}"? Esta acción no se puede deshacer.`}
-        severity="error"
-        confirmLabel="Eliminar"
-        cancelLabel="Cancelar"
-        onConfirm={() => onDeleteConfirm?.()}
-        onCancel={() => onDeleteCancel?.()}
-      />
     </div>
   );
 }

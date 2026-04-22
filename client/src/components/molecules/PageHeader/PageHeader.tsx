@@ -19,7 +19,6 @@ export function PageHeader({
     <>
       {showStatus && <div className={`${landscape ? 'landscape:hidden' : ''}`}>
         <ConnectionStatus />
-        <div className="h-[48px] w-full shrink-0" />
       </div>}
       <header className={`p-4 m-2 border-b border-border flex justify-between items-center ${landscape ? 'landscape:hidden' : ''}`}>
         <div className="flex-1">

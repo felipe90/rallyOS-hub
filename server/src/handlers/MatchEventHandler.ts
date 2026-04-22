@@ -229,6 +229,24 @@ export class MatchEventHandler extends SocketHandlerBase {
       }
     });
 
+    // SWAP_SIDES: Manually swap player sides (referee only)
+    socket.on(SocketEvents.CLIENT.SWAP_SIDES, (data: { tableId: string }) => {
+      if (!validateSocketPayload(socket, data, { tableId: { required: true, type: 'string', maxLength: 36 } }, 'SWAP_SIDES')) {
+        return;
+      }
+
+      if (!data?.tableId) {
+        return this.emitError(socket, 'INVALID_PARAMS', 'tableId required');
+      }
+
+      if (!this.validateReferee(socket, data.tableId)) return;
+
+      const state = this.tableManager.swapSides(data.tableId);
+      if (state) {
+        this.io.to(data.tableId).emit(SocketEvents.SERVER.MATCH_UPDATE, state);
+      }
+    });
+
     // RESET_TABLE: Reset table
     socket.on(SocketEvents.CLIENT.RESET_TABLE, (data: { tableId: string; config?: MatchConfig }) => {
       if (!validateSocketPayload(socket, data, { 

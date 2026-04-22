@@ -156,7 +156,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
   }
 
   return (
-    <div className="flex flex-col h-screen bg-surface">
+    <div className="flex flex-col h-screen bg-surface ">
       <PageHeader
         title="Panel de Organizador"
         subtitle="Crea mesas, gestiona árbitros y partidos"
@@ -197,7 +197,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
         }
       />
 
-      <div className="flex-1 overflow-auto ">
+      <div className="flex-1 overflow-auto bg-primary/10">
         <div className="p-4 ">
           <DashboardHeader
             totalTables={tables.length || 0}

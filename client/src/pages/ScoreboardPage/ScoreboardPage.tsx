@@ -16,8 +16,9 @@ import { ScoreboardMain } from '@/components/organisms/ScoreboardMain'
 import { MatchConfigPanel } from '@/components/organisms/MatchConfigPanel'
 import { HistoryDrawer } from '@/components/organisms/HistoryDrawer'
 import { PageHeader } from '@/components/molecules/PageHeader'
-import { ConnectionStatus, Button, Typography } from '@/components/atoms'
-import { useState } from 'react'
+import { ConfirmDialog } from '@/components/molecules/ConfirmDialog'
+import { ConnectionStatus, Button, Typography, CoachMark } from '@/components/atoms'
+import { useState, useEffect } from 'react'
 import { Routes } from '@/routes'
 
 export interface ScoreboardPageProps {}
@@ -47,18 +48,26 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
   const { tableId } = useParams<{ tableId: string }>()
   const navigate = useNavigate()
   const { currentMatch, emit, connected, socket } = useSocketContext()
-  const { isReferee } = useAuthContext()
+  const { isReferee, isOwner } = useAuthContext()
   const { canEdit, canConfigure, canViewHistory } = useScoreboardAuth()
   const { isLandscape, toggle: toggleOrientation } = useOrientation()
 
   useScoreboardUrl(tableId)
-  const { handleScorePoint, handleSubtractPoint, handleUndo, handleSetServer, handleStartMatch, handleCancelMatch } =
+  const { handleScorePoint, handleSubtractPoint, handleUndo, handleSetServer, handleSwapSides, handleStartMatch, handleCancelMatch } =
     useScoreboardEvents({ emit, tableId: tableId ?? '', canEdit, connected })
 
   useMatchState(emit, tableId, connected)
   useRefAuth(emit, tableId, connected, canEdit)
   const refRevoked = useRefRevoked({ socket, tableId: tableId ?? '', navigate })
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [showWinnerDialog, setShowWinnerDialog] = useState(false)
+
+  // Detect when match finishes to show winner dialog
+  useEffect(() => {
+    if (currentMatch?.status === 'FINISHED' && currentMatch?.winner && !showWinnerDialog) {
+      setShowWinnerDialog(true)
+    }
+  }, [currentMatch?.status, currentMatch?.winner, showWinnerDialog])
 
   if (!tableId) return <div>Invalid table ID</div>
   if (refRevoked) return <RefRevokedView />
@@ -70,7 +79,7 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
         title="Configurar Partido"
         actions={<Button variant="ghost" size="sm" onClick={handleCancelMatch}>Atrás</Button>}
       />
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto bg-primary">
         <MatchConfigPanel onStart={handleStartMatch} onCancel={handleCancelMatch}
           defaultConfig={{ pointsPerSet: 11, bestOf: 3, handicapA: 0, handicapB: 0 }}
         />
@@ -78,7 +87,7 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
     </div>
   )
 
-  const backRoute = isReferee ? Routes.DASHBOARD_REFEREE : Routes.DASHBOARD_SPECTATOR
+  const backRoute = isOwner ? Routes.DASHBOARD_OWNER : isReferee ? Routes.DASHBOARD_REFEREE : Routes.DASHBOARD_SPECTATOR
 
   return (
     <div className="flex flex-col h-screen bg-surface">
@@ -90,13 +99,14 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
           <Button variant="ghost" size="sm" onClick={() => navigate(backRoute)}>Atrás</Button>
         </>}
       />
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto bg-primary">
         <ScoreboardMain
           match={currentMatch}
           onScorePoint={handleScorePoint}
           onSubtractPoint={handleSubtractPoint}
           onUndo={handleUndo}
           onSettingsClick={() => handleSetServer('A')}
+          onSwapSides={handleSwapSides}
           onHistoryClick={() => setHistoryOpen(true)}
           onBackClick={() => navigate(backRoute)}
           isReferee={canEdit}
@@ -110,6 +120,30 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
         onClose={() => setHistoryOpen(false)}
         onUndo={handleUndo}
       />
+
+      {/* Match Winner Dialog */}
+      <ConfirmDialog
+        isOpen={showWinnerDialog}
+        title="¡Partido Finalizado!"
+        message={`Ganador: ${currentMatch.winner === 'A' ? currentMatch.playerNames?.a || 'Jugador A' : currentMatch.playerNames?.b || 'Jugador B'}`}
+        severity="success"
+        confirmLabel="Continuar"
+        cancelLabel=""
+        onConfirm={() => {
+          setShowWinnerDialog(false)
+          navigate(backRoute)
+        }}
+        onCancel={() => {}}
+      />
+
+      {/* CoachMark for first-time referees */}
+      {canEdit && currentMatch.status === 'LIVE' && (
+        <CoachMark
+          id="scoreboard-tap-hint"
+          message="Tocá cualquier lado del marcador para sumar un punto"
+          show={true}
+        />
+      )}
     </div>
   )
 }

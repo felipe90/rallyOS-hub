@@ -19,7 +19,7 @@ export function SpectatorDashboardPage(_props: SpectatorDashboardPageProps) {
   const { tables, emit } = useSocketContext()
   const { login } = useAuthContext()
 
-  const availableTables = tables.filter((t) => t.status === 'WAITING')
+  const availableTables = tables
 
   // Espectador entra directo sin PIN ni nombre
   const handleJoinTable = (tableId: string) => {
@@ -49,7 +49,7 @@ export function SpectatorDashboardPage(_props: SpectatorDashboardPageProps) {
       />
 
       {/* Tables Grid */}
-      <div className="flex-1 overflow-auto p-4">
+      <div className="flex-1 overflow-auto p-4 bg-primary/10">
         {availableTables.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full">
             <Typography variant="title">No hay mesas disponibles</Typography>

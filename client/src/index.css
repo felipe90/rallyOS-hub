@@ -89,6 +89,19 @@
     --font-heading: 'Space Grotesk', system-ui, sans-serif;
     --font-body: 'Manrope', system-ui, sans-serif;
 
+    /* Scoreboard Dark Mode Tokens - Real World Scoreboard Aesthetic */
+    --color-scoreboard-bg: #006b5f;
+    --color-scoreboard-bg-alt: #3d6b63;
+    --color-score: #ffffff;
+    --color-score-muted: rgba(255, 255, 255, 0.5);
+    --color-score-secondary: rgba(255, 255, 255, 0.4);
+    --color-score-positive: #34d399;
+    --color-score-negative: #fb7185;
+    --color-score-winner: #fbbf24;
+    --color-score-player-a: #60a5fa;
+    --color-score-player-b: #fb7185;
+    --color-score-neutral: #6b7280;
+
     /* Apply base styles */
     font: 18px/145% var(--font-body);
     letter-spacing: 0.18px;

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ScoreboardMain } from './ScoreboardMain';
 import { MatchConfigPanel } from '../MatchConfigPanel';
-import type { MatchStateExtended, Score } from '../../../shared/types';
+import type { MatchStateExtended, Score } from '@shared/types';
 import React from 'react';
 
 vi.mock('framer-motion', () => ({

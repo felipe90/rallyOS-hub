@@ -1,4 +1,5 @@
-import type { ScoreChange } from '../../../shared/types';
+import type { ScoreChange } from '@shared/types';
+import { formatEvent, getEventColor } from '@/services/match';
 
 export interface MatchHistoryTickerProps {
   history: ScoreChange[];
@@ -15,40 +16,6 @@ export function MatchHistoryTicker({
 
   // Take the most recent events, limited by maxItems
   const recentEvents = history.slice(-maxItems);
-
-  const formatEvent = (event: ScoreChange): string => {
-    if (event.action === 'SET_WON') {
-      const winner = event.player || 'A';
-      const loser = winner === 'A' ? 'B' : 'A';
-      const winnerScore = winner === 'A' ? event.pointsAfter.a : event.pointsAfter.b;
-      const loserScore = winner === 'A' ? event.pointsAfter.b : event.pointsAfter.a;
-      return `Set ${event.setNumber || '?'} - ${winner} ${winnerScore}-${loserScore}`;
-    }
-
-    if (event.action === 'POINT') {
-      const player = event.player || '?';
-      return `${player}: ${event.pointsAfter.a}-${event.pointsAfter.b}`;
-    }
-
-    if (event.action === 'CORRECTION') {
-      return `Corr: ${event.pointsAfter.a}-${event.pointsAfter.b}`;
-    }
-
-    return `${event.action}`;
-  };
-
-  const getEventColor = (event: ScoreChange): string => {
-    if (event.action === 'SET_WON') {
-      return 'text-[var(--color-score-winner)]';
-    }
-    if (event.player === 'A') {
-      return 'text-[var(--color-score-player-a)]';
-    }
-    if (event.player === 'B') {
-      return 'text-[var(--color-score-player-b)]';
-    }
-    return 'text-[var(--color-score-neutral)]';
-  };
 
   return (
     <div className="absolute bottom-0 left-0 right-0 z-30 pointer-events-none">

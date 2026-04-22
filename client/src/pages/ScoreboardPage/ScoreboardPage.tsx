@@ -7,7 +7,7 @@
 
 import { useNavigate, useParams } from 'react-router-dom'
 import { useSocketContext, useAuthContext } from '@/contexts'
-import { useScoreboardAuth } from '@/hooks/useScoreboardAuth'
+import { usePermissions } from '@/hooks/usePermissions'
 import { useScoreboardUrl } from '@/hooks/useScoreboardUrl'
 import { useOrientation } from '@/hooks/useOrientation'
 import { useScoreboardEvents } from './useScoreboardEvents'
@@ -49,7 +49,8 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
   const navigate = useNavigate()
   const { currentMatch, emit, connected, socket } = useSocketContext()
   const { isReferee, isOwner } = useAuthContext()
-  const { canEdit, canConfigure, canViewHistory } = useScoreboardAuth()
+  const { scoreboard: perms } = usePermissions()
+  const { canEdit, canConfigure, canViewHistory } = perms
   const { isLandscape, toggle: toggleOrientation } = useOrientation()
 
   useScoreboardUrl(tableId)

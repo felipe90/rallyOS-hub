@@ -4,11 +4,11 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { ScoreboardPage } from './ScoreboardPage'
 import { useAuthContext } from '@/contexts/AuthContext'
 import { useSocketContext } from '@/contexts/SocketContext'
-import { useScoreboardAuth } from '@/hooks/useScoreboardAuth'
+import { usePermissions } from '@/hooks/usePermissions'
 
 const mockUseAuthContext = useAuthContext as ReturnType<typeof vi.fn>
 const mockUseSocketContext = useSocketContext as ReturnType<typeof vi.fn>
-const mockUseScoreboardAuth = useScoreboardAuth as ReturnType<typeof vi.fn>
+const mockUsePermissions = usePermissions as ReturnType<typeof vi.fn>
 
 // Define role constants for tests
 const ROLE_REFEREE = 'referee'
@@ -29,8 +29,8 @@ vi.mock('@/contexts/SocketContext', () => ({
   useSocketContext: vi.fn(),
 }))
 
-vi.mock('@/hooks/useScoreboardAuth', () => ({
-  useScoreboardAuth: vi.fn(),
+vi.mock('@/hooks/usePermissions', () => ({
+  usePermissions: vi.fn(),
 }))
 
 vi.mock('@/hooks/useScoreboardUrl', () => ({
@@ -112,11 +112,17 @@ describe('ScoreboardPage', () => {
       setTablePin: vi.fn(),
     })
 
-    mockUseScoreboardAuth.mockReturnValue({
-      isReferee: true,
-      canEdit: true,
-      canConfigure: true,
-      canViewHistory: true,
+    mockUsePermissions.mockReturnValue({
+      scoreboard: {
+        canEdit: true,
+        canConfigure: true,
+        canViewHistory: true,
+      },
+      dashboard: {
+        canCreateTable: false,
+        showPinColumn: false,
+        showQrColumn: false,
+      },
     })
   })
 
@@ -169,11 +175,17 @@ describe('ScoreboardPage', () => {
       disconnect: vi.fn(),
     })
 
-    mockUseScoreboardAuth.mockReturnValue({
-      isReferee: true,
-      canEdit: true,
-      canConfigure: true,
-      canViewHistory: true,
+    mockUsePermissions.mockReturnValue({
+      scoreboard: {
+        canEdit: true,
+        canConfigure: true,
+        canViewHistory: true,
+      },
+      dashboard: {
+        canCreateTable: false,
+        showPinColumn: false,
+        showQrColumn: false,
+      },
     })
 
     renderWithRouter(<ScoreboardPage />)
@@ -207,11 +219,17 @@ describe('ScoreboardPage', () => {
       setTablePin: vi.fn(),
     })
 
-    mockUseScoreboardAuth.mockReturnValue({
-      isReferee: false,
-      canEdit: false,
-      canConfigure: false,
-      canViewHistory: false,
+    mockUsePermissions.mockReturnValue({
+      scoreboard: {
+        canEdit: false,
+        canConfigure: false,
+        canViewHistory: false,
+      },
+      dashboard: {
+        canCreateTable: false,
+        showPinColumn: false,
+        showQrColumn: false,
+      },
     })
 
     renderWithRouter(<ScoreboardPage />)

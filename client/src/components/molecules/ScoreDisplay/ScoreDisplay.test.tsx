@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ScoreDisplay, ScorePair } from './ScoreDisplay';
-import type { Score } from '../../../shared/types';
+import type { Score } from '@shared/types';
 
 vi.mock('framer-motion', () => ({
   motion: {

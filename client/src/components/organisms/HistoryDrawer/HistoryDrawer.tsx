@@ -1,7 +1,8 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import type { ScoreChange } from '../../../shared/types';
+import type { ScoreChange } from '@shared/types';
 import { Body, Caption } from '../../atoms/Typography';
 import { X, Undo2 } from 'lucide-react';
+import { formatRelativeTime } from '@/services/date';
 
 export interface HistoryDrawerProps {
   isOpen: boolean;
@@ -9,21 +10,6 @@ export interface HistoryDrawerProps {
   events: ScoreChange[];
   onUndo: (eventId: string) => void;
   className?: string;
-}
-
-function formatRelativeTime(timestamp: number): string {
-  const now = Date.now();
-  const diff = now - timestamp;
-  
-  if (diff < 60000) return 'recién';
-  if (diff < 3600000) return `hace ${Math.floor(diff / 60000)}m`;
-  if (diff < 86400000) return `hace ${Math.floor(diff / 3600000)}h`;
-  return new Date(timestamp).toLocaleDateString('es-AR', { 
-    day: 'numeric', 
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
 }
 
 export function HistoryDrawer({ 

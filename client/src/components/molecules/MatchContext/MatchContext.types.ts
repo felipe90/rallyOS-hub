@@ -1,4 +1,4 @@
-import type { TableStatus } from '../../../shared/types';
+import type { TableStatus } from '@shared/types';
 
 export interface MatchContextProps {
   phase: 'quarterfinal' | 'semifinal' | 'final';

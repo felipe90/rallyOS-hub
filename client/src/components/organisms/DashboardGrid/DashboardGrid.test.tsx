@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { DashboardGrid, DashboardHeader } from './DashboardGrid';
-import type { TableInfo } from '../../../shared/types';
+import type { TableInfo } from '@shared/types';
 
 const mockTables: TableInfo[] = [
   {

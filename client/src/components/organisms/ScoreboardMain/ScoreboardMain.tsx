@@ -1,5 +1,5 @@
 import { useMatchDisplay } from '../../../hooks/useMatchDisplay';
-import type { MatchStateExtended } from '../../../shared/types';
+import type { MatchStateExtended } from '@shared/types';
 import { MatchConfigPanel } from '../MatchConfigPanel';
 import { ScoreboardBar } from './components/ScoreboardBar';
 import { ScoreboardHeader } from './components/ScoreboardHeader';

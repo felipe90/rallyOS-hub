@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState } from 'react'
-import type { RefRevokedEvent } from '@/shared/types'
+import type { RefRevokedEvent } from '@shared/types'
 import { Routes } from '@/routes'
 
 interface UseRefRevokedProps {

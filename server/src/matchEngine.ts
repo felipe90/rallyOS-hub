@@ -253,6 +253,12 @@ export class MatchEngine {
     return this.getState();
   }
 
+  public swapSides(): MatchStateExtended {
+    this.state.swappedSides = !this.state.swappedSides;
+    logger.info({ swappedSides: this.state.swappedSides }, 'Referee manually swapped sides');
+    return this.getState();
+  }
+
   public getState(): MatchStateExtended {
     return {
       ...JSON.parse(JSON.stringify(this.state)),

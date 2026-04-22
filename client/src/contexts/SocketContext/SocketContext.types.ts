@@ -1,4 +1,4 @@
-import type { TableInfo, MatchStateExtended } from '@/shared/types'
+import type { TableInfo, MatchStateExtended } from '@shared/types'
 import type { Socket } from 'socket.io-client'
 
 export interface SocketState {

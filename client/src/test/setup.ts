@@ -50,6 +50,7 @@ vi.mock('framer-motion', () => {
       a: createMotionElement('a'),
       form: createMotionElement('form'),
       label: createMotionElement('label'),
+      section: createMotionElement('section'),
     },
     AnimatePresence: ({ children }: { children?: React.ReactNode }) => children,
     useAnimation: () => ({

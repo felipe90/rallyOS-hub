@@ -1,4 +1,4 @@
-import type { MatchStateExtended, Player } from '../../../shared/types';
+import type { MatchStateExtended, Player } from '@shared/types';
 
 export interface ScoreboardMainProps {
   match: MatchStateExtended;

@@ -1,4 +1,4 @@
-export class ValidationError extends Error {
+export class PayloadValidationError extends Error {
   constructor(
     public code: 'VALIDATION_ERROR',
     public field: string,
@@ -7,7 +7,7 @@ export class ValidationError extends Error {
     public received: string
   ) {
     super(message);
-    this.name = 'ValidationError';
+    this.name = 'PayloadValidationError';
   }
 }
 
@@ -34,7 +34,7 @@ function getTypeName(value: any): string {
 
 function checkRequired(field: string, value: any, rule: ValidationRule): void {
   if (rule.required && (value === undefined || value === null)) {
-    throw new ValidationError(
+    throw new PayloadValidationError(
       'VALIDATION_ERROR',
       field,
       `Field '${field}' is required`,
@@ -48,7 +48,7 @@ function checkType(field: string, value: any, rule: ValidationRule): void {
   if (rule.type && value !== undefined && value !== null) {
     if (rule.type === 'object') {
       if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-        throw new ValidationError(
+        throw new PayloadValidationError(
           'VALIDATION_ERROR',
           field,
           `Field '${field}' must be an object`,
@@ -57,7 +57,7 @@ function checkType(field: string, value: any, rule: ValidationRule): void {
         );
       }
     } else if (typeof value !== rule.type) {
-      throw new ValidationError(
+      throw new PayloadValidationError(
         'VALIDATION_ERROR',
         field,
         `Field '${field}' must be of type ${rule.type}`,
@@ -71,7 +71,7 @@ function checkType(field: string, value: any, rule: ValidationRule): void {
 function checkStringLength(field: string, value: any, rule: ValidationRule): void {
   if (typeof value === 'string') {
     if (rule.minLength !== undefined && value.length < rule.minLength) {
-      throw new ValidationError(
+      throw new PayloadValidationError(
         'VALIDATION_ERROR',
         field,
         `Field '${field}' must be at least ${rule.minLength} characters`,
@@ -80,7 +80,7 @@ function checkStringLength(field: string, value: any, rule: ValidationRule): voi
       );
     }
     if (rule.maxLength !== undefined && value.length > rule.maxLength) {
-      throw new ValidationError(
+      throw new PayloadValidationError(
         'VALIDATION_ERROR',
         field,
         `Field '${field}' must be at most ${rule.maxLength} characters`,
@@ -94,7 +94,7 @@ function checkStringLength(field: string, value: any, rule: ValidationRule): voi
 function checkPattern(field: string, value: any, rule: ValidationRule): void {
   if (typeof value === 'string' && rule.pattern) {
     if (!rule.pattern.test(value)) {
-      throw new ValidationError(
+      throw new PayloadValidationError(
         'VALIDATION_ERROR',
         field,
         `Field '${field}' does not match required pattern`,
@@ -108,7 +108,7 @@ function checkPattern(field: string, value: any, rule: ValidationRule): void {
 function checkEnum(field: string, value: any, rule: ValidationRule): void {
   if (typeof value === 'string' && rule.enum) {
     if (!rule.enum.includes(value)) {
-      throw new ValidationError(
+      throw new PayloadValidationError(
         'VALIDATION_ERROR',
         field,
         `Field '${field}' must be one of: ${rule.enum.join(', ')}`,
@@ -122,7 +122,7 @@ function checkEnum(field: string, value: any, rule: ValidationRule): void {
 function checkNumericRange(field: string, value: any, rule: ValidationRule): void {
   if (typeof value === 'number') {
     if (rule.min !== undefined && value < rule.min) {
-      throw new ValidationError(
+      throw new PayloadValidationError(
         'VALIDATION_ERROR',
         field,
         `Field '${field}' must be at least ${rule.min}`,
@@ -131,7 +131,7 @@ function checkNumericRange(field: string, value: any, rule: ValidationRule): voi
       );
     }
     if (rule.max !== undefined && value > rule.max) {
-      throw new ValidationError(
+      throw new PayloadValidationError(
         'VALIDATION_ERROR',
         field,
         `Field '${field}' must be at most ${rule.max}`,
@@ -168,7 +168,7 @@ export function validateSocketPayload(
     validatePayload(data, rules);
     return true;
   } catch (error) {
-    if (error instanceof ValidationError) {
+    if (error instanceof PayloadValidationError) {
       socket.emit('ERROR', {
         code: error.code,
         message: error.message,

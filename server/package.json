@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "dev": "tsx src/index.ts",
-    "build": "tsc",
+    "guard:types": "node scripts/guard-shared-types.js",
+    "build": "npm run guard:types && tsc",
     "start": "node dist/index.js",
     "lint": "eslint .",
     "test": "jest --verbose",

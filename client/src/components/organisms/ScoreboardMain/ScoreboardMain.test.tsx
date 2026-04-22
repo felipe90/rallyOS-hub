@@ -2,14 +2,21 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ScoreboardMain } from './ScoreboardMain';
 import { MatchConfigPanel } from '../MatchConfigPanel';
-import type { MatchStateExtended, Score } from '../../../shared/types';
+import type { MatchStateExtended, Score } from '@shared/types';
 import React from 'react';
 
 vi.mock('framer-motion', () => ({
   motion: {
     button: ({ children, ...props }: any) => <button {...props}>{children}</button>,
+    div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
+    section: ({ children, ...props }: any) => <section {...props}>{children}</section>,
   },
   AnimatePresence: ({ children }: any) => children,
+  useReducedMotion: () => false,
+  useAnimation: () => ({
+    start: vi.fn(),
+    stop: vi.fn(),
+  }),
 }));
 
 vi.mock('../../hooks/useMatchDisplay', () => ({

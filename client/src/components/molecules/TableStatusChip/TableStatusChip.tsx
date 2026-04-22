@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
-import type { TableStatus } from '../../../shared/types';
+import { useState, useEffect, useMemo } from 'react';
+import type { TableStatus } from '@shared/types';
 import { WaitingBadge, ConfiguringBadge, LiveBadge, FinishedBadge } from '../../atoms/Badge';
 import { Body } from '../../atoms/Typography';
 import { Button } from '../../atoms/Button';
 import { QRCodeImage } from '../QRCodeImage';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { RefreshCw, Trash2 } from 'lucide-react';
+import { buildScoreboardUrl } from '@/services/url';
 
 /* TableStatusChip Molecule - Table info card component */
 export interface TableStatusChipProps {
@@ -71,6 +72,13 @@ export function TableStatusChip({
   const displayPin = pin || lastKnownPin;
   const hasPin = !!displayPin;
 
+  const joinUrl = useMemo(() => {
+    if (displayPin && tableId) {
+      return buildScoreboardUrl(tableId, displayPin)
+    }
+    return ''
+  }, [displayPin, tableId])
+
   return (
     <div
       onClick={onClick}
@@ -116,9 +124,9 @@ export function TableStatusChip({
             <Body className="text-xs text-text/50">PIN:</Body>
             <Body className="text-sm font-mono font-bold text-primary">{displayPin}</Body>
           </div>
-          {displayPin && tableId && (
+          {joinUrl && (
             <div className="ml-auto">
-              <QRCodeImage tableId={tableId} pin={displayPin} size={48} />
+              <QRCodeImage joinUrl={joinUrl} size={48} />
             </div>
           )}
         </div>
@@ -146,11 +154,24 @@ export function TableStatusChip({
           icon={<Trash2 size={16} />}
           onClick={() => onDelete()}
           stopPropagation
-          className="mt-2 text-red-500 hover:text-red-600"
+          className="mt-2"
+          aria-label={`Eliminar mesa ${tableName}`}
         >
           Eliminar Mesa
         </Button>
       )}
+
+      {/* Delete confirmation dialog */}
+      <ConfirmDialog
+        isOpen={showDeleteConfirm && !!onDeleteConfirm && !!onDeleteCancel}
+        title="Eliminar Mesa"
+        message="¿Estás seguro de eliminar la mesa? Esta acción no se puede deshacer."
+        severity="error"
+        confirmLabel="Eliminar"
+        cancelLabel="Cancelar"
+        onConfirm={() => onDeleteConfirm?.()}
+        onCancel={() => onDeleteCancel?.()}
+      />
 
       {/* Clean confirmation - using ConfirmDialog component */}
       <ConfirmDialog
@@ -164,17 +185,6 @@ export function TableStatusChip({
         onCancel={() => onCleanCancel?.()}
       />
 
-      {/* Delete confirmation - using ConfirmDialog component */}
-      <ConfirmDialog
-        isOpen={showDeleteConfirm}
-        title="Eliminar Mesa"
-        message={`¿Estás seguro de eliminar la mesa "${tableName}"? Esta acción no se puede deshacer.`}
-        severity="error"
-        confirmLabel="Eliminar"
-        cancelLabel="Cancelar"
-        onConfirm={() => onDeleteConfirm?.()}
-        onCancel={() => onDeleteCancel?.()}
-      />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import type { ScoreChange } from '../../../shared/types';
+import type { ScoreChange } from '@shared/types';
 
 export interface HistoryDrawerProps {
   isOpen: boolean;

@@ -1,58 +1,33 @@
-import React, { createContext, useContext, useState, useEffect } from 'react'
+import React, { createContext, useContext, useState } from 'react'
 import type { AuthContextValue, UserRole } from './AuthContext.types'
 import { UserRoles } from './AuthContext.types'
+import { authStorage } from '@/services/storage'
 
 export const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [role, setRole] = useState<UserRole>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('role') as UserRole
-    }
-    return null
-  })
-  
-  const [tableId, setTableId] = useState<string | null>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('tableId') || null
-    }
-    return null
-  })
-  
-  const [ownerPin, setOwnerPin] = useState<string | null>(() => {
-    if (typeof window !== 'undefined') {
-      return sessionStorage.getItem('ownerPin') || null
-    }
-    return null
-  })
-
-  const [tablePin, setTablePinState] = useState<string | null>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('tablePin') || null
-    }
-    return null
-  })
+  const [role, setRole] = useState<UserRole>(() => authStorage.getRole())
+  const [tableId, setTableId] = useState<string | null>(() => authStorage.getTableId())
+  const [ownerPin, setOwnerPin] = useState<string | null>(() => authStorage.getOwnerPin())
+  const [tablePin, setTablePinState] = useState<string | null>(() => authStorage.getTablePin())
 
   const login = (newRole: UserRole, tId?: string, pin?: string) => {
     if (newRole) {
-      localStorage.setItem('role', newRole)
+      authStorage.setRole(newRole)
       setRole(newRole)
     }
     if (tId) {
-      localStorage.setItem('tableId', tId)
+      authStorage.setTableId(tId)
       setTableId(tId)
     }
     if (pin) {
-      sessionStorage.setItem('ownerPin', pin)
+      authStorage.setOwnerPin(pin)
       setOwnerPin(pin)
     }
   }
 
   const logout = () => {
-    localStorage.removeItem('role')
-    localStorage.removeItem('tableId')
-    sessionStorage.removeItem('ownerPin')
-    localStorage.removeItem('tablePin')
+    authStorage.clear()
     setRole(null)
     setTableId(null)
     setOwnerPin(null)

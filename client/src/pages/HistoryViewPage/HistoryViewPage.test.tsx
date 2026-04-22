@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { renderWithProviders } from '@/test/test-utils'
 import { useAuthContext } from '@/contexts/AuthContext'
-import type { MatchStateExtended } from '@/shared/types'
+import type { MatchStateExtended } from '@shared/types'
 
 const mockNavigate = vi.fn()
 

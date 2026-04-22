@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import type { TableInfo, TableInfoWithPin } from '../../../shared/types';
+import type { TableInfo, TableInfoWithPin } from '@shared/types';
 import { TableStatusChip } from '../../molecules/TableStatusChip';
 import { StatCard } from '../../molecules/StatCard';
 import { Body, Title } from '../../atoms/Typography';

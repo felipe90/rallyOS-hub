@@ -1,4 +1,4 @@
-import type { Score } from '../../../shared/types';
+import type { Score } from '@shared/types';
 
 export interface ScoreDisplayProps {
   score: number;

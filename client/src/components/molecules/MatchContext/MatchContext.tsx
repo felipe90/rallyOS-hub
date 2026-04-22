@@ -1,4 +1,4 @@
-import type { TableStatus } from '../../../shared/types';
+import type { TableStatus } from '@shared/types';
 import { Body, Label } from '../../atoms/Typography';
 import { LiveBadge } from '../../atoms/Badge';
 

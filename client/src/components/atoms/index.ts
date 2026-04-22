@@ -23,3 +23,6 @@ export { Input } from './Input'
 
 export { ConnectionStatus } from './ConnectionStatus'
 export type { ConnectionStatusProps } from './ConnectionStatus'
+
+export { CoachMark } from './CoachMark/CoachMark'
+export type { CoachMarkProps } from './CoachMark/CoachMark'

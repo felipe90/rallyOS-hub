@@ -45,7 +45,7 @@ export function HistoryViewPage() {
       />
 
       {/* History List */}
-      <div className="flex-1 overflow-auto p-4">
+      <div className="flex-1 overflow-auto p-4 bg-primary/10">
         {!currentMatch?.history || currentMatch.history.length === 0 ? (
           <div className="text-center text-text-muted">
             <Typography variant="body">Sin eventos registrados</Typography>

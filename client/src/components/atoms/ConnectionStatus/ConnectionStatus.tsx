@@ -1,64 +1,87 @@
+import { useState, useEffect, useRef } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { useSocketContext } from '../../../contexts/SocketContext'
 import { Wifi, WifiOff, Loader2 } from 'lucide-react'
 
 export function ConnectionStatus() {
   const { connected, connecting, error } = useSocketContext()
+  const [isVisible, setIsVisible] = useState(true)
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const status = error ? 'error' : connecting ? 'connecting' : connected ? 'connected' : 'disconnected'
 
+  useEffect(() => {
+    // Clear any existing timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+      timeoutRef.current = null
+    }
+
+    if (status === 'connected') {
+      // Start auto-hide timer
+      timeoutRef.current = setTimeout(() => {
+        setIsVisible(false)
+      }, 3000)
+    } else {
+      // Instantly show for error/connecting/disconnected
+      setIsVisible(true)
+    }
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+      }
+    }
+  }, [status])
+
   const statusConfig = {
     connected: {
-      bg: 'bg-primary/10',
-      border: 'border-primary/20',
-      dot: 'bg-primary/20',
-      icon: <Wifi size={14} className="text-primary" />,
-      subtitle: 'Conectado',
-      textClass: 'text-primary',
+      icon: <Wifi size={14} className="text-[var(--color-score-positive)]" />,
+      label: 'Conectado',
+      textClass: 'text-[var(--color-score-positive)]',
+      bg: 'bg-[var(--color-score-positive)]/10',
     },
     connecting: {
-      bg: 'bg-amber/10',
-      border: 'border-amber/20',
-      dot: 'bg-amber/20',
       icon: <Loader2 size={14} className="text-amber animate-spin" />,
-      subtitle: 'Conectando',
+      label: 'Conectando',
       textClass: 'text-amber',
+      bg: 'bg-amber/10',
     },
     error: {
-      bg: 'bg-error/10',
-      border: 'border-error/20',
-      dot: 'bg-error/20',
-      icon: <WifiOff size={14} className="text-error" />,
-      subtitle: 'Sin Conexión',
-      textClass: 'text-error',
+      icon: <WifiOff size={14} className="text-[var(--color-score-negative)]" />,
+      label: 'Sin Conexión',
+      textClass: 'text-[var(--color-score-negative)]',
+      bg: 'bg-[var(--color-score-negative)]/10',
     },
     disconnected: {
-      bg: 'bg-surface-low',
-      border: 'border-outline/10',
-      dot: 'bg-outline/20',
-      icon: <WifiOff size={14} className="text-text-muted" />,
-      subtitle: 'Desconectado',
-      textClass: 'text-text-muted',
+      icon: <WifiOff size={14} className="text-slate-500" />,
+      label: 'Desconectado',
+      textClass: 'text-slate-500',
+      bg: 'bg-white/5',
     },
   }
 
   const config = statusConfig[status]
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50">
-      <div className={`flex items-center gap-3 px-4 py-2 ${config.bg} border-b ${config.border}`}>
-        <div className={`p-1.5 rounded-full ${config.dot}`}>
+    <AnimatePresence>
+      <motion.div
+        className="fixed top-4 left-1/2 -translate-x-1/2 z-50"
+        animate={{ y: isVisible ? 0 : -100, opacity: isVisible ? 1 : 0 }}
+        transition={{ duration: 0.3, ease: 'easeInOut' }}
+      >
+        <div className={`
+          flex items-center gap-2 px-3 py-1.5 rounded-full
+          backdrop-blur-sm
+          ${config.bg}
+          border border-white/10
+        `}>
           {config.icon}
-        </div>
-        
-        <div className="flex flex-col">
-          <span className="font-heading font-bold text-sm leading-tight">
-            RallyOS
-          </span>
-          <span className={`font-label text-[9px] uppercase tracking-widest ${config.textClass} font-bold leading-none`}>
-            {config.subtitle}
+          <span className={`text-xs font-medium ${config.textClass}`}>
+            {config.label}
           </span>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </AnimatePresence>
   )
 }

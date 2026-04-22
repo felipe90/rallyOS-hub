@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import type { Score } from '../../../shared/types';
+import type { Score } from '@shared/types';
 import { Body } from '../../atoms/Typography';
 
 /* ScoreDisplay Molecule - Giant score number + meta */

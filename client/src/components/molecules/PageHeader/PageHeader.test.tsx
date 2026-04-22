@@ -16,12 +16,12 @@ describe('PageHeader', () => {
 
   it('shows ConnectionStatus by default (showStatus=true)', () => {
     renderWithProviders(<PageHeader title="Test" showStatus={true} />)
-    expect(screen.getByText('RallyOS')).toBeInTheDocument()
+    expect(screen.getByText('Conectado')).toBeInTheDocument()
   })
 
   it('hides ConnectionStatus when showStatus=false', () => {
     renderWithProviders(<PageHeader title="Test" showStatus={false} />)
-    expect(screen.queryByText('RallyOS')).not.toBeInTheDocument()
+    expect(screen.queryByText('Conectado')).not.toBeInTheDocument()
   })
 
   it('renders action slots correctly', () => {

@@ -1,4 +1,4 @@
-import type { MatchStateExtended } from '../../shared/types'
+import type { MatchStateExtended } from '@shared/types'
 
 export interface MatchDisplayState {
   setsA: number

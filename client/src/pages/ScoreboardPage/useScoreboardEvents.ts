@@ -23,6 +23,7 @@ export interface UseScoreboardEventsReturn {
   handleSubtractPoint: (player: 'A' | 'B') => void
   handleUndo: () => void
   handleSetServer: (player: 'A' | 'B') => void
+  handleSwapSides: () => void
   handleStartMatch: (config: {
     pointsPerSet: number
     bestOf: number
@@ -63,6 +64,11 @@ export function useScoreboardEvents({
     emit(SocketEvents.CLIENT.SET_SERVER, { player: playerKey, tableId })
   }
 
+  const handleSwapSides = () => {
+    if (!connected || !canEdit) return
+    emit(SocketEvents.CLIENT.SWAP_SIDES, { tableId })
+  }
+
   const handleStartMatch = (config: {
     pointsPerSet: number
     bestOf: number
@@ -92,6 +98,7 @@ export function useScoreboardEvents({
     handleSubtractPoint,
     handleUndo,
     handleSetServer,
+    handleSwapSides,
     handleStartMatch,
     handleCancelMatch,
   }

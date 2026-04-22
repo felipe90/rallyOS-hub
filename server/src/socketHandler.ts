@@ -46,8 +46,7 @@ export class SocketHandler {
     
     // Set up global table update listener once
     this.tableManager.onTableUpdate = (tableInfo) => {
-      const { pin: _pin, ...publicTable } = tableInfo;
-      this.io.emit(SocketEvents.SERVER.TABLE_UPDATE, publicTable);
+      this.io.emit(SocketEvents.SERVER.TABLE_UPDATE, tableInfo);
       this.io.emit(SocketEvents.SERVER.TABLE_LIST, this.getPublicTableList());
     };
 
@@ -102,10 +101,7 @@ export class SocketHandler {
     return this.tableManager.getAllTables().find(t => t.id === tableId);
   }
 
-  private getPublicTableList(): Omit<TableInfo, 'pin'>[] {
-    return this.tableManager.getAllTables().map((table) => {
-      const { pin: _pin, ...publicTable } = table;
-      return publicTable;
-    });
+  private getPublicTableList(): TableInfo[] {
+    return this.tableManager.getAllTables();
   }
 }

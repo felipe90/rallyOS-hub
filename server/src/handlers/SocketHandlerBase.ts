@@ -1,49 +1,47 @@
 /**
  * SocketHandlerBase - Base class for all socket event handlers
  *
- * Contains shared logic: rate limiting, table info transformation, 
+ * Contains shared logic: rate limiting, table info transformation,
  * public table list generation, and common utilities.
  */
 
 import { Server, Socket } from 'socket.io';
 import { TableManager } from '../tableManager';
-import { TableInfo } from '../types';
+import { TableInfo, TableInfoWithPin } from '../types';
 import { logger } from '../utils/logger';
+import { RateLimiter } from '../services/security/RateLimiter';
 
 export abstract class SocketHandlerBase {
   protected io: Server;
   protected tableManager: TableManager;
   protected ownerPin: string;
-  
-  protected readonly rateLimitWindowMs = 60_000;
-  protected readonly rateLimitMaxAttempts = 5;
-  protected rateLimitAttempts: Map<string, number[]> = new Map();
+  protected rateLimiter: RateLimiter;
 
   constructor(io: Server, tableManager: TableManager, ownerPin: string) {
     this.io = io;
     this.tableManager = tableManager;
     this.ownerPin = ownerPin;
+    this.rateLimiter = new RateLimiter();
   }
 
   /**
-   * Convert table to public info (excludes PIN)
+   * Convert table to public info
    */
-  protected toPublicTableInfo(table: TableInfo): Omit<TableInfo, 'pin'> {
-    const { pin: _pin, ...publicTable } = table;
-    return publicTable;
+  protected toPublicTableInfo(table: TableInfo): TableInfo {
+    return table;
   }
 
   /**
-   * Get public table list (without PINs)
+   * Get public table list
    */
-  protected getPublicTableList(): Omit<TableInfo, 'pin'>[] {
+  protected getPublicTableList(): TableInfo[] {
     return this.tableManager.getAllTables().map((table) => this.toPublicTableInfo(table));
   }
 
   /**
    * Get tables with PINs (owner only)
    */
-  protected getTablesWithPins(): TableInfo[] {
+  protected getTablesWithPins(): TableInfoWithPin[] {
     return this.tableManager.getAllTablesWithPins();
   }
 
@@ -51,13 +49,7 @@ export abstract class SocketHandlerBase {
    * Check if socket is rate limited for given action
    */
   protected isRateLimited(key: string): boolean {
-    const now = Date.now();
-    const windowStart = now - this.rateLimitWindowMs;
-    const attempts = this.rateLimitAttempts.get(key) ?? [];
-    const recentAttempts = attempts.filter((timestamp) => timestamp > windowStart);
-    recentAttempts.push(now);
-    this.rateLimitAttempts.set(key, recentAttempts);
-    return recentAttempts.length > this.rateLimitMaxAttempts;
+    return this.rateLimiter.isRateLimited(key);
   }
 
   /**

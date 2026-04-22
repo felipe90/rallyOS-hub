@@ -2,7 +2,7 @@
  * Payload Validation Tests
  */
 
-import { validatePayload, validateSocketPayload, ValidationError, ValidationRules } from '../src/utils/validation';
+import { validatePayload, validateSocketPayload, PayloadValidationError, ValidationRules } from '../src/utils/validation';
 
 // Mock socket for testing
 function createMockSocket() {
@@ -26,35 +26,35 @@ describe('Payload Validation', () => {
       const rules: ValidationRules = {
         tableId: { required: true, type: 'string' },
       };
-      expect(() => validatePayload({}, rules)).toThrow(ValidationError);
+      expect(() => validatePayload({}, rules)).toThrow(PayloadValidationError);
     });
 
     test('throws on wrong type', () => {
       const rules: ValidationRules = {
         tableId: { required: true, type: 'string' },
       };
-      expect(() => validatePayload({ tableId: 123 }, rules)).toThrow(ValidationError);
+      expect(() => validatePayload({ tableId: 123 }, rules)).toThrow(PayloadValidationError);
     });
 
     test('throws on string exceeding maxLength', () => {
       const rules: ValidationRules = {
         name: { required: true, type: 'string', maxLength: 10 },
       };
-      expect(() => validatePayload({ name: 'a'.repeat(100) }, rules)).toThrow(ValidationError);
+      expect(() => validatePayload({ name: 'a'.repeat(100) }, rules)).toThrow(PayloadValidationError);
     });
 
     test('throws on pattern mismatch', () => {
       const rules: ValidationRules = {
         pin: { required: true, type: 'string', pattern: /^\d{4}$/ },
       };
-      expect(() => validatePayload({ pin: 'abc' }, rules)).toThrow(ValidationError);
+      expect(() => validatePayload({ pin: 'abc' }, rules)).toThrow(PayloadValidationError);
     });
 
     test('throws on enum mismatch', () => {
       const rules: ValidationRules = {
         player: { required: true, type: 'string', enum: ['A', 'B'] },
       };
-      expect(() => validatePayload({ player: 'C' }, rules)).toThrow(ValidationError);
+      expect(() => validatePayload({ player: 'C' }, rules)).toThrow(PayloadValidationError);
     });
 
     test('passes with valid 4-digit PIN', () => {

@@ -84,9 +84,7 @@ export class AdminHandler extends SocketHandlerBase {
     // GET_RATE_LIMIT_STATUS: Get rate limit status for debugging
     socket.on(SocketEvents.CLIENT.GET_RATE_LIMIT_STATUS, () => {
       const clientIp = socket.handshake.address;
-      const status = Array.from(this.rateLimitAttempts.entries())
-        .filter(([key]) => key.includes(clientIp))
-        .map(([key, timestamps]) => ({ key, attempts: timestamps.length }));
+      const status = this.rateLimiter.getEntriesForIp(clientIp);
       socket.emit(SocketEvents.SERVER.RATE_LIMIT_STATUS, status);
     });
   }

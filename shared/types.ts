@@ -1,24 +1,30 @@
-// Player types
+/**
+ * Shared API Types — Single Source of Truth
+ *
+ * These types define the WebSocket API contract between client and server.
+ * ONLY types that appear in event payloads (sent over the wire) belong here.
+ *
+ * Rule: If a type is used in a socket event payload (client ↔ server),
+ *       it MUST be defined here. Never duplicate in client/src/ or server/src/.
+ */
+
+// ── Player ──────────────────────────────────────────────────────────
+
 export type Player = 'A' | 'B';
 
-// Score
+// ── Score ───────────────────────────────────────────────────────────
+
 export interface Score {
   a: number;
   b: number;
 }
 
-// Table status
+// ── Table Status ────────────────────────────────────────────────────
+
 export type TableStatus = 'WAITING' | 'CONFIGURING' | 'LIVE' | 'FINISHED';
 
-// Player connection
-export interface PlayerConnection {
-  socketId: string;
-  name: string;
-  role: 'REFEREE' | 'PLAYER_A' | 'PLAYER_B' | 'SPECTATOR';
-  joinedAt: number;
-}
+// ── Score Change (for history / undo) ───────────────────────────────
 
-// Score change for history (undo)
 export interface ScoreChange {
   id: string;
   player?: Player;
@@ -29,7 +35,8 @@ export interface ScoreChange {
   timestamp: number;
 }
 
-// Match events
+// ── Match Events ────────────────────────────────────────────────────
+
 export type MatchEventType = 'SET_WON' | 'MATCH_WON';
 
 export interface SetWonEvent {
@@ -48,7 +55,8 @@ export interface MatchWonEvent {
 
 export type MatchEvent = SetWonEvent | MatchWonEvent;
 
-// Match config (extended)
+// ── Match Config ────────────────────────────────────────────────────
+
 export interface MatchConfig {
   pointsPerSet: number;
   bestOf: number;
@@ -63,7 +71,8 @@ export interface MatchConfigExtended extends MatchConfig {
   playerNames?: { a: string; b: string };
 }
 
-// Match state (extended)
+// ── Match State ─────────────────────────────────────────────────────
+
 export interface MatchState {
   config: MatchConfig;
   score: {
@@ -86,7 +95,8 @@ export interface MatchStateExtended extends MatchState {
   undoAvailable: boolean;
 }
 
-// Table info (for UI)
+// ── Table Info (sent to client) ─────────────────────────────────────
+
 export interface TableInfo {
   id: string;
   number: number;
@@ -99,12 +109,12 @@ export interface TableInfo {
   winner?: Player | null;
 }
 
-// Table info with PIN (only for Owner)
 export interface TableInfoWithPin extends TableInfo {
   pin?: string;
 }
 
-// QR Data
+// ── QR Data ─────────────────────────────────────────────────────────
+
 export interface QRData {
   hubSsid: string;
   hubIp: string;
@@ -116,13 +126,13 @@ export interface QRData {
   url: string;           // rallyhub://join/{tableId}?ePin={encryptedPin}
 }
 
-// Error response
+// ── Error Responses ─────────────────────────────────────────────────
+
 export interface ErrorResponse {
   code: string;
   message: string;
 }
 
-// Validation error response (from server hardening)
 export interface ValidationError {
   code: 'VALIDATION_ERROR';
   message: string;
@@ -131,16 +141,9 @@ export interface ValidationError {
   received: string;
 }
 
-// Table (internal)
-export interface Table {
-  id: string;
-  number: number;
-  name: string;
-  status: TableStatus;
-  pin: string;
-  matchEngine: any;
-  playerNames: { a: string; b: string };
-  history: any[];
-  players: PlayerConnection[];
-  createdAt: number;
+// ── Referee Revoked Event ───────────────────────────────────────────
+
+export interface RefRevokedEvent {
+  tableId: string;
+  reason: 'Regenerado' | 'Expulsado';
 }

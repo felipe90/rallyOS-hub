@@ -16,6 +16,7 @@ import { validateSocketPayload } from '../utils/validation';
 import { logger } from '../utils/logger';
 import { SocketEvents } from '../../../shared/events';
 import { SocketHandlerBase } from './SocketHandlerBase';
+import type { SocketData } from '../types';
 
 export class TableEventHandler extends SocketHandlerBase {
   constructor(io: Server, tableManager: TableManager, ownerPin: string) {
@@ -69,7 +70,7 @@ export class TableEventHandler extends SocketHandlerBase {
         return;
       }
 
-      const isSocketOwner = (socket as any).data?.isOwner === true;
+      const isSocketOwner = (socket.data as SocketData)?.isOwner === true;
       const isValidOwner = data?.ownerPin === this.ownerPin;
 
       if (!isSocketOwner && !isValidOwner) {
@@ -166,7 +167,7 @@ export class TableEventHandler extends SocketHandlerBase {
         return this.emitError(socket, 'TABLE_NOT_FOUND', 'Mesa no encontrada');
       }
 
-      const isOwner = (socket as any).data?.isOwner === true;
+      const isOwner = (socket.data as SocketData)?.isOwner === true;
       const isRef = this.tableManager.isReferee(data.tableId, socket.id);
       if (!isOwner && !isRef) {
         return this.emitError(socket, 'UNAUTHORIZED', 'No autorizado');

@@ -13,6 +13,7 @@ import { validateSocketPayload } from '../utils/validation';
 import { logger } from '../utils/logger';
 import { SocketEvents } from '../../../shared/events';
 import { SocketHandlerBase } from './SocketHandlerBase';
+import type { SocketData } from '../types';
 
 export class AuthHandler extends SocketHandlerBase {
   constructor(io: Server, tableManager: TableManager, ownerPin: string) {
@@ -112,7 +113,8 @@ export class AuthHandler extends SocketHandlerBase {
       logger.info({ socketId: socket.id }, 'VERIFY_OWNER received');
 
       if (this.comparePin(data.pin, this.ownerPin)) {
-        (socket as any).data = { ...(socket as any).data, isOwner: true };
+        const socketData = socket.data as SocketData;
+        socket.data = { ...socketData, isOwner: true };
         socket.emit(SocketEvents.SERVER.OWNER_VERIFIED, { token: 'owner-session' });
         logger.info({ socketId: socket.id }, 'Owner verified successfully');
       } else {

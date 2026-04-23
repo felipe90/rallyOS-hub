@@ -97,9 +97,7 @@ function checkPattern(field: string, value: any, rule: ValidationRule): void {
       throw new PayloadValidationError(
         'VALIDATION_ERROR',
         field,
-        `Field '${field}' does not match required pattern`,
-        `pattern: ${rule.pattern.toString()}`,
-        `value: ${value}`
+        `Field '${field}' has an invalid format`,
       );
     }
   }
@@ -111,9 +109,7 @@ function checkEnum(field: string, value: any, rule: ValidationRule): void {
       throw new PayloadValidationError(
         'VALIDATION_ERROR',
         field,
-        `Field '${field}' must be one of: ${rule.enum.join(', ')}`,
-        `enum: [${rule.enum.join(', ')}]`,
-        `value: ${value}`
+        `Field '${field}' has an invalid value`,
       );
     }
   }
@@ -125,18 +121,14 @@ function checkNumericRange(field: string, value: any, rule: ValidationRule): voi
       throw new PayloadValidationError(
         'VALIDATION_ERROR',
         field,
-        `Field '${field}' must be at least ${rule.min}`,
-        `min: ${rule.min}`,
-        `value: ${value}`
+        `Field '${field}' is below the minimum allowed value`,
       );
     }
     if (rule.max !== undefined && value > rule.max) {
       throw new PayloadValidationError(
         'VALIDATION_ERROR',
         field,
-        `Field '${field}' must be at most ${rule.max}`,
-        `max: ${rule.max}`,
-        `value: ${value}`
+        `Field '${field}' exceeds the maximum allowed value`,
       );
     }
   }

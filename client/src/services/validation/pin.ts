@@ -5,10 +5,12 @@
  * Single source of truth — client and server use the same rules.
  */
 
+import { PIN_RULES, isValidPin } from '@shared/validation'
+
 export {
   PIN_RULES,
   isValidPin,
-} from '@shared/validation'
+}
 
 /**
  * Validate a table PIN (4 digits).

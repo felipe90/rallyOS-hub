@@ -5,21 +5,17 @@
  * This file only imports and wires modules together.
  */
 
-import crypto from 'crypto';
 import { app } from './app';
 import { createSecureServer, gracefulShutdown } from './server';
 import { createSocketServer } from './socket';
 import { TableManager } from './tableManager';
 import { logger } from './utils/logger';
 
-// Owner PIN initialization - mandatory with random fallback
-let ownerPin: string;
-if (!process.env.TOURNAMENT_OWNER_PIN) {
-  ownerPin = crypto.randomInt(10000000, 99999999).toString();
-  logger.warn({ ownerPin }, 'OWNER PIN randomly generated — SAVE THIS PIN, it changes on every restart');
-} else {
-  ownerPin = process.env.TOURNAMENT_OWNER_PIN;
-  logger.info({ ownerPin }, 'OWNER PIN loaded from environment');
+// Owner PIN initialization - mandatory, no fallback
+const ownerPin = process.env.TOURNAMENT_OWNER_PIN;
+if (!ownerPin || ownerPin.trim() === '') {
+  logger.error('TOURNAMENT_OWNER_PIN is required. Set it in .env or environment variable.');
+  process.exit(1);
 }
 
 export { ownerPin };

@@ -2,12 +2,12 @@
 schema: spec-driven
 
 context: |
-  Tech stack: Node.js + TypeScript + Socket.io + Express
-  Architecture: Centralized Hub with WebSocket communication
-  Test Framework: Playwright (E2E only)
-  Key Files: server/src/{index.ts, matchEngine.ts, socketHandler.ts}
+  Tech stack: React 19 + TypeScript 6 + Vite 8 + Tailwind 4 (client) | Express 5 + TypeScript 6 + Socket.io + Pino (server)
+  Architecture: Monorepo (client/, server/, shared/) with WebSocket-only communication
+  Testing: Vitest + RTL + Playwright (client) | Jest + Playwright (server)
+  CI: GitHub Actions (lint, build, test — client only; server lint only)
 
-strict_tdd: false  # No unit test framework yet
+strict_tdd: true
 
 rules:
   proposal:
@@ -22,10 +22,26 @@ rules:
   tasks:
     - Group tasks by phase (infrastructure, implementation, testing)
     - Keep tasks small enough to complete in one session
+  apply:
+    - Follow existing code patterns and conventions
+    - Load relevant coding skills for the project stack
+  verify:
+    - Run tests if test infrastructure exists
+    - Compare implementation against every spec scenario
+  archive:
+    - Warn before merging destructive deltas (large removals)
 
 testing:
-  runner: playwright
-  command: "npm run test:e2e"
+  runner: vitest+jest
+  command: "cd client && npm test && cd ../server && npm test"
   layers:
-    unit: false
+    unit: true
+    integration: true
     e2e: true
+  coverage:
+    available: true
+    command: "cd client && npm run test:coverage"
+  quality:
+    linter: eslint
+    type_checker: tsc --noEmit
+    formatter: none

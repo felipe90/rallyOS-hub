@@ -32,6 +32,14 @@ export class TableEventHandler extends SocketHandlerBase {
         return;
       }
 
+      // Rate limit: max 10 tables per minute per IP
+      const clientIp = socket.handshake.address;
+      const rateLimitKey = `CREATE_TABLE:${clientIp}`;
+      if (this.isRateLimited(rateLimitKey)) {
+        this.logRateLimitBlocked('CREATE_TABLE', 'global', clientIp);
+        return this.emitError(socket, 'RATE_LIMITED', 'Too many tables created. Please wait a minute.');
+      }
+
       const table = this.tableManager.createTable(data?.name);
       socket.join(table.id);
       

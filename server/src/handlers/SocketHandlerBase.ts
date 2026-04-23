@@ -22,6 +22,7 @@ export abstract class SocketHandlerBase {
     this.tableManager = tableManager;
     this.ownerPin = ownerPin;
     this.rateLimiter = new RateLimiter();
+    this.rateLimiter.startCleanup();
   }
 
   /**

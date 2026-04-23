@@ -3,9 +3,11 @@
  *
  * Pure functions for URL parameter parsing.
  * No React dependencies - testable in isolation.
+ *
+ * Uses AES-256-GCM decryption (compatible with server).
  */
 
-import { generateKey, decryptPin } from '@/shared/crypto/pinEncryption'
+import { decryptPin } from '@/shared/crypto/pinEncryption'
 
 export interface ParsedPin {
   pin: string | null
@@ -14,38 +16,42 @@ export interface ParsedPin {
 }
 
 /**
+ * Get the encryption secret from environment.
+ */
+function getEncryptionSecret(): string {
+  const secret = import.meta.env.VITE_ENCRYPTION_SECRET
+  if (!secret) {
+    throw new Error('VITE_ENCRYPTION_SECRET is required for PIN decryption')
+  }
+  return secret
+}
+
+/**
  * Parse and validate encrypted PIN from URL parameter.
  *
- * The ePin param is base64-encoded as "hex:originalPin" for integrity.
- * This function decodes the base64, extracts the hex portion, and decrypts
- * using the daily XOR key.
+ * The ePin param is base64url-encoded AES-256-GCM encrypted data
+ * in format: iv:ciphertext:authTag:timestamp
  *
  * @param ePin - The raw ePin parameter from URL search params
- * @param tableId - The table ID used for key generation
+ * @param tableId - The table ID used for key derivation
  * @returns ParsedPin object with pin, isValid, and hasPin flags
  */
-export function parseEncryptedPin(
+export async function parseEncryptedPin(
   ePin: string | null,
   tableId: string,
-): ParsedPin {
+): Promise<ParsedPin> {
   // No PIN in URL
   if (!ePin) {
     return { pin: null, isValid: false, hasPin: false }
   }
 
   try {
-    // Decode base64: "hex:originalPin"
-    const decoded = atob(ePin)
-    const parts = decoded.split(':')
+    const secret = getEncryptionSecret()
+    const decrypted = await decryptPin(ePin, tableId, secret)
 
-    if (parts.length === 2) {
-      const [encrypted] = parts
-      const key = generateKey(tableId)
-      const decrypted = decryptPin(encrypted, key)
-
+    if (decrypted) {
       // Valid PIN is exactly 4 digits
       const isValid = /^\d{4}$/.test(decrypted)
-
       if (isValid) {
         return { pin: decrypted, isValid: true, hasPin: true }
       }

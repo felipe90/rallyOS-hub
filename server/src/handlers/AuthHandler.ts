@@ -7,6 +7,7 @@
  */
 
 import { Server, Socket } from 'socket.io';
+import crypto from 'crypto';
 import { TableManager } from '../tableManager';
 import { validateSocketPayload } from '../utils/validation';
 import { logger } from '../utils/logger';
@@ -16,6 +17,16 @@ import { SocketHandlerBase } from './SocketHandlerBase';
 export class AuthHandler extends SocketHandlerBase {
   constructor(io: Server, tableManager: TableManager, ownerPin: string) {
     super(io, tableManager, ownerPin);
+  }
+
+  /**
+   * Constant-time PIN comparison to prevent timing attacks.
+   */
+  private comparePin(a: string, b: string): boolean {
+    const bufA = Buffer.from(a, 'utf8');
+    const bufB = Buffer.from(b, 'utf8');
+    if (bufA.length !== bufB.length) return false;
+    return crypto.timingSafeEqual(bufA, bufB);
   }
 
   /**
@@ -42,7 +53,7 @@ export class AuthHandler extends SocketHandlerBase {
         return this.emitError(socket, 'RATE_LIMITED', 'Too many attempts. Please wait a minute before trying again.');
       }
       
-      const isOwnerPin = data.pin === this.ownerPin;
+      const isOwnerPin = this.comparePin(data.pin, this.ownerPin);
       
       let success = false;
       
@@ -100,7 +111,7 @@ export class AuthHandler extends SocketHandlerBase {
 
       logger.info({ socketId: socket.id }, 'VERIFY_OWNER received');
 
-      if (data.pin === this.ownerPin) {
+      if (this.comparePin(data.pin, this.ownerPin)) {
         (socket as any).data = { ...(socket as any).data, isOwner: true };
         socket.emit(SocketEvents.SERVER.OWNER_VERIFIED, { token: 'owner-session' });
         logger.info({ socketId: socket.id }, 'Owner verified successfully');

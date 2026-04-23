@@ -54,6 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     role,
     tableId,
     ownerPin,
+    tablePin,
     isOwner: role === UserRoles.OWNER,
     isReferee: role === UserRoles.REFEREE,
     isViewer: role === UserRoles.VIEWER,

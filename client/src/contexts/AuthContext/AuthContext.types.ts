@@ -21,6 +21,7 @@ export interface AuthContextValue {
   role: UserRole
   tableId: string | null
   ownerPin: string | null
+  tablePin: string | null
   isOwner: boolean
   isReferee: boolean
   isViewer: boolean

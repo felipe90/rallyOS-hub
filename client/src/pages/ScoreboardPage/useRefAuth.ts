@@ -1,7 +1,7 @@
 /**
  * Referee authentication hook
  * Authenticates as referee when page loads (if user can edit).
- * Reads PIN from localStorage as fallback.
+ * Requires a valid tablePin — never defaults to a known PIN.
  */
 
 import { useEffect } from 'react'
@@ -13,11 +13,11 @@ export function useRefAuth(
   tableId: string | undefined,
   connected: boolean,
   canEdit: boolean,
+  tablePin: string | null,
 ) {
   useEffect(() => {
-    if (connected && tableId && canEdit) {
-      const tablePin = localStorage.getItem('tablePin') || '12345'
+    if (connected && tableId && canEdit && tablePin) {
       emit(SocketEvents.CLIENT.SET_REF, { tableId, pin: tablePin })
     }
-  }, [tableId, connected, canEdit, emit])
+  }, [tableId, connected, canEdit, tablePin, emit])
 }

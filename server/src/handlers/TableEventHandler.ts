@@ -15,6 +15,7 @@ import { TableManager } from '../domain/tableManager';
 import { validateSocketPayload } from '../utils/validation';
 import { logger } from '../utils/logger';
 import { SocketEvents } from '../../../shared/events';
+import { PIN_RULES } from '../../../shared/validation';
 import { SocketHandlerBase } from './SocketHandlerBase';
 import type { SocketData } from '../domain/types';
 
@@ -29,6 +30,7 @@ export class TableEventHandler extends SocketHandlerBase {
   public registerHandlers(socket: Socket): void {
     // CREATE_TABLE: Create a new table
     socket.on(SocketEvents.CLIENT.CREATE_TABLE, (data?: { name?: string }) => {
+      if (!this.validateAuthenticated(socket)) return;
       if (!validateSocketPayload(socket, data || {}, { name: { type: 'string', maxLength: 256, required: false } }, 'CREATE_TABLE')) {
         return;
       }
@@ -73,7 +75,7 @@ export class TableEventHandler extends SocketHandlerBase {
 
     // GET_TABLES_WITH_PINS: Owner only
     socket.on(SocketEvents.CLIENT.GET_TABLES_WITH_PINS, (data?: { ownerPin?: string }) => {
-      if (!validateSocketPayload(socket, data || {}, { ownerPin: { required: false, type: 'string', pattern: /^\d{8}$/ } }, 'GET_TABLES_WITH_PINS')) {
+      if (!validateSocketPayload(socket, data || {}, { ownerPin: { required: false, type: 'string', pattern: PIN_RULES.ownerPin.pattern } }, 'GET_TABLES_WITH_PINS')) {
         return;
       }
 

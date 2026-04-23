@@ -91,6 +91,18 @@ export abstract class SocketHandlerBase {
   }
 
   /**
+   * Check if socket is authenticated and emit error if not
+   */
+  protected validateAuthenticated(socket: Socket): boolean {
+    const socketData = socket.data as import('../domain/types').SocketData;
+    if (!socketData.isAuthenticated) {
+      this.emitError(socket, 'UNAUTHORIZED', 'Authentication required');
+      return false;
+    }
+    return true;
+  }
+
+  /**
    * Check if socket is referee for table and emit error if not
    */
   protected validateReferee(socket: Socket, tableId: string): boolean {

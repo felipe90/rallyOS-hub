@@ -12,6 +12,7 @@ import { TableManager } from '../domain/tableManager';
 import { validateSocketPayload } from '../utils/validation';
 import { logger } from '../utils/logger';
 import { SocketEvents } from '../../../shared/events';
+import { PIN_RULES } from '../../../shared/validation';
 import { SocketHandlerBase } from './SocketHandlerBase';
 import type { SocketData } from '../domain/types';
 
@@ -38,7 +39,7 @@ export class AuthHandler extends SocketHandlerBase {
     socket.on(SocketEvents.CLIENT.SET_REF, (data: { tableId: string; pin: string }) => {
       if (!validateSocketPayload(socket, data, { 
         tableId: { required: true, type: 'string', maxLength: 36 }, 
-        pin: { required: true, type: 'string', pattern: /^\d{4}$/ } 
+        pin: { required: true, type: 'string', pattern: PIN_RULES.tablePin.pattern } 
       }, 'SET_REF')) {
         return;
       }
@@ -99,7 +100,7 @@ export class AuthHandler extends SocketHandlerBase {
 
     // VERIFY_OWNER: Verify tournament owner PIN
     socket.on(SocketEvents.CLIENT.VERIFY_OWNER, (data: { pin: string }) => {
-      if (!validateSocketPayload(socket, data, { pin: { required: true, type: 'string', pattern: /^\d{8}$/ } }, 'VERIFY_OWNER')) {
+      if (!validateSocketPayload(socket, data, { pin: { required: true, type: 'string', pattern: PIN_RULES.ownerPin.pattern } }, 'VERIFY_OWNER')) {
         return;
       }
 

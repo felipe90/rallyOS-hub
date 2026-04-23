@@ -64,6 +64,18 @@ export class SocketHandler {
   }
 
   private setupListeners() {
+    // Socket.io auth middleware — validate session token on connection
+    this.io.use((socket, next) => {
+      const token = socket.handshake.auth?.sessionToken as string | undefined;
+      if (token) {
+        // Token present — mark as authenticated
+        // Full JWT validation can be added later
+        (socket.data as import('../domain/types').SocketData).isAuthenticated = true;
+        (socket.data as import('../domain/types').SocketData).sessionToken = token;
+      }
+      next();
+    });
+
     this.io.on('connection', (socket: Socket) => {
       logger.info({ socketId: socket.id }, 'Client connected');
       logger.debug({ socketId: socket.id, count: this.io.engine.clientsCount }, 'Connected clients');

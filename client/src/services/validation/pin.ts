@@ -1,25 +1,29 @@
 /**
  * PIN validation
  *
- * Pure functions for validating PIN formats.
- * No React dependencies - testable in isolation.
+ * Re-exports shared validation rules from shared/validation.ts.
+ * Single source of truth — client and server use the same rules.
  */
 
-export const TABLE_PIN_LENGTH = 4
-export const OWNER_PIN_LENGTH = 8
+export {
+  PIN_RULES,
+  isValidPin,
+} from '@shared/validation'
 
 /**
  * Validate a table PIN (4 digits).
+ * Uses shared PIN_RULES for consistency with server.
  */
 export function validateTablePin(pin: string): boolean {
-  return /^\d{4}$/.test(pin)
+  return PIN_RULES.tablePin.pattern.test(pin)
 }
 
 /**
  * Validate an owner PIN (8 digits).
+ * Uses shared PIN_RULES for consistency with server.
  */
 export function validateOwnerPin(pin: string): boolean {
-  return /^\d{8}$/.test(pin)
+  return PIN_RULES.ownerPin.pattern.test(pin)
 }
 
 /**

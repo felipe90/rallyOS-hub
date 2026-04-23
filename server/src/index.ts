@@ -10,12 +10,17 @@ import { createSecureServer, gracefulShutdown } from './server';
 import { createSocketServer } from './socket';
 import { TableManager } from './domain/tableManager';
 import { logger } from './utils/logger';
+import { initOwnerPin } from './config/ownerPin';
 
-// Owner PIN initialization - mandatory, no fallback
-const ownerPin = process.env.TOURNAMENT_OWNER_PIN;
-if (!ownerPin || ownerPin.trim() === '') {
-  logger.error('TOURNAMENT_OWNER_PIN is required. Set it in .env or environment variable.');
-  process.exit(1);
+// Owner PIN initialization
+// If set via env → use it (production). If not → generate random (plug-and-play Orange Pi).
+// The PIN is NEVER logged — it's exposed via the /api/owner-pin endpoint for the UI.
+const { pin: ownerPin, isRandom } = initOwnerPin();
+
+if (isRandom) {
+  logger.info('Owner PIN randomly generated — check the web UI or /api/owner-pin endpoint');
+} else {
+  logger.info('Owner PIN loaded from environment');
 }
 
 export { ownerPin };

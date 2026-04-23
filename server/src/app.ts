@@ -101,4 +101,21 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: Date.now() });
 });
 
+// Expose owner PIN for plug-and-play mode (random PIN generation)
+// Only returns the PIN when it was randomly generated (not from env var)
+// This allows the UI to display the PIN on first boot without logging it
+app.get('/api/owner-pin', (req, res) => {
+  const { getOwnerPin, isRandomPin } = require('./config/ownerPin');
+  const pin = getOwnerPin();
+  const random = isRandomPin();
+
+  // Only expose PIN when it was randomly generated (plug-and-play mode)
+  // When set via env var, the operator already knows it
+  if (!random || !pin) {
+    return res.json({ pin: null, isRandom: false });
+  }
+
+  res.json({ pin, isRandom: true });
+});
+
 export { app };

@@ -3,8 +3,8 @@ export class PayloadValidationError extends Error {
     public code: 'VALIDATION_ERROR',
     public field: string,
     public message: string,
-    public expected: string,
-    public received: string
+    public expected?: string,
+    public received?: string
   ) {
     super(message);
     this.name = 'PayloadValidationError';

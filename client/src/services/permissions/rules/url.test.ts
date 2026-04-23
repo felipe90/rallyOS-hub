@@ -1,23 +1,34 @@
 /**
  * URL parsing permission rules - Unit tests
  *
- * Uses AES-256-GCM encryption (compatible with server).
+ * Uses mocked AES-256-GCM encryption (Web Crypto API not available in jsdom).
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { parseEncryptedPin } from './url'
-import { encryptPin } from '@/shared/crypto/pinEncryption'
 
-const TEST_SECRET = '0123456789abcdef0123456789abcdef'
-
-// Mock VITE_ENCRYPTION_SECRET
-vi.stubGlobal('import', { meta: { env: { VITE_ENCRYPTION_SECRET: TEST_SECRET } } })
-
-// Mock import.meta.env for the url.ts module
-vi.mock('@/services/permissions/rules/url', async () => {
-  const actual = await vi.importActual<typeof import('./url')>('./url')
-  return actual
-})
+// Mock the encryption module since jsdom doesn't support Web Crypto AES-GCM
+vi.mock('@/shared/crypto/pinEncryption', () => ({
+  encryptPin: vi.fn(async (pin: string) => {
+    const timestamp = Date.now().toString()
+    const fake = `aabbccdd:${Buffer.from(pin).toString('hex')}:eeff0011:${timestamp}`
+    return Buffer.from(fake).toString('base64url')
+  }),
+  decryptPin: vi.fn(async (encryptedUrl: string) => {
+    try {
+      const decoded = Buffer.from(encryptedUrl, 'base64url').toString('utf8')
+      const parts = decoded.split(':')
+      if (parts.length !== 4) return null
+      const ciphertextHex = parts[1]
+      const timestamp = parseInt(parts[3], 10)
+      if (Date.now() - timestamp > 24 * 60 * 60 * 1000) return null
+      const pin = Buffer.from(ciphertextHex, 'hex').toString('utf8')
+      return /^\d{4}$/.test(pin) ? pin : null
+    } catch {
+      return null
+    }
+  }),
+}))
 
 describe('parseEncryptedPin', () => {
   const tableId = 'test-table-123'
@@ -25,9 +36,12 @@ describe('parseEncryptedPin', () => {
   describe('valid PIN flows', () => {
     it('parses valid PIN from URL', async () => {
       const pin = '1234'
-      const encrypted = await encryptPin(pin, tableId, TEST_SECRET)
+      // Create a valid encrypted PIN manually
+      const timestamp = Date.now().toString()
+      const fake = `aabbccdd:${Buffer.from(pin).toString('hex')}:eeff0011:${timestamp}`
+      const ePin = Buffer.from(fake).toString('base64url')
 
-      const result = await parseEncryptedPin(encrypted, tableId)
+      const result = await parseEncryptedPin(ePin, tableId)
 
       expect(result.pin).toBe(pin)
       expect(result.isValid).toBe(true)
@@ -36,9 +50,11 @@ describe('parseEncryptedPin', () => {
 
     it('parses different valid PIN', async () => {
       const pin = '9876'
-      const encrypted = await encryptPin(pin, tableId, TEST_SECRET)
+      const timestamp = Date.now().toString()
+      const fake = `aabbccdd:${Buffer.from(pin).toString('hex')}:eeff0011:${timestamp}`
+      const ePin = Buffer.from(fake).toString('base64url')
 
-      const result = await parseEncryptedPin(encrypted, tableId)
+      const result = await parseEncryptedPin(ePin, tableId)
 
       expect(result.pin).toBe(pin)
       expect(result.isValid).toBe(true)
@@ -53,16 +69,6 @@ describe('parseEncryptedPin', () => {
       expect(result.pin).toBe(null)
       expect(result.isValid).toBe(false)
       expect(result.hasPin).toBe(true)
-    })
-
-    it('returns invalid for wrong secret', async () => {
-      const pin = '1234'
-      const encrypted = await encryptPin(pin, tableId, TEST_SECRET)
-      // Parse with different secret (simulated by mocking env)
-      // This tests the decryption failure path
-      const result = await parseEncryptedPin(encrypted, tableId)
-      // With correct secret, should be valid
-      expect(result.isValid).toBe(true)
     })
   })
 

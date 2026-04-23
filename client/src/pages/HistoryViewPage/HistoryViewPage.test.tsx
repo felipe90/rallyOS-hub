@@ -73,6 +73,7 @@ describe('HistoryViewPage', () => {
       logout: vi.fn(),
       setOwner: vi.fn(),
       setTablePin: vi.fn(),
+      tablePin: null,
     })
   })
 
@@ -213,6 +214,7 @@ describe('HistoryViewPage', () => {
       logout: vi.fn(),
       setOwner: vi.fn(),
       setTablePin: vi.fn(),
+      tablePin: null,
     })
     
     renderWithProviders(
@@ -244,6 +246,7 @@ describe('HistoryViewPage', () => {
       logout: vi.fn(),
       setOwner: vi.fn(),
       setTablePin: vi.fn(),
+      tablePin: null,
     })
     
     renderWithProviders(

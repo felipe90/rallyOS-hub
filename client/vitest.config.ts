@@ -4,6 +4,9 @@ import path from 'path'
 
 export default defineConfig({
   plugins: [react()],
+  define: {
+    'import.meta.env.VITE_ENCRYPTION_SECRET': JSON.stringify('0123456789abcdef0123456789abcdef'),
+  },
   test: {
     globals: true,
     environment: 'jsdom',

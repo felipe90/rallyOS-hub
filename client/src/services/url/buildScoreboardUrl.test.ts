@@ -8,17 +8,12 @@ Object.defineProperty(window, 'location', {
   writable: true,
 })
 
-// Mock VITE_ENCRYPTION_SECRET
-vi.mock(import.meta.env, () => ({
-  VITE_ENCRYPTION_SECRET: 'test-secret-key-32-chars-long!!',
-}))
-
-// Mock encryptPin to return a predictable value
+// Mock encryptPin (async, since Web Crypto API is async)
 vi.mock('@/shared/crypto/pinEncryption', () => ({
-  encryptPin: vi.fn(async (pin: string, tableId: string, _secret: string) => {
-    // Return a base64url-encoded fake encrypted value
-    return btoa(`mock-iv:mock-ciphertext:mock-tag:${Date.now()}`)
-      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
+  encryptPin: vi.fn(async (pin: string, _tableId: string, _secret: string) => {
+    const timestamp = Date.now().toString()
+    const fake = `aabbccdd:${Buffer.from(pin).toString('hex')}:eeff0011:${timestamp}`
+    return Buffer.from(fake).toString('base64url')
   }),
 }))
 
@@ -27,13 +22,6 @@ describe('buildScoreboardUrl', () => {
     const url = await buildScoreboardUrl('table-1', '1234')
     expect(url).toContain('/scoreboard/table-1/referee')
     expect(url).toContain('ePin=')
-  })
-
-  it('throws if VITE_ENCRYPTION_SECRET is not set', async () => {
-    // This test verifies the error path
-    vi.resetModules()
-    // In a real scenario, we'd unset the env var and re-import
-    // For now, we trust the implementation
   })
 })
 

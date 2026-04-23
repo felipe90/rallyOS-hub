@@ -101,6 +101,7 @@ describe('ScoreboardPage', () => {
     mockUseAuthContext.mockReturnValue({
       role: ROLE_REFEREE,
       tableId: 'table-1',
+      tablePin: '1234',
       isReferee: true,
       isViewer: false,
       isOwner: false,
@@ -110,6 +111,7 @@ describe('ScoreboardPage', () => {
       logout: vi.fn(),
       setOwner: vi.fn(),
       setTablePin: vi.fn(),
+      tablePin: null,
     })
 
     mockUsePermissions.mockReturnValue({
@@ -139,6 +141,21 @@ describe('ScoreboardPage', () => {
   })
 
   it('authenticates as referee when page loads in referee mode', async () => {
+    mockUseAuthContext.mockReturnValue({
+      role: ROLE_REFEREE,
+      tableId: 'table-1',
+      tablePin: '12345',
+      isReferee: true,
+      isViewer: false,
+      isOwner: false,
+      isAuthenticated: true,
+      ownerPin: '12345',
+      login: vi.fn(),
+      logout: vi.fn(),
+      setOwner: vi.fn(),
+      setTablePin: vi.fn(),
+    })
+
     renderWithRouter(<ScoreboardPage />)
 
     await waitFor(() => {
@@ -217,6 +234,7 @@ describe('ScoreboardPage', () => {
       logout: vi.fn(),
       setOwner: vi.fn(),
       setTablePin: vi.fn(),
+      tablePin: null,
     })
 
     mockUsePermissions.mockReturnValue({

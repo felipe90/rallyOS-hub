@@ -14,7 +14,7 @@ import { Server, Socket } from 'socket.io';
 import { TableManager } from '../domain/tableManager';
 import { TableInfo } from '../domain/types';
 import { logger } from '../utils/logger';
-import { SocketEvents } from '../../shared/events';
+import { SocketEvents } from '../../../shared/events';
 import { 
   TableEventHandler, 
   MatchEventHandler, 

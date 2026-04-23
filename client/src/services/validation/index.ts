@@ -1,5 +1,4 @@
-export { validateTablePin, validateOwnerPin, validatePinLength } from './pin'
-export { TABLE_PIN_LENGTH, OWNER_PIN_LENGTH } from './pin'
+export { validateTablePin, validateOwnerPin, validatePinLength, PIN_RULES, isValidPin } from './pin'
 
 export { validateTableName, validateOwnerPinInput, validatePlayerName } from './auth'
 export { MAX_TABLE_NAME_LENGTH } from './auth'

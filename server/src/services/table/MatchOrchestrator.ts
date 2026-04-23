@@ -5,7 +5,7 @@
  */
 
 import { Table, MatchEvent } from '../../domain/types';
-import { MatchEngine, Player, MatchConfig, MatchStateExtended } from '../../matchEngine';
+import { MatchEngine, Player, MatchConfig, MatchStateExtended } from '../../domain/matchEngine';
 import { logger } from '../../utils/logger';
 
 export class MatchOrchestrator {

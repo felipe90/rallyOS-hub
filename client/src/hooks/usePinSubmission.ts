@@ -51,7 +51,12 @@ export function usePinSubmission(socket: Socket | null) {
           resolve({ success: false, error: err.message })
         }
 
+        let cleanupCalled = false
         const cleanup = () => {
+          if (cleanupCalled) return
+          cleanupCalled = true
+          clearTimeout(timeoutId)
+          socket.off('disconnect', handleDisconnect)
           socket.off(SocketEvents.SERVER.REF_SET, handleResponse)
           socket.off(SocketEvents.SERVER.ERROR, handleError)
           setLoading(false)
@@ -71,20 +76,12 @@ export function usePinSubmission(socket: Socket | null) {
 
         // Handle socket disconnect during submission
         const handleDisconnect = () => {
-          clearTimeout(timeoutId)
           cleanup()
           setError('Conexión perdida')
           resolve({ success: false, error: 'Disconnected' })
         }
 
         socket.on('disconnect', handleDisconnect)
-
-        const originalCleanup = cleanup
-        cleanup = () => {
-          clearTimeout(timeoutId)
-          socket.off('disconnect', handleDisconnect)
-          originalCleanup()
-        }
       })
     },
     [socket],

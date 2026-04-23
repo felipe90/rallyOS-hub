@@ -70,14 +70,15 @@ export function TableStatusChip({
   }, [pin]);
 
   // Build QR URL async (AES-256-GCM encryption)
+  const displayPin = pin || lastKnownPin;
+
   useEffect(() => {
-    const displayPin = pin || lastKnownPin;
     if (displayPin && tableId) {
       buildScoreboardUrl(tableId, displayPin).then(setJoinUrl).catch(() => setJoinUrl(''))
     } else {
       setJoinUrl('')
     }
-  }, [pin, lastKnownPin, tableId])
+  }, [displayPin, tableId])
 
   const hasPin = !!(pin || lastKnownPin);
 

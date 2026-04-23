@@ -27,7 +27,7 @@ import {
   QRData,
   ErrorResponse,
   ValidationError,
-} from '../../shared/types';
+} from '../../../shared/types';
 import type { MatchEngine } from './matchEngine';
 
 // Re-export everything from shared so consumers can still `import { X } from './types'`

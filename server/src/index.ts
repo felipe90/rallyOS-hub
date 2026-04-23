@@ -8,7 +8,7 @@
 import { app } from './app';
 import { createSecureServer, gracefulShutdown } from './server';
 import { createSocketServer } from './socket';
-import { TableManager } from './tableManager';
+import { TableManager } from './domain/tableManager';
 import { logger } from './utils/logger';
 
 // Owner PIN initialization - mandatory, no fallback

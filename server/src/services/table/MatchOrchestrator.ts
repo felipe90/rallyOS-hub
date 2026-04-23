@@ -4,7 +4,7 @@
  * Responsibility: Configure, start, score, and reset matches.
  */
 
-import { Table, MatchEvent } from '../../types';
+import { Table, MatchEvent } from '../../domain/types';
 import { MatchEngine, Player, MatchConfig, MatchStateExtended } from '../../matchEngine';
 import { logger } from '../../utils/logger';
 

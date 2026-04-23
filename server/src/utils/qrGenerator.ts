@@ -1,5 +1,5 @@
 import QRCode from 'qrcode';
-import { QRData } from '../types';
+import { QRData } from '../domain/types';
 import { logger } from './logger';
 
 export async function generateQRDataUrl(data: QRData): Promise<string> {

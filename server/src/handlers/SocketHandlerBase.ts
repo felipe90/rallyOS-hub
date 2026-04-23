@@ -6,8 +6,8 @@
  */
 
 import { Server, Socket } from 'socket.io';
-import { TableManager } from '../tableManager';
-import { TableInfo, TableInfoWithPin } from '../types';
+import { TableManager } from '../domain/tableManager';
+import { TableInfo, TableInfoWithPin } from '../domain/types';
 import { logger } from '../utils/logger';
 import { RateLimiter } from '../services/security/RateLimiter';
 

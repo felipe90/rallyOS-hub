@@ -11,16 +11,16 @@
  */
 
 import { Server, Socket } from 'socket.io';
-import { TableManager } from './tableManager';
-import { TableInfo } from './types';
-import { logger } from './utils/logger';
+import { TableManager } from '../domain/tableManager';
+import { TableInfo } from '../domain/types';
+import { logger } from '../utils/logger';
 import { SocketEvents } from '../../shared/events';
 import { 
   TableEventHandler, 
   MatchEventHandler, 
   AuthHandler, 
   AdminHandler 
-} from './handlers';
+} from './index';
 
 export class SocketHandler {
   private io: Server;

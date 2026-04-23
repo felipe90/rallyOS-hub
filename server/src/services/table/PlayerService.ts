@@ -4,7 +4,7 @@
  * Responsibility: Join, leave, and referee management.
  */
 
-import { Table, PlayerConnection } from '../../types';
+import { Table, PlayerConnection } from '../../domain/types';
 import { logger } from '../../utils/logger';
 
 export class PlayerService {

@@ -6,7 +6,7 @@
  */
 
 import crypto from 'crypto';
-import { Table } from '../../types';
+import { Table } from '../../domain/types';
 
 export class PinService {
   generatePin(): string {

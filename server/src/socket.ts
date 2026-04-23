@@ -6,8 +6,8 @@
  */
 
 import { Server as IOServer } from 'socket.io';
-import { SocketHandler } from './socketHandler';
-import { TableManager } from './tableManager';
+import { SocketHandler } from './handlers/SocketHandler';
+import { TableManager } from './domain/tableManager';
 import { logger } from './utils/logger';
 
 export function createSocketServer(

@@ -4,7 +4,7 @@
  * Responsibility: Store and retrieve tables.
  */
 
-import { Table } from '../../types';
+import { Table } from '../../domain/types';
 
 export class TableRepository {
   private tables: Map<string, Table> = new Map();

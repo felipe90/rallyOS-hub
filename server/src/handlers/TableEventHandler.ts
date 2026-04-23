@@ -11,12 +11,12 @@
  */
 
 import { Server, Socket } from 'socket.io';
-import { TableManager } from '../tableManager';
+import { TableManager } from '../domain/tableManager';
 import { validateSocketPayload } from '../utils/validation';
 import { logger } from '../utils/logger';
 import { SocketEvents } from '../../../shared/events';
 import { SocketHandlerBase } from './SocketHandlerBase';
-import type { SocketData } from '../types';
+import type { SocketData } from '../domain/types';
 
 export class TableEventHandler extends SocketHandlerBase {
   constructor(io: Server, tableManager: TableManager, ownerPin: string) {

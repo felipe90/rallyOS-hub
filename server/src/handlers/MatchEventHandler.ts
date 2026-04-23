@@ -13,7 +13,7 @@
  */
 
 import { Server, Socket } from 'socket.io';
-import { TableManager } from '../tableManager';
+import { TableManager } from '../domain/tableManager';
 import { validateSocketPayload } from '../utils/validation';
 import { logger } from '../utils/logger';
 import { SocketEvents } from '../../../shared/events';
@@ -28,7 +28,7 @@ function sanitizeInput(value: string, maxLength: number = 100): string {
     .replace(/<[^>]*>/g, '') // Strip HTML tags
     .slice(0, maxLength);
 }
-import type { Player, MatchConfig } from '../matchEngine';
+import type { Player, MatchConfig } from '../domain/matchEngine';
 
 export class MatchEventHandler extends SocketHandlerBase {
   constructor(io: Server, tableManager: TableManager, ownerPin: string) {

@@ -46,7 +46,9 @@ export class SocketHandler {
     
     // Set up global table update listener once
     this.tableManager.onTableUpdate = (tableInfo) => {
-      this.io.emit(SocketEvents.SERVER.TABLE_UPDATE, tableInfo);
+      // TABLE_UPDATE goes only to clients in the table's room
+      this.io.to(tableInfo.id).emit(SocketEvents.SERVER.TABLE_UPDATE, tableInfo);
+      // TABLE_LIST goes to ALL clients (global)
       this.io.emit(SocketEvents.SERVER.TABLE_LIST, this.getPublicTableList());
     };
 

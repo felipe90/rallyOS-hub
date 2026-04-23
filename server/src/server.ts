@@ -64,6 +64,10 @@ export function createSecureServer(app: Express): {
       credentials: true,
     },
     transports: ['websocket', 'polling'],
+    // Connection limits for security
+    maxHttpBufferSize: 1e6, // 1MB max message size
+    pingTimeout: 60000,
+    pingInterval: 25000,
   });
 
   return { httpsServer, io };

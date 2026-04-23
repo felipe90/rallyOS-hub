@@ -41,6 +41,13 @@ export class TableEventHandler extends SocketHandlerBase {
         return this.emitError(socket, 'RATE_LIMITED', 'Too many tables created. Please wait a minute.');
       }
 
+      // Max table limit: prevent memory exhaustion
+      const MAX_TABLES = parseInt(process.env.MAX_TABLES || '50', 10);
+      const currentTables = this.tableManager.getAllTables().length;
+      if (currentTables >= MAX_TABLES) {
+        return this.emitError(socket, 'MAX_TABLES_REACHED', `Maximum of ${MAX_TABLES} tables reached`);
+      }
+
       const table = this.tableManager.createTable(data?.name);
       socket.join(table.id);
       

@@ -79,8 +79,8 @@ export function AuthPage() {
     }
   }
 
-const handlePinSubmit = (eventOrPin?: any) => {
-    const pinToCheck = typeof eventOrPin === 'string' ? eventOrPin : pin
+const handlePinSubmit = (_event?: React.MouseEvent) => {
+    const pinToCheck = pin
     if (pinToCheck.length < 5 || pinToCheck.length > 8) {
       setError('PIN debe tener entre 5 y 8 dígitos')
       return

@@ -25,9 +25,9 @@ export default defineConfig([
       },
     },
     rules: {
-      // Custom rules - relaxed for this codebase
-      '@typescript-eslint/no-unused-vars': 'off', // Disabled - too noisy for this project
-      '@typescript-eslint/no-explicit-any': 'off', // Too strict - use 'any' in some places
+      // Custom rules - enabled as warnings for gradual improvement
+      '@typescript-eslint/no-unused-vars': 'warn',
+      '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-empty-object-type': 'off', // Allow empty interfaces for extensions
       'no-console': 'off', // Allow console in dev
       'react-refresh/only-export-components': 'off', // Too strict for this project structure

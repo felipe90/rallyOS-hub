@@ -31,7 +31,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
   const [cleanConfirmTableId, setCleanConfirmTableId] = useState<string | null>(null)
   const [deleteConfirmTableId, setDeleteConfirmTableId] = useState<string | null>(null)
   const navigate = useNavigate()
-  const { tables, connected, createTable, socket, requestTablesWithPins, emit: _emit } = useSocketContext()
+  const { tables, connected, createTable, socket, requestTablesWithPins } = useSocketContext()
   const { logout, ownerPin, isOwner, setTablePin } = useAuthContext()
   const stats = useDashboardStats(tables)
   const { submitPin, loading: pinLoading, error: pinError, clearError } = usePinSubmission(socket)

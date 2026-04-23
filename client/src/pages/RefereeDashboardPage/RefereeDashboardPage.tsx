@@ -27,7 +27,7 @@ export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashb
   const [pinModalOpen, setPinModalOpen] = useState(false)
   const [selectedTable, setSelectedTable] = useState<TableInfoWithPin | null>(null)
   const navigate = useNavigate()
-  const { tables, connected, socket, requestTables, emit: _emit } = useSocketContext()
+  const { tables, connected, socket, requestTables } = useSocketContext()
   const { logout, setTablePin } = useAuthContext()
   const stats = useDashboardStats(tables)
   const { submitPin, loading: pinLoading, error: pinError, clearError } = usePinSubmission(socket)

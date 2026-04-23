@@ -62,11 +62,29 @@ export function usePinSubmission(socket: Socket | null) {
 
         socket.emit(SocketEvents.CLIENT.SET_REF, { tableId, pin })
 
-        // Timeout fallback
-        setTimeout(() => {
+        // Timeout fallback — resolve as FAILURE, never assume success
+        const timeoutId = setTimeout(() => {
           cleanup()
-          resolve({ success: true }) // Assume success on timeout
+          setError('Tiempo de espera agotado')
+          resolve({ success: false, error: 'Timeout' })
         }, 5000)
+
+        // Handle socket disconnect during submission
+        const handleDisconnect = () => {
+          clearTimeout(timeoutId)
+          cleanup()
+          setError('Conexión perdida')
+          resolve({ success: false, error: 'Disconnected' })
+        }
+
+        socket.on('disconnect', handleDisconnect)
+
+        const originalCleanup = cleanup
+        cleanup = () => {
+          clearTimeout(timeoutId)
+          socket.off('disconnect', handleDisconnect)
+          originalCleanup()
+        }
       })
     },
     [socket],

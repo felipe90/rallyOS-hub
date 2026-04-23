@@ -9,7 +9,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [role, setRole] = useState<UserRole>(() => authStorage.getRole())
   const [tableId, setTableId] = useState<string | null>(() => authStorage.getTableId())
   const [ownerPin, setOwnerPin] = useState<string | null>(() => authStorage.getOwnerPin())
-  const [tablePin, setTablePinState] = useState<string | null>(() => authStorage.getTablePin())
+  const [tablePin, setTablePinState] = useState<string | null>(null)
 
   const login = (newRole: UserRole, tId?: string, pin?: string) => {
     if (newRole) {
@@ -46,7 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const setTablePin = (pin: string) => {
-    localStorage.setItem('tablePin', pin)
+    // PIN stored in memory only — never persisted to browser storage
     setTablePinState(pin)
   }
 

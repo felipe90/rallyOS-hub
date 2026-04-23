@@ -56,24 +56,21 @@ export const authStorage = {
   },
 
   getTablePin: (): string | null => {
-    if (typeof window === 'undefined') return null
-    return localStorage.getItem(TABLE_PIN_KEY)
+    // PINs are no longer persisted — always return null
+    // PINs are stored in memory only (React state)
+    return null
   },
 
-  setTablePin: (pin: string | null): void => {
-    if (typeof window === 'undefined') return
-    if (pin) {
-      localStorage.setItem(TABLE_PIN_KEY, pin)
-    } else {
-      localStorage.removeItem(TABLE_PIN_KEY)
-    }
+  setTablePin: (_pin: string | null): void => {
+    // PINs are no longer persisted to browser storage
+    // This is a no-op — PINs are stored in memory only (React state)
   },
 
   clear: (): void => {
     if (typeof window === 'undefined') return
     localStorage.removeItem(ROLE_KEY)
     localStorage.removeItem(TABLE_ID_KEY)
-    localStorage.removeItem(TABLE_PIN_KEY)
+    // tablePin is no longer persisted — no need to remove from localStorage
     sessionStorage.removeItem(OWNER_PIN_KEY)
   },
 }

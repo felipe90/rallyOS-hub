@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import type { TableStatus } from '@shared/types';
 import { WaitingBadge, ConfiguringBadge, LiveBadge, FinishedBadge } from '../../atoms/Badge';
 import { Body } from '../../atoms/Typography';
@@ -61,6 +61,7 @@ export function TableStatusChip({
 
   // Keep last known PIN to prevent flicker during updates
   const [lastKnownPin, setLastKnownPin] = useState(pin);
+  const [joinUrl, setJoinUrl] = useState('');
 
   useEffect(() => {
     if (pin) {
@@ -68,16 +69,18 @@ export function TableStatusChip({
     }
   }, [pin]);
 
-  // Use last known PIN if current pin is undefined (during transition)
+  // Build QR URL async (AES-256-GCM encryption)
   const displayPin = pin || lastKnownPin;
-  const hasPin = !!displayPin;
 
-  const joinUrl = useMemo(() => {
+  useEffect(() => {
     if (displayPin && tableId) {
-      return buildScoreboardUrl(tableId, displayPin)
+      buildScoreboardUrl(tableId, displayPin).then(setJoinUrl).catch(() => setJoinUrl(''))
+    } else {
+      setJoinUrl('')
     }
-    return ''
   }, [displayPin, tableId])
+
+  const hasPin = !!(pin || lastKnownPin);
 
   return (
     <div

@@ -12,7 +12,7 @@ import {
   MatchWonEvent,
   TableStatus
 } from './types';
-import { logger } from './utils/logger';
+import { logger } from '../utils/logger';
 
 export type { Player, Score, MatchConfig, MatchState, MatchConfigExtended, MatchStateExtended };
 

@@ -21,6 +21,7 @@ export interface ScoreboardUrlState {
   ePin: string | null
   decryptedPin: string | null
   isValidPin: boolean
+  isDecrypting: boolean
 }
 
 /**
@@ -31,27 +32,44 @@ export function useScoreboardUrl(tableId: string | undefined): ScoreboardUrlStat
   const [searchParams] = useSearchParams()
   const [decryptedPin, setDecryptedPin] = useState<string | null>(null)
   const [isValidPin, setIsValidPin] = useState(false)
+  const [isDecrypting, setIsDecrypting] = useState(false)
 
   const ePin = searchParams.get('ePin')
 
   useEffect(() => {
-    if (!tableId) {
+    if (!tableId || !ePin) {
       setDecryptedPin(null)
       setIsValidPin(false)
+      setIsDecrypting(false)
       return
     }
 
-    // Use pure function from services
-    const result = parseEncryptedPin(ePin, tableId)
+    let cancelled = false
+    setIsDecrypting(true)
 
-    if (result.isValid) {
-      setDecryptedPin(result.pin)
-      setIsValidPin(true)
-      // Clean URL — remove ePin param after successful decryption
-      window.history.replaceState({}, '', window.location.pathname)
-    } else {
+    // Use pure function from services (async)
+    parseEncryptedPin(ePin, tableId).then((result) => {
+      if (cancelled) return
+
+      if (result.isValid) {
+        setDecryptedPin(result.pin)
+        setIsValidPin(true)
+        // Clean URL — remove ePin param after successful decryption
+        window.history.replaceState({}, '', window.location.pathname)
+      } else {
+        setDecryptedPin(null)
+        setIsValidPin(false)
+      }
+      setIsDecrypting(false)
+    }).catch(() => {
+      if (cancelled) return
       setDecryptedPin(null)
       setIsValidPin(false)
+      setIsDecrypting(false)
+    })
+
+    return () => {
+      cancelled = true
     }
   }, [ePin, tableId])
 
@@ -59,5 +77,6 @@ export function useScoreboardUrl(tableId: string | undefined): ScoreboardUrlStat
     ePin,
     decryptedPin,
     isValidPin,
+    isDecrypting,
   }
 }

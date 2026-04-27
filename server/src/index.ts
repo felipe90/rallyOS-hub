@@ -5,21 +5,22 @@
  * This file only imports and wires modules together.
  */
 
-import crypto from 'crypto';
 import { app } from './app';
 import { createSecureServer, gracefulShutdown } from './server';
 import { createSocketServer } from './socket';
-import { TableManager } from './tableManager';
+import { TableManager } from './domain/tableManager';
 import { logger } from './utils/logger';
+import { initOwnerPin } from './config/ownerPin';
 
-// Owner PIN initialization - mandatory with random fallback
-let ownerPin: string;
-if (!process.env.TOURNAMENT_OWNER_PIN) {
-  ownerPin = crypto.randomInt(10000000, 99999999).toString();
-  logger.warn({ ownerPin }, 'OWNER PIN randomly generated — SAVE THIS PIN, it changes on every restart');
+// Owner PIN initialization
+// If set via env → use it (production). If not → generate random (plug-and-play Orange Pi).
+// The PIN is NEVER logged — it's exposed via the /api/owner-pin endpoint for the UI.
+const { pin: ownerPin, isRandom } = initOwnerPin();
+
+if (isRandom) {
+  logger.info('Owner PIN randomly generated — check the web UI or /api/owner-pin endpoint');
 } else {
-  ownerPin = process.env.TOURNAMENT_OWNER_PIN;
-  logger.info({ ownerPin }, 'OWNER PIN loaded from environment');
+  logger.info('Owner PIN loaded from environment');
 }
 
 export { ownerPin };

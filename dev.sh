@@ -176,6 +176,14 @@ main() {
         done
     }
     
+    # Load environment variables from .env (if exists)
+    if [ -f "$SCRIPT_DIR/.env" ]; then
+        set -a
+        source "$SCRIPT_DIR/.env"
+        set +a
+        print_success "Environment loaded from .env"
+    fi
+
     # Start server
     print_step "Starting server on port $SERVER_PORT..."
     cd "$SERVER_DIR"

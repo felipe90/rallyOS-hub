@@ -6,8 +6,8 @@
  */
 
 import { Server, Socket } from 'socket.io';
-import { TableManager } from '../tableManager';
-import { TableInfo, TableInfoWithPin } from '../types';
+import { TableManager } from '../domain/tableManager';
+import { TableInfo, TableInfoWithPin } from '../domain/types';
 import { logger } from '../utils/logger';
 import { RateLimiter } from '../services/security/RateLimiter';
 
@@ -22,6 +22,7 @@ export abstract class SocketHandlerBase {
     this.tableManager = tableManager;
     this.ownerPin = ownerPin;
     this.rateLimiter = new RateLimiter();
+    this.rateLimiter.startCleanup();
   }
 
   /**
@@ -84,6 +85,18 @@ export abstract class SocketHandlerBase {
     const table = this.tableManager.getTable(tableId);
     if (!table) {
       this.emitError(socket, 'TABLE_NOT_FOUND', 'Mesa no encontrada');
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * Check if socket is authenticated and emit error if not
+   */
+  protected validateAuthenticated(socket: Socket): boolean {
+    const socketData = socket.data as import('../domain/types').SocketData;
+    if (!socketData.isAuthenticated) {
+      this.emitError(socket, 'UNAUTHORIZED', 'Authentication required');
       return false;
     }
     return true;

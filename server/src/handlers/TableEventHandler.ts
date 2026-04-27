@@ -11,11 +11,13 @@
  */
 
 import { Server, Socket } from 'socket.io';
-import { TableManager } from '../tableManager';
+import { TableManager } from '../domain/tableManager';
 import { validateSocketPayload } from '../utils/validation';
 import { logger } from '../utils/logger';
 import { SocketEvents } from '../../../shared/events';
+import { PIN_RULES } from '../../../shared/validation';
 import { SocketHandlerBase } from './SocketHandlerBase';
+import type { SocketData } from '../domain/types';
 
 export class TableEventHandler extends SocketHandlerBase {
   constructor(io: Server, tableManager: TableManager, ownerPin: string) {
@@ -28,8 +30,24 @@ export class TableEventHandler extends SocketHandlerBase {
   public registerHandlers(socket: Socket): void {
     // CREATE_TABLE: Create a new table
     socket.on(SocketEvents.CLIENT.CREATE_TABLE, (data?: { name?: string }) => {
+      if (!this.validateAuthenticated(socket)) return;
       if (!validateSocketPayload(socket, data || {}, { name: { type: 'string', maxLength: 256, required: false } }, 'CREATE_TABLE')) {
         return;
+      }
+
+      // Rate limit: max 10 tables per minute per IP
+      const clientIp = socket.handshake.address;
+      const rateLimitKey = `CREATE_TABLE:${clientIp}`;
+      if (this.isRateLimited(rateLimitKey)) {
+        this.logRateLimitBlocked('CREATE_TABLE', 'global', clientIp);
+        return this.emitError(socket, 'RATE_LIMITED', 'Too many tables created. Please wait a minute.');
+      }
+
+      // Max table limit: prevent memory exhaustion
+      const MAX_TABLES = parseInt(process.env.MAX_TABLES || '50', 10);
+      const currentTables = this.tableManager.getAllTables().length;
+      if (currentTables >= MAX_TABLES) {
+        return this.emitError(socket, 'MAX_TABLES_REACHED', `Maximum of ${MAX_TABLES} tables reached`);
       }
 
       const table = this.tableManager.createTable(data?.name);
@@ -57,11 +75,11 @@ export class TableEventHandler extends SocketHandlerBase {
 
     // GET_TABLES_WITH_PINS: Owner only
     socket.on(SocketEvents.CLIENT.GET_TABLES_WITH_PINS, (data?: { ownerPin?: string }) => {
-      if (!validateSocketPayload(socket, data || {}, { ownerPin: { required: false, type: 'string', pattern: /^\d{8}$/ } }, 'GET_TABLES_WITH_PINS')) {
+      if (!validateSocketPayload(socket, data || {}, { ownerPin: { required: false, type: 'string', pattern: PIN_RULES.ownerPin.pattern } }, 'GET_TABLES_WITH_PINS')) {
         return;
       }
 
-      const isSocketOwner = (socket as any).data?.isOwner === true;
+      const isSocketOwner = (socket.data as SocketData)?.isOwner === true;
       const isValidOwner = data?.ownerPin === this.ownerPin;
 
       if (!isSocketOwner && !isValidOwner) {
@@ -158,7 +176,7 @@ export class TableEventHandler extends SocketHandlerBase {
         return this.emitError(socket, 'TABLE_NOT_FOUND', 'Mesa no encontrada');
       }
 
-      const isOwner = (socket as any).data?.isOwner === true;
+      const isOwner = (socket.data as SocketData)?.isOwner === true;
       const isRef = this.tableManager.isReferee(data.tableId, socket.id);
       if (!isOwner && !isRef) {
         return this.emitError(socket, 'UNAUTHORIZED', 'No autorizado');

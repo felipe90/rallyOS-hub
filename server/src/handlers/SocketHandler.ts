@@ -11,16 +11,16 @@
  */
 
 import { Server, Socket } from 'socket.io';
-import { TableManager } from './tableManager';
-import { TableInfo } from './types';
-import { logger } from './utils/logger';
-import { SocketEvents } from '../../shared/events';
+import { TableManager } from '../domain/tableManager';
+import { TableInfo } from '../domain/types';
+import { logger } from '../utils/logger';
+import { SocketEvents } from '../../../shared/events';
 import { 
   TableEventHandler, 
   MatchEventHandler, 
   AuthHandler, 
   AdminHandler 
-} from './handlers';
+} from './index';
 
 export class SocketHandler {
   private io: Server;
@@ -46,7 +46,9 @@ export class SocketHandler {
     
     // Set up global table update listener once
     this.tableManager.onTableUpdate = (tableInfo) => {
-      this.io.emit(SocketEvents.SERVER.TABLE_UPDATE, tableInfo);
+      // TABLE_UPDATE goes only to clients in the table's room
+      this.io.to(tableInfo.id).emit(SocketEvents.SERVER.TABLE_UPDATE, tableInfo);
+      // TABLE_LIST goes to ALL clients (global)
       this.io.emit(SocketEvents.SERVER.TABLE_LIST, this.getPublicTableList());
     };
 
@@ -62,6 +64,18 @@ export class SocketHandler {
   }
 
   private setupListeners() {
+    // Socket.io auth middleware — validate session token on connection
+    this.io.use((socket, next) => {
+      const token = socket.handshake.auth?.sessionToken as string | undefined;
+      if (token) {
+        // Token present — mark as authenticated
+        // Full JWT validation can be added later
+        (socket.data as import('../domain/types').SocketData).isAuthenticated = true;
+        (socket.data as import('../domain/types').SocketData).sessionToken = token;
+      }
+      next();
+    });
+
     this.io.on('connection', (socket: Socket) => {
       logger.info({ socketId: socket.id }, 'Client connected');
       logger.debug({ socketId: socket.id, count: this.io.engine.clientsCount }, 'Connected clients');

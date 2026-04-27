@@ -31,8 +31,8 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
   const [cleanConfirmTableId, setCleanConfirmTableId] = useState<string | null>(null)
   const [deleteConfirmTableId, setDeleteConfirmTableId] = useState<string | null>(null)
   const navigate = useNavigate()
-  const { tables, connected, createTable, socket, requestTablesWithPins, emit: _emit } = useSocketContext()
-  const { logout, ownerPin, isOwner } = useAuthContext()
+  const { tables, connected, createTable, socket, requestTablesWithPins } = useSocketContext()
+  const { logout, ownerPin, isOwner, setTablePin } = useAuthContext()
   const stats = useDashboardStats(tables)
   const { submitPin, loading: pinLoading, error: pinError, clearError } = usePinSubmission(socket)
 
@@ -86,7 +86,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
 
   const handlePinSubmit = async (pin: string) => {
     if (!selectedTable) return
-    localStorage.setItem('tablePin', pin)
+    setTablePin(pin)
     const result = await submitPin(pin, selectedTable.id)
     if (result.success) {
       navigate(buildScoreboardRoute(selectedTable.id, 'referee'))

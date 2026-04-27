@@ -4,7 +4,7 @@
  * Responsibility: Format tables for public/owner consumption.
  */
 
-import { Table, TableInfo, TableInfoWithPin } from '../../types';
+import { Table, TableInfo, TableInfoWithPin } from '../../domain/types';
 
 export class TableFormatter {
   toPublicInfo(table: Table): TableInfo {

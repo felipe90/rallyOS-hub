@@ -13,13 +13,13 @@
 import crypto from 'crypto';
 import { MatchEngine } from './matchEngine';
 import { Table, TableInfo, TableInfoWithPin, Player, MatchConfig, MatchStateExtended, QRData, HubConfig } from './types';
-import { logger } from './utils/logger';
-import { TableRepository } from './services/table/TableRepository';
-import { PlayerService } from './services/table/PlayerService';
-import { MatchOrchestrator } from './services/table/MatchOrchestrator';
-import { TableFormatter } from './services/table/TableFormatter';
-import { PinService } from './services/security/PinService';
-import { QRService } from './services/qr/QRService';
+import { logger } from '../utils/logger';
+import { TableRepository } from '../services/table/TableRepository';
+import { PlayerService } from '../services/table/PlayerService';
+import { MatchOrchestrator } from '../services/table/MatchOrchestrator';
+import { TableFormatter } from '../services/table/TableFormatter';
+import { PinService } from '../services/security/PinService';
+import { QRService } from '../services/qr/QRService';
 
 export class TableManager {
   private repository: TableRepository;

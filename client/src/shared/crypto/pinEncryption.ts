@@ -1,72 +1,141 @@
 /**
  * PIN encryption utilities
  *
- * Provides XOR-based encryption/decryption for referee PINs in scoreboard URLs.
- * The key is derived from tableId + daily salt, making it unique per table per day.
+ * Uses AES-256-GCM encryption via Web Crypto API, compatible with
+ * the server's pinEncryption.ts (Node.js crypto module).
  *
- * Encryption flow (used by QRCodeImage):
- *   pin → XOR with key → hex bytes (e.g., "1234" → "4f2a8c1b")
+ * Key derivation: HMAC-SHA256(tableId, ENCRYPTION_SECRET) → 32-byte key
+ * Encryption: AES-256-GCM with random 16-byte IV
+ * Format: iv:ciphertext:authTag:timestamp (all hex, base64url-encoded for URL)
  *
- * Decryption flow (used by ScoreboardPage):
- *   URL ePin param → base64 decode → "hex:originalPin" → use hex portion
- *
- * Note: In the URL the encrypted PIN is base64-encoded as "hex:originalPin"
- * for integrity verification. The decryption here takes the hex portion only.
+ * The QR URL includes the encrypted PIN and the encryption secret:
+ *   /scoreboard/{tableId}/referee?epin={encrypted}&secret={secret}
  */
-
-const DAILY_SALT_HOUR = 0 // Midnight UTC for daily key rotation
 
 /**
- * Generate a deterministic XOR key from tableId + daily salt.
- * Key is the same for all users on the same table on the same day.
+ * Derive a 32-byte AES key using HMAC-SHA256 via Web Crypto API.
+ * Matches the server's deriveKey() function.
  */
-export function generateKey(tableId: string): string {
-  const today = new Date()
-  today.setUTCHours(DAILY_SALT_HOUR, 0, 0, 0)
-  const dailySalt = today.getTime().toString()
-
-  let hash = 0
-  const combined = tableId + dailySalt
-  for (let i = 0; i < combined.length; i++) {
-    const char = combined.charCodeAt(i)
-    // djb2-style hash
-    hash = (hash << 5) - hash + char
-    hash = hash & hash // 32-bit overflow
-  }
-
-  return (hash >>> 0).toString(16).padStart(8, '0')
+async function deriveKey(tableId: string, secret: string): Promise<CryptoKey> {
+  const encoder = new TextEncoder()
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  )
+  const signature = await crypto.subtle.sign(
+    'HMAC',
+    keyMaterial,
+    encoder.encode(tableId),
+  )
+  // The HMAC signature is the 32-byte derived key
+  return crypto.subtle.importKey(
+    'raw',
+    signature,
+    { name: 'AES-GCM' },
+    false,
+    ['decrypt'],
+  )
 }
 
 /**
- * Encrypt a PIN using XOR with the generated key.
- * Returns raw hex bytes (e.g., "4f2a8c1b" for "1234").
+ * Encrypt a PIN using AES-256-GCM.
+ * Returns base64url-encoded string of iv:ciphertext:authTag:timestamp
  */
-export function encryptPin(pin: string, key: string): string {
-  let encrypted = ''
+export async function encryptPin(pin: string, tableId: string, secret: string): Promise<string> {
+  const key = await deriveKey(tableId, secret)
+  const iv = crypto.getRandomValues(new Uint8Array(16))
+  const encoder = new TextEncoder()
 
-  for (let i = 0; i < pin.length; i++) {
-    const charCode = pin.charCodeAt(i)
-    const keyChar = key[i % key.length]
-    const encryptedByte = charCode ^ keyChar.charCodeAt(0)
-    encrypted += encryptedByte.toString(16).padStart(2, '0')
-  }
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    encoder.encode(pin),
+  )
 
-  return encrypted
+  const ciphertextBytes = new Uint8Array(ciphertext)
+  // Get auth tag (last 16 bytes of AES-GCM output in Web Crypto)
+  const authTag = ciphertextBytes.slice(-16)
+  const ciphertextBody = ciphertextBytes.slice(0, -16)
+
+  const toHex = (bytes: Uint8Array) => Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')
+  const timestamp = Date.now().toString()
+
+  const formatted = `${toHex(iv)}:${toHex(ciphertextBody)}:${toHex(authTag)}:${timestamp}`
+  return btoa(formatted).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
 }
 
 /**
- * Decrypt a hex-encoded encrypted PIN using XOR with the generated key.
- * Takes the raw hex string from the base64-decoded URL parameter.
+ * Decrypt a PIN from a base64url-encoded encrypted string.
+ * Returns the original 4-digit PIN or null if decryption fails.
  */
-export function decryptPin(encrypted: string, key: string): string {
-  let decrypted = ''
+export async function decryptPin(encryptedUrl: string, tableId: string, secret: string): Promise<string | null> {
+  try {
+    // Decode from base64url
+    const base64 = encryptedUrl.replace(/-/g, '+').replace(/_/g, '/')
+    const decoded = atob(base64)
+    const parts = decoded.split(':')
 
-  for (let i = 0; i < encrypted.length; i += 2) {
-    const hexByte = encrypted.substring(i, i + 2)
-    const charCode = parseInt(hexByte, 16)
-    const keyChar = key[(i / 2) % key.length]
-    decrypted += String.fromCharCode(charCode ^ keyChar.charCodeAt(0))
+    if (parts.length !== 4) {
+      return null
+    }
+
+    const [ivHex, ciphertextHex, authTagHex, timestamp] = parts
+
+    // Check if expired (24 hours) — matches server behavior
+    const age = Date.now() - parseInt(timestamp, 10)
+    const EXPIRY_MS = 24 * 60 * 60 * 1000
+    if (age > EXPIRY_MS) {
+      return null
+    }
+
+    const fromHex = (hex: string) => {
+      const bytes = new Uint8Array(hex.length / 2)
+      for (let i = 0; i < hex.length; i += 2) {
+        bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16)
+      }
+      return bytes
+    }
+
+    const iv = fromHex(ivHex)
+    const ciphertextBody = fromHex(ciphertextHex)
+    const authTag = fromHex(authTagHex)
+
+    // Web Crypto expects ciphertext + auth tag concatenated
+    const combined = new Uint8Array(ciphertextBody.length + authTag.length)
+    combined.set(ciphertextBody)
+    combined.set(authTag, ciphertextBody.length)
+
+    const key = await deriveKey(tableId, secret)
+
+    const decrypted = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      combined,
+    )
+
+    const decoder = new TextDecoder()
+    const pin = decoder.decode(decrypted)
+
+    // Validate it's a 4-digit number
+    if (!/^\d{4}$/.test(pin)) {
+      return null
+    }
+
+    return pin
+  } catch {
+    return null
   }
+}
 
-  return decrypted
+/**
+ * Generate a deterministic XOR key (DEPRECATED — kept for backward compatibility).
+ * @deprecated Use AES-256-GCM encryption instead
+ */
+export function generateKey(_tableId: string): string {
+  // This function is deprecated. It returns a dummy value.
+  // Remove after migration period.
+  return '00000000'
 }

@@ -27,8 +27,8 @@ export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashb
   const [pinModalOpen, setPinModalOpen] = useState(false)
   const [selectedTable, setSelectedTable] = useState<TableInfoWithPin | null>(null)
   const navigate = useNavigate()
-  const { tables, connected, socket, requestTables, emit: _emit } = useSocketContext()
-  const { logout } = useAuthContext()
+  const { tables, connected, socket, requestTables } = useSocketContext()
+  const { logout, setTablePin } = useAuthContext()
   const stats = useDashboardStats(tables)
   const { submitPin, loading: pinLoading, error: pinError, clearError } = usePinSubmission(socket)
 
@@ -54,7 +54,7 @@ export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashb
 
   const handlePinSubmit = async (pin: string) => {
     if (!selectedTable) return
-    localStorage.setItem('tablePin', pin)
+    setTablePin(pin)
     const result = await submitPin(pin, selectedTable.id)
     if (result.success) {
       navigate(buildScoreboardRoute(selectedTable.id, 'referee'))

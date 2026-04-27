@@ -7,12 +7,31 @@
 
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import path from 'path';
 import fs from 'fs';
 import { logger } from './utils/logger';
 import { getAllowedOrigins } from './config/allowedOrigins';
 
 const app = express();
+
+// Security headers (CSP, X-Frame-Options, X-Content-Type-Options, etc.)
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"], // Required for Tailwind
+      imgSrc: ["'self'", 'data:', 'blob:'],
+      connectSrc: ["'self'", 'ws:', 'wss:'], // Required for Socket.io
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      frameSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+    },
+  },
+  crossOriginEmbedderPolicy: false, // Allow cross-origin for Socket.io
+}));
 
 export const effectiveAllowedOrigins = getAllowedOrigins();
 
@@ -80,6 +99,23 @@ app.get('/', (req, res) => {
 // API health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: Date.now() });
+});
+
+// Expose owner PIN for plug-and-play mode (random PIN generation)
+// Only returns the PIN when it was randomly generated (not from env var)
+// This allows the UI to display the PIN on first boot without logging it
+app.get('/api/owner-pin', (req, res) => {
+  const { getOwnerPin, isRandomPin } = require('./config/ownerPin');
+  const pin = getOwnerPin();
+  const random = isRandomPin();
+
+  // Only expose PIN when it was randomly generated (plug-and-play mode)
+  // When set via env var, the operator already knows it
+  if (!random || !pin) {
+    return res.json({ pin: null, isRandom: false });
+  }
+
+  res.json({ pin, isRandom: true });
 });
 
 export { app };

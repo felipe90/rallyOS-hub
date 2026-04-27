@@ -3,9 +3,8 @@ import {
   validateTablePin,
   validateOwnerPin,
   validatePinLength,
-  TABLE_PIN_LENGTH,
-  OWNER_PIN_LENGTH,
 } from './pin'
+import { PIN_RULES } from '@shared/validation'
 
 describe('validateTablePin', () => {
   it('returns true for 4-digit PIN', () => {
@@ -27,6 +26,12 @@ describe('validateTablePin', () => {
   it('returns false for empty string', () => {
     expect(validateTablePin('')).toBe(false)
   })
+
+  it('uses shared PIN_RULES for consistency', () => {
+    expect(PIN_RULES.tablePin.pattern).toEqual(/^\d{4}$/)
+    expect(PIN_RULES.tablePin.minLength).toBe(4)
+    expect(PIN_RULES.tablePin.maxLength).toBe(4)
+  })
 })
 
 describe('validateOwnerPin', () => {
@@ -41,6 +46,12 @@ describe('validateOwnerPin', () => {
   it('returns false for non-numeric PIN', () => {
     expect(validateOwnerPin('1234567a')).toBe(false)
   })
+
+  it('uses shared PIN_RULES for consistency', () => {
+    expect(PIN_RULES.ownerPin.pattern).toEqual(/^\d{8}$/)
+    expect(PIN_RULES.ownerPin.minLength).toBe(8)
+    expect(PIN_RULES.ownerPin.maxLength).toBe(8)
+  })
 })
 
 describe('validatePinLength', () => {
@@ -48,10 +59,5 @@ describe('validatePinLength', () => {
     expect(validatePinLength('1234', 4)).toBe(true)
     expect(validatePinLength('123', 4)).toBe(false)
     expect(validatePinLength('12ab', 4)).toBe(false)
-  })
-
-  it('uses exported constants', () => {
-    expect(TABLE_PIN_LENGTH).toBe(4)
-    expect(OWNER_PIN_LENGTH).toBe(8)
   })
 })

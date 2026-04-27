@@ -1,3 +1,6 @@
 {
-  "*.{js,jsx,ts,tsx}": "npx eslint --fix"
+  "client/*.{js,jsx,ts,tsx}": "cd client && npx eslint --fix",
+  "server/*.{js,jsx,ts,tsx}": "cd server && npx eslint --fix",
+  "client/src/**/*.{js,jsx,ts,tsx}": "cd client && npx eslint --fix",
+  "server/src/**/*.{js,jsx,ts,tsx}": "cd server && npx eslint --fix"
 }

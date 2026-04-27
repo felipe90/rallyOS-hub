@@ -27,7 +27,8 @@ import {
   QRData,
   ErrorResponse,
   ValidationError,
-} from '../../shared/types';
+} from '../../../shared/types';
+import type { MatchEngine } from './matchEngine';
 
 // Re-export everything from shared so consumers can still `import { X } from './types'`
 export {
@@ -87,12 +88,24 @@ export interface Table {
   name: string;
   status: TableStatus;
   pin: string;
-  matchEngine: any;
+  matchEngine: MatchEngine;
   playerNames: { a: string; b: string };
-  history: any[];
+  history: MatchEvent[];
   players: PlayerConnection[];
   createdAt: number;
   // Event callbacks — internal wiring, never exposed to client
   onTableUpdate?: () => void;
   onMatchEvent?: (event: MatchEvent) => void;
+}
+
+/**
+ * Socket data attached to authenticated sockets.
+ * Replaces (socket as any).data pattern.
+ */
+export interface SocketData {
+  isOwner?: boolean;
+  isAuthenticated?: boolean;
+  sessionToken?: string;
+  tableId?: string;
+  roles?: string[];
 }

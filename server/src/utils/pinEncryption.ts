@@ -10,7 +10,8 @@ import crypto from 'crypto';
 import { logger } from './logger';
 
 /**
- * Get or generate server secret from environment
+ * Get or generate server secret from environment.
+ * In production, ENCRYPTION_SECRET is required — server will fail to start if not set.
  */
 function getServerSecret(): string {
   const envSecret = process.env.ENCRYPTION_SECRET;
@@ -18,10 +19,15 @@ function getServerSecret(): string {
     return envSecret;
   }
 
-  // Generate a random secret at startup if not provided
+  // In production, fail if secret is not set
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('ENCRYPTION_SECRET environment variable is required in production');
+  }
+
+  // Generate a random secret at startup for development only
   if (!(globalThis as any)._RALLYOS_ENCRYPTION_SECRET) {
     (globalThis as any)._RALLYOS_ENCRYPTION_SECRET = crypto.randomBytes(32).toString('hex');
-    logger.warn('ENCRYPTION_SECRET not set, using random secret generated at startup');
+    logger.warn('ENCRYPTION_SECRET not set, using random secret generated at startup (development only)');
   }
   return (globalThis as any)._RALLYOS_ENCRYPTION_SECRET;
 }

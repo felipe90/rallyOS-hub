@@ -13,12 +13,22 @@
  */
 
 import { Server, Socket } from 'socket.io';
-import { TableManager } from '../tableManager';
+import { TableManager } from '../domain/tableManager';
 import { validateSocketPayload } from '../utils/validation';
 import { logger } from '../utils/logger';
 import { SocketEvents } from '../../../shared/events';
 import { SocketHandlerBase } from './SocketHandlerBase';
-import type { Player, MatchConfig } from '../matchEngine';
+
+/**
+ * Sanitize a string to prevent XSS and log injection.
+ * Strips HTML tags and limits length.
+ */
+function sanitizeInput(value: string, maxLength: number = 100): string {
+  return value
+    .replace(/<[^>]*>/g, '') // Strip HTML tags
+    .slice(0, maxLength);
+}
+import type { Player, MatchConfig } from '../domain/matchEngine';
 
 export class MatchEventHandler extends SocketHandlerBase {
   constructor(io: Server, tableManager: TableManager, ownerPin: string) {
@@ -78,8 +88,14 @@ export class MatchEventHandler extends SocketHandlerBase {
         matchConfig.initialScore = { a: data.handicap.a, b: data.handicap.b };
       }
 
+      // Sanitize player names to prevent XSS and log injection
+      const sanitizedNames = data.playerNames ? {
+        a: sanitizeInput(data.playerNames.a, 50),
+        b: sanitizeInput(data.playerNames.b, 50),
+      } : undefined;
+
       this.tableManager.configureMatch(data.tableId, {
-        playerNames: data.playerNames,
+        playerNames: sanitizedNames,
         matchConfig: matchConfig
       });
 
@@ -119,12 +135,12 @@ export class MatchEventHandler extends SocketHandlerBase {
 
       if (!this.validateReferee(socket, data.tableId)) return;
 
-      // Configure player names before starting
+      // Configure player names before starting (sanitized)
       if (data.playerNameA || data.playerNameB) {
         this.tableManager.configureMatch(data.tableId, {
           playerNames: { 
-            a: data.playerNameA || 'Player A', 
-            b: data.playerNameB || 'Player B' 
+            a: sanitizeInput(data.playerNameA || 'Player A', 50), 
+            b: sanitizeInput(data.playerNameB || 'Player B', 50) 
           }
         });
       }

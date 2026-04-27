@@ -40,6 +40,7 @@ const mockAuth = (isAuthenticated: boolean, role: string = UserRoles.REFEREE) =>
     logout: vi.fn(),
     setOwner: vi.fn(),
     setTablePin: vi.fn(),
+      tablePin: null,
   })
 }
 

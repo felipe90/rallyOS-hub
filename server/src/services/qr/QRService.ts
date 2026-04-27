@@ -4,7 +4,7 @@
  * Responsibility: Generate QR data for table joining.
  */
 
-import { Table, QRData, HubConfig } from '../../types';
+import { Table, QRData, HubConfig } from '../../domain/types';
 import { encryptPin } from '../../utils/pinEncryption';
 
 export class QRService {

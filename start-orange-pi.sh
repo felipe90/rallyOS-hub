@@ -1,8 +1,7 @@
 #!/bin/bash
 
 # RallyOS Hub - Orange Pi One-Command Startup (Optimized)
-# Builds the server image using the server/Dockerfile and runs it.
-# Assumes: Docker and Docker Compose v2 are installed.
+# Executes from project root: ./start-orange-pi.sh
 
 set -e
 
@@ -17,9 +16,9 @@ RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 print_header() {
-    echo -e "${BLUE}╔════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${BLUE}╔══════════════════════════════════════════════════════════╗${NC}"
     echo -e "${BLUE}║           RallyOS Hub - Orange Pi Deployment               ║${NC}"
-    echo -e "${BLUE}╚════════════════════════════════════════════════════════════╝${NC}"
+    echo -e "${BLUE}╚══════════════════════════════════════════════════════════╝${NC}"
 }
 
 print_step() {
@@ -44,7 +43,6 @@ check_docker() {
 }
 
 check_compose() {
-    # Prefer v2 (docker compose) over v1 (docker-compose)
     if docker compose version &> /dev/null; then
         COMPOSE_CMD="docker compose"
         print_success "Docker Compose v2 found"
@@ -74,35 +72,32 @@ main() {
     check_compose
     check_docker_daemon
 
-    # Move to server directory where the Dockerfile is
-    cd "$SCRIPT_DIR/server"
-
-    # Check for .env file
-    if [ ! -f ".env" ]; then
-        print_error ".env file not found in server/ directory."
-        print_step "Creating .env from .env.example..."
-        if [ -f ".env.example" ]; then
-            cp .env.example .env
-            print_success ".env created. EDIT IT NOW with: nano .env"
+    # We are in the project root ($SCRIPT_DIR)
+    # Check for .env inside server folder
+    if [ ! -f "server/.env" ]; then
+        print_error "server/.env file not found."
+        print_step "Creating server/.env from example..."
+        if [ -f "server/.env.example" ]; then
+            cp server/.env.example server/.env
+            print_error "server/.env created. Use 'cat > server/.env << 'EOF'' to edit it."
             exit 1
         else
-            print_error ".env.example not found either. Cannot proceed."
+            print_error "server/.env.example not found. Cannot proceed."
             exit 1
         fi
     fi
 
     print_step "Building Docker image (Node 22 Alpine)..."
     print_step "This may take a few minutes on Orange Pi Zero 3..."
-    
-    # Use the server/docker-compose.yml or build directly
-    # We use 'docker compose' pointing to the server context
-    $COMPOSE_CMD -f docker-compose.yml up -d --build
+
+    # Run compose from project root, pointing to the file in server/
+    $COMPOSE_CMD -f server/docker-compose.yml up -d --build
 
     # Wait for service to be ready
     print_step "Waiting for RallyOS Hub to start (up to 60 seconds)..."
     READY=0
     for i in {1..60}; do
-        # Check if container is running first
+        # Check if container is running
         if docker ps --filter "name=rallyos-hub" --filter "status=running" | grep -q rallyos-hub; then
             # Then check health endpoint
             if docker exec rallyos-hub wget -q --no-check-certificate --spider https://localhost:3000/health 2>/dev/null; then
@@ -121,25 +116,24 @@ main() {
         
         print_success "Service is running!"
         echo ""
-        echo -e "${GREEN}════════════════════════════════════════════════════════════${NC}"
+        echo -e "${GREEN}══════════════════════════════════════════════════════════${NC}"
         echo -e "${GREEN}✓ RallyOS Hub is ready!${NC}"
         echo ""
         echo -e "Access from:"
         echo -e "  Local:   ${BLUE}https://localhost:3000${NC}"
-        echo -e "  Network: ${BLUE}https://${PI_IP}:3000${NC}"
         echo -e "  AP Net:  ${BLUE}https://192.168.4.1:3000${NC}"
+        echo -e "  Main WiFi: ${BLUE}https://${PI_IP}:3000${NC}"
         echo ""
         echo -e "Useful commands:"
         echo -e "  View logs:           ${YELLOW}docker compose -f server/docker-compose.yml logs -f${NC}"
         echo -e "  Stop:                ${YELLOW}docker compose -f server/docker-compose.yml down${NC}"
-        echo -e "  Restart:             ${YELLOW}docker compose -f server/docker-compose.yml restart${NC}"
         echo ""
         echo -e "⚠️  Note: Accept the SSL certificate warning in your browser."
-        echo -e "${GREEN}════════════════════════════════════════════════════════════${NC}"
+        echo -e "${GREEN}══════════════════════════════════════════════════════════${NC}"
     else
         print_error "Service failed to start or health check timed out."
         print_step "Container logs (last 50 lines):"
-        $COMPOSE_CMD -f docker-compose.yml logs --tail=50 hub 2>&1 || true
+        $COMPOSE_CMD -f server/docker-compose.yml logs --tail=50 hub 2>&1 || true
         print_error "Try checking logs with: docker compose -f server/docker-compose.yml logs -f"
         exit 1
     fi

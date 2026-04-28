@@ -2,12 +2,17 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files and install all dependencies (including dev)
-COPY package*.json ./
+# Copy package files from server folder
+COPY server/package*.json ./
+
+# Install dependencies
 RUN npm ci
 
-# Copy the rest of the application
-COPY . .
+# Copy shared folder to /shared (Required by ../../../shared imports)
+COPY shared/ /shared/
+
+# Copy server source code
+COPY server/ .
 
 # Compile TypeScript
 RUN npx tsc
@@ -17,11 +22,11 @@ FROM node:22-alpine
 
 WORKDIR /app
 
-# Copy package files and install production dependencies only
-COPY package*.json ./
+# Copy package files for production deps
+COPY server/package*.json ./
 RUN npm ci --omit=dev
 
-# Copy compiled JavaScript from builder stage
+# Copy compiled JS from builder
 COPY --from=builder /app/dist ./dist
 
 # Generate SSL certs

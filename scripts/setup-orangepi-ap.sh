@@ -1,23 +1,22 @@
 #!/bin/bash
 #
-# RallyOS Orange Pi Access Point Setup Script
+# RallyOS Orange Pi AP Setup Script - FULLY AUTOMATED (Non-interactive)
 # Configures the AC 6000 USB WiFi adapter as an Access Point.
 # Assumes: Orange Pi Zero 3 with RTL8821CU drivers already installed.
-#
 # Usage: sudo ./setup-orangepi-ap.sh
 #
 
-set -e # Exit on error
+set -e
 
-# --- CONFIGURATION (Edit these variables) ---
-AP_INTERFACE="wlx90de8018370a"  # Interface name of the USB WiFi adapter
+# --- CONFIGURATION ---
+AP_INTERFACE="wlx90de8018370a"
 AP_SSID="RallyOS-Table1"
 AP_PASSPHRASE="rallyos2026"
 AP_IP="192.168.4.1"
 DHCP_RANGE_START="192.168.4.100"
 DHCP_RANGE_END="192.168.4.200"
-WAN_INTERFACE="wlan0"           # Interface connected to the internet (usually wlan0)
-# -------------------------------------------
+WAN_INTERFACE="wlan0"
+# ---------------------
 
 echo "========================================="
 echo " RallyOS Orange Pi AP Setup"
@@ -29,31 +28,30 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
-# 2. Install dependencies
+# 2. Detect AP interface automatically if default is not found
+if ! ip link show "$AP_INTERFACE" &>/dev/null; then
+    echo "⚠️  Default interface $AP_INTERFACE not found. Searching for Realtek USB..."
+    FOUND_IFACE=$(iw dev | grep -B1 "addr" | grep "Interface" | awk '{print $2}' | grep -v "wlan0" | head -1)
+    if [ -n "$FOUND_IFACE" ]; then
+        AP_INTERFACE="$FOUND_IFACE"
+        echo "✓ Found interface: $AP_INTERFACE"
+    else
+        echo "❌ No suitable USB WiFi interface found."
+        exit 1
+    fi
+fi
+
+# 3. Install dependencies (silent)
 echo "📦 Installing hostapd and dnsmasq..."
-apt update
-apt install -y hostapd dnsmasq iptables-persistent
+apt-get update -qq
+apt-get install -y -qq hostapd dnsmasq iptables-persistent net-tools
 
-# 3. Stop services to configure
-echo "🛑 Stopping services for configuration..."
-systemctl stop hostapd
-systemctl stop dnsmasq
+# 4. Stop services
+echo "🛑 Stopping services..."
+systemctl stop hostapd 2>/dev/null || true
+systemctl stop dnsmasq 2>/dev/null || true
 
-# 4. Configure Static IP for AP Interface
-echo "🔧 Setting static IP for $AP_INTERFACE..."
-# Using ip command (runtime)
-ip addr add ${AP_IP}/24 dev ${AP_INTERFACE} 2>/dev/null || true
-ip link set ${AP_INTERFACE} up
-
-# Make it persistent (Armbian way)
-cat > /etc/network/interfaces.d/${AP_INTERFACE} << EOF
-auto ${AP_INTERFACE}
-iface ${AP_INTERFACE} inet static
-    address ${AP_IP}
-    netmask 255.255.255.0
-EOF
-
-# 5. Configure hostapd (The Access Point)
+# 5. Configure hostapd
 echo "📡 Configuring hostapd..."
 cat > /etc/hostapd/hostapd.conf << EOF
 interface=${AP_INTERFACE}
@@ -71,12 +69,10 @@ wpa_key_mgmt=WPA-PSK
 rsn_pairwise=CCMP
 EOF
 
-# Tell hostapd where the config is
 sed -i 's|#DAEMON_CONF=""|DAEMON_CONF="/etc/hostapd/hostapd.conf"|' /etc/default/hostapd
 
-# 6. Configure dnsmasq (DHCP & DNS)
+# 6. Configure dnsmasq (fixing port 53 conflict with bind-interfaces)
 echo "📝 Configuring dnsmasq..."
-# Backup original
 cp /etc/dnsmasq.conf /etc/dnsmasq.conf.orig 2>/dev/null || true
 
 cat > /etc/dnsmasq.conf << EOF
@@ -88,21 +84,35 @@ domain=local
 address=/rallyos.local/${AP_IP}
 EOF
 
-# 7. Enable IP Forwarding (Optional: If you want AP clients to have internet)
-echo "🌐 Configuring NAT for internet access via ${WAN_INTERFACE}..."
-# Enable IP forwarding
+# 7. Configure static IP (persistent in /etc/network/interfaces)
+echo "🔧 Setting persistent static IP..."
+if ! grep -q "auto ${AP_INTERFACE}" /etc/network/interfaces 2>/dev/null; then
+    cat >> /etc/network/interfaces << EOF
+
+# RallyOS AP - Persistent Config
+auto ${AP_INTERFACE}
+iface ${AP_INTERFACE} inet static
+    address ${AP_IP}
+    netmask 255.255.255.0
+EOF
+fi
+
+# 8. Enable IP Forwarding and NAT
+echo "🌐 Configuring NAT..."
 echo 1 > /proc/sys/net/ipv4/ip_forward
 sed -i 's/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/' /etc/sysctl.conf
 
-# NAT rules (Corrected POSTROUTING spelling)
+# Clear old rules to avoid duplicates
+iptables -t nat -F POSTROUTING 2>/dev/null || true
+iptables -F FORWARD 2>/dev/null || true
+
 iptables -t nat -A POSTROUTING -o ${WAN_INTERFACE} -j MASQUERADE
 iptables -A FORWARD -i ${WAN_INTERFACE} -o ${AP_INTERFACE} -m state --state RELATED,ESTABLISHED -j ACCEPT
 iptables -A FORWARD -i ${AP_INTERFACE} -o ${WAN_INTERFACE} -j ACCEPT
 
-# Save iptables rules
 netfilter-persistent save
 
-# 8. Start and Enable Services
+# 9. Start services
 echo "🚀 Starting services..."
 systemctl unmask hostapd
 systemctl enable hostapd
@@ -111,7 +121,11 @@ systemctl start hostapd
 systemctl enable dnsmasq
 systemctl start dnsmasq
 
-# 9. Final Check
+# 10. Bring interface up with IP
+ip addr add ${AP_IP}/24 dev ${AP_INTERFACE} 2>/dev/null || true
+ip link set ${AP_INTERFACE} up
+
+# 11. Final Check
 echo ""
 echo "========================================="
 echo " ✅ Setup Complete!"
@@ -119,8 +133,8 @@ echo "========================================="
 echo " SSID: ${AP_SSID}"
 echo " Password: ${AP_PASSPHRASE}"
 echo " AP IP: ${AP_IP}"
+echo " Interface: ${AP_INTERFACE}"
 echo ""
-echo "Service Status:"
-systemctl status hostapd --no-pager | grep -E "Active|hostapd"
-systemctl status dnsmasq --no-pager | grep -E "Active|dnsmasq"
+systemctl is-active hostapd --quiet && echo "✓ hostapd: RUNNING" || echo "✗ hostapd: FAILED"
+systemctl is-active dnsmasq --quiet && echo "✓ dnsmasq: RUNNING" || echo "✗ dnsmasq: FAILED"
 echo "========================================="

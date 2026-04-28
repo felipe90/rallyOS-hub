@@ -1,7 +1,8 @@
 #!/bin/bash
-
-# RallyOS Hub - Diagnostics Script
-# Helps troubleshoot and verify the setup
+#
+# RallyOS Orange Pi Diagnostics Script - TTL Compatible
+# Non-interactive. No nano/vi references.
+#
 
 set -e
 
@@ -14,9 +15,8 @@ BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
 CYAN='\033[0;36m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-# Counters
 CHECKS_PASSED=0
 CHECKS_FAILED=0
 CHECKS_WARNING=0
@@ -60,7 +60,6 @@ info() {
 # System Information
 check_system() {
     print_section "System Information"
-    
     echo "OS: $(uname -s)"
     echo "Kernel: $(uname -r)"
     echo "Architecture: $(uname -m)"
@@ -95,11 +94,11 @@ check_env_files() {
     fi
     
     if [ -f ".env" ]; then
-        check_pass ".env file exists"
+        check_pass ".env file exists (root level)"
         echo "  TOURNAMENT_OWNER_PIN: $(grep TOURNAMENT_OWNER_PIN .env 2>/dev/null | cut -d= -f2 || echo 'not set')"
         echo "  PORT: $(grep '^PORT=' .env 2>/dev/null | cut -d= -f2 || echo '3000')"
     else
-        check_warn ".env not found (using defaults)"
+        check_warn ".env not found (create with: cat > .env << 'EOF')"
     fi
 }
 
@@ -122,12 +121,11 @@ check_docker() {
         return 1
     fi
     
-    # Check for compose
-    if command -v docker-compose &> /dev/null; then
-        COMPOSE_VERSION=$(docker-compose --version 2>/dev/null)
-        check_pass "Docker Compose: $COMPOSE_VERSION"
-    elif docker compose version &> /dev/null; then
-        check_pass "Docker Compose v2 via 'docker compose'"
+    # Check for compose v2 (preferred)
+    if docker compose version &> /dev/null; then
+        check_pass "Docker Compose v2 (docker compose)"
+    elif command -v docker-compose &> /dev/null; then
+        check_pass "Docker Compose v1 (docker-compose)"
     else
         check_fail "Docker Compose not found"
         return 1
@@ -143,15 +141,15 @@ check_disk() {
     
     echo "Root partition: $DISK_FREE free ($DISK_USAGE used)"
     
-    if [ "${DISK_USAGE%\%}" -gt 80 ]; then
+    USAGE_NUM=${DISK_USAGE%\%}
+    if [ "$USAGE_NUM" -gt 80 ]; then
         check_fail "Disk usage is critical (>80%)"
-    elif [ "${DISK_USAGE%\%}" -gt 70 ]; then
+    elif [ "$USAGE_NUM" -gt 70 ]; then
         check_warn "Disk usage is high (>70%)"
     else
         check_pass "Disk usage is good (<70%)"
     fi
     
-    # Docker system usage
     if command -v docker &> /dev/null; then
         DOCKER_SIZE=$(docker system df 2>/dev/null | tail -1 | awk '{print $2}' || echo "N/A")
         echo "Docker images: $DOCKER_SIZE"
@@ -189,7 +187,7 @@ check_network() {
     if ping -c 1 8.8.8.8 &> /dev/null; then
         check_pass "Internet connectivity OK"
     else
-        check_warn "No internet connectivity (may be offline or firewalled)"
+        check_warn "No internet connectivity"
     fi
     
     # Local IP
@@ -204,11 +202,19 @@ check_network() {
     HOSTNAME=$(hostname)
     check_pass "Hostname: $HOSTNAME"
     
+    # AP Interface check
+    if ip link show wlx90de8018370a &>/dev/null; then
+        AP_IP=$(ip addr show wlx90de8018370a | grep 'inet ' | awk '{print $2}' | cut -d/ -f1)
+        check_pass "AP Interface (wlx90de8018370a): $AP_IP"
+    else
+        check_warn "AP Interface not found"
+    fi
+    
     # Port availability
     if ! nc -z localhost 3000 2>/dev/null; then
         check_pass "Port 3000 is available"
     else
-        check_warn "Port 3000 is already in use by another service"
+        check_warn "Port 3000 is already in use"
     fi
 }
 
@@ -224,10 +230,6 @@ check_container() {
     # Check if image exists
     if docker images | grep -q "rallyos-hub"; then
         check_pass "Docker image found (rallyos-hub)"
-        IMAGE_ID=$(docker images | grep rallyos-hub | head -1 | awk '{print $3}')
-        IMAGE_SIZE=$(docker images | grep rallyos-hub | head -1 | awk '{print $6}')
-        echo "  ID: $IMAGE_ID"
-        echo "  Size: $IMAGE_SIZE"
     else
         check_warn "Docker image not found (run './start-orange-pi.sh' to build)"
     fi
@@ -241,14 +243,14 @@ check_container() {
         echo "  Uptime: $UPTIME"
     elif docker ps -a | grep -q "rallyo-hub"; then
         check_warn "Container exists but is STOPPED"
-        echo "  Run: docker-compose up -d"
+        echo "  Run: docker compose up -d"
     else
         check_warn "Container not found"
     fi
     
     # Check health
     if docker ps | grep -q "rallyo-hub"; then
-        if curl -s -k -f https://localhost:3000/health &> /dev/null; then
+        if wget -q --no-check-certificate -O- https://localhost:3000/health &> /dev/null; then
             check_pass "Health check: OK"
         else
             check_fail "Health check: FAILED"
@@ -265,7 +267,6 @@ check_container_resources() {
         return 0
     fi
     
-    # Get container stats
     docker stats --no-stream rallyo-hub 2>/dev/null || {
         check_warn "Could not get container stats"
         return 1
@@ -282,9 +283,8 @@ check_logs() {
     
     echo "Last 20 log lines:"
     echo "────────────────────────────────────────"
-    docker-compose logs --tail=20 hub 2>/dev/null || {
-        check_warn "Could not retrieve logs"
-        return 1
+    docker compose -f docker-compose.yml logs --tail=20 hub 2>/dev/null || {
+        docker-compose -f docker-compose.yml logs --tail=20 hub 2>/dev/null || check_warn "Could not retrieve logs"
     }
     echo "────────────────────────────────────────"
 }
@@ -304,11 +304,6 @@ print_summary() {
     else
         echo -e "${RED}There are critical issues that need attention.${NC}"
     fi
-    
-    echo ""
-    echo -e "For more help, visit:"
-    echo -e "  ${BLUE}DEPLOYMENT.md${NC} - Full deployment guide"
-    echo -e "  ${BLUE}README.md${NC} - Project documentation"
     echo ""
 }
 
@@ -320,10 +315,6 @@ main() {
     check_env_files
     check_docker || {
         check_fail "Docker is required but not properly installed"
-        echo ""
-        echo "To install Docker:"
-        echo "  1. Run the setup script: ./setup-orange-pi.sh"
-        echo "  2. Or follow: https://docs.docker.com/install/"
         exit 1
     }
     
@@ -336,5 +327,4 @@ main() {
     print_summary
 }
 
-# Run main
 main "$@"

@@ -1,33 +1,35 @@
 FROM node:22-alpine AS builder
 
+# The build context is the project root (.. from server/)
+# So we copy everything into /app
 WORKDIR /app
+COPY . .
 
-# Copy package files from server folder
-COPY server/package*.json ./
+# Now move to the server directory where tsconfig.json lives
+WORKDIR /app/server
 
 # Install dependencies
+COPY package*.json ./
 RUN npm ci
 
-# Copy shared folder to /shared (Required by ../../../shared imports)
-COPY shared/ /shared/
-
-# Copy server source code
-COPY server/ .
-
 # Compile TypeScript
+# tsconfig.json has rootDir: ".." (points to /app)
+# Output will be in /app/server/dist
 RUN npx tsc
 
 # Production stage
 FROM node:22-alpine
 
-WORKDIR /app
+# We need to be in /app/server for the CMD to work
+WORKDIR /app/server
 
-# Copy package files for production deps
+# Install production dependencies
 COPY server/package*.json ./
 RUN npm ci --omit=dev
 
 # Copy compiled JS from builder
-COPY --from=builder /app/dist ./dist
+# The build output is at /app/server/dist in the builder
+COPY --from=builder /app/server/dist ./dist
 
 # Generate SSL certs
 RUN apk add --no-cache openssl && \
@@ -37,4 +39,5 @@ RUN apk add --no-cache openssl && \
 EXPOSE 3000
 
 # Run compiled code
+# Based on tsconfig: rootDir is "..", so source server/src/index.ts -> dist/server/src/index.js
 CMD ["node", "dist/server/src/index.js"]

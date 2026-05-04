@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ScoreboardMain } from './ScoreboardMain';
-import { MatchConfigPanel } from '../MatchConfigPanel';
 import type { MatchStateExtended, Score } from '@shared/types';
 import React from 'react';
 
@@ -278,14 +277,17 @@ describe('ScoreboardMain', () => {
   });
 
   describe('UI Tests', () => {
-    it('muestra config panel cuando status !== LIVE y isReferee=true', () => {
+    it('muestra CONFIGURING badge cuando status !== LIVE', () => {
       const mockMatch = createMockMatch({
         status: 'WAITING',
       });
       
       render(<ScoreboardMain match={mockMatch} onScorePoint={() => {}} isReferee />);
       
-      expect(screen.getByText('Configurar Partido')).toBeInTheDocument();
+      // ScoreboardMain now renders the scoreboard with status badge for non-LIVE/non-FINISHED
+      expect(screen.getByText('WAITING')).toBeInTheDocument();
+      // No longer renders MatchConfigPanel inline
+      expect(screen.queryByText('Configurar Partido')).not.toBeInTheDocument();
     });
 
     it('muestra live match view cuando status === LIVE', () => {
@@ -334,75 +336,5 @@ describe('ScoreboardMain', () => {
       
       expect(screen.queryByText('Configurar Partido')).not.toBeInTheDocument();
     });
-  });
-});
-
-describe('MatchConfigPanel', () => {
-  it('renders config panel', () => {
-    render(<MatchConfigPanel onStart={() => {}} onCancel={() => {}} />);
-    expect(screen.getByText('Configurar Partido')).toBeInTheDocument();
-  });
-
-  it('renders point options', () => {
-    render(<MatchConfigPanel onStart={() => {}} onCancel={() => {}} />);
-    expect(screen.getByText('11')).toBeInTheDocument();
-    expect(screen.getByText('15')).toBeInTheDocument();
-    expect(screen.getByText('21')).toBeInTheDocument();
-  });
-
-  it('renders best of options', () => {
-    render(<MatchConfigPanel onStart={() => {}} onCancel={() => {}} />);
-    expect(screen.getByText('1')).toBeInTheDocument();
-    expect(screen.getByText('3')).toBeInTheDocument();
-    expect(screen.getByText('5')).toBeInTheDocument();
-  });
-
-  it('calls onStart with config when Start button clicked', () => {
-    const onStart = vi.fn();
-    render(<MatchConfigPanel onStart={onStart} onCancel={() => {}} />);
-    
-    const startButton = screen.getByText('Iniciar');
-    fireEvent.click(startButton);
-    
-    expect(onStart).toHaveBeenCalledWith(
-      expect.objectContaining({
-        pointsPerSet: 11,
-        bestOf: 3,
-      })
-    );
-  });
-
-  it('calls onCancel when Cancel button clicked', () => {
-    const onCancel = vi.fn();
-    render(<MatchConfigPanel onStart={() => {}} onCancel={onCancel} />);
-    
-    const cancelButton = screen.getByText('Cancelar');
-    fireEvent.click(cancelButton);
-    
-    expect(onCancel).toHaveBeenCalled();
-  });
-
-  it('allows selecting different points per set', () => {
-    render(<MatchConfigPanel onStart={() => {}} onCancel={() => {}} />);
-    
-    const button21 = screen.getByText('21');
-    fireEvent.click(button21);
-    
-    const startButton = screen.getByText('Iniciar');
-    fireEvent.click(startButton);
-    
-    expect(screen.getByText('21')).toBeInTheDocument();
-  });
-
-  it('allows selecting different best of', () => {
-    render(<MatchConfigPanel onStart={() => {}} onCancel={() => {}} />);
-    
-    const button5 = screen.getByText('5');
-    fireEvent.click(button5);
-    
-    const startButton = screen.getByText('Iniciar');
-    fireEvent.click(startButton);
-    
-    expect(screen.getByText('5')).toBeInTheDocument();
   });
 });

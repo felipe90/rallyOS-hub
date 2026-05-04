@@ -13,7 +13,7 @@ import { useOrientation } from '@/hooks/useOrientation'
 import { useScoreboardEvents } from './useScoreboardEvents'
 import { useMatchState, useRefAuth, useRefRevoked } from './'
 import { ScoreboardMain } from '@/components/organisms/ScoreboardMain'
-import { MatchConfigPanel } from '@/components/organisms/MatchConfigPanel'
+import { MatchConfigModal } from '@/components/molecules/MatchConfigModal'
 import { HistoryDrawer } from '@/components/organisms/HistoryDrawer'
 import { PageHeader } from '@/components/molecules/PageHeader'
 import { ConfirmDialog } from '@/components/molecules/ConfirmDialog'
@@ -64,29 +64,21 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
   const [showWinnerDialog, setShowWinnerDialog] = useState(false)
 
   // Detect when match finishes to show winner dialog
+  // Uses sessionStorage to avoid re-showing on page reload/re-entry
   useEffect(() => {
-    if (currentMatch?.status === 'FINISHED' && currentMatch?.winner && !showWinnerDialog) {
-      setShowWinnerDialog(true)
+    const key = `winner-shown-${tableId}`
+    if (currentMatch?.status === 'FINISHED' && currentMatch?.winner) {
+      if (sessionStorage.getItem(key) !== 'true') {
+        setShowWinnerDialog(true)
+      }
+    } else {
+      sessionStorage.removeItem(key)
     }
-  }, [currentMatch?.status, currentMatch?.winner, showWinnerDialog])
+  }, [currentMatch?.status, currentMatch?.winner, tableId])
 
   if (!tableId) return <div>Invalid table ID</div>
   if (refRevoked) return <RefRevokedView />
   if (!currentMatch) return <LoadingView />
-
-  if (canConfigure && currentMatch.status !== 'LIVE') return (
-    <div className="flex flex-col h-screen bg-surface">
-      <PageHeader
-        title="Configurar Partido"
-        actions={<Button variant="ghost" size="sm" onClick={handleCancelMatch}>Atrás</Button>}
-      />
-      <div className="flex-1 overflow-auto bg-primary">
-        <MatchConfigPanel onStart={handleStartMatch} onCancel={handleCancelMatch}
-          defaultConfig={{ pointsPerSet: 11, bestOf: 3, handicapA: 0, handicapB: 0 }}
-        />
-      </div>
-    </div>
-  )
 
   const backRoute = isOwner ? Routes.DASHBOARD_OWNER : isReferee ? Routes.DASHBOARD_REFEREE : Routes.DASHBOARD_SPECTATOR
 
@@ -115,6 +107,19 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
           onOrientationToggle={toggleOrientation}
         />
       </div>
+
+      {/* Match Config Modal */}
+      <MatchConfigModal
+        isOpen={canConfigure && currentMatch.status === 'WAITING'}
+        tableId={tableId}
+        tableName={currentMatch.tableName || ''}
+        initialBestOf={(currentMatch.config?.bestOf as 1 | 3 | 5) || 3}
+        initialHandicapA={currentMatch.config?.handicapA || 0}
+        initialHandicapB={currentMatch.config?.handicapB || 0}
+        onSubmit={(config) => handleStartMatch({ ...config, pointsPerSet: 11 })}
+        onClose={handleCancelMatch}
+      />
+
       <HistoryDrawer
         isOpen={historyOpen}
         events={currentMatch.history || []}
@@ -132,6 +137,7 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
         cancelLabel=""
         onConfirm={() => {
           setShowWinnerDialog(false)
+          sessionStorage.setItem(`winner-shown-${tableId}`, 'true')
           navigate(backRoute)
         }}
         onCancel={() => {}}

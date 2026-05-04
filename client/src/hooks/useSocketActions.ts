@@ -64,21 +64,6 @@ export function useSocketActions(socket: Socket | null, currentTable: TableInfo 
     [emit, currentTable],
   )
 
-  const configureMatch = useCallback(
-    (config: {
-      tableId?: string
-      playerNames?: { a: string; b: string }
-      format?: number
-      ptsPerSet?: number
-      handicap?: { a: number; b: number }
-    }) => {
-      if (currentTable?.id) {
-        emit(SocketEvents.CLIENT.CONFIGURE_MATCH, { tableId: currentTable.id, ...config })
-      }
-    },
-    [emit, currentTable],
-  )
-
   const regeneratePin = useCallback(
     (tableId: string) => {
       emit(SocketEvents.CLIENT.REGENERATE_PIN, { tableId })
@@ -94,7 +79,6 @@ export function useSocketActions(socket: Socket | null, currentTable: TableInfo 
     scorePoint,
     undoLastPoint,
     startMatch,
-    configureMatch,
     regeneratePin,
   }
 }

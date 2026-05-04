@@ -23,7 +23,6 @@ const defaultMockSocketContext: SocketContextType = {
   scorePoint: vi.fn(),
   undoLastPoint: vi.fn(),
   startMatch: vi.fn((config?: { pointsPerSet: number; bestOf: number; playerNameA?: string; playerNameB?: string }) => {}),
-  configureMatch: vi.fn((config: { tableId?: string; playerNames?: { a: string; b: string }; format?: number; ptsPerSet?: number; handicap?: { a: number; b: number } }) => {}),
   setReferee: vi.fn(),
   regeneratePin: vi.fn(),
 }

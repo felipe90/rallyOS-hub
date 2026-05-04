@@ -12,28 +12,4 @@ export interface ScoreboardMainProps {
   className?: string;
 }
 
-export interface MatchConfigPanelProps {
-  defaultConfig?: MatchConfigDefault;
-  onStart: (config: MatchConfigValues) => void;
-  onCancel: () => void;
-}
-
-export interface MatchConfigDefault {
-  pointsPerSet: number;
-  bestOf: number;
-  handicapA?: number;
-  handicapB?: number;
-  playerNameA?: string;
-  playerNameB?: string;
-}
-
-export interface MatchConfigValues {
-  pointsPerSet: number;
-  bestOf: number;
-  handicapA?: number;
-  handicapB?: number;
-  playerNameA?: string;
-  playerNameB?: string;
-}
-
 export type MatchStatus = 'WAITING' | 'CONFIGURING' | 'LIVE' | 'FINISHED';

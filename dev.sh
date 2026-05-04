@@ -183,11 +183,19 @@ main() {
         set +a
         print_success "Environment loaded from .env"
     fi
+    
+    # Generate deterministic dev encryption secret if not set
+    # Both client and server must use the same secret for PIN encryption
+    if [ -z "${ENCRYPTION_SECRET:-}" ]; then
+        ENCRYPTION_SECRET=$(echo "rallyos-hub-dev-secret" | openssl dgst -sha256 -binary | xxd -p | head -c 64)
+        export ENCRYPTION_SECRET
+        print_success "Generated deterministic ENCRYPTION_SECRET for dev"
+    fi
 
     # Start server
     print_step "Starting server on port $SERVER_PORT..."
     cd "$SERVER_DIR"
-    NODE_ENV=development node --enable-source-maps dist/server/src/index.js > "$SERVER_LOG" 2>&1 &
+    ENCRYPTION_SECRET="$ENCRYPTION_SECRET" NODE_ENV=development node --enable-source-maps dist/server/src/index.js > "$SERVER_LOG" 2>&1 &
     SERVER_PID=$!
     print_success "Server started (PID: $SERVER_PID)"
     
@@ -217,7 +225,7 @@ main() {
     # Start client
     print_step "Starting client development server on port $CLIENT_PORT..."
     cd "$CLIENT_DIR"
-    VITE_SERVER_URL="$SERVER_URL" npm run dev > "$CLIENT_LOG" 2>&1 &
+    VITE_ENCRYPTION_SECRET="$ENCRYPTION_SECRET" VITE_SERVER_URL="$SERVER_URL" npm run dev > "$CLIENT_LOG" 2>&1 &
     CLIENT_PID=$!
     print_success "Client started (PID: $CLIENT_PID)"
     

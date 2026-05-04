@@ -57,7 +57,7 @@ export class TableEventHandler extends SocketHandlerBase {
       this.tableManager.joinTable(table.id, socket.id, 'Referee');
       this.tableManager.setReferee(table.id, socket.id, table.pin);
       
-      socket.emit(SocketEvents.SERVER.TABLE_CREATED, this.tableManager.tableToInfo(table));
+      socket.emit(SocketEvents.SERVER.TABLE_CREATED, this.tableManager.getTableWithPin(table.id) ?? this.tableManager.tableToInfo(table));
       socket.emit(SocketEvents.SERVER.REF_SET, { tableId: table.id });
 
       const qrData = this.tableManager.generateQRData(table.id);

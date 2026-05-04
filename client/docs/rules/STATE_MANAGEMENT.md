@@ -120,6 +120,30 @@ function Parent() {
 
 Contexts should only hold state and basic setters. No business logic.
 
+**Good — `AuthContext` (current state):**
+```typescript
+// ✅ AuthContext — clean, memory-only state, no storage side effects
+export function AuthProvider({ children }) {
+  const [role, setRole] = useState<UserRole>(null)      // Always starts fresh
+  const [tableId, setTableId] = useState<string | null>(null)
+  const [ownerPin, setOwnerPin] = useState<string | null>(null)
+
+  const login = useCallback((newRole, tId?, pin?) => {
+    if (newRole) setRole(newRole)
+    if (tId) setTableId(tId)
+    if (pin) setOwnerPin(pin)
+  }, [])
+
+  const logout = useCallback(() => {
+    setRole(null)
+    setTableId(null)
+    setOwnerPin(null)
+  }, [])
+  // ...
+}
+```
+**Design decision:** Auth state is NOT persisted to localStorage. Every page load requires PIN re-entry. This prevents the dead state where UI shows authenticated but socket is not. The server-side `socket.data.isAuthenticated` is the source of truth — only set during `VERIFY_OWNER` flow.
+
 **Good — `SocketContext`:**
 ```typescript
 // contexts/SocketContext/SocketContext.tsx
@@ -134,7 +158,7 @@ export function SocketProvider({ children }) {
 }
 ```
 
-**Bad — `AuthContext` (current, needs refactoring):**
+**Bad — Old AuthContext (before refactor):**
 ```typescript
 // ❌ Context touching localStorage directly
 const [role, setRole] = useState(() => {
@@ -153,7 +177,7 @@ const login = (newRole: UserRole, tId?: string, pin?: string) => {
 }
 ```
 
-**Better:**
+**Better (service abstraction — used when persistence IS needed):**
 ```typescript
 // services/storage/authStorage.ts
 export const authStorage = {
@@ -322,11 +346,14 @@ const formatted = formatEvent(event)
 
 | Priority | Issue | Solution | Status |
 |----------|-------|----------|--------|
-| 1 | `AuthContext` touches `localStorage` directly | Extract `services/storage/authStorage.ts` | ✅ Complete |
+| 1 | `AuthContext` is memory-only, no persistence | Design decision: PIN re-entry on page load prevents dead auth state. Future: JWT-based session tokens. | ✅ Complete |
 | 2 | `useSocket.ts` is 256-line God Object | Split into `useSocketConnection`, `useSocketState`, `useSocketActions` | ✅ Complete |
 | 3 | `useScoreboardAuth` (deprecated) still used | Replace with `usePermissions` + `useCan` | ✅ Complete |
 | 4 | `AuthPage` handles socket events directly | Extract to `hooks/useAuthFlow.ts` | ✅ Complete |
 | 5 | Pages calculate stats inline | Create `useDashboardStats` hook + `services/dashboard/calculateStats.ts` | ✅ Complete |
+| 6 | `useTableManagement` had stale closure | Fixed with `useRef` pattern for table name input | ✅ Complete (2026-05-03) |
+| 7 | `TABLE_CREATED` didn't include PIN | Server now sends `TableInfoWithPin`; client merges with spread to preserve fields | ✅ Complete (2026-05-03) |
+| 8 | QR not showing on table cards | Fixed: `deriveKey` had `['decrypt']` only, needed `['encrypt', 'decrypt']`. Also `dev.sh` propagates `ENCRYPTION_SECRET`. | ✅ Complete (2026-05-03) |
 
 ---
 

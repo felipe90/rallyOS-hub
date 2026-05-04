@@ -36,7 +36,7 @@ async function deriveKey(tableId: string, secret: string): Promise<CryptoKey> {
     signature,
     { name: 'AES-GCM' },
     false,
-    ['decrypt'],
+    ['encrypt', 'decrypt'],
   )
 }
 

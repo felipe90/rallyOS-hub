@@ -5,7 +5,7 @@
  * Extracted from OwnerDashboardPage to keep the page focused on layout.
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import type { Socket } from 'socket.io-client'
 import { SocketEvents } from '@shared/events'
 import { validateTableName } from '@/services/validation'
@@ -20,23 +20,30 @@ export function useTableManagement({ socket, connected }: TableManagementConfig)
   const [isCreatingTable, setIsCreatingTable] = useState(false)
   const [tableName, setTableName] = useState('')
 
+  // Ref to avoid stale closures in callbacks
+  const tableNameRef = useRef(tableName)
+  const setTableNameRef = useCallback((name: string) => {
+    tableNameRef.current = name
+    setTableName(name)
+  }, [])
+
   const startCreating = useCallback(() => {
     setIsCreatingTable(true)
-    setTableName('')
-  }, [])
+    setTableNameRef('')
+  }, [setTableNameRef])
 
   const cancelCreating = useCallback(() => {
     setIsCreatingTable(false)
-    setTableName('')
-  }, [])
+    setTableNameRef('')
+  }, [setTableNameRef])
 
   const createTable = useCallback(() => {
-    const name = tableName.trim() || undefined
+    const name = tableNameRef.current.trim() || undefined
     if (!validateTableName(name)) return
     socket?.emit(SocketEvents.CLIENT.CREATE_TABLE, { name })
-    setTableName('')
+    setTableNameRef('')
     setIsCreatingTable(false)
-  }, [socket, tableName])
+  }, [socket, connected, setTableNameRef])
 
   /** ── Table Cleaning (PIN Regeneration) ── */
   const [cleanConfirmTableId, setCleanConfirmTableId] = useState<string | null>(null)
@@ -78,7 +85,7 @@ export function useTableManagement({ socket, connected }: TableManagementConfig)
     // Creation
     isCreatingTable,
     tableName,
-    setTableName,
+    setTableName: setTableNameRef,
     startCreating,
     cancelCreating,
     createTable,

@@ -7,7 +7,6 @@
 import { useEffect, useState } from 'react'
 import type { Socket } from 'socket.io-client'
 import { SocketEvents } from '@shared/events'
-import { authStorage } from '@/services/storage'
 import type { TableInfo, TableInfoWithPin, MatchStateExtended, ScoreChange } from '@shared/types'
 
 export function useSocketState(socket: Socket | null) {
@@ -21,7 +20,7 @@ export function useSocketState(socket: Socket | null) {
     const handleTableUpdate = (table: TableInfo) => {
       setTables(prev =>
         prev.find(t => t.id === table.id)
-          ? prev.map(t => (t.id === table.id ? table : t))
+          ? prev.map(t => (t.id === table.id ? { ...t, ...table } : t))
           : [...prev, table],
       )
       setCurrentTable(table)
@@ -37,11 +36,13 @@ export function useSocketState(socket: Socket | null) {
       setTables(prev => prev.filter(t => t.id !== tableId))
     }
 
-    const handleTableCreated = () => {
-      const ownerPin = authStorage.getOwnerPin()
-      if (ownerPin) {
-        socket.emit(SocketEvents.CLIENT.GET_TABLES_WITH_PINS, { ownerPin })
-      }
+    const handleTableCreated = (table: TableInfo) => {
+      setTables(prev => {
+        if (prev.find(t => t.id === table.id)) {
+          return prev.map(t => (t.id === table.id ? { ...t, ...table } : t))
+        }
+        return [...prev, table]
+      })
     }
 
     const handleMatchUpdate = (match: MatchStateExtended) => {

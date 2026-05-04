@@ -104,7 +104,7 @@ export class AuthHandler extends SocketHandlerBase {
 
       if (this.comparePin(data.pin, this.ownerPin)) {
         const socketData = socket.data as SocketData;
-        socket.data = { ...socketData, isOwner: true };
+        socket.data = { ...socketData, isOwner: true, isAuthenticated: true };
         socket.emit(SocketEvents.SERVER.OWNER_VERIFIED, { token: 'owner-session' });
         logger.info({ socketId: socket.id }, 'Owner verified successfully');
       } else {

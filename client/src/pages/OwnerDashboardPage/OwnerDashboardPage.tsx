@@ -13,10 +13,11 @@ import { useSocketContext } from '@/contexts/SocketContext'
 import { useAuthContext } from '@/contexts/AuthContext'
 import { useDashboardStats } from '@/hooks/useDashboardStats'
 import { usePinSubmission } from '@/hooks/usePinSubmission'
+import { useTableManagement } from '@/hooks/useTableManagement'
 import { Button } from '@/components/atoms/Button'
 import { SocketEvents } from '@shared/events'
 import { Routes, buildScoreboardRoute } from '@/routes'
-import type { QRData, TableInfoWithPin } from '@shared/types'
+import type { TableInfoWithPin } from '@shared/types'
 
 export interface OwnerDashboardPageProps {
   viewMode?: 'grid' | 'list'
@@ -24,17 +25,15 @@ export interface OwnerDashboardPageProps {
 
 export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboardPageProps) {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(initialViewMode || 'grid')
-  const [isCreatingTable, setIsCreatingTable] = useState(false)
-  const [tableName, setTableName] = useState('')
   const [pinModalOpen, setPinModalOpen] = useState(false)
   const [selectedTable, setSelectedTable] = useState<TableInfoWithPin | null>(null)
-  const [cleanConfirmTableId, setCleanConfirmTableId] = useState<string | null>(null)
-  const [deleteConfirmTableId, setDeleteConfirmTableId] = useState<string | null>(null)
   const navigate = useNavigate()
-  const { tables, connected, createTable, socket, requestTablesWithPins } = useSocketContext()
-  const { logout, ownerPin, isOwner, setTablePin } = useAuthContext()
+  const { tables, connected, socket, requestTablesWithPins } = useSocketContext()
+  const { logout, ownerPin, setTablePin } = useAuthContext()
   const stats = useDashboardStats(tables)
   const { submitPin, loading: pinLoading, error: pinError, clearError } = usePinSubmission(socket)
+
+  const tableMgmt = useTableManagement({ socket, connected })
 
   // Owner always gets tables with PINs
   useEffect(() => {
@@ -46,12 +45,11 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
   useEffect(() => {
     if (!socket) return
 
-    const handleQRData = (_qrData: QRData) => {
-      // QR received - could show modal if needed
+    const handleQRData = () => {
+      // QR generated client-side from table data — server event is informational
     }
 
-    const handlePinRegenerated = (_data: { tableId: string; newPin: string }) => {
-      // Request updated table list with PINs (similar to TABLE_CREATED flow)
+    const handlePinRegenerated = () => {
       requestTablesWithPins(ownerPin || '')
     }
 
@@ -64,17 +62,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
     }
   }, [socket, ownerPin, requestTablesWithPins])
 
-  const handleLogout = () => {
-    logout()
-    navigate(Routes.AUTH)
-  }
-
-  const handleCreateTable = () => {
-    createTable(tableName.trim() || undefined)
-    setTableName('')
-    setIsCreatingTable(false)
-  }
-
+  /** ── PIN Modal ── */
   const handleTableClick = (tableId: string) => {
     const table = tables.find(t => t.id === tableId)
     if (table) {
@@ -99,38 +87,6 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
     clearError()
   }
 
-  const handleCleanTableRequest = (tableId: string) => {
-    setCleanConfirmTableId(tableId)
-  }
-
-  const handleCleanTableConfirm = () => {
-    if (cleanConfirmTableId && socket && connected) {
-      socket.emit(SocketEvents.CLIENT.REGENERATE_PIN, { tableId: cleanConfirmTableId })
-    }
-    setCleanConfirmTableId(null)
-  }
-
-  const handleCleanTableCancel = () => {
-    setCleanConfirmTableId(null)
-  }
-
-  // Delete table handlers
-  const handleDeleteTableRequest = (tableId: string) => {
-    setDeleteConfirmTableId(tableId)
-  }
-
-  const handleDeleteTableConfirm = () => {
-    if (deleteConfirmTableId && socket && connected) {
-      // Owner already authenticated in dashboard, no PIN needed
-      socket.emit(SocketEvents.CLIENT.DELETE_TABLE, { tableId: deleteConfirmTableId })
-    }
-    setDeleteConfirmTableId(null)
-  }
-
-  const handleDeleteTableCancel = () => {
-    setDeleteConfirmTableId(null)
-  }
-
   return (
     <div className="flex flex-col h-screen bg-surface ">
       <PageHeader
@@ -139,8 +95,8 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
         showStatus={true}
         actions={
           <div className="flex gap-2">
-            {!isCreatingTable ? (
-              <Button variant="secondary" onClick={() => setIsCreatingTable(true)} size="sm" animate={false}>
+            {!tableMgmt.isCreatingTable ? (
+              <Button variant="secondary" onClick={tableMgmt.startCreating} size="sm" animate={false}>
                 Nueva Mesa
               </Button>
             ) : (
@@ -148,25 +104,23 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
                 <input
                   type="text"
                   placeholder="Nombre de la mesa..."
-                  value={tableName}
-                  onChange={(e) => setTableName(e.target.value)}
+                  value={tableMgmt.tableName}
+                  onChange={(e) => tableMgmt.setTableName(e.target.value)}
                   onKeyPress={(e) => {
-                    if (e.key === 'Enter') {
-                      handleCreateTable()
-                    }
+                    if (e.key === 'Enter') tableMgmt.createTable()
                   }}
                   className="px-3 py-2 rounded border border-border bg-background text-text focus:outline-none focus:ring-2 focus:ring-primary"
                   autoFocus
                 />
-                <Button variant="primary" onClick={handleCreateTable} size="sm" animate={false}>
+                <Button variant="primary" onClick={tableMgmt.createTable} size="sm" animate={false}>
                   Crear
                 </Button>
-                <Button variant="ghost" onClick={() => setIsCreatingTable(false)} size="sm" animate={false}>
+                <Button variant="ghost" onClick={tableMgmt.cancelCreating} size="sm" animate={false}>
                   Cancelar
                 </Button>
               </div>
             )}
-            <Button variant="ghost" onClick={handleLogout} size="sm" animate={false}>
+            <Button variant="ghost" onClick={() => { logout(); navigate(Routes.AUTH) }} size="sm" animate={false}>
               Atrás
             </Button>
           </div>
@@ -188,14 +142,14 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
             viewMode={viewMode}
             showPin={true}
             showQr={true}
-            onCleanTable={handleCleanTableRequest}
-            cleanTableId={cleanConfirmTableId}
-            onCleanTableConfirm={handleCleanTableConfirm}
-            onCleanTableCancel={handleCleanTableCancel}
-            onDeleteTable={handleDeleteTableRequest}
-            showDeleteConfirm={deleteConfirmTableId}
-            onDeleteTableConfirm={handleDeleteTableConfirm}
-            onDeleteTableCancel={handleDeleteTableCancel}
+            onCleanTable={tableMgmt.requestClean}
+            cleanTableId={tableMgmt.cleanConfirmTableId}
+            onCleanTableConfirm={tableMgmt.confirmClean}
+            onCleanTableCancel={tableMgmt.cancelClean}
+            onDeleteTable={tableMgmt.requestDelete}
+            showDeleteConfirm={tableMgmt.deleteConfirmTableId}
+            onDeleteTableConfirm={tableMgmt.confirmDelete}
+            onDeleteTableCancel={tableMgmt.cancelDelete}
           />
         </div>
       </div>

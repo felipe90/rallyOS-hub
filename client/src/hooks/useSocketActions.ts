@@ -8,7 +8,7 @@ import { useCallback } from 'react'
 import type { Socket } from 'socket.io-client'
 import { SocketEvents } from '@shared/events'
 import type { TableInfo } from '@shared/types'
-import { validateName } from './utils/socketValidation'
+import { validateTableName } from '@/services/validation'
 
 export function useSocketActions(socket: Socket | null, currentTable: TableInfo | null) {
   const emit = useCallback(
@@ -22,7 +22,7 @@ export function useSocketActions(socket: Socket | null, currentTable: TableInfo 
 
   const createTable = useCallback(
     (name?: string) => {
-      if (!validateName(name)) return
+      if (!validateTableName(name)) return
       emit(SocketEvents.CLIENT.CREATE_TABLE, { name })
     },
     [emit],

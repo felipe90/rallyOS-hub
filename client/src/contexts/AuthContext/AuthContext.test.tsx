@@ -121,7 +121,7 @@ describe('AuthContext', () => {
     expect(screen.getByTestId('isAuthenticated')).toHaveTextContent('false')
   })
 
-  it('persists auth state to localStorage', () => {
+  it('does NOT persist auth state to localStorage (security)', () => {
     render(
       <AuthProvider>
         <TestConsumer />
@@ -132,11 +132,14 @@ describe('AuthContext', () => {
       screen.getByTestId('login-referee').click()
     })
 
-    expect(localStorage.getItem('role')).toBe('referee')
-    expect(localStorage.getItem('tableId')).toBe('table-1')
+    // localStorage must NOT be touched — auth is memory-only
+    expect(localStorage.getItem('role')).toBeNull()
+    expect(localStorage.getItem('tableId')).toBeNull()
+    // But React state IS updated
+    expect(screen.getByTestId('role')).toHaveTextContent('referee')
   })
 
-  it('loads persisted auth state from localStorage', () => {
+  it('does NOT load persisted auth state from localStorage (security)', () => {
     localStorage.setItem('role', 'viewer')
     localStorage.setItem('tableId', 'table-123')
 
@@ -146,26 +149,33 @@ describe('AuthContext', () => {
       </AuthProvider>
     )
 
-    expect(screen.getByTestId('role')).toHaveTextContent('viewer')
-    expect(screen.getByTestId('isViewer')).toHaveTextContent('true')
-    expect(screen.getByTestId('tableId')).toHaveTextContent('table-123')
+    // Auth state starts fresh — localStorage is NOT trusted for auth
+    expect(screen.getByTestId('role')).toHaveTextContent('null')
+    expect(screen.getByTestId('isViewer')).toHaveTextContent('false')
+    expect(screen.getByTestId('isAuthenticated')).toHaveTextContent('false')
   })
 
-  it('clears localStorage on logout', () => {
-    localStorage.setItem('role', 'referee')
-    localStorage.setItem('tableId', 'table-1')
-
+  it('clears React state on logout (no localStorage interaction)', () => {
     render(
       <AuthProvider>
         <TestConsumer />
       </AuthProvider>
     )
 
+    // First login to set state
+    act(() => {
+      screen.getByTestId('login-referee').click()
+    })
+
+    expect(screen.getByTestId('role')).toHaveTextContent('referee')
+
+    // Then logout
     act(() => {
       screen.getByTestId('logout').click()
     })
 
-    expect(localStorage.getItem('role')).toBeNull()
-    expect(localStorage.getItem('tableId')).toBeNull()
+    // React state cleared
+    expect(screen.getByTestId('role')).toHaveTextContent('null')
+    expect(screen.getByTestId('isAuthenticated')).toHaveTextContent('false')
   })
 })

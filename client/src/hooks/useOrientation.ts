@@ -1,9 +1,10 @@
 import { useState, useCallback } from 'react';
+import { preferencesStorage } from '@/services/storage';
 
 export function useOrientation() {
   const [isLandscape, setIsLandscape] = useState(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('orientation') === 'landscape';
+      return preferencesStorage.getOrientation() === 'landscape';
     }
     return false;
   });
@@ -11,14 +12,14 @@ export function useOrientation() {
   const toggle = useCallback(() => {
     setIsLandscape(prev => {
       const next = !prev;
-      localStorage.setItem('orientation', next ? 'landscape' : 'portrait');
+      preferencesStorage.setOrientation(next ? 'landscape' : 'portrait');
       return next;
     });
   }, []);
 
   const setLandscape = useCallback((value: boolean) => {
     setIsLandscape(value);
-    localStorage.setItem('orientation', value ? 'landscape' : 'portrait');
+    preferencesStorage.setOrientation(value ? 'landscape' : 'portrait');
   }, []);
 
   return { isLandscape, toggle, setLandscape };

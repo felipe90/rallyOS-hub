@@ -6,9 +6,10 @@
  */
 
 import { Server, Socket } from 'socket.io';
+import crypto from 'crypto';
 import { TableManager } from '../domain/tableManager';
 import { TableInfo, TableInfoWithPin } from '../domain/types';
-import { logger } from '../utils/logger';
+import { logger, maskIp } from '../utils/logger';
 import { RateLimiter } from '../services/security/RateLimiter';
 
 export abstract class SocketHandlerBase {
@@ -54,10 +55,28 @@ export abstract class SocketHandlerBase {
   }
 
   /**
-   * Log rate limit warning
+   * Constant-time PIN comparison to prevent timing attacks.
+   */
+  protected comparePin(a: string, b: string): boolean {
+    const bufA = Buffer.from(a, 'utf8');
+    const bufB = Buffer.from(b, 'utf8');
+    if (bufA.length !== bufB.length) return false;
+    return crypto.timingSafeEqual(bufA, bufB);
+  }
+
+  /**
+   * Check if user is owner (by PIN) — uses timing-safe comparison.
+   */
+  protected isOwner(pin?: string): boolean {
+    if (!pin) return false;
+    return this.comparePin(pin, this.ownerPin);
+  }
+
+  /**
+   * Log rate limit warning with masked IP.
    */
   protected logRateLimitBlocked(action: string, tableId: string, clientIp: string): void {
-    logger.warn({ action, tableId, ip: clientIp }, `${action} rate limit blocked`);
+    logger.warn({ action, tableId, ip: maskIp(clientIp) }, `${action} rate limit blocked`);
   }
 
   /**
@@ -65,13 +84,6 @@ export abstract class SocketHandlerBase {
    */
   protected emitError(socket: Socket, code: string, message: string): void {
     socket.emit('ERROR', { code, message });
-  }
-
-  /**
-   * Check if user is owner (by PIN)
-   */
-  protected isOwner(pin?: string): boolean {
-    return pin === this.ownerPin;
   }
 
   /**

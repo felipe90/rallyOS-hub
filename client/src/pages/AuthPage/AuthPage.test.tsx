@@ -30,6 +30,8 @@ vi.mock('@/contexts/AuthContext', () => ({
 const mockSocket = {
   on: vi.fn(),
   off: vi.fn(),
+  onAny: vi.fn(),
+  offAny: vi.fn(),
   emit: vi.fn(),
   connected: true
 }

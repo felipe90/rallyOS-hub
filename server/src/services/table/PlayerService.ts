@@ -6,29 +6,38 @@
 
 import { Table, PlayerConnection } from '../../domain/types';
 import { logger } from '../../utils/logger';
+import { sanitizeInput } from '../../utils/validation';
+import { PinService } from '../security/PinService';
 
 export class PlayerService {
+  private pinService: PinService;
+
+  constructor(pinService: PinService) {
+    this.pinService = pinService;
+  }
+
   joinTable(table: Table, socketId: string, name: string, pin?: string): boolean {
-    if (pin && table.pin !== pin) {
+    if (pin && !this.pinService.validatePin(table, pin)) {
       logger.warn({ tableId: table.id, tableName: table.name }, 'Invalid PIN attempt');
       return false;
     }
 
+    const sanitizedName = sanitizeInput(name, 100);
     const existing = table.players.find(p => p.socketId === socketId);
     if (existing) {
-      existing.name = name;
+      existing.name = sanitizedName;
       return true;
     }
 
     const player: PlayerConnection = {
       socketId,
-      name,
+      name: sanitizedName,
       role: 'SPECTATOR',
       joinedAt: Date.now()
     };
 
     table.players.push(player);
-    logger.info({ tableId: table.id, tableName: table.name, playerName: name }, 'Player joined table');
+    logger.info({ tableId: table.id, tableName: table.name, playerName: sanitizedName }, 'Player joined table');
     return true;
   }
 
@@ -42,7 +51,7 @@ export class PlayerService {
   }
 
   setReferee(table: Table, socketId: string, pin: string): boolean {
-    if (table.pin !== pin) return false;
+    if (!this.pinService.validatePin(table, pin)) return false;
 
     const existingReferee = table.players.find(p => p.role === 'REFEREE');
     if (existingReferee && existingReferee.socketId !== socketId) {

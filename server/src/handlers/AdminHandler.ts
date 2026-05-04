@@ -41,10 +41,10 @@ export class AdminHandler extends SocketHandlerBase {
         return this.emitError(socket, 'TABLE_NOT_FOUND', 'Mesa no encontrada');
       }
 
-      // Verify the requester is the owner
-      const isOwnerAuthorizing = !data.pin || data.pin === this.ownerPin;
+      // Verify the requester is the owner (timing-safe comparison)
+      const isOwnerAuthorizing = !data.pin || this.comparePin(data.pin, this.ownerPin);
 
-      if (!isOwnerAuthorizing && table.pin !== data.pin) {
+      if (!isOwnerAuthorizing && !this.comparePin(data.pin!, table.pin)) {
         return this.emitError(socket, 'UNAUTHORIZED', 'No autorizado');
       }
 

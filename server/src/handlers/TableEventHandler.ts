@@ -57,7 +57,7 @@ export class TableEventHandler extends SocketHandlerBase {
       this.tableManager.joinTable(table.id, socket.id, 'Referee');
       this.tableManager.setReferee(table.id, socket.id, table.pin);
       
-      socket.emit(SocketEvents.SERVER.TABLE_CREATED, this.tableManager.tableToInfo(table));
+      socket.emit(SocketEvents.SERVER.TABLE_CREATED, this.tableManager.getTableWithPin(table.id) ?? this.tableManager.tableToInfo(table));
       socket.emit(SocketEvents.SERVER.REF_SET, { tableId: table.id });
 
       const qrData = this.tableManager.generateQRData(table.id);
@@ -80,7 +80,7 @@ export class TableEventHandler extends SocketHandlerBase {
       }
 
       const isSocketOwner = (socket.data as SocketData)?.isOwner === true;
-      const isValidOwner = data?.ownerPin === this.ownerPin;
+      const isValidOwner = !!data?.ownerPin && this.comparePin(data.ownerPin, this.ownerPin);
 
       if (!isSocketOwner && !isValidOwner) {
         logger.warn({ socketId: socket.id }, 'GET_TABLES_WITH_PINS rejected - not owner');

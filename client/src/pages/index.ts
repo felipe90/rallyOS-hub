@@ -7,3 +7,5 @@ export { SpectatorDashboardPage } from './SpectatorDashboardPage'
 export { ScoreboardPage } from './ScoreboardPage'
 
 export { HistoryViewPage } from './HistoryViewPage'
+
+export { NotFoundPage } from './NotFoundPage'

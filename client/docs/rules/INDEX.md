@@ -165,12 +165,20 @@ export class PermissionStrategyFactory {
 | `services/permissions/` | **Model** | Perfect separation. Use as reference. |
 | `useMatchDisplay` | **Model** | 97 lines. Pure calculation wrapped in `useMemo`. |
 | `usePermissions` + `useCan` | **Model** | Thin wrappers over pure service functions. |
-| `services/match/` | **Missing** | Needs creation. Score logic lives in `ScoreboardMain`. |
-| `services/dashboard/` | **Missing** | Stats calculation is inline in pages. |
-| `services/validation/` | **Missing** | PIN validation lives in `useSocket.ts`. |
-| `useSocket.ts` | **Anti-pattern** | 256-line God Object. Needs refactoring priority #1. |
-| `AuthPage.tsx` | **Needs work** | Socket events handled directly in page. |
-| `QRCodeImage.tsx` | **Anti-pattern** | Encryption logic in a presentational component. |
+| `services/match/` | **Complete** | 5 services with tests. |
+| `services/dashboard/` | **Complete** | calculateStats with tests. |
+| `services/validation/` | **Complete** | pin.ts, auth.ts, match.ts with tests. |
+| `services/storage/` | **Complete** | authStorage with tests. |
+| `services/errors/` | **Complete** | Centralized error messages. |
+| `services/url/` | **Complete** | URL building extracted from components. |
+| `useSocket.ts` | **Model** | 61-line thin wrapper over 3 focused hooks. |
+| `usePinSubmission` | **Model** | Reusable PIN flow, DRY across dashboards. |
+| `useDashboardStats` | **Model** | Thin wrapper over services/dashboard. |
+| `useAuthFlow` | **Model** | Auth socket handlers extracted from AuthPage. |
+| `AuthPage.tsx` | **Improved** | Delegates socket logic to useAuthFlow hook. |
+| `QRCodeImage.tsx` | **Model** | Purely presentational. |
+| `useScoreboardAuth` | **Removed** | Fully replaced. |
+| `OwnerDashboardPage` | **Improved** | Uses useDashboardStats + usePinSubmission. |
 
 ---
 

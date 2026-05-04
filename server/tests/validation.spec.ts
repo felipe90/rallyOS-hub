@@ -2,7 +2,7 @@
  * Payload Validation Tests
  */
 
-import { validatePayload, validateSocketPayload, PayloadValidationError, ValidationRules } from '../src/utils/validation';
+import { validatePayload, validateSocketPayload, sanitizeInput, PayloadValidationError, ValidationRules } from '../src/utils/validation';
 
 // Mock socket for testing
 function createMockSocket() {
@@ -98,5 +98,29 @@ describe('Payload Validation', () => {
         event: 'TEST_EVENT',
       });
     });
+  });
+});
+
+describe('sanitizeInput', () => {
+  test('strips HTML tags from input', () => {
+    expect(sanitizeInput('<script>alert("xss")</script>Hello')).toBe('alert("xss")Hello');
+  });
+
+  test('truncates to maxLength', () => {
+    const input = 'a'.repeat(200);
+    expect(sanitizeInput(input, 50)).toHaveLength(50);
+  });
+
+  test('returns empty string for empty input', () => {
+    expect(sanitizeInput('')).toBe('');
+  });
+
+  test('preserves text without HTML tags', () => {
+    expect(sanitizeInput('Hello World')).toBe('Hello World');
+  });
+
+  test('defaults to 100 maxLength when not specified', () => {
+    const input = 'a'.repeat(150);
+    expect(sanitizeInput(input)).toHaveLength(100);
   });
 });

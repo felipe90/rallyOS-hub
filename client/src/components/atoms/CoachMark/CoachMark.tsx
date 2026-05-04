@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Hand } from 'lucide-react';
+import { preferencesStorage } from '@/services/storage';
 
 export interface CoachMarkProps {
   id: string;
@@ -18,13 +19,11 @@ export function CoachMark({
   onDismiss,
 }: CoachMarkProps) {
   const [isVisible, setIsVisible] = useState(false);
-  const storageKey = `coachmark-dismissed-${id}`;
 
   useEffect(() => {
     if (!show) return;
 
-    const dismissed = localStorage.getItem(storageKey);
-    if (!dismissed) {
+    if (!preferencesStorage.isCoachmarkDismissed(id)) {
       setIsVisible(true);
 
       // Auto-hide after duration
@@ -34,11 +33,11 @@ export function CoachMark({
 
       return () => clearTimeout(timer);
     }
-  }, [show, duration, storageKey]);
+  }, [show, duration, id]);
 
   const handleDismiss = () => {
     setIsVisible(false);
-    localStorage.setItem(storageKey, 'true');
+    preferencesStorage.dismissCoachmark(id);
     onDismiss?.();
   };
 

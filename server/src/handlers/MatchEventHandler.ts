@@ -14,20 +14,11 @@
 
 import { Server, Socket } from 'socket.io';
 import { TableManager } from '../domain/tableManager';
-import { validateSocketPayload } from '../utils/validation';
+import { validateSocketPayload, sanitizeInput } from '../utils/validation';
 import { logger } from '../utils/logger';
 import { SocketEvents } from '../../../shared/events';
 import { SocketHandlerBase } from './SocketHandlerBase';
 
-/**
- * Sanitize a string to prevent XSS and log injection.
- * Strips HTML tags and limits length.
- */
-function sanitizeInput(value: string, maxLength: number = 100): string {
-  return value
-    .replace(/<[^>]*>/g, '') // Strip HTML tags
-    .slice(0, maxLength);
-}
 import type { Player, MatchConfig } from '../domain/matchEngine';
 
 export class MatchEventHandler extends SocketHandlerBase {

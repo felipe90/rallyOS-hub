@@ -99,9 +99,9 @@ socket.on('RECORD_POINT', (data) => {
 **Responsibility:** Cross-cutting concerns.
 
 **Current utilities:**
-- `validation.ts` — Input validation (model: pure functions)
+- `validation.ts` — Input validation + `sanitizeInput()` XSS stripping (model: pure functions)
 - `pinEncryption.ts` — Encryption/decryption (model: pure functions)
-- `logger.ts` — Logging
+- `logger.ts` — Logging, `maskIp()` for PII-safe logging
 - `qrGenerator.ts` — QR generation
 
 **Rules:**

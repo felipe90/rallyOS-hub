@@ -17,7 +17,7 @@ import { useTableManagement } from '@/hooks/useTableManagement'
 import { Button } from '@/components/atoms/Button'
 import { SocketEvents } from '@shared/events'
 import { Routes, buildScoreboardRoute } from '@/routes'
-import type { QRData, TableInfoWithPin } from '@shared/types'
+import type { TableInfoWithPin } from '@shared/types'
 
 export interface OwnerDashboardPageProps {
   viewMode?: 'grid' | 'list'
@@ -45,11 +45,11 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
   useEffect(() => {
     if (!socket) return
 
-    const handleQRData = (_qrData: QRData) => {
-      // QR received - could show modal if needed
+    const handleQRData = () => {
+      // QR generated client-side from table data — server event is informational
     }
 
-    const handlePinRegenerated = (_data: { tableId: string; newPin: string }) => {
+    const handlePinRegenerated = () => {
       requestTablesWithPins(ownerPin || '')
     }
 

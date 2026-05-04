@@ -14,7 +14,7 @@ import { encryptPin } from '@/shared/crypto/pinEncryption'
  * Falls back to a deterministic dev secret for local development.
  */
 function getEncryptionSecret(): string {
-  let secret = import.meta.env.VITE_ENCRYPTION_SECRET as string | undefined
+  const secret = import.meta.env.VITE_ENCRYPTION_SECRET as string | undefined
   if (!secret) {
     // Dev fallback: use raw PIN if no secret configured
     // (dev.sh handles this properly — this is a safety net)

@@ -1,6 +1,5 @@
 import { useMatchDisplay } from '../../../hooks/useMatchDisplay';
 import type { MatchStateExtended } from '@shared/types';
-import { MatchConfigPanel } from '../MatchConfigPanel';
 import { ScoreboardBar } from './components/ScoreboardBar';
 import { ScoreboardHeader } from './components/ScoreboardHeader';
 import { PlayerScoreArea } from './components/PlayerScoreArea';
@@ -40,7 +39,7 @@ export function ScoreboardMain({
   onOrientationToggle,
   className = '',
 }: ScoreboardMainProps) {
-  const { status, history, config } = match;
+  const { status, history } = match;
   
   const {
     setsA,
@@ -61,27 +60,6 @@ export function ScoreboardMain({
   } = useMatchDisplay(match);
 
   const hasHistory = Boolean(history && history.length > 0);
-
-  // If not LIVE and referee, show config panel
-  if (isReferee && status !== 'LIVE' && status !== 'FINISHED') {
-    return (
-      <div className="flex flex-col h-full">
-        <MatchConfigPanel
-          defaultConfig={{
-            pointsPerSet: config?.pointsPerSet || 11,
-            bestOf: config?.bestOf || 3,
-            handicapA: config?.handicapA || 0,
-            handicapB: config?.handicapB || 0,
-          }}
-          onStart={(cfg) => {
-            // This would be handled by parent component
-            onScorePoint('A') // Placeholder - parent handles actual start
-          }}
-          onCancel={() => {}}
-        />
-      </div>
-    );
-  }
 
   return (
     <div className={`

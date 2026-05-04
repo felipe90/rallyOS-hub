@@ -180,7 +180,7 @@ describe('ScoreboardPage', () => {
     expect(screen.getByText('Juan vs Pedro')).toBeInTheDocument()
   })
 
-  it('shows config panel for non-LIVE match when canConfigure', () => {
+  it('shows MatchConfigModal for non-LIVE match when canConfigure', () => {
     mockUseSocketContext.mockReturnValue({
       currentMatch: createMockMatch({ status: 'WAITING' }),
       tables: [],
@@ -207,7 +207,12 @@ describe('ScoreboardPage', () => {
 
     renderWithRouter(<ScoreboardPage />)
 
-    expect(screen.getAllByText('Configurar Partido').length).toBeGreaterThan(0)
+    // Modal renders with config title
+    expect(screen.getByText('Configurar Partido')).toBeInTheDocument()
+    // ScoreboardMain renders behind the modal with status badge
+    expect(screen.getByText('WAITING')).toBeInTheDocument()
+    // Player names from scoreboard should also be visible
+    expect(screen.getByText('Juan vs Pedro')).toBeInTheDocument()
   })
 
   it('shows scoreboard for non-LIVE match when viewer (cannot configure)', () => {

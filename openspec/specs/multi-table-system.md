@@ -100,7 +100,7 @@ type TableStatus = 'WAITING' | 'CONFIGURING' | 'LIVE' | 'FINISHED';
 | `LEAVE_TABLE` | `{ tableId: string }` | Salir de mesa | — |
 | `SET_REF` | `{ tableId: string, pin: string }` | Autenticarse como referee | PIN |
 | `CONFIGURE_MATCH` | `{ tableId: string, config: MatchConfig }` | Configurar match | Referee |
-| `START_MATCH` | `{ tableId: string }` | Iniciar match | Referee |
+| `START_MATCH` | `{ tableId: string, pointsPerSet: 11, bestOf: number, handicapA?: number, handicapB?: number, playerNameA?: string, playerNameB?: string }` | Iniciar match with config | Referee |
 | `RECORD_POINT` | `{ tableId: string, player: Player }` | Marcar punto | Referee |
 | `SUBTRACT_POINT` | `{ tableId: string, player: Player }` | Descontar punto | Referee |
 | `UNDO_LAST` | `{ tableId: string }` | Deshacer último punto | Referee |
@@ -235,47 +235,56 @@ Then ERROR es emitido con code="INVALID_PIN"
 And rol permanece SPECTATOR
 ```
 
-### 4.4 Flow: Configurar Match
+### 4.4 Flow: Configurar Match (via Modal)
+
+> **Change (config-interfaz-inicio-mesas)**: Configuration now happens via `MatchConfigModal` overlay (not full-page panel). `CONFIGURE_MATCH` client emission is deprecated — all config is sent in `START_MATCH` payload. The modal only shows when `status === 'WAITING'`.
 
 ```
-[Referee] → [CONFIGURE_MATCH(tableId, {playerNames, config})]
-              ↓
-        [MatchEngine.setConfig()]
-              ↓
-        [status → CONFIGURING]
-              ↓
-        [TABLE_UPDATE + MATCH_UPDATE]
+[Referee] → [MatchConfigModal opens when status=WAITING]
+               ↓
+         [Fills names, bestOf, handicap]
+               ↓
+         [START_MATCH(tableId, fullConfig)]
+               ↓
+         [Server → MatchEngine.startMatch(tableId, config)]
+               ↓
+         [MatchEngine initialized with bestOf, handicapA/B, playerNames]
+               ↓
+         [status → LIVE, MATCH_UPDATE emitted]
 ```
 
-**Scenario: Configurar con nombres de jugadores**
+**Scenario: Configurar match via modal**
 ```
-Given referee está autenticado en Mesa 1
-When envía CONFIGURE_MATCH con playerNames={a:"Miguel", b:"Pablo"}
-Then MatchEngine actualiza playerNames
-And status cambia a CONFIGURING
-And MATCH_UPDATE es emitido a todos
+Given referee está autenticado en Mesa 1 con status=WAITING
+When MatchConfigModal se abre
+Then referee puede configurar playerNames, bestOf (1/3/5), y handicap +/− (sin floor)
+And pointsPerSet siempre es 11 (no se muestra selector)
+And al hacer clic en "Iniciar Partido", START_MATCH se emite con la configuración completa
 ```
 
-### 4.5 Flow: Iniciar Match
+### 4.5 Flow: Iniciar Match with Config
+
+> **Change (config-interfaz-inicio-mesas)**: `START_MATCH` now carries the full config payload (bestOf, handicapA/B, playerNameA/B, pointsPerSet=11). Server forwards all params to `MatchOrchestrator.startMatch()`.
 
 ```
-[Referee] → [START_MATCH(tableId)]
-              ↓
-        [MatchEngine.startMatch()]
+[Referee] → [START_MATCH(tableId, config)]
+               ↓
+         [MatchEngine.startMatch(tableId, config)]
               ↓
         [status → LIVE]
               ↓
         [MATCH_UPDATE a todos]
 ```
 
-**Scenario: Iniciar match con 2 jugadores**
+**Scenario: Iniciar match con configuración completa**
 ```
-Given Mesa 1 tiene status=CONFIGURING
-And playerNames están configurados
-When referee envía START_MATCH
-Then MatchEngine.startMatch() es llamado
+Given Mesa 1 tiene status=WAITING
+And playerNames y config están definidos en MatchConfigModal
+When referee hace clic en "Iniciar Partido"
+Then START_MATCH(tableId, {bestOf, handicapA, handicapB, playerNameA, playerNameB, pointsPerSet:11}) es emitido
+And MatchEngine.startMatch() recibe todos los params de configuración
 And status cambia a LIVE
-And MATCH_UPDATE es emitido con status=LIVE
+And MATCH_UPDATE es emitido con status=LIVE y score inicial refleja handicap si aplica
 ```
 
 ### 4.6 Flow: Marcar Punto con Undo
@@ -390,36 +399,39 @@ And MATCH_UPDATE es emitido
 └─────────────────────────────────────────────────────────┘
 ```
 
-### 5.3 Match Setup Modal
+### 5.3 Match Config Modal (Overlay)
+
+> **Change (config-interfaz-inicio-mesas)**: Replaced full-page panel with `MatchConfigModal` overlay (backdrop, Escape dismiss). Points-per-set hardcoded to 11 (no selector). Handicap allows negative values (no floor).
 
 ```
 ┌─────────────────────────────────────────────────────────┐
+│ [backdrop dims scoreboard behind]                        │
 │                                                         │
-│  CONFIGURAR PARTIDO                                     │
-│  ────────────────────────────────────────────────────  │
+│       CONFIGURAR PARTIDO                                │
+│       ───────────────────────────────────               │
 │                                                         │
-│  Jugador A                                             │
-│  ┌─────────────────────────────────────────────────┐   │
-│  │ Juan                                             │   │
-│  └─────────────────────────────────────────────────┘   │
-│  ○ Servicio inicial                                     │
+│       Jugador A                                        │
+│       ┌────────────────────────────────────────────┐   │
+│       │                                             │   │
+│       └────────────────────────────────────────────┘   │
 │                                                         │
-│  Jugador B                                             │
-│  ┌─────────────────────────────────────────────────┐   │
-│  │ Pablo                                            │   │
-│  └─────────────────────────────────────────────────┘   │
+│       Jugador B                                        │
+│       ┌────────────────────────────────────────────┐   │
+│       │                                             │   │
+│       └────────────────────────────────────────────┘   │
 │                                                         │
-│  Formato                                               │
-│  ○ 1 Set  │  ● 3 Sets  │  ○ 5 Sets                   │
+│       Formato                                          │
+│       ○ 1 Set  │  ● 3 Sets  │  ○ 5 Sets              │
 │                                                         │
-│  Puntos por set                                        │
-│  ● 11  │  ○ 15  │  ○ 21                             │
+│       Handicap                                         │
+│       [−]  0  [+]    Jugador A     (puede ser negativo)│
+│       [−]  0  [+]    Jugador B                         │
 │                                                         │
-│  ────────────────────────────────────────────────────  │
+│       ───────────────────────────────────────────────  │
 │                                                         │
-│  ┌─────────────────────────────────────────────────┐   │
-│  │              ▶ INICIAR PARTIDO                    │   │
-│  └─────────────────────────────────────────────────┘   │
+│       ┌────────────────────────────────────────────┐   │
+│       │  ▶ INICIAR PARTIDO          │  Cancelar     │   │
+│       └────────────────────────────────────────────┘   │
 │                                                         │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -634,8 +646,12 @@ rallyhub://join/{tableId}?pin={pin}
 
 ### 9.4 Match Flow
 
-- [ ] CONFIGURE_MATCH actualiza playerNames y status
-- [ ] START_MATCH cambia status a LIVE
+- [ ] CONFIGURE_MATCH actualiza playerNames y status (server-side handler preserved, client emission deprecated)
+- [ ] START_MATCH con config completa (bestOf, handicapA/B, playerNames) cambia status a LIVE
+- [ ] START_MATCH payload incluye pointsPerSet=11 (hardcoded, no UI selector)
+- [ ] Server START_MATCH handler reenvía config a MatchOrchestrator.startMatch()
+- [ ] MatchEngine inicializa con bestOf, handicapA/B, playerNames del referee
+- [ ] Handicap negativo permitido (sin floor)
 - [ ] RECORD_POINT incrementa score y emite MATCH_UPDATE
 - [ ] SUBTRACT_POINT decrementa score
 - [ ] UNDO_LAST revierte último cambio
@@ -650,11 +666,102 @@ rallyhub://join/{tableId}?pin={pin}
 
 - [ ] Hub Dashboard muestra todas las mesas
 - [ ] Waiting Room muestra QR y jugadores
-- [ ] Match Setup permite configurar nombres y formato
+- [ ] Match Config se muestra como modal overlay (MatchConfigModal) con backdrop + Escape
+- [ ] MatchConfigModal incluye: nombres A/B, bestOf (1/3/5), handicap +/− (negativo permitido), iniciar/cancelar
+- [ ] Points-per-set NO se muestra como selector (hardcoded a 11)
+- [ ] CONFIGURING badge visible en ScoreboardMain cuando el modal está abierto
 - [ ] Scoreboard muestra score y permite marcar puntos
 - [ ] History drawer muestra últimos cambios
 - [ ] Set/Match Won overlays aparecen correctamente
+- [ ] Winner dialog usa sessionStorage para no re-mostrarse
 
 ---
 
-*Document created for Spec-Driven Development.*
+## 10. Requirements (config-interfaz-inicio-mesas)
+
+> **Change**: config-interfaz-inicio-mesas — Replaced full-page MatchConfigPanel with MatchConfigModal overlay, fixed server START_MATCH to carry config, removed dead code. Points-per-set hardcoded to 11. Handicap allows negative values (no floor).
+
+### 10.1 Added Requirements
+
+### Requirement: MatchConfigModal Overlay
+
+The system MUST render match configuration as a modal overlay (PinModal pattern: backdrop, absolute positioning, Escape dismissal) instead of a full-page panel.
+
+#### Scenario: Modal opens for referee
+
+- GIVEN referee is authenticated on a table with status WAITING
+- WHEN ScoreboardPage mounts
+- THEN MatchConfigModal overlays the scoreboard
+- AND backdrop dims the scoreboard content behind it
+
+#### Scenario: Dismiss with Escape
+
+- GIVEN MatchConfigModal is open
+- WHEN user presses Escape key
+- THEN modal closes and referee returns to hub dashboard
+
+#### Scenario: Dismiss with Cancel button
+
+- GIVEN MatchConfigModal is open
+- WHEN user clicks Cancelar
+- THEN modal closes and referee returns to hub dashboard
+
+### Requirement: CONFIGURING Visual State
+
+When the MatchConfigModal is open on a table, ScoreboardMain MUST display the current status indicator (via ScoreboardBar) instead of any dead config panel.
+
+#### Scenario: Status badge visible
+
+- GIVEN MatchConfigModal is open for a table
+- THEN ScoreboardMain renders ScoreboardBar with the current table status badge
+- AND no MatchConfigPanel is rendered inside ScoreboardMain
+
+### 10.2 Modified Requirements
+
+### Requirement: START_MATCH Carries Full Config
+
+The client SHALL send all match configuration (bestOf, handicapA, handicapB, playerNameA, playerNameB) in the START_MATCH payload (Client→Server). The server MUST forward these params to MatchOrchestrator.startMatch() so the MatchEngine is initialized with the referee's chosen values.
+
+(Previously: server START_MATCH handler ignored bestOf/handicap params — always created MatchEngine with hardcoded defaults.)
+
+#### Scenario: bestOf reaches match engine
+
+- GIVEN referee selects bestOf=5 in modal and clicks "Iniciar Partido"
+- WHEN client emits START_MATCH with bestOf: 5
+- THEN server calls tableManager.startMatch(tableId, {bestOf: 5, ...})
+- AND MatchEngine is created with bestOf=5
+
+#### Scenario: Handicap applied at match start
+
+- GIVEN referee sets handicapA=3 in modal and clicks "Iniciar Partido"
+- WHEN client emits START_MATCH with handicapA: 3
+- THEN server forwards config to MatchOrchestrator
+- AND MatchEngine initialScore reflects handicap (A starts at 3)
+
+### Requirement: Match Setup UI
+
+The match setup form MUST render inside a modal overlay with: player name A/B text inputs, best-of button selector (1/3/5), handicap +/− steppers per player (negative values allowed, no floor), and "Iniciar Partido" / "Cancelar" buttons. Points-per-set SHALL be hardcoded to 11 and MUST NOT be shown as a selector.
+
+(Previously: points-per-set was selectable (11/15/21) in full-page panel; handicap had floor at 0; no modal overlay.)
+
+#### Scenario: Handicap allows negative values
+
+- GIVEN handicapA is 0
+- WHEN user clicks decrement (−) for handicapA
+- THEN handicapA goes to -1 (negative values allowed, no floor)
+
+#### Scenario: Points-per-set not shown
+
+- GIVEN MatchConfigModal is open
+- THEN no points-per-set selector (11/15/21) is rendered
+- AND pointsPerSet=11 is silently included in START_MATCH payload
+
+### 10.3 Removed
+
+- **CONFIGURE_MATCH Client Emission**: `configureMatch()` removed from `useSocketActions.ts` and `SocketContext.types.ts`. Server `configureMatch` handler preserved.
+- **ScoreboardMain Internal Config Panel**: Removed dead duplicate `MatchConfigPanel` in `ScoreboardMain.tsx`. Replaced by status badge via `ScoreboardBar`.
+- **MatchConfigPanel Full-Page Layout**: `organisms/MatchConfigPanel/` directory deleted. Replaced by `molecules/MatchConfigModal/` overlay.
+
+---
+
+*Document updated for Spec-Driven Development.*

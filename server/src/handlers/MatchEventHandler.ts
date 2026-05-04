@@ -136,7 +136,7 @@ export class MatchEventHandler extends SocketHandlerBase {
         });
       }
 
-      const state = this.tableManager.startMatch(data.tableId);
+      const state = this.tableManager.startMatch(data.tableId, data);
 
       logger.debug({ tableId: data.tableId, state }, 'START_MATCH: Result state');
 

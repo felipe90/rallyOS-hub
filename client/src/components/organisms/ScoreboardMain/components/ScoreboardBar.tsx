@@ -23,12 +23,23 @@ export function ScoreboardBar({
     return null;
   }
 
+  const showStatusBadge = status !== 'LIVE' && status !== 'FINISHED';
+
   // Portrait: vertical layout
   return (
     <div className="
       flex flex-col gap-2 p-4 bg-surface-low
       landscape:hidden landscape:w-0 landscape:overflow-hidden
     ">
+      {/* Status Badge */}
+      {showStatusBadge && (
+        <div className="px-3 py-1 bg-surface rounded-lg inline-flex self-start">
+          <Caption className="text-text-muted uppercase tracking-widest">
+            {status}
+          </Caption>
+        </div>
+      )}
+
       {/* Sets History - Compact */}
       {setHistory && setHistory.length > 0 && (
         <div className="px-2 py-1 bg-surface rounded-lg overflow-x-auto">

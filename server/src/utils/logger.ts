@@ -32,6 +32,18 @@ export const logger = pino({
 });
 
 /**
+ * Mask the last octet of an IPv4 address for PII-safe logging.
+ * Non-IPv4 strings are returned as-is.
+ */
+export function maskIp(ip: string): string {
+  const ipv4Match = ip.match(/^(\d{1,3}\.\d{1,3}\.\d{1,3})\.\d{1,3}$/);
+  if (ipv4Match) {
+    return `${ipv4Match[1]}.x`;
+  }
+  return ip;
+}
+
+/**
  * Create a child logger with contextual metadata
  */
 export function createChildLogger(context: Record<string, unknown>) {

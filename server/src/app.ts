@@ -15,6 +15,23 @@ import { getAllowedOrigins } from './config/allowedOrigins';
 
 const app = express();
 
+// Host header validation — prevent host injection attacks
+const allowedHosts = getAllowedOrigins()
+  .map(o => {
+    try { return new URL(o).hostname; } catch { return null; }
+  })
+  .filter((h): h is string => h !== null);
+
+app.use((req, res, next) => {
+  const host = req.hostname;
+  if (host && !allowedHosts.includes(host) && !host.startsWith('192.168.') && host !== '10.0.0.1') {
+    logger.warn({ host }, 'Blocked invalid Host header');
+    res.status(400).json({ error: 'Invalid host' });
+    return;
+  }
+  next();
+});
+
 // Security headers (CSP, X-Frame-Options, X-Content-Type-Options, etc.)
 app.use(helmet({
   contentSecurityPolicy: {
@@ -28,9 +45,14 @@ app.use(helmet({
       objectSrc: ["'none'"],
       frameSrc: ["'none'"],
       frameAncestors: ["'none'"],
+      reportUri: '/csp-report',
     },
   },
   crossOriginEmbedderPolicy: false, // Allow cross-origin for Socket.io
+  strictTransportSecurity: {
+    maxAge: 31536000, // 1 year
+    includeSubDomains: true,
+  },
 }));
 
 export const effectiveAllowedOrigins = getAllowedOrigins();
@@ -116,6 +138,22 @@ app.get('/api/owner-pin', (req, res) => {
   }
 
   res.json({ pin, isRandom: true });
+});
+
+// SPA fallback — serve index.html for client-side routes
+// Express doesn't know about React Router paths, so any GET that
+// isn't a static file or API route should return index.html.
+app.get('*', (req, res) => {
+  // Let API and Socket.IO paths return 404 (they have their own handlers)
+  if (req.path.startsWith('/api/') || req.path.startsWith('/socket.io/')) {
+    return res.status(404).json({ error: 'Not found' });
+  }
+  // For all other routes, serve the SPA shell
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.status(404).send('Client not found');
+  }
 });
 
 export { app };

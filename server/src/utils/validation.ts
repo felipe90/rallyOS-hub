@@ -134,6 +134,16 @@ function checkNumericRange(field: string, value: any, rule: ValidationRule): voi
   }
 }
 
+/**
+ * Sanitize a string to prevent XSS and log injection.
+ * Strips HTML tags and limits length.
+ */
+export function sanitizeInput(value: string, maxLength: number = 100): string {
+  return value
+    .replace(/<[^>]*>/g, '') // Strip HTML tags
+    .slice(0, maxLength);
+}
+
 export function validatePayload(data: any, rules: ValidationRules): void {
   for (const [field, rule] of Object.entries(rules)) {
     const value = data[field];

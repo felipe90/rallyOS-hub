@@ -85,12 +85,18 @@ COPY --from=client-builder /build/client/dist ./public/dist
 RUN openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 \
     -nodes -subj "/C=AR/ST=BA/L=Buenos Aires/O=RallyOS/OU=Prod/CN=localhost" \
     -addext "subjectAltName=DNS:localhost,IP:127.0.0.1" 2>/dev/null || true && \
-    chmod 600 key.pem cert.pem
+    chmod 644 key.pem cert.pem
+
+# Create logs directory and set ownership for node user
+RUN mkdir -p /app/logs && chown -R node:node /app/logs /app/public /app/dist
 
 # Environment configuration
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV NODE_OPTIONS="--max-old-space-size=256"
+
+# Switch to non-root user
+USER node
 
 # Expose port
 EXPOSE 3000

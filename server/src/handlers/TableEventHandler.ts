@@ -80,7 +80,7 @@ export class TableEventHandler extends SocketHandlerBase {
       }
 
       const isSocketOwner = (socket.data as SocketData)?.isOwner === true;
-      const isValidOwner = data?.ownerPin === this.ownerPin;
+      const isValidOwner = !!data?.ownerPin && this.comparePin(data.ownerPin, this.ownerPin);
 
       if (!isSocketOwner && !isValidOwner) {
         logger.warn({ socketId: socket.id }, 'GET_TABLES_WITH_PINS rejected - not owner');

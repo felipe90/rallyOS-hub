@@ -36,10 +36,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const setOwner = (isOwner: boolean, pin?: string) => {
     if (isOwner) {
-      localStorage.setItem('role', UserRoles.OWNER)
+      authStorage.setRole(UserRoles.OWNER)
       setRole(UserRoles.OWNER)
       if (pin) {
-        sessionStorage.setItem('ownerPin', pin)
+        authStorage.setOwnerPin(pin)
         setOwnerPin(pin)
       }
     }

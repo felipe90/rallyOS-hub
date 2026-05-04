@@ -320,13 +320,13 @@ const formatted = formatEvent(event)
 
 ## Current Refactoring Priorities
 
-| Priority | Issue | Solution |
-|----------|-------|----------|
-| 1 | `AuthContext` touches `localStorage` directly | Extract `services/storage/authStorage.ts` |
-| 2 | `useSocket.ts` is 256-line God Object | Split into `useSocketConnection`, `useSocketState`, `useSocketActions` |
-| 3 | `useScoreboardAuth` (deprecated) still used | Replace with `usePermissions` + `useCan` |
-| 4 | `AuthPage` handles socket events directly | Extract to `hooks/useAuthFlow.ts` |
-| 5 | Pages calculate stats inline | Create `useDashboardStats` hook + `services/dashboard/calculateStats.ts` |
+| Priority | Issue | Solution | Status |
+|----------|-------|----------|--------|
+| 1 | `AuthContext` touches `localStorage` directly | Extract `services/storage/authStorage.ts` | ✅ Complete |
+| 2 | `useSocket.ts` is 256-line God Object | Split into `useSocketConnection`, `useSocketState`, `useSocketActions` | ✅ Complete |
+| 3 | `useScoreboardAuth` (deprecated) still used | Replace with `usePermissions` + `useCan` | ✅ Complete |
+| 4 | `AuthPage` handles socket events directly | Extract to `hooks/useAuthFlow.ts` | ✅ Complete |
+| 5 | Pages calculate stats inline | Create `useDashboardStats` hook + `services/dashboard/calculateStats.ts` | ✅ Complete |
 
 ---
 

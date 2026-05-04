@@ -14,6 +14,7 @@ import crypto from 'crypto';
 import { MatchEngine } from './matchEngine';
 import { Table, TableInfo, TableInfoWithPin, Player, MatchConfig, MatchStateExtended, QRData, HubConfig } from './types';
 import { logger } from '../utils/logger';
+import { sanitizeInput } from '../utils/validation';
 import { TableRepository } from '../services/table/TableRepository';
 import { PlayerService } from '../services/table/PlayerService';
 import { MatchOrchestrator } from '../services/table/MatchOrchestrator';
@@ -34,17 +35,17 @@ export class TableManager {
 
   constructor(hubConfig: HubConfig) {
     this.repository = new TableRepository();
-    this.playerService = new PlayerService();
+    this.pinService = new PinService();
+    this.playerService = new PlayerService(this.pinService);
     this.matchOrchestrator = new MatchOrchestrator();
     this.formatter = new TableFormatter();
-    this.pinService = new PinService();
     this.qrService = new QRService(hubConfig);
   }
 
   // Table CRUD
   createTable(name?: string): Table {
     const tableNumber = this.repository.getNextTableNumber();
-    const tableName = name || `Mesa ${tableNumber}`;
+    const tableName = name ? sanitizeInput(name, 256) : `Mesa ${tableNumber}`;
     const pin = this.pinService.generatePin();
     const id = crypto.randomUUID();
 

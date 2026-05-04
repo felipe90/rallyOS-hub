@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react'
 import type { Socket } from 'socket.io-client'
 import { SocketEvents } from '@shared/events'
+import { authStorage } from '@/services/storage'
 import type { TableInfo, TableInfoWithPin, MatchStateExtended, ScoreChange } from '@shared/types'
 
 export function useSocketState(socket: Socket | null) {
@@ -37,7 +38,7 @@ export function useSocketState(socket: Socket | null) {
     }
 
     const handleTableCreated = () => {
-      const ownerPin = sessionStorage.getItem('ownerPin')
+      const ownerPin = authStorage.getOwnerPin()
       if (ownerPin) {
         socket.emit(SocketEvents.CLIENT.GET_TABLES_WITH_PINS, { ownerPin })
       }

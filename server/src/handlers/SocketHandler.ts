@@ -14,6 +14,7 @@ import { Server, Socket } from 'socket.io';
 import { TableManager } from '../domain/tableManager';
 import { TableInfo } from '../domain/types';
 import { logger } from '../utils/logger';
+import { RateLimiter } from '../services/security/RateLimiter';
 import { SocketEvents } from '../../../shared/events';
 import { 
   TableEventHandler, 
@@ -26,6 +27,7 @@ export class SocketHandler {
   private io: Server;
   private tableManager: TableManager;
   private ownerPin: string;
+  private connectionRateLimiter: RateLimiter;
   
   // Handler instances
   private tableHandler: TableEventHandler;
@@ -37,6 +39,7 @@ export class SocketHandler {
     this.io = io;
     this.tableManager = tableManager;
     this.ownerPin = ownerPin;
+    this.connectionRateLimiter = new RateLimiter(60_000, 20); // 20 connections per 60s per IP
     
     // Initialize handlers
     this.tableHandler = new TableEventHandler(io, tableManager, ownerPin);
@@ -64,6 +67,17 @@ export class SocketHandler {
   }
 
   private setupListeners() {
+    // Connection rate limiting — max 20 connections per IP per 60s
+    this.io.use((socket, next) => {
+      const clientIp = socket.handshake.address;
+      const rateLimitKey = `CONNECTION:${clientIp}`;
+      if (this.connectionRateLimiter.isRateLimited(rateLimitKey)) {
+        logger.warn({ ip: clientIp }, 'Connection rate limit exceeded');
+        return next(new Error('RATE_LIMITED: Too many connections. Please wait.'));
+      }
+      next();
+    });
+
     // Socket.io auth middleware — validate session token on connection
     this.io.use((socket, next) => {
       const token = socket.handshake.auth?.sessionToken as string | undefined;

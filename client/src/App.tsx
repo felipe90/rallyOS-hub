@@ -11,6 +11,7 @@ import { RefereeDashboardPage } from './pages/RefereeDashboardPage'
 import { SpectatorDashboardPage } from './pages/SpectatorDashboardPage'
 import { ScoreboardPage } from './pages/ScoreboardPage'
 import { HistoryViewPage } from './pages/HistoryViewPage'
+import { NotFoundPage } from './pages/NotFoundPage'
 import { useAutoUpdateBanner } from './hooks/useAutoUpdate'
 
 function AppRoutes() {
@@ -33,10 +34,13 @@ function AppRoutes() {
           <Route path={Routes.SCOREBOARD_VIEW} element={<ScoreboardPage />} />
 
           <Route path={Routes.HISTORY} element={<HistoryViewPage />} />
-        </Route>
 
-        {/* Redirect root to auth */}
-        <Route path="/" element={<Navigate to={Routes.AUTH} replace />} />
+          {/* Redirect root to auth */}
+          <Route index element={<Navigate to={Routes.AUTH} replace />} />
+
+          {/* 404 for authenticated users hitting unknown routes */}
+          <Route path="*" element={<NotFoundPage />} />
+        </Route>
       </ReactRoutes>
     </ErrorBoundary>
   )

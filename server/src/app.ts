@@ -140,15 +140,15 @@ app.get('/api/owner-pin', (req, res) => {
   res.json({ pin, isRandom: true });
 });
 
-// SPA fallback — serve index.html for client-side routes
-// Express doesn't know about React Router paths, so any GET that
-// isn't a static file or API route should return index.html.
-app.get('*', (req, res) => {
+// SPA fallback — serve index.html for any unmatched route.
+// Express 5 uses path-to-regexp v8 which doesn't support bare '*'.
+// Using middleware instead of a route handler avoids the issue entirely.
+app.use((req, res) => {
   // Let API and Socket.IO paths return 404 (they have their own handlers)
   if (req.path.startsWith('/api/') || req.path.startsWith('/socket.io/')) {
     return res.status(404).json({ error: 'Not found' });
   }
-  // For all other routes, serve the SPA shell
+  // For all other routes, serve the SPA shell so React Router can handle them
   if (fs.existsSync(indexPath)) {
     res.sendFile(indexPath);
   } else {

@@ -103,6 +103,10 @@ export interface AllHistoryEntry {
   status: string;
   playerNames: { a: string; b: string };
   history: ScoreChange[];
+  handicap?: {
+    a?: number;
+    b?: number;
+  };
 }
 
 // ── Table Info (sent to client) ─────────────────────────────────────

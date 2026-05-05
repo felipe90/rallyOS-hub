@@ -44,6 +44,7 @@ export function HistoryAccordion({ entries }: HistoryAccordionProps) {
           tableName={entry.tableName}
           playerNames={entry.playerNames}
           history={entry.history}
+          handicap={entry.handicap}
           defaultExpanded={allExpanded === null ? idx === 0 : allExpanded}
         />
       ))}

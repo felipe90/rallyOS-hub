@@ -1,0 +1,49 @@
+/**
+ * Handicap Integration Tests
+ *
+ * Verifies that TableManager.getAllHistories() populates the handicap field
+ * from the match configuration when handicap is set.
+ */
+
+import { TableManager } from '../src/domain/tableManager';
+import type { Table } from '../src/domain/types';
+
+describe('getAllHistories — handicap', () => {
+  let manager: TableManager;
+
+  beforeEach(() => {
+    manager = new TableManager({ ssid: 'TestHub', ip: '127.0.0.1', port: 3000 });
+  });
+
+  it('includes handicap in payload when config has handicapA and handicapB', () => {
+    const table = manager.createTable('Mesa Test') as Table;
+
+    // Set config with handicap via matchEngine.getConfig() → mutate state
+    const matchEngine = table.matchEngine;
+    (matchEngine as any).state.config.handicapA = 2;
+    (matchEngine as any).state.config.handicapB = 0;
+
+    const histories = manager.getAllHistories();
+    expect(histories).toHaveLength(1);
+    expect(histories[0].handicap).toEqual({ a: 2, b: 0 });
+  });
+
+  it('does NOT include handicap when config has no handicap fields', () => {
+    const table = manager.createTable('Mesa Sin Handicap') as Table;
+
+    const histories = manager.getAllHistories();
+    expect(histories).toHaveLength(1);
+    expect(histories[0].handicap).toBeUndefined();
+  });
+
+  it('handles partial handicap (handicapA without handicapB)', () => {
+    const table = manager.createTable('Mesa Partial') as Table;
+
+    const matchEngine = table.matchEngine;
+    (matchEngine as any).state.config.handicapA = 3;
+
+    const histories = manager.getAllHistories();
+    expect(histories).toHaveLength(1);
+    expect(histories[0].handicap).toEqual({ a: 3 });
+  });
+});

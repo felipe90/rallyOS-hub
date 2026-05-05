@@ -5,5 +5,9 @@ export interface HistoryTableSectionProps {
   tableName: string
   playerNames: { a: string; b: string }
   history: ScoreChange[]
+  handicap?: {
+    a?: number
+    b?: number
+  }
   defaultExpanded?: boolean
 }

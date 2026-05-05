@@ -37,35 +37,44 @@ export function HistoryList({
 
   const formatActionLabel = (action: 'POINT' | 'CORRECTION' | 'SET_WON'): string => {
     switch (action) {
-      case 'POINT': return '⚽ Punto'
-      case 'CORRECTION': return '✏️ Corrección'
-      case 'SET_WON': return '🏆 Set ganado'
+      case 'POINT': return 'Punto'
+      case 'CORRECTION': return 'Corrección'
+      case 'SET_WON': return 'Set ganado'
       default: return action
     }
   }
 
   return (
-    <div className={`space-y-${compact ? '1' : '2'}`}>
+    <div className={`space-y-${compact ? '0' : '2'}`}>
       {history.map((event, idx) => {
         const timestamp = new Date(event.timestamp).toLocaleTimeString()
         const actionLabel = formatActionLabel(event.action)
         const playerName = resolvePlayer(event.player)
+        const hasScores = event.pointsBefore && event.pointsAfter
 
         if (compact) {
           return (
             <div
               key={event.id ?? idx}
-              className="flex items-center justify-between px-2 py-1 text-xs bg-surface-high rounded border border-border/50"
+              className="flex items-center gap-1 px-2 py-0.5 text-xs bg-surface-high rounded-sm border border-border/50"
             >
-              <span className="flex-1">
-                {actionLabel} - {playerName}
-              </span>
-              <span className="text-text-muted text-[10px]">{timestamp}</span>
+              <span className="text-text-muted">·</span>
+              <span className="text-text-muted">{timestamp}</span>
+              <span className="text-text-muted">·</span>
+              <span className="font-medium">{actionLabel}</span>
+              <span>-</span>
+              <span>{playerName}</span>
+              {hasScores && (
+                <>
+                  <span className="text-text-muted">·</span>
+                  <span className="text-text-muted">
+                    {event.pointsBefore!.a}-{event.pointsBefore!.b} → {event.pointsAfter!.a}-{event.pointsAfter!.b}
+                  </span>
+                </>
+              )}
             </div>
           )
         }
-
-        const hasScores = event.pointsBefore && event.pointsAfter
 
         return (
           <div

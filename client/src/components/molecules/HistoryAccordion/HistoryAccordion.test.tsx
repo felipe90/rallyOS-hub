@@ -41,12 +41,11 @@ describe('HistoryAccordion', () => {
 
     render(<HistoryAccordion entries={entries} />)
 
-    // First section should have expanded content visible
-    expect(screen.getByText('⚽ Punto - Juan')).toBeInTheDocument()
+    // First section should have expanded content visible (compact mode, spans separate)
+    expect(screen.getByText('Punto')).toBeInTheDocument()
 
     // Second section should be collapsed (no history items visible from it)
-    const mesa2Event = screen.queryByText('⚽ Punto - Carlos')
-    expect(mesa2Event).not.toBeInTheDocument()
+    expect(screen.queryByText('Carlos')).not.toBeInTheDocument()
   })
 
   it('expand all opens all sections', () => {
@@ -59,9 +58,9 @@ describe('HistoryAccordion', () => {
 
     fireEvent.click(screen.getByText('Expandir todos'))
 
-    // Both player entries should now be visible
-    expect(screen.getByText('⚽ Punto - Juan')).toBeInTheDocument()
-    expect(screen.getByText('⚽ Punto - Carlos')).toBeInTheDocument()
+    // Both tables have Punto in their history (compact mode, separate spans)
+    const puntos = screen.getAllByText('Punto')
+    expect(puntos.length).toBe(2)
   })
 
   it('collapse all closes all sections', () => {
@@ -74,15 +73,15 @@ describe('HistoryAccordion', () => {
 
     // First click: expand all
     fireEvent.click(screen.getByText('Expandir todos'))
-    expect(screen.getByText('⚽ Punto - Juan')).toBeInTheDocument()
-    expect(screen.getByText('⚽ Punto - Carlos')).toBeInTheDocument()
+    // Both tables expanded → 2 Punto elements (one per table)
+    const puntosAfterExpand = screen.getAllByText('Punto')
+    expect(puntosAfterExpand.length).toBe(2)
 
     // Second click: collapse all
     fireEvent.click(screen.getByText('Colapsar todos'))
 
-    // Both should now be collapsed
-    expect(screen.queryByText('⚽ Punto - Juan')).not.toBeInTheDocument()
-    expect(screen.queryByText('⚽ Punto - Carlos')).not.toBeInTheDocument()
+    // Both should now be collapsed - Punto should NOT be visible
+    expect(screen.queryByText('Punto')).not.toBeInTheDocument()
   })
 
   it('does not show expand/collapse all for single entry', () => {
@@ -102,5 +101,68 @@ describe('HistoryAccordion', () => {
     // No sections should exist
     expect(screen.queryByText('evento')).not.toBeInTheDocument()
     expect(screen.queryByText('eventos')).not.toBeInTheDocument()
+  })
+
+  // ── Set Summary Display ────────────────────────────────
+
+  it('displays set summary in header (e.g., "Juan 2-1 María")', () => {
+    const entry: AllHistoryEntry = {
+      tableId: 'table-1',
+      tableName: 'Mesa 1',
+      status: 'LIVE',
+      playerNames: { a: 'Juan', b: 'María' },
+      history: [
+        {
+          id: 'evt-1',
+          player: 'A',
+          action: 'SET_WON',
+          pointsBefore: { a: 11, b: 5 },
+          pointsAfter: { a: 11, b: 5 },
+          setNumber: 1,
+          timestamp: Date.now(),
+        },
+        {
+          id: 'evt-2',
+          player: 'A',
+          action: 'SET_WON',
+          pointsBefore: { a: 11, b: 9 },
+          pointsAfter: { a: 11, b: 9 },
+          setNumber: 2,
+          timestamp: Date.now(),
+        },
+        {
+          id: 'evt-3',
+          player: 'B',
+          action: 'SET_WON',
+          pointsBefore: { a: 5, b: 11 },
+          pointsAfter: { a: 5, b: 11 },
+          setNumber: 3,
+          timestamp: Date.now(),
+        },
+      ],
+    }
+
+    render(<HistoryAccordion entries={[entry]} />)
+
+    // Juan won 2 sets, María won 1
+    expect(screen.getByText('Juan 2-1 María')).toBeInTheDocument()
+  })
+
+  // ── Handicap Display ────────────────────────────────
+
+  it('displays handicap when provided in AllHistoryEntry', () => {
+    const entry: AllHistoryEntry = {
+      tableId: 'table-1',
+      tableName: 'Mesa 1',
+      status: 'LIVE',
+      playerNames: { a: 'Juan', b: 'María' },
+      history: [],
+      handicap: { a: 2, b: 0 },
+    }
+
+    render(<HistoryAccordion entries={[entry]} />)
+
+    expect(screen.getByText(/Handicap:/)).toBeInTheDocument()
+    expect(screen.getByText(/Juan \+2/)).toBeInTheDocument()
   })
 })

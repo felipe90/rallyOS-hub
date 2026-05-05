@@ -12,6 +12,15 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    exclude: [
+      'node_modules/',
+      'src/test/',
+      '**/*.d.ts',
+      '**/*.config.*',
+      '**/mockData',
+      '**/dist',
+      'src/server/**'
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
@@ -21,7 +30,8 @@ export default defineConfig({
         '**/*.d.ts',
         '**/*.config.*',
         '**/mockData',
-        '**/dist'
+        '**/dist',
+        'src/server/**'
       ]
     }
   },

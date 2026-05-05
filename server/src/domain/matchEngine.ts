@@ -269,4 +269,8 @@ export class MatchEngine {
       undoAvailable: this.state.undoAvailable
     };
   }
+
+  public getConfig(): MatchConfig {
+    return { ...this.state.config };
+  }
 }

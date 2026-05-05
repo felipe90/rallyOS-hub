@@ -184,9 +184,9 @@ describe('HistoryViewPage', () => {
     expect(screen.getByText('Mesa 1')).toBeInTheDocument()
     expect(screen.getByText('Mesa 2')).toBeInTheDocument()
 
-    // Should show player names in sections
-    expect(screen.getByText('Juan vs María')).toBeInTheDocument()
-    expect(screen.getByText('Carlos vs Ana')).toBeInTheDocument()
+    // Should show player names with set summary in sections
+    expect(screen.getByText('Juan 0-0 María')).toBeInTheDocument()
+    expect(screen.getByText('Carlos 0-0 Ana')).toBeInTheDocument()
 
     // Should show entry count badges
     expect(screen.getByText('2 eventos')).toBeInTheDocument()

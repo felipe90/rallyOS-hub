@@ -44,27 +44,40 @@ describe('HistoryList', () => {
     expect(screen.getByText('Sin eventos registrados')).toBeInTheDocument()
   })
 
-  // ── Action Labels ──────────────────────────────────────────────
+  // ── Action Labels (No Icons) ─────────────────────────────
 
-  it('displays POINT action label correctly', () => {
+  it('displays POINT action label without icon', () => {
     render(
       <HistoryList history={[mockHistory[0]]} playerNames={playerNames} />
     )
-    expect(screen.getByText(/⚽ Punto/)).toBeInTheDocument()
+    // Should NOT have the icon
+    expect(screen.queryByText(/⚽/)).not.toBeInTheDocument()
+    // Should have plain text
+    expect(screen.getByText(/Punto/)).toBeInTheDocument()
   })
 
-  it('displays CORRECTION action label', () => {
+  it('displays CORRECTION action label without icon', () => {
     render(
       <HistoryList history={[mockHistory[1]]} playerNames={playerNames} />
     )
-    expect(screen.getByText(/✏️ Corrección/)).toBeInTheDocument()
+    expect(screen.queryByText(/✏️/)).not.toBeInTheDocument()
+    expect(screen.getByText(/Corrección/)).toBeInTheDocument()
   })
 
-  it('displays SET_WON action label', () => {
+  it('displays SET_WON action label without icon', () => {
     render(
       <HistoryList history={[mockHistory[2]]} playerNames={playerNames} />
     )
-    expect(screen.getByText(/🏆 Set ganado/)).toBeInTheDocument()
+    expect(screen.queryByText(/🏆/)).not.toBeInTheDocument()
+    expect(screen.getByText(/Set ganado/)).toBeInTheDocument()
+  })
+
+  it('shows plain text format: "Action - PlayerName"', () => {
+    render(
+      <HistoryList history={[mockHistory[0]]} playerNames={playerNames} />
+    )
+    // Should be "Punto - Juan" (no icon)
+    expect(screen.getByText('Punto - Juan')).toBeInTheDocument()
   })
 
   // ── Player Name Resolution ─────────────────────────────────────
@@ -107,7 +120,7 @@ describe('HistoryList', () => {
     expect(screen.getByText(/Desconocido/)).toBeInTheDocument()
   })
 
-  // ── Score Display ──────────────────────────────────────────────
+  // ── Score Display ──────────────────────────────────────
 
   it('displays score transitions in full mode', () => {
     render(<HistoryList history={[mockHistory[0]]} />)
@@ -129,7 +142,7 @@ describe('HistoryList', () => {
     expect(screen.getByText(/2:30/)).toBeInTheDocument()
   })
 
-  // ── Compact Mode ───────────────────────────────────────────────
+  // ── Compact Mode ───────────────────────────────────────
 
   it('renders history items in compact mode', () => {
     render(
@@ -139,8 +152,47 @@ describe('HistoryList', () => {
         playerNames={playerNames}
       />
     )
-    // Check that action labels are present (in compact form)
-    expect(screen.getByText(/⚽ Punto - Juan/)).toBeInTheDocument()
-    expect(screen.getByText(/✏️ Corrección - María/)).toBeInTheDocument()
+    // Action labels present WITHOUT icons (compact uses individual spans)
+    expect(screen.getByText('Punto')).toBeInTheDocument()
+    expect(screen.getByText('Corrección')).toBeInTheDocument()
+    // Player names present (multiple Juan because 2 events have player='A')
+    const juanElements = screen.getAllByText('Juan')
+    expect(juanElements.length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByText('María')).toBeInTheDocument()
+    // Ensure no icons
+    expect(screen.queryByText(/⚽/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/✏️/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/🏆/)).not.toBeInTheDocument()
+    // Score transitions visible
+    expect(screen.getByText('0-0 → 1-0')).toBeInTheDocument()
+    expect(screen.getByText('1-0 → 1-1')).toBeInTheDocument()
+  })
+
+  // ── Compact Styling ──────────────────────────────────────
+
+  it('uses compact padding (py-0.5) in compact mode', () => {
+    render(
+      <HistoryList
+        history={mockHistory}
+        compact={true}
+        playerNames={playerNames}
+      />
+    )
+    // Check for compact styling classes
+    const items = document.querySelectorAll('.py-0\\.5')
+    expect(items.length).toBeGreaterThan(0)
+  })
+
+  it('uses text-xs throughout in compact mode', () => {
+    render(
+      <HistoryList
+        history={mockHistory}
+        compact={true}
+        playerNames={playerNames}
+      />
+    )
+    // Compact row container has text-xs
+    const items = document.querySelectorAll('.text-xs')
+    expect(items.length).toBeGreaterThan(0)
   })
 })

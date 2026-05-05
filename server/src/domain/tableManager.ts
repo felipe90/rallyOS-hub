@@ -232,12 +232,22 @@ export class TableManager {
       const history = state?.history ?? [];
       const playerNames = table.playerNames ?? { a: 'Player A', b: 'Player B' };
 
+      // Extract handicap from table config if present
+      const config = table.matchEngine?.getConfig?.();
+      const handicap = config?.handicapA !== undefined || config?.handicapB !== undefined
+        ? {
+            ...(config?.handicapA !== undefined && { a: config.handicapA }),
+            ...(config?.handicapB !== undefined && { b: config.handicapB }),
+          }
+        : undefined;
+
       return {
         tableId: table.id,
         tableName: table.name,
         status: table.status,
         playerNames,
         history,
+        handicap,
       };
     });
   }

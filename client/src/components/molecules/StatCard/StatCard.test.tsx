@@ -65,7 +65,7 @@ describe('StatCard', () => {
   describe('className prop', () => {
     it('applies custom className', () => {
       render(<StatCard title="Test" value={1} className="custom-class" />);
-      const container = screen.getByText('Test').closest('div');
+      const container = screen.getByText('Test').closest('.custom-class');
       expect(container).toHaveClass('custom-class');
     });
   });

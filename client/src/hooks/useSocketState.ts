@@ -13,6 +13,7 @@ export function useSocketState(socket: Socket | null) {
   const [tables, setTables] = useState<TableInfo[]>([])
   const [currentMatch, setCurrentMatch] = useState<MatchStateExtended | null>(null)
   const [currentTable, setCurrentTable] = useState<TableInfo | null>(null)
+  const [appError, setAppError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!socket) return
@@ -53,6 +54,11 @@ export function useSocketState(socket: Socket | null) {
       setCurrentMatch(prev => (prev ? { ...prev, history } : null))
     }
 
+    const handleError = (data: { code: string; message: string }) => {
+      setAppError(data.message)
+    }
+
+    socket.on(SocketEvents.SERVER.ERROR, handleError)
     socket.on(SocketEvents.SERVER.TABLE_UPDATE, handleTableUpdate)
     socket.on(SocketEvents.SERVER.TABLE_LIST, handleTableList)
     socket.on(SocketEvents.SERVER.TABLE_LIST_WITH_PINS, handleTableListWithPins)
@@ -62,6 +68,7 @@ export function useSocketState(socket: Socket | null) {
     socket.on(SocketEvents.SERVER.HISTORY_UPDATE, handleHistoryUpdate)
 
     return () => {
+      socket.off(SocketEvents.SERVER.ERROR, handleError)
       socket.off(SocketEvents.SERVER.TABLE_UPDATE, handleTableUpdate)
       socket.off(SocketEvents.SERVER.TABLE_LIST, handleTableList)
       socket.off(SocketEvents.SERVER.TABLE_LIST_WITH_PINS, handleTableListWithPins)
@@ -72,5 +79,5 @@ export function useSocketState(socket: Socket | null) {
     }
   }, [socket])
 
-  return { tables, currentMatch, currentTable }
+  return { tables, currentMatch, currentTable, appError }
 }

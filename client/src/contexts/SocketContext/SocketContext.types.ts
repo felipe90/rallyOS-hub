@@ -14,6 +14,7 @@ export interface SocketContextType {
   connecting: boolean
   error: string | null
   errorCode: string | null
+  appError: string | null
   tables: TableInfo[]
   currentTable: TableInfo | null
   currentMatch: MatchStateExtended | null

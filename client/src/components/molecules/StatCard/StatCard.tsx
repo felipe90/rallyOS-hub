@@ -10,6 +10,8 @@ interface StatCardProps {
   trend?: 'up' | 'down' | 'neutral';
   graph?: ReactNode;
   className?: string;
+  icon?: ReactNode;
+  iconClassName?: string;
 }
 
 export function StatCard({ 
@@ -19,6 +21,8 @@ export function StatCard({
   trend = 'neutral',
   graph,
   className = '',
+  icon,
+  iconClassName = '',
 }: StatCardProps) {
   const trendColors = {
     up: 'text-primary',
@@ -43,7 +47,10 @@ export function StatCard({
       `}
       whileHover={{ y: -2 }}
     >
-      <Caption className="text-text/50 uppercase tracking-widest">{title}</Caption>
+      <div className="flex items-center gap-2">
+        {icon && <span className={iconClassName}>{icon}</span>}
+        <Caption className="text-text/50 uppercase tracking-widest">{title}</Caption>
+      </div>
       
       <div className="flex items-end justify-between">
         <Title className="text-text-h">{value}</Title>

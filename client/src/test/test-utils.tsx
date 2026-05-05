@@ -12,6 +12,7 @@ const defaultMockSocketContext: SocketContextType = {
   connecting: false,
   error: null,
   errorCode: null,
+  appError: null,
   currentTable: null,
   emit: vi.fn(),
   createTable: vi.fn(),

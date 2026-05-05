@@ -5,6 +5,7 @@ import { StatCard } from '../../molecules/StatCard';
 import { Body, Title } from '../../atoms/Typography';
 import { Button } from '../../atoms/Button';
 import { LayoutGrid, List, RefreshCw } from 'lucide-react';
+import { useState, useRef, useCallback, type ReactNode } from 'react';
 
 // Generate QR code URL (for Owner to share)
 // The table link can be shared with referees to directly access the scoreboard
@@ -136,6 +137,12 @@ export interface DashboardHeaderProps {
   activePlayers: number;
   viewMode: 'grid' | 'list';
   onViewModeChange: (mode: 'grid' | 'list') => void;
+  actions?: ReactNode;
+  statIcons?: {
+    mesas?: ReactNode;
+    partidos?: ReactNode;
+    jugadores?: ReactNode;
+  };
 }
 
 export function DashboardHeader({ 
@@ -144,34 +151,65 @@ export function DashboardHeader({
   activePlayers,
   viewMode = 'grid',
   onViewModeChange = () => {},
+  actions,
+  statIcons,
 }: Partial<DashboardHeaderProps> & { viewMode?: 'grid' | 'list'; onViewModeChange?: (mode: 'grid' | 'list') => void } = {}) {
+  const [tooltip, setTooltip] = useState<string | null>(null)
+  const tooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const showTooltip = useCallback((label: string) => {
+    tooltipTimerRef.current = setTimeout(() => setTooltip(label), 300)
+  }, [])
+
+  const hideTooltip = useCallback(() => {
+    if (tooltipTimerRef.current) {
+      clearTimeout(tooltipTimerRef.current)
+      tooltipTimerRef.current = null
+    }
+    setTooltip(null)
+  }, [])
   return (
     <div className="flex flex-col gap-4 mb-6">
-      <div className="flex items-center justify-end">
-        <div className="flex gap-1 p-1 bg-slate-100 rounded-full">
-          <Button
-            variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
-            size="sm"
-            onClick={() => onViewModeChange('grid')}
-            className={viewMode === 'grid' ? '!bg-white !text-slate-900' : '!text-slate-500'}
-            aria-label="Grid view"
-            icon={<LayoutGrid size={20} />}
-          />
-          <Button
-            variant={viewMode === 'list' ? 'secondary' : 'ghost'}
-            size="sm"
-            onClick={() => onViewModeChange('list')}
-            className={viewMode === 'list' ? '!bg-white !text-slate-900' : '!text-slate-500'}
-            aria-label="List view"
-            icon={<List size={20} />}
-          />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {actions}
+        </div>
+
+        <div className="relative">
+          <div className="flex gap-1 p-1 bg-slate-100 rounded-full">
+            <Button
+              variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => onViewModeChange('grid')}
+              onMouseEnter={() => showTooltip('Vista en cuadrícula')}
+              onMouseLeave={hideTooltip}
+              className={`${viewMode === 'grid' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400 hover:text-slate-600'} transition-colors duration-200`}
+              aria-label="Grid view"
+              icon={<LayoutGrid size={20} />}
+            />
+            <Button
+              variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => onViewModeChange('list')}
+              onMouseEnter={() => showTooltip('Vista en lista')}
+              onMouseLeave={hideTooltip}
+              className={`${viewMode === 'list' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400 hover:text-slate-600'} transition-colors duration-200`}
+              aria-label="List view"
+              icon={<List size={20} />}
+            />
+          </div>
+          {tooltip && (
+            <span className="absolute -bottom-7 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs rounded px-2 py-1 whitespace-nowrap z-10">
+              {tooltip}
+            </span>
+          )}
         </div>
       </div>
       
       <div className="grid grid-cols-3 gap-4">
-        <StatCard title="Mesas" value={totalTables ?? 0} />
-        <StatCard title="Partidos" value={liveMatches ?? 0} />
-        <StatCard title="Jugadores" value={activePlayers ?? 0} />
+        <StatCard title="Mesas" value={totalTables ?? 0} icon={statIcons?.mesas} />
+        <StatCard title="Partidos" value={liveMatches ?? 0} icon={statIcons?.partidos} />
+        <StatCard title="Jugadores" value={activePlayers ?? 0} icon={statIcons?.jugadores} />
       </div>
     </div>
   );

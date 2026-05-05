@@ -5,10 +5,13 @@ import { HistoryTableSection } from '../HistoryTableSection/HistoryTableSection'
 import type { HistoryAccordionProps } from './HistoryAccordion.types'
 
 export function HistoryAccordion({ entries }: HistoryAccordionProps) {
-  const [allExpanded, setAllExpanded] = useState(false)
+  // null = initial (first expanded, rest collapsed)
+  // true = all expanded (Expandir todos clicked)
+  // false = all collapsed (Colapsar todos clicked)
+  const [allExpanded, setAllExpanded] = useState<boolean | null>(null)
 
   const toggleAll = () => {
-    setAllExpanded(!allExpanded)
+    setAllExpanded(prev => prev !== true)
   }
 
   return (
@@ -41,7 +44,7 @@ export function HistoryAccordion({ entries }: HistoryAccordionProps) {
           tableName={entry.tableName}
           playerNames={entry.playerNames}
           history={entry.history}
-          defaultExpanded={allExpanded || idx === 0}
+          defaultExpanded={allExpanded === null ? idx === 0 : allExpanded}
         />
       ))}
     </div>

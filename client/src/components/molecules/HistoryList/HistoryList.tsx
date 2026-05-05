@@ -1,14 +1,10 @@
 import { Typography } from '../../atoms/Typography'
-
-export interface ScoreChange {
-  action: 'POINT' | 'UNDO'
-  player: string | undefined
-  timestamp: number
-}
+import type { ScoreChange } from '@shared/types'
 
 export interface HistoryListProps {
   history: ScoreChange[]
   compact?: boolean
+  playerNames?: { a: string; b: string }
   onEdit?: (index: number) => void
   onDelete?: (index: number) => void
 }
@@ -21,6 +17,7 @@ export interface HistoryListProps {
 export function HistoryList({
   history,
   compact = false,
+  playerNames,
   onEdit,
   onDelete
 }: HistoryListProps) {
@@ -32,17 +29,32 @@ export function HistoryList({
     )
   }
 
+  const resolvePlayer = (player?: 'A' | 'B'): string => {
+    if (player === 'A') return playerNames?.a ?? 'Player A'
+    if (player === 'B') return playerNames?.b ?? 'Player B'
+    return 'Desconocido'
+  }
+
+  const formatActionLabel = (action: 'POINT' | 'CORRECTION' | 'SET_WON'): string => {
+    switch (action) {
+      case 'POINT': return '⚽ Punto'
+      case 'CORRECTION': return '✏️ Corrección'
+      case 'SET_WON': return '🏆 Set ganado'
+      default: return action
+    }
+  }
+
   return (
     <div className={`space-y-${compact ? '1' : '2'}`}>
       {history.map((event, idx) => {
         const timestamp = new Date(event.timestamp).toLocaleTimeString()
-        const actionLabel = event.action === 'POINT' ? '⚽ Punto' : '↩️ Deshacer'
-        const playerName = event.player || 'Desconocido'
+        const actionLabel = formatActionLabel(event.action)
+        const playerName = resolvePlayer(event.player)
 
         if (compact) {
           return (
             <div
-              key={idx}
+              key={event.id ?? idx}
               className="flex items-center justify-between px-2 py-1 text-xs bg-surface-high rounded border border-border/50"
             >
               <span className="flex-1">
@@ -53,9 +65,11 @@ export function HistoryList({
           )
         }
 
+        const hasScores = event.pointsBefore && event.pointsAfter
+
         return (
           <div
-            key={idx}
+            key={event.id ?? idx}
             className="p-3 bg-surface-secondary rounded-lg border border-border hover:border-primary/50 transition-colors"
           >
             <div className="flex items-center justify-between mb-1">
@@ -66,6 +80,11 @@ export function HistoryList({
                 {timestamp}
               </Typography>
             </div>
+            {hasScores && (
+              <Typography variant="caption" className="text-text-muted">
+                {event.pointsBefore!.a}-{event.pointsBefore!.b} → {event.pointsAfter!.a}-{event.pointsAfter!.b}
+              </Typography>
+            )}
             {(onEdit || onDelete) && (
               <div className="flex gap-2 mt-2">
                 {onEdit && (

@@ -95,6 +95,16 @@ export interface MatchStateExtended extends MatchState {
   undoAvailable: boolean;
 }
 
+// ── Aggregated History (ALL_HISTORY event) ────────────────────────
+
+export interface AllHistoryEntry {
+  tableId: string;
+  tableName: string;
+  status: string;
+  playerNames: { a: string; b: string };
+  history: ScoreChange[];
+}
+
 // ── Table Info (sent to client) ─────────────────────────────────────
 
 export interface TableInfo {

@@ -1,9 +1,10 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { renderWithProviders } from '@/test/test-utils'
 import { useAuthContext } from '@/contexts/AuthContext'
-import type { MatchStateExtended } from '@shared/types'
+
+import type { AllHistoryEntry } from '@shared/types'
 
 const mockNavigate = vi.fn()
 
@@ -25,41 +26,57 @@ vi.mock('@/contexts/AuthContext', async () => {
 
 const mockUseAuthContext = useAuthContext as ReturnType<typeof vi.fn>
 
-const createMockMatch = (history: MatchStateExtended['history'] = []): MatchStateExtended => ({
-  tableId: 'test-table',
-  tableName: 'Test Table',
-  playerNames: { a: 'Player A', b: 'Player B' },
-  history,
-  undoAvailable: false,
-  config: {
-    pointsPerSet: 21,
-    bestOf: 3,
-    minDifference: 2,
-  },
-  score: {
-    sets: { a: 0, b: 0 },
-    currentSet: { a: 0, b: 0 },
-    serving: 'A',
-  },
-  swappedSides: false,
-  midSetSwapped: false,
-  setHistory: [],
+const createMockSocketEmit = () => vi.fn()
+
+const createAllHistoryEntry = (overrides: Partial<AllHistoryEntry> = {}): AllHistoryEntry => ({
+  tableId: 'table-1',
+  tableName: 'Mesa 1',
   status: 'LIVE',
-  winner: null,
+  playerNames: { a: 'Juan', b: 'María' },
+  history: [
+    {
+      id: 'evt-1',
+      player: 'A',
+      action: 'POINT',
+      pointsBefore: { a: 0, b: 0 },
+      pointsAfter: { a: 1, b: 0 },
+      timestamp: Date.now() - 60000,
+    },
+    {
+      id: 'evt-2',
+      player: 'B',
+      action: 'POINT',
+      pointsBefore: { a: 1, b: 0 },
+      pointsAfter: { a: 1, b: 1 },
+      timestamp: Date.now() - 30000,
+    },
+  ],
+  ...overrides,
 })
 
-const createScoreChange = (player: 'A' | 'B', action: 'POINT' | 'CORRECTION', timestamp: number) => ({
-  id: `${timestamp}`,
-  player,
-  action,
-  pointsBefore: { a: 0, b: 0 },
-  pointsAfter: action === 'POINT' ? { a: player === 'A' ? 1 : 0, b: player === 'B' ? 1 : 0 } : { a: 0, b: 0 },
-  timestamp,
-})
+const createMultiTableEntries = (): AllHistoryEntry[] => [
+  createAllHistoryEntry({ tableId: 'table-1', tableName: 'Mesa 1' }),
+  createAllHistoryEntry({
+    tableId: 'table-2',
+    tableName: 'Mesa 2',
+    playerNames: { a: 'Carlos', b: 'Ana' },
+    history: [
+      {
+        id: 'evt-3',
+        player: 'A',
+        action: 'CORRECTION',
+        pointsBefore: { a: 5, b: 3 },
+        pointsAfter: { a: 4, b: 3 },
+        timestamp: Date.now(),
+      },
+    ],
+  }),
+]
 
 describe('HistoryViewPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+
     // Default: user is owner, so page renders normally
     mockUseAuthContext.mockReturnValue({
       isOwner: true,
@@ -77,131 +94,130 @@ describe('HistoryViewPage', () => {
     })
   })
 
-  afterEach(() => {
-    vi.restoreAllMocks()
-  })
-
-  it('muestra historial de partidos', async () => {
+  it('emits GET_ALL_HISTORY on mount', async () => {
     const { HistoryViewPage } = await import('./HistoryViewPage')
-    const mockHistory = [
-      createScoreChange('A', 'POINT', Date.now() - 30000),
-      createScoreChange('B', 'POINT', Date.now() - 60000),
-    ] as MatchStateExtended['history']
-    
+    const mockSocketEmit = createMockSocketEmit()
+
     renderWithProviders(
       <MemoryRouter>
         <Routes>
           <Route path="/" element={<HistoryViewPage />} />
         </Routes>
       </MemoryRouter>,
-      { mockSocketContext: { currentMatch: createMockMatch(mockHistory) } }
+      {
+        mockSocketContext: {
+          socket: { emit: mockSocketEmit } as any,
+          connected: true,
+          allHistories: null,
+          currentMatch: null,
+        },
+      }
     )
 
-    expect(screen.getByText('⚽ Punto - A')).toBeInTheDocument()
-    expect(screen.getByText('⚽ Punto - B')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(mockSocketEmit).toHaveBeenCalledWith('GET_ALL_HISTORY')
+    })
   })
 
-  it('muestra empty state cuando no hay historial', async () => {
+  it('shows loading state when allHistories is null and connected', async () => {
     const { HistoryViewPage } = await import('./HistoryViewPage')
-    
+
     renderWithProviders(
       <MemoryRouter>
         <Routes>
           <Route path="/" element={<HistoryViewPage />} />
         </Routes>
       </MemoryRouter>,
-      { mockSocketContext: { currentMatch: createMockMatch([]) } }
+      {
+        mockSocketContext: {
+          connected: true,
+          allHistories: null,
+          currentMatch: null,
+        },
+      }
+    )
+
+    expect(screen.getByText('Cargando historial…')).toBeInTheDocument()
+  })
+
+  it('shows empty state when all tables have no history', async () => {
+    const { HistoryViewPage } = await import('./HistoryViewPage')
+
+    renderWithProviders(
+      <MemoryRouter>
+        <Routes>
+          <Route path="/" element={<HistoryViewPage />} />
+        </Routes>
+      </MemoryRouter>,
+      {
+        mockSocketContext: {
+          connected: true,
+          allHistories: [],
+          currentMatch: null,
+        },
+      }
     )
 
     expect(screen.getByText('Sin eventos registrados')).toBeInTheDocument()
   })
 
-  it('muestra empty state cuando currentMatch es null', async () => {
+  it('renders table sections when history entries exist', async () => {
     const { HistoryViewPage } = await import('./HistoryViewPage')
-    
+    const entries = createMultiTableEntries()
+
     renderWithProviders(
       <MemoryRouter>
         <Routes>
           <Route path="/" element={<HistoryViewPage />} />
         </Routes>
       </MemoryRouter>,
-      { mockSocketContext: { currentMatch: null } }
+      {
+        mockSocketContext: {
+          connected: true,
+          allHistories: entries,
+          currentMatch: null,
+        },
+      }
     )
 
-    expect(screen.getByText('Sin eventos registrados')).toBeInTheDocument()
+    // Should show table names as section headers
+    expect(screen.getByText('Mesa 1')).toBeInTheDocument()
+    expect(screen.getByText('Mesa 2')).toBeInTheDocument()
+
+    // Should show player names in sections
+    expect(screen.getByText('Juan vs María')).toBeInTheDocument()
+    expect(screen.getByText('Carlos vs Ana')).toBeInTheDocument()
+
+    // Should show entry count badges
+    expect(screen.getByText('2 eventos')).toBeInTheDocument()
+    expect(screen.getByText('1 evento')).toBeInTheDocument()
   })
 
-  it('navegación hacia atrás funciona - renderiza botón', async () => {
+  it('has header with back button and refresh button', async () => {
     const { HistoryViewPage } = await import('./HistoryViewPage')
-    
-    renderWithProviders(
-      <MemoryRouter initialEntries={['/history']}>
-        <Routes>
-          <Route path="/history" element={<HistoryViewPage />} />
-        </Routes>
-      </MemoryRouter>,
-      { mockSocketContext: { currentMatch: createMockMatch([]) } }
-    )
 
-    const backButton = screen.getByText('Atrás')
-    expect(backButton).toBeInTheDocument()
-  })
-
-  it('es accesible - tiene encabezado con título', async () => {
-    const { HistoryViewPage } = await import('./HistoryViewPage')
-    
     renderWithProviders(
       <MemoryRouter>
         <Routes>
           <Route path="/" element={<HistoryViewPage />} />
         </Routes>
       </MemoryRouter>,
-      { mockSocketContext: { currentMatch: createMockMatch([]) } }
+      {
+        mockSocketContext: {
+          connected: true,
+          allHistories: [],
+          currentMatch: null,
+        },
+      }
     )
 
     expect(screen.getByRole('heading', { name: /historial/i })).toBeInTheDocument()
-  })
-
-  it('renderiza botón de navegación hacia atrás', async () => {
-    const { HistoryViewPage } = await import('./HistoryViewPage')
-    const mockHistory = [
-      createScoreChange('A', 'POINT', Date.now()),
-    ] as MatchStateExtended['history']
-    
-    renderWithProviders(
-      <MemoryRouter>
-        <Routes>
-          <Route path="/" element={<HistoryViewPage />} />
-        </Routes>
-      </MemoryRouter>,
-      { mockSocketContext: { currentMatch: createMockMatch(mockHistory) } }
-    )
-
     expect(screen.getByText('Atrás')).toBeInTheDocument()
   })
 
-  it('renderiza correctamente eventos de tipo UNDO', async () => {
+  it('redirects non-owners to referee dashboard', async () => {
     const { HistoryViewPage } = await import('./HistoryViewPage')
-    const mockHistory = [
-      createScoreChange('A', 'CORRECTION', Date.now()),
-    ] as MatchStateExtended['history']
-    
-    renderWithProviders(
-      <MemoryRouter>
-        <Routes>
-          <Route path="/" element={<HistoryViewPage />} />
-        </Routes>
-      </MemoryRouter>,
-      { mockSocketContext: { currentMatch: createMockMatch(mockHistory) } }
-    )
 
-    expect(screen.getByText(/↩️ Deshacer/)).toBeInTheDocument()
-  })
-
-  it('redirige a non-owners', async () => {
-    const { HistoryViewPage } = await import('./HistoryViewPage')
-    
-    // Set user as non-owner (referee)
     mockUseAuthContext.mockReturnValue({
       isOwner: false,
       isReferee: true,
@@ -216,24 +232,28 @@ describe('HistoryViewPage', () => {
       setTablePin: vi.fn(),
       tablePin: null,
     })
-    
+
     renderWithProviders(
       <MemoryRouter>
         <Routes>
           <Route path="/" element={<HistoryViewPage />} />
         </Routes>
       </MemoryRouter>,
-      { mockSocketContext: { currentMatch: createMockMatch([]) } }
+      {
+        mockSocketContext: {
+          connected: true,
+          allHistories: [],
+          currentMatch: null,
+        },
+      }
     )
 
-    // Page should redirect to referee dashboard for referees
     expect(mockNavigate).toHaveBeenCalledWith('/dashboard/referee')
   })
 
-  it('redirige spectators a spectator dashboard', async () => {
+  it('redirects spectators to spectator dashboard', async () => {
     const { HistoryViewPage } = await import('./HistoryViewPage')
-    
-    // Set user as viewer (spectator)
+
     mockUseAuthContext.mockReturnValue({
       isOwner: false,
       isReferee: false,
@@ -248,17 +268,22 @@ describe('HistoryViewPage', () => {
       setTablePin: vi.fn(),
       tablePin: null,
     })
-    
+
     renderWithProviders(
       <MemoryRouter>
         <Routes>
           <Route path="/" element={<HistoryViewPage />} />
         </Routes>
       </MemoryRouter>,
-      { mockSocketContext: { currentMatch: createMockMatch([]) } }
+      {
+        mockSocketContext: {
+          connected: true,
+          allHistories: [],
+          currentMatch: null,
+        },
+      }
     )
 
-    // Page should redirect to spectator dashboard for viewers
     expect(mockNavigate).toHaveBeenCalledWith('/dashboard/spectator')
   })
 })

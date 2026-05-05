@@ -7,6 +7,7 @@ import { AuthProvider } from '@/contexts'
 const defaultMockSocketContext: SocketContextType = {
   socket: null,
   currentMatch: null,
+  allHistories: null,
   tables: [],
   connected: true,
   connecting: false,

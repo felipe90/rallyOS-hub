@@ -7,13 +7,14 @@
 import { useEffect, useState } from 'react'
 import type { Socket } from 'socket.io-client'
 import { SocketEvents } from '@shared/events'
-import type { TableInfo, TableInfoWithPin, MatchStateExtended, ScoreChange } from '@shared/types'
+import type { TableInfo, TableInfoWithPin, MatchStateExtended, ScoreChange, AllHistoryEntry } from '@shared/types'
 
 export function useSocketState(socket: Socket | null) {
   const [tables, setTables] = useState<TableInfo[]>([])
   const [currentMatch, setCurrentMatch] = useState<MatchStateExtended | null>(null)
   const [currentTable, setCurrentTable] = useState<TableInfo | null>(null)
   const [appError, setAppError] = useState<string | null>(null)
+  const [allHistories, setAllHistories] = useState<AllHistoryEntry[] | null>(null)
 
   useEffect(() => {
     if (!socket) return
@@ -50,8 +51,8 @@ export function useSocketState(socket: Socket | null) {
       setCurrentMatch(match)
     }
 
-    const handleHistoryUpdate = (history: ScoreChange[]) => {
-      setCurrentMatch(prev => (prev ? { ...prev, history } : null))
+    const handleAllHistory = (data: AllHistoryEntry[]) => {
+      setAllHistories(data)
     }
 
     const handleError = (data: { code: string; message: string }) => {
@@ -65,7 +66,7 @@ export function useSocketState(socket: Socket | null) {
     socket.on(SocketEvents.SERVER.TABLE_DELETED, handleTableDeleted)
     socket.on(SocketEvents.SERVER.TABLE_CREATED, handleTableCreated)
     socket.on(SocketEvents.SERVER.MATCH_UPDATE, handleMatchUpdate)
-    socket.on(SocketEvents.SERVER.HISTORY_UPDATE, handleHistoryUpdate)
+    socket.on(SocketEvents.SERVER.ALL_HISTORY, handleAllHistory)
 
     return () => {
       socket.off(SocketEvents.SERVER.ERROR, handleError)
@@ -75,9 +76,9 @@ export function useSocketState(socket: Socket | null) {
       socket.off(SocketEvents.SERVER.TABLE_DELETED, handleTableDeleted)
       socket.off(SocketEvents.SERVER.TABLE_CREATED, handleTableCreated)
       socket.off(SocketEvents.SERVER.MATCH_UPDATE, handleMatchUpdate)
-      socket.off(SocketEvents.SERVER.HISTORY_UPDATE, handleHistoryUpdate)
+      socket.off(SocketEvents.SERVER.ALL_HISTORY, handleAllHistory)
     }
   }, [socket])
 
-  return { tables, currentMatch, currentTable, appError }
+  return { tables, currentMatch, currentTable, appError, allHistories }
 }

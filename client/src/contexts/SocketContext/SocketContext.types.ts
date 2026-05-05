@@ -1,4 +1,4 @@
-import type { TableInfo, MatchStateExtended } from '@shared/types'
+import type { TableInfo, MatchStateExtended, AllHistoryEntry } from '@shared/types'
 import type { Socket } from 'socket.io-client'
 
 export interface SocketState {
@@ -18,6 +18,7 @@ export interface SocketContextType {
   tables: TableInfo[]
   currentTable: TableInfo | null
   currentMatch: MatchStateExtended | null
+  allHistories: AllHistoryEntry[] | null
   connect: () => void
   disconnect: () => void
   emit: (event: string, data?: unknown) => void

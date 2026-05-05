@@ -295,5 +295,11 @@ export class MatchEventHandler extends SocketHandlerBase {
         this.emitError(socket, 'TABLE_NOT_FOUND', 'Mesa no encontrada');
       }
     });
+
+    // GET_ALL_HISTORY: Get aggregated history from all tables
+    socket.on(SocketEvents.CLIENT.GET_ALL_HISTORY, () => {
+      const allHistories = this.tableManager.getAllHistories();
+      socket.emit(SocketEvents.SERVER.ALL_HISTORY, allHistories);
+    });
   }
 }

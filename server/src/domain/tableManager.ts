@@ -13,6 +13,7 @@
 import crypto from 'crypto';
 import { MatchEngine } from './matchEngine';
 import { Table, TableInfo, TableInfoWithPin, Player, MatchConfig, MatchStateExtended, QRData, HubConfig } from './types';
+import { AllHistoryEntry } from '../../../shared/types';
 import { logger } from '../utils/logger';
 import { sanitizeInput } from '../utils/validation';
 import { TableRepository } from '../services/table/TableRepository';
@@ -221,6 +222,24 @@ export class TableManager {
     const table = this.repository.get(tableId);
     if (!table) return null;
     return this.matchOrchestrator.getMatchState(table);
+  }
+
+  // Aggregated history — ALL_HISTORY event
+  getAllHistories(): AllHistoryEntry[] {
+    const tables = this.repository.getAll();
+    return tables.map((table) => {
+      const state = this.matchOrchestrator.getMatchState(table);
+      const history = state?.history ?? [];
+      const playerNames = table.playerNames ?? { a: 'Player A', b: 'Player B' };
+
+      return {
+        tableId: table.id,
+        tableName: table.name,
+        status: table.status,
+        playerNames,
+        history,
+      };
+    });
   }
 
   // PIN management

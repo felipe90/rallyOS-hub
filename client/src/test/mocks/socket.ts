@@ -1,7 +1,9 @@
 import { vi } from 'vitest'
+import type { AllHistoryEntry } from '@shared/types'
 
 export const mockSocketContext = {
   currentMatch: null,
+  allHistories: [] as AllHistoryEntry[],
   tables: [],
   connected: true,
   emit: vi.fn(),

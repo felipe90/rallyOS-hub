@@ -45,7 +45,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       }
 
       return (
-        <div className="flex flex-col items-center justify-center min-h-screen bg-surface p-6 gap-4">
+        <div className="flex flex-col items-center justify-center min-h-dvh bg-surface p-6 gap-4">
           <Typography variant="headline" className="text-center text-destructive">
             Algo salió mal
           </Typography>

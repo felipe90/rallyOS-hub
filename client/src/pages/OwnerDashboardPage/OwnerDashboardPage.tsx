@@ -162,7 +162,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
   </div>
 
   return (
-    <div className="flex flex-col h-screen bg-surface ">
+    <div className="flex flex-col h-dvh bg-surface ">
       <PageHeader
         title={i18nText('ownerTitle')}
         subtitle={i18nText('ownerSubtitle')}

@@ -83,7 +83,7 @@ export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashb
   }
 
   return (
-    <div className="flex flex-col h-screen bg-surface">
+    <div className="flex flex-col h-dvh bg-surface">
       <PageHeader
         title={i18nText('refereeTitle')}
         subtitle={i18nText('refereeSubtitle')}

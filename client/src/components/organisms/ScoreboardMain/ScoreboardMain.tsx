@@ -85,7 +85,7 @@ export function ScoreboardMain({
       {/* Main Content Area */}
       <div className={`
         flex-1 flex flex-col relative
-        ${isLandscape ? 'min-h-screen' : ''}
+        ${isLandscape ? 'min-h-dvh' : ''}
       `}>
         {/* Header - hidden in landscape mode */}
         {!isLandscape && (

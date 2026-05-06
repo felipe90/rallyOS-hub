@@ -9,7 +9,7 @@ export function NotFoundPage() {
   const { i18nText } = useI18n()
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-surface gap-6 p-4">
+    <div className="flex flex-col items-center justify-center min-h-dvh bg-surface gap-6 p-4">
       <Typography variant="headline" className="text-6xl font-heading font-bold text-primary">
         404
       </Typography>

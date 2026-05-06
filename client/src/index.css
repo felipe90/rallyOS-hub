@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+/* Safe area insets for mobile notches and home indicators */
+:root {
+  --sat: env(safe-area-inset-top);
+  --sab: env(safe-area-inset-bottom);
+  --sal: env(safe-area-inset-left);
+  --sar: env(safe-area-inset-right);
+}
+
 /* Font imports - Must be outside @theme */
 @font-face {
   font-family: 'Space Grotesk';

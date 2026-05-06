@@ -87,7 +87,7 @@ export function AuthPage() {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-surface gap-8 p-4">
+    <div className="flex flex-col items-center justify-center min-h-dvh bg-surface gap-8 p-4">
       <div className="flex flex-col items-center gap-4">
         <img src={logoBig} alt="RallyOS" className="w-32 h-auto mb-2" />
         <Typography variant="title">

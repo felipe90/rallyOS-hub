@@ -36,7 +36,7 @@ export function SpectatorDashboardPage(_props: SpectatorDashboardPageProps) {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-surface">
+    <div className="flex flex-col h-dvh bg-surface">
       <PageHeader
         title={i18nText('spectatorTitle')}
         connectionLabels={{

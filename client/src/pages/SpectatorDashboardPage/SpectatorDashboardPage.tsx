@@ -4,6 +4,7 @@
  */
 
 import { useNavigate } from 'react-router-dom'
+import { useI18n } from '@/i18n'
 import { useSocketContext } from '@/contexts/SocketContext'
 import { useAuthContext } from '@/contexts/AuthContext'
 import { PageHeader } from '@/components/molecules/PageHeader'
@@ -16,6 +17,7 @@ export interface SpectatorDashboardPageProps {}
 
 export function SpectatorDashboardPage(_props: SpectatorDashboardPageProps) {
   const navigate = useNavigate()
+  const { i18nText } = useI18n()
   const { tables, emit } = useSocketContext()
   const { login } = useAuthContext()
 
@@ -34,16 +36,22 @@ export function SpectatorDashboardPage(_props: SpectatorDashboardPageProps) {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-surface">
+    <div className="flex flex-col h-dvh bg-surface">
       <PageHeader
-        title="Mesas Disponibles"
+        title={i18nText('spectatorTitle')}
+        connectionLabels={{
+          connected: i18nText('connectionConnected'),
+          connecting: i18nText('connectionConnecting'),
+          error: i18nText('connectionNoConnection'),
+          disconnected: i18nText('connectionDisconnected'),
+        }}
         actions={
           <Button
             variant="ghost"
             onClick={() => navigate(Routes.AUTH)}
             size="sm"
           >
-            Atrás
+            {i18nText('commonBack')}
           </Button>
         }
       />
@@ -52,9 +60,9 @@ export function SpectatorDashboardPage(_props: SpectatorDashboardPageProps) {
       <div className="flex-1 overflow-auto p-4 bg-primary/10">
         {availableTables.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full">
-            <Typography variant="title">No hay mesas disponibles</Typography>
+            <Typography variant="title">{i18nText('spectatorNoTables')}</Typography>
             <Typography variant="body" className="text-text-muted">
-              Intenta más tarde
+              {i18nText('spectatorTryLater')}
             </Typography>
           </div>
         ) : (
@@ -67,9 +75,9 @@ export function SpectatorDashboardPage(_props: SpectatorDashboardPageProps) {
               >
                 <h3 className="font-heading font-bold text-lg mb-2">{table.name}</h3>
                 <p className="text-text-muted">
-                  {table.playerNames?.a || 'Jugador A'} vs {table.playerNames?.b || 'Jugador B'}
+                  {table.playerNames?.a || i18nText('commonPlayerA')} vs {table.playerNames?.b || i18nText('commonPlayerB')}
                 </p>
-                <p className="text-sm text-primary mt-2">Tocá para spectar</p>
+                <p className="text-sm text-primary mt-2">{i18nText('spectatorTapToView')}</p>
               </div>
             ))}
           </div>

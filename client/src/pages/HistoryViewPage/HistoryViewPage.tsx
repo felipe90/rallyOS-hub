@@ -8,6 +8,7 @@
 
 import { useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useI18n } from '@/i18n'
 import { useSocketContext } from '@/contexts/SocketContext'
 import { useAuthContext } from '@/contexts/AuthContext'
 import { PageHeader } from '@/components/molecules/PageHeader'
@@ -20,6 +21,7 @@ import { RefreshCw } from 'lucide-react'
 
 export function HistoryViewPage() {
   const navigate = useNavigate()
+  const { i18nText } = useI18n()
   const { socket, connected, allHistories } = useSocketContext()
   const { isOwner, isReferee } = useAuthContext()
 
@@ -55,16 +57,22 @@ export function HistoryViewPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-surface">
+    <div className="flex flex-col h-dvh bg-surface">
       <PageHeader
-        title="Historial"
+        title={i18nText('historyTitle')}
+        connectionLabels={{
+          connected: i18nText('connectionConnected'),
+          connecting: i18nText('connectionConnecting'),
+          error: i18nText('connectionNoConnection'),
+          disconnected: i18nText('connectionDisconnected'),
+        }}
         actions={
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={requestHistory} disabled={!connected}>
               <RefreshCw className="w-4 h-4" />
             </Button>
             <Button variant="ghost" onClick={() => navigate(-1)} size="sm">
-              Atrás
+              {i18nText('commonBack')}
             </Button>
           </div>
         }
@@ -73,13 +81,13 @@ export function HistoryViewPage() {
       <div className="flex-1 overflow-auto p-4 bg-primary/10">
         {isLoading ? (
           <div className="text-center text-text-muted py-12">
-            <Typography variant="body">Cargando historial…</Typography>
+            <Typography variant="body">{i18nText('historyLoading')}</Typography>
           </div>
         ) : hasHistoryEntries ? (
           <HistoryAccordion entries={allHistories} />
         ) : (
           <div className="text-center text-text-muted py-12">
-            <Typography variant="body">Sin eventos registrados</Typography>
+            <Typography variant="body">{i18nText('historyNoEvents')}</Typography>
           </div>
         )}
       </div>

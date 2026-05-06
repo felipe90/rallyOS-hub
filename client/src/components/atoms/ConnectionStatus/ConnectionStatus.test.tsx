@@ -16,26 +16,26 @@ describe('ConnectionStatus', () => {
 
   it('shows connected status', () => {
     mockUseSocketContext.mockReturnValue({ connected: true, connecting: false, error: null });
-    render(<ConnectionStatus />);
-    expect(screen.getByText('Conectado')).toBeInTheDocument();
+    render(<ConnectionStatus labels={{ connected: 'Connected' }} />);
+    expect(screen.getByText('Connected')).toBeInTheDocument();
   });
 
   it('shows connecting status', () => {
     mockUseSocketContext.mockReturnValue({ connected: false, connecting: true, error: null });
-    render(<ConnectionStatus />);
-    expect(screen.getByText('Conectando')).toBeInTheDocument();
+    render(<ConnectionStatus labels={{ connecting: 'Connecting' }} />);
+    expect(screen.getByText('Connecting')).toBeInTheDocument();
   });
 
   it('shows error status', () => {
     mockUseSocketContext.mockReturnValue({ connected: false, connecting: false, error: new Error('fail') });
-    render(<ConnectionStatus />);
-    expect(screen.getByText('Sin Conexión')).toBeInTheDocument();
+    render(<ConnectionStatus labels={{ error: 'No Connection' }} />);
+    expect(screen.getByText('No Connection')).toBeInTheDocument();
   });
 
   it('shows disconnected status', () => {
     mockUseSocketContext.mockReturnValue({ connected: false, connecting: false, error: null });
-    render(<ConnectionStatus />);
-    expect(screen.getByText('Desconectado')).toBeInTheDocument();
+    render(<ConnectionStatus labels={{ disconnected: 'Disconnected' }} />);
+    expect(screen.getByText('Disconnected')).toBeInTheDocument();
   });
 
   it('renders wifi icon when connected', () => {

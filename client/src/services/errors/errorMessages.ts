@@ -2,24 +2,11 @@
  * Error messages
  *
  * Centralized error message map for the application.
- * No React dependencies - testable in isolation.
+ * Uses i18nText singleton — no React dependencies.
  */
 
 import type { ValidationError } from '@shared/types'
-
-export const ERROR_MESSAGES: Record<
-  string,
-  string | ((error: ValidationError) => string)
-> = {
-  INVALID_PIN: 'PIN de mesa incorrecto',
-  INVALID_OWNER_PIN: 'PIN de organizador incorrecto',
-  RATE_LIMITED: 'Demasiados intentos. Esperá un minuto.',
-  REF_ALREADY_ACTIVE: 'Ya hay un árbitro activo en esta mesa',
-  TABLE_NOT_FOUND: 'Mesa no encontrada',
-  UNAUTHORIZED: 'No autorizado',
-  VALIDATION_ERROR: (error) => `Campo inválido: ${error.field} — ${error.message}`,
-  NOT_OWNER: 'No tenés permisos de organizador',
-}
+import { i18nText } from '@/i18n'
 
 /**
  * Get a human-readable error message for an error code.
@@ -28,15 +15,30 @@ export function getErrorMessage(
   code: string,
   error?: ValidationError,
 ): string {
-  const message = ERROR_MESSAGES[code]
-
-  if (!message) {
-    return `Error desconocido: ${code}`
+  const keyMap: Record<string, string> = {
+    INVALID_PIN: 'errorsInvalidPin',
+    INVALID_OWNER_PIN: 'errorsInvalidOwnerPin',
+    RATE_LIMITED: 'errorsRateLimited',
+    REF_ALREADY_ACTIVE: 'errorsRefAlreadyActive',
+    TABLE_NOT_FOUND: 'errorsTableNotFound',
+    UNAUTHORIZED: 'errorsUnauthorized',
+    VALIDATION_ERROR: 'errorsValidationError',
+    NOT_OWNER: 'errorsNotOwner',
   }
 
-  if (typeof message === 'function') {
-    return error ? message(error) : `Error de validación: ${code}`
+  const key = keyMap[code]
+
+  if (!key) {
+    return i18nText('errorsUnknownError', { code })
   }
 
-  return message
+  if (key === 'errorsValidationError' && error) {
+    return i18nText(key, { field: error.field, message: error.message })
+  }
+
+  if (key === 'errorsValidationError') {
+    return i18nText('errorsValidationErrorFallback', { code })
+  }
+
+  return i18nText(key)
 }

@@ -19,6 +19,18 @@ export interface MatchConfigModalProps {
   onClose: () => void
   isLoading?: boolean
   error?: string | null
+  title?: string
+  forTableLabel?: string
+  playersLabel?: string
+  playerAPlaceholder?: string
+  playerBPlaceholder?: string
+  bestOfLabel?: string
+  handicapLabel?: string
+  teamALabel?: string
+  teamBLabel?: string
+  cancelLabel?: string
+  submitLabel?: string
+  submitLoadingLabel?: string
 }
 
 export function MatchConfigModal({
@@ -31,6 +43,18 @@ export function MatchConfigModal({
   onClose,
   isLoading = false,
   error,
+  title = 'Configurar Partido',
+  forTableLabel = 'para {{tableName}}',
+  playersLabel = 'Jugadores',
+  playerAPlaceholder = 'Jugador A',
+  playerBPlaceholder = 'Jugador B',
+  bestOfLabel = 'Mejor de',
+  handicapLabel = 'Handicap',
+  teamALabel = 'Equipo A',
+  teamBLabel = 'Equipo B',
+  cancelLabel = 'Cancelar',
+  submitLabel = 'Iniciar Partido',
+  submitLoadingLabel = 'Iniciando...',
 }: MatchConfigModalProps) {
   const [playerNameA, setPlayerNameA] = useState('')
   const [playerNameB, setPlayerNameB] = useState('')
@@ -80,26 +104,26 @@ export function MatchConfigModal({
 
       {/* Modal content */}
       <div className="relative bg-surface rounded-lg shadow-xl p-6 w-full max-w-sm max-h-[90vh] overflow-y-auto">
-        <Title className="text-center mb-2">Configurar Partido</Title>
+        <Title className="text-center mb-2">{title}</Title>
 
         <Body className="text-center text-text/70 mb-6">
-          para {tableName}
+          {forTableLabel.replace('{{tableName}}', tableName)}
         </Body>
 
         {/* Player Names */}
         <div className="mb-4">
-          <Label className="mb-2">Jugadores</Label>
+          <Label className="mb-2">{playersLabel}</Label>
           <div className="grid grid-cols-2 gap-3">
             <input
               type="text"
-              placeholder="Jugador A"
+              placeholder={playerAPlaceholder}
               value={playerNameA}
               onChange={(e) => setPlayerNameA(e.target.value)}
               className="px-3 py-2 rounded-md border border-border bg-surface text-text placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary"
             />
             <input
               type="text"
-              placeholder="Jugador B"
+              placeholder={playerBPlaceholder}
               value={playerNameB}
               onChange={(e) => setPlayerNameB(e.target.value)}
               className="px-3 py-2 rounded-md border border-border bg-surface text-text placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary"
@@ -109,7 +133,7 @@ export function MatchConfigModal({
 
         {/* Best Of */}
         <div className="mb-4">
-          <Label className="mb-2">Mejor de</Label>
+          <Label className="mb-2">{bestOfLabel}</Label>
           <div className="flex gap-2">
             {([1, 3, 5] as const).map((bo) => (
               <Button
@@ -128,10 +152,10 @@ export function MatchConfigModal({
 
         {/* Handicap */}
         <div className="mb-6">
-          <Label className="mb-2">Handicap</Label>
+          <Label className="mb-2">{handicapLabel}</Label>
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col items-center gap-2 bg-surface-low rounded-[--radius-md] p-3">
-              <Label>Equipo A</Label>
+              <Label>{teamALabel}</Label>
               <div className="flex items-center gap-2">
                 <Button
                   variant="ghost"
@@ -157,7 +181,7 @@ export function MatchConfigModal({
               </div>
             </div>
             <div className="flex flex-col items-center gap-2 bg-surface-low rounded-[--radius-md] p-3">
-              <Label>Equipo B</Label>
+              <Label>{teamBLabel}</Label>
               <div className="flex items-center gap-2">
                 <Button
                   variant="ghost"
@@ -200,7 +224,7 @@ export function MatchConfigModal({
             className="flex-1"
             disabled={isLoading}
           >
-            Cancelar
+            {cancelLabel}
           </Button>
 
           <Button
@@ -209,7 +233,7 @@ export function MatchConfigModal({
             className="flex-1"
             disabled={isLoading}
           >
-            {isLoading ? 'Iniciando...' : 'Iniciar Partido'}
+            {isLoading ? submitLoadingLabel : submitLabel}
           </Button>
         </div>
       </div>

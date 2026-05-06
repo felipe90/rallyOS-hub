@@ -1,5 +1,30 @@
-import { describe, it, expect } from 'vitest'
-import { getErrorMessage, ERROR_MESSAGES } from './errorMessages'
+import { describe, it, expect, vi } from 'vitest'
+import { getErrorMessage } from './errorMessages'
+
+// Mock i18nText to return predictable values
+vi.mock('@/i18n', () => ({
+  i18nText: (key: string, params?: Record<string, unknown>) => {
+    const map: Record<string, string> = {
+      'errorsInvalidPin': 'PIN de mesa incorrecto',
+      'errorsInvalidOwnerPin': 'PIN de organizador incorrecto',
+      'errorsRateLimited': 'Demasiados intentos. Esperá un minuto.',
+      'errorsRefAlreadyActive': 'Ya hay un árbitro activo en esta mesa',
+      'errorsTableNotFound': 'Mesa no encontrada',
+      'errorsUnauthorized': 'No autorizado',
+      'errorsNotOwner': 'No tenés permisos de organizador',
+    }
+    if (key === 'errorsValidationError' && params) {
+      return `Campo inválido: ${params.field} — ${params.message}`
+    }
+    if (key === 'errorsValidationErrorFallback') {
+      return `Error de validación: ${params?.code || 'VALIDATION_ERROR'}`
+    }
+    if (key === 'errorsUnknownError') {
+      return `Error desconocido: ${params?.code || 'UNKNOWN_CODE'}`
+    }
+    return map[key] || key
+  },
+}))
 
 describe('getErrorMessage', () => {
   it('returns simple message for known code', () => {
@@ -21,16 +46,5 @@ describe('getErrorMessage', () => {
 
   it('returns unknown error for unknown code', () => {
     expect(getErrorMessage('UNKNOWN_CODE')).toBe('Error desconocido: UNKNOWN_CODE')
-  })
-
-  it('has all expected error codes', () => {
-    expect(ERROR_MESSAGES.INVALID_PIN).toBeDefined()
-    expect(ERROR_MESSAGES.INVALID_OWNER_PIN).toBeDefined()
-    expect(ERROR_MESSAGES.RATE_LIMITED).toBeDefined()
-    expect(ERROR_MESSAGES.REF_ALREADY_ACTIVE).toBeDefined()
-    expect(ERROR_MESSAGES.TABLE_NOT_FOUND).toBeDefined()
-    expect(ERROR_MESSAGES.UNAUTHORIZED).toBeDefined()
-    expect(ERROR_MESSAGES.VALIDATION_ERROR).toBeDefined()
-    expect(ERROR_MESSAGES.NOT_OWNER).toBeDefined()
   })
 })

@@ -2,10 +2,11 @@
  * Match event formatting
  *
  * Pure functions for formatting ScoreChange events for display.
- * No React dependencies - testable in isolation.
+ * Uses i18nText singleton — no React dependencies.
  */
 
 import type { ScoreChange } from '@shared/types'
+import { i18nText } from '@/i18n'
 
 /**
  * Format a ScoreChange event into a human-readable string.
@@ -27,14 +28,14 @@ function formatSetWon(event: ScoreChange): string {
   const winner = event.player || 'A'
   const winnerScore = winner === 'A' ? event.pointsAfter.a : event.pointsAfter.b
   const loserScore = winner === 'A' ? event.pointsAfter.b : event.pointsAfter.a
-  return `Set ${event.setNumber || '?'} - ${winner} ${winnerScore}-${loserScore}`
+  return i18nText('eventSet', { number: event.setNumber || '?', player: winner, scoreA: winnerScore, scoreB: loserScore })
 }
 
 function formatPoint(event: ScoreChange): string {
   const player = event.player || '?'
-  return `${player}: ${event.pointsAfter.a}-${event.pointsAfter.b}`
+  return i18nText('eventPoint', { player, scoreA: event.pointsAfter.a, scoreB: event.pointsAfter.b })
 }
 
 function formatCorrection(event: ScoreChange): string {
-  return `Corr: ${event.pointsAfter.a}-${event.pointsAfter.b}`
+  return i18nText('eventCorrection', { scoreA: event.pointsAfter.a, scoreB: event.pointsAfter.b })
 }

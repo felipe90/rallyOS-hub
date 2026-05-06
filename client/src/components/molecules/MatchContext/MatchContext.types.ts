@@ -7,6 +7,7 @@ export interface MatchContextProps {
   totalMatches?: number;
   bestOf?: number;
   pointsPerSet?: number;
+  liveLabel?: string;
 }
 
 export interface SetScoreProps {

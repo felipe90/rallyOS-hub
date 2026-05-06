@@ -2,6 +2,10 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import './index.css'
+
+// ⚠ i18n init MUST run before App renders
+import './i18n'
+
 import App from './App.tsx'
 
 // Detect PWA standalone mode and add class for fullscreen experience

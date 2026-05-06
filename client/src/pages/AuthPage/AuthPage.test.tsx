@@ -4,6 +4,31 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { AuthPage } from './AuthPage'
 import { AuthProvider } from '@/contexts/AuthContext'
 
+// Mock useI18n to return translated strings
+vi.mock('@/i18n', () => ({
+  useI18n: () => ({
+    i18nText: (key: string) => {
+      const map: Record<string, string> = {
+        'authSelectRole': 'Elige tu rol',
+        'authEnterOwnerPin': 'Ingresa tu PIN de Organizador',
+        'authRoleOwner': 'Organizador',
+        'authRoleReferee': 'Árbitro',
+        'authRoleSpectator': 'Espectador',
+        'authOwnerPinDescription': 'PIN de organizador de este torneo',
+        'authOwnerPinYourPinIs': 'Tu PIN es:',
+        'authOwnerPinUseHint': 'Usalo para entrar como organizador',
+        'authOwnerPinEnterPin': 'Ingresa el PIN de organizador del torneo',
+        'authVerifying': 'Verificando...',
+        'authEnter': 'Ingresar',
+        'commonBack': 'Atrás',
+      }
+      return map[key] || key
+    },
+  }),
+  i18nText: (key: string) => key,
+  default: { language: 'es' },
+}))
+
 // Mock useAuthContext
 const mockSetOwner = vi.fn()
 const mockLogin = vi.fn()

@@ -3,6 +3,12 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { DashboardGrid, DashboardHeader } from './DashboardGrid';
 import type { TableInfo } from '@shared/types';
 
+// Provide default aria-labels for DashboardHeader buttons
+const defaultHeaderProps = {
+  gridViewLabel: 'Grid view',
+  listViewLabel: 'List view',
+}
+
 const mockTables: TableInfo[] = [
   {
     id: 'table-1',
@@ -95,6 +101,7 @@ describe('DashboardHeader', () => {
         activePlayers={10}
         viewMode="list"
         onViewModeChange={handleChange}
+        {...defaultHeaderProps}
       />
     );
     
@@ -111,6 +118,7 @@ describe('DashboardHeader', () => {
         activePlayers={10}
         viewMode="grid"
         onViewModeChange={handleChange}
+        {...defaultHeaderProps}
       />
     );
     
@@ -126,6 +134,7 @@ describe('DashboardHeader', () => {
         activePlayers={10}
         viewMode="grid"
         onViewModeChange={() => {}}
+        {...defaultHeaderProps}
       />
     );
     

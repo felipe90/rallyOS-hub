@@ -1,21 +1,23 @@
 import { useNavigate } from 'react-router-dom'
+import { useI18n } from '@/i18n'
 import { Button } from '@/components/atoms/Button'
 import { Typography } from '@/components/atoms/Typography'
 import { Routes } from '@/routes'
 
 export function NotFoundPage() {
   const navigate = useNavigate()
+  const { i18nText } = useI18n()
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-surface gap-6 p-4">
+    <div className="flex flex-col items-center justify-center min-h-dvh bg-surface gap-6 p-4">
       <Typography variant="headline" className="text-6xl font-heading font-bold text-primary">
         404
       </Typography>
       <Typography variant="title" className="text-center">
-        Página no encontrada
+        {i18nText('notFoundTitle')}
       </Typography>
       <Typography variant="body" className="text-center text-muted-foreground">
-        La ruta que intentaste acceder no existe.
+        {i18nText('notFoundMessage')}
       </Typography>
       <Button
         variant="primary"
@@ -23,7 +25,7 @@ export function NotFoundPage() {
         onClick={() => navigate(Routes.AUTH)}
         animate={false}
       >
-        Volver al inicio
+        {i18nText('notFoundGoHome')}
       </Button>
     </div>
   )

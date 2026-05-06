@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useI18n } from '@/i18n'
 import { useAuthContext } from '@/contexts/AuthContext'
 import { useSocketContext } from '@/contexts/SocketContext'
 import { useAuthFlow } from '@/hooks/useAuthFlow'
@@ -16,6 +17,7 @@ export function AuthPage() {
   const [mode, setMode] = useState<AuthMode>('select')
   const [randomOwnerPin, setRandomOwnerPin] = useState<string | null>(null)
   const navigate = useNavigate()
+  const { i18nText } = useI18n()
   const { login, setOwner } = useAuthContext()
   const { socket, connected } = useSocketContext()
 
@@ -67,6 +69,17 @@ export function AuthPage() {
     submitPin(pin)
   }
 
+  /** Translate error codes from useAuthFlow to human-readable messages */
+  const translateAuthError = (code: string): string => {
+    const map: Record<string, string> = {
+      INVALID_OWNER_PIN: i18nText('errorAuthInvalidPin'),
+      INVALID_OWNER_PIN_FORMAT: i18nText('errorAuthInvalidPinFormat'),
+      CONNECTION_ERROR: i18nText('errorAuthConnectionError'),
+      VALIDATION_ERROR: i18nText('errorAuthValidationError'),
+    }
+    return map[code] || code
+  }
+
   const handleBack = () => {
     setMode('select')
     setPin('')
@@ -74,11 +87,11 @@ export function AuthPage() {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-surface gap-8 p-4">
+    <div className="flex flex-col items-center justify-center min-h-dvh bg-surface gap-8 p-4">
       <div className="flex flex-col items-center gap-4">
         <img src={logoBig} alt="RallyOS" className="w-32 h-auto mb-2" />
         <Typography variant="title">
-          {mode === 'select' ? 'Elige tu rol' : 'Ingresa tu PIN de Organizador'}
+          {mode === 'select' ? i18nText('authSelectRole') : i18nText('authEnterOwnerPin')}
         </Typography>
       </div>
 
@@ -92,7 +105,7 @@ export function AuthPage() {
             disabled={loading}
             animate={false}
           >
-            Organizador
+            {i18nText('authRoleOwner')}
           </Button>
           <Button
             variant="secondary"
@@ -101,7 +114,7 @@ export function AuthPage() {
             disabled={loading}
             animate={false}
           >
-            Árbitro
+            {i18nText('authRoleReferee')}
           </Button>
           <Button
             variant="outline"
@@ -110,7 +123,7 @@ export function AuthPage() {
             disabled={loading}
             animate={false}
           >
-            Espectador
+            {i18nText('authRoleSpectator')}
           </Button>
         </div>
       ) : (
@@ -119,23 +132,23 @@ export function AuthPage() {
           {randomOwnerPin ? (
             <>
               <Typography variant="body" className="text-center text-muted-foreground">
-                PIN de organizador de este torneo
+                {i18nText('authOwnerPinDescription')}
               </Typography>
               <div className="flex flex-col items-center gap-2 p-4 bg-surface-low rounded-lg border border-outline/20">
                 <Typography variant="label" className="text-muted-foreground">
-                  Tu PIN es:
+                  {i18nText('authOwnerPinYourPinIs')}
                 </Typography>
                 <Typography variant="headline" className="font-mono text-primary tracking-widest">
                   {randomOwnerPin}
                 </Typography>
                 <Typography variant="label" className="text-xs text-muted-foreground">
-                  Usalo para entrar como organizador
+                  {i18nText('authOwnerPinUseHint')}
                 </Typography>
               </div>
             </>
           ) : (
             <Typography variant="body" className="text-center text-muted-foreground">
-              Ingresa el PIN de organizador del torneo
+              {i18nText('authOwnerPinEnterPin')}
             </Typography>
           )}
           <PinInput
@@ -151,7 +164,7 @@ export function AuthPage() {
 
           {error && (
             <Typography variant="label" className="text-red-500 text-center">
-              ⚠️ {error}
+              ⚠️ {translateAuthError(error)}
             </Typography>
           )}
 
@@ -162,7 +175,7 @@ export function AuthPage() {
             onClick={handlePinSubmit}
             animate={false}
           >
-            {loading ? 'Verificando...' : 'Ingresar'}
+            {loading ? i18nText('authVerifying') : i18nText('authEnter')}
           </Button>
 
           <Button
@@ -171,7 +184,7 @@ export function AuthPage() {
             disabled={loading}
             animate={false}
           >
-            Atrás
+            {i18nText('commonBack')}
           </Button>
         </div>
       )}

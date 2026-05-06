@@ -1,6 +1,7 @@
-import { Wifi, WifiOff, ChevronLeft } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import { ScoreboardActions } from './ScoreboardActions';
 import { Button } from '../../../atoms/Button';
+import { useI18n } from '@/i18n';
 
 export interface ScoreboardHeaderProps {
   isConnected: boolean;
@@ -15,6 +16,7 @@ export interface ScoreboardHeaderProps {
 export function ScoreboardHeader({
   isConnected, setsA, setsB, hasHistory, onHistoryClick, onSettingsClick, onBackClick
 }: ScoreboardHeaderProps) {
+  const { i18nText } = useI18n();
   return (
     <div className="
       hidden landscape:flex items-center justify-between
@@ -30,7 +32,7 @@ export function ScoreboardHeader({
             icon={<ChevronLeft size={18} />}
             onClick={onBackClick}
             className="!p-2 border border-outline/10 bg-background/50"
-            title="Atrás"
+            title={i18nText('commonBack')}
           />
         )}
       </div>
@@ -38,7 +40,7 @@ export function ScoreboardHeader({
       {/* Center: Current Sets */}
       <div className="flex items-center justify-center flex-shrink-0 bg-surface-low px-4 py-1 rounded-full border border-outline/10">
         <span className="font-label text-[10px] uppercase tracking-widest opacity-60 font-bold mr-3">
-          Sets
+          {i18nText('scoreboardSetsLabel')}
         </span>
         <span className="font-heading font-bold text-lg text-primary">
           {setsA} - {setsB}

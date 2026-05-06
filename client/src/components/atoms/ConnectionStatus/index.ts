@@ -1,2 +1,2 @@
 export { ConnectionStatus } from './ConnectionStatus'
-export type { ConnectionStatusProps } from './ConnectionStatus.types'
+export type { ConnectionStatusLabels, ConnectionStatusProps } from './ConnectionStatus'

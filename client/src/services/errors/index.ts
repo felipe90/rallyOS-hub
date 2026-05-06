@@ -1,1 +1,1 @@
-export { ERROR_MESSAGES, getErrorMessage } from './errorMessages'
+export { getErrorMessage } from './errorMessages'

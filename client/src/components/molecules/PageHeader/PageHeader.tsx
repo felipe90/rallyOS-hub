@@ -1,4 +1,4 @@
-import { ConnectionStatus } from '../../atoms/ConnectionStatus'
+import { ConnectionStatus, type ConnectionStatusLabels } from '../../atoms/ConnectionStatus'
 
 export interface PageHeaderProps {
   title: string
@@ -6,6 +6,7 @@ export interface PageHeaderProps {
   actions?: React.ReactNode
   showStatus?: boolean
   landscape?: boolean
+  connectionLabels?: ConnectionStatusLabels
 }
 
 export function PageHeader({
@@ -13,12 +14,13 @@ export function PageHeader({
   subtitle,
   actions,
   showStatus = true,
-  landscape = false
+  landscape = false,
+  connectionLabels,
 }: PageHeaderProps) {
   return (
     <>
       {showStatus && <div className={`${landscape ? 'landscape:hidden' : ''}`}>
-        <ConnectionStatus />
+        <ConnectionStatus labels={connectionLabels} />
       </div>}
       <header className={`p-4 m-2 border-b border-border flex justify-between items-center ${landscape ? 'landscape:hidden' : ''}`}>
         <div className="flex-1">

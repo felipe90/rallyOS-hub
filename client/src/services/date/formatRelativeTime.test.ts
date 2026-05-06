@@ -1,5 +1,21 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeAll } from 'vitest'
 import { formatRelativeTime } from './formatRelativeTime'
+
+// Mock i18nText to return predictable values
+vi.mock('@/i18n', () => ({
+  i18nText: (key: string, params?: Record<string, unknown>) => {
+    const map: Record<string, string> = {
+      'eventRelativeTimeJustNow': 'recién',
+      'eventRelativeTimeMinutesAgo': `hace ${(params as any)?.count}m`,
+      'eventRelativeTimeHoursAgo': `hace ${(params as any)?.count}h`,
+      'eventRelativeTimeFullDate': '{{date}}',
+    }
+    return map[key] || key
+  },
+  default: {
+    language: 'es',
+  },
+}))
 
 describe('formatRelativeTime', () => {
   beforeEach(() => {

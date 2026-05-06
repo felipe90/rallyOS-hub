@@ -9,6 +9,7 @@ export interface MatchContextProps {
   totalMatches?: number;
   bestOf?: number;
   pointsPerSet?: number;
+  liveLabel?: string;
 }
 
 const phaseLabels: Record<string, string> = {
@@ -30,6 +31,7 @@ export function MatchContext({
   totalMatches,
   bestOf,
   pointsPerSet,
+  liveLabel,
 }: MatchContextProps) {
   const phaseLabel = phaseLabels[phase] || phase;
   
@@ -41,7 +43,7 @@ export function MatchContext({
     `}>
       <div className="flex items-center justify-between">
         <Label className="text-text/70">{phaseLabel}</Label>
-        {status === 'LIVE' && <LiveBadge />}
+        {status === 'LIVE' && <LiveBadge label={liveLabel || ''} />}
       </div>
       
       {matchNumber && totalMatches && (

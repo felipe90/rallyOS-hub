@@ -20,6 +20,7 @@ import { Routes, buildScoreboardRoute } from '@/routes'
 import type { TableInfoWithPin } from '@shared/types'
 import { Plus, FileText, Table2, Swords, Users } from 'lucide-react'
 
+
 export interface OwnerDashboardPageProps {
   viewMode?: 'grid' | 'list'
 }
@@ -103,7 +104,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
         <Button
           variant="secondary"
           size="sm"
-          onClick={() => navigate('/history')}
+          onClick={() => navigate(Routes.HISTORY)}
           animate={false}
           icon={<FileText size={18} />}
         >

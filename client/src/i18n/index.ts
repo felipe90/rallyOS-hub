@@ -25,8 +25,9 @@ void i18n
     },
     fallbackLng: 'es',
     detection: {
-      order: ['navigator', 'htmlTag'],
-      caches: [], // no localStorage cache for initial release
+      order: ['localStorage', 'navigator', 'htmlTag'],
+      caches: ['localStorage'],
+      lookupLocalStorage: 'rallyos-lang',
     },
     interpolation: {
       escapeValue: false, // React already escapes
@@ -39,10 +40,25 @@ void i18n
 export const i18nText = i18n.t.bind(i18n)
 export type I18nTextFn = typeof i18nText
 
+/** Change language at runtime — persists to localStorage via detector cache */
+export function changeLanguage(lng: string): void {
+  void i18n.changeLanguage(lng)
+}
+
+/** Supported languages */
+export const SUPPORTED_LANGS = [
+  { code: 'es', label: 'ES' },
+  { code: 'en-US', label: 'EN' },
+] as const
+
 /** Hook — usable inside React components (pages, organisms) */
 export function useI18n() {
-  const { t } = useTranslation()
-  return { i18nText: t }
+  const { t, i18n: i18nInstance } = useTranslation()
+  return {
+    i18nText: t,
+    language: i18nInstance.language,
+    changeLanguage: (lng: string) => void i18nInstance.changeLanguage(lng),
+  }
 }
 
 export default i18n

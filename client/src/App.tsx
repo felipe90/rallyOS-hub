@@ -15,6 +15,8 @@ import { ScoreboardPage } from './pages/ScoreboardPage'
 import { HistoryViewPage } from './pages/HistoryViewPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { useAutoUpdateBanner } from './hooks/useAutoUpdate'
+import { LanguageSwitcher } from './components/atoms'
+import { useI18n } from './i18n'
 
 function AppRoutes() {
   return (
@@ -50,6 +52,7 @@ function AppRoutes() {
 
 function App() {
   const { Banner } = useAutoUpdateBanner()
+  const { language, changeLanguage } = useI18n()
 
   return (
     <I18nextProvider i18n={i18n}>
@@ -57,6 +60,7 @@ function App() {
         <SocketProvider>
           <AppRoutes />
           {Banner}
+          <LanguageSwitcher language={language} onChangeLanguage={changeLanguage} />
         </SocketProvider>
       </AuthProvider>
     </I18nextProvider>

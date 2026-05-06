@@ -26,3 +26,6 @@ export type { ConnectionStatusProps } from './ConnectionStatus'
 
 export { CoachMark } from './CoachMark/CoachMark'
 export type { CoachMarkProps } from './CoachMark/CoachMark'
+
+export { LanguageSwitcher } from './LanguageSwitcher/LanguageSwitcher'
+export type { LanguageSwitcherProps } from './LanguageSwitcher/LanguageSwitcher'

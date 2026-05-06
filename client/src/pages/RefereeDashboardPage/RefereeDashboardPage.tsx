@@ -14,9 +14,9 @@ import { useAuthContext } from '@/contexts/AuthContext'
 import { useDashboardStats } from '@/hooks/useDashboardStats'
 import { usePinSubmission } from '@/hooks/usePinSubmission'
 import { Button } from '@/components/atoms/Button'
-import { SocketEvents } from '@shared/events'
 import { Routes, buildScoreboardRoute } from '@/routes'
 import type { TableInfoWithPin } from '@shared/types'
+import { Table2, Swords, Users } from 'lucide-react'
 
 export interface RefereeDashboardPageProps {
   viewMode?: 'grid' | 'list'
@@ -88,6 +88,11 @@ export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashb
             activePlayers={stats.activePlayers}
             viewMode={viewMode}
             onViewModeChange={setViewMode}
+            statIcons={{
+              mesas: <Table2 className="text-blue-500" size={28} />,
+              partidos: <Swords className="text-amber-500" size={28} />,
+              jugadores: <Users className="text-emerald-500" size={28} />,
+            }}
           />
           <DashboardGrid 
             tables={tables} 

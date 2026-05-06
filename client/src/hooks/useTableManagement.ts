@@ -5,7 +5,7 @@
  * Extracted from OwnerDashboardPage to keep the page focused on layout.
  */
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import type { Socket } from 'socket.io-client'
 import { SocketEvents } from '@shared/events'
 import { validateTableName } from '@/services/validation'
@@ -18,6 +18,7 @@ export interface TableManagementConfig {
 export function useTableManagement({ socket, connected }: TableManagementConfig) {
   /** ── Table Creation ── */
   const [isCreatingTable, setIsCreatingTable] = useState(false)
+  const [isCreating, setIsCreating] = useState(false)
   const [tableName, setTableName] = useState('')
 
   // Ref to avoid stale closures in callbacks
@@ -34,6 +35,7 @@ export function useTableManagement({ socket, connected }: TableManagementConfig)
 
   const cancelCreating = useCallback(() => {
     setIsCreatingTable(false)
+    setIsCreating(false)
     setTableNameRef('')
   }, [setTableNameRef])
 
@@ -41,9 +43,36 @@ export function useTableManagement({ socket, connected }: TableManagementConfig)
     const name = tableNameRef.current.trim() || undefined
     if (!validateTableName(name)) return
     socket?.emit(SocketEvents.CLIENT.CREATE_TABLE, { name })
-    setTableNameRef('')
-    setIsCreatingTable(false)
-  }, [socket, connected, setTableNameRef])
+    setIsCreating(true)
+    // Name preserved so user can edit and retry on ERROR (SC-TC-02)
+    // Name cleared in handleTableCreated (happy path) and cancelCreating (cancel)
+    // Do NOT setIsCreatingTable(false) — waits for TABLE_CREATED or ERROR from server
+  }, [socket, connected])
+
+  // Defer closing the creation input until server responds
+  useEffect(() => {
+    if (!socket) return
+
+    const handleTableCreated = () => {
+      setIsCreating(false)
+      setIsCreatingTable(false)
+      setTableName('')
+    }
+
+    const handleError = () => {
+      setIsCreating(false)
+      // Keep isCreatingTable=true (input stays open)
+      // Keep tableName (user can edit and retry)
+    }
+
+    socket.on(SocketEvents.SERVER.TABLE_CREATED, handleTableCreated)
+    socket.on(SocketEvents.SERVER.ERROR, handleError)
+
+    return () => {
+      socket.off(SocketEvents.SERVER.TABLE_CREATED, handleTableCreated)
+      socket.off(SocketEvents.SERVER.ERROR, handleError)
+    }
+  }, [socket])
 
   /** ── Table Cleaning (PIN Regeneration) ── */
   const [cleanConfirmTableId, setCleanConfirmTableId] = useState<string | null>(null)
@@ -84,6 +113,7 @@ export function useTableManagement({ socket, connected }: TableManagementConfig)
   return {
     // Creation
     isCreatingTable,
+    isCreating,
     tableName,
     setTableName: setTableNameRef,
     startCreating,

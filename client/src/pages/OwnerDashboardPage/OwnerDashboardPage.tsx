@@ -18,6 +18,8 @@ import { Button } from '@/components/atoms/Button'
 import { SocketEvents } from '@shared/events'
 import { Routes, buildScoreboardRoute } from '@/routes'
 import type { TableInfoWithPin } from '@shared/types'
+import { Plus, FileText, Table2, Swords, Users } from 'lucide-react'
+
 
 export interface OwnerDashboardPageProps {
   viewMode?: 'grid' | 'list'
@@ -28,7 +30,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
   const [pinModalOpen, setPinModalOpen] = useState(false)
   const [selectedTable, setSelectedTable] = useState<TableInfoWithPin | null>(null)
   const navigate = useNavigate()
-  const { tables, connected, socket, requestTablesWithPins } = useSocketContext()
+  const { tables, connected, socket, requestTablesWithPins, appError } = useSocketContext()
   const { logout, ownerPin, setTablePin } = useAuthContext()
   const stats = useDashboardStats(tables)
   const { submitPin, loading: pinLoading, error: pinError, clearError } = usePinSubmission(socket)
@@ -87,6 +89,63 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
     clearError()
   }
 
+  const dashboardActions = <div className="flex gap-2 items-center">
+    {!tableMgmt.isCreatingTable ? (
+      <>
+        <Button
+          variant="primary"
+          onClick={tableMgmt.startCreating}
+          size="sm" animate={false}
+          icon={<Plus size={18}
+          />}
+        >
+          Nueva Mesa
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => navigate(Routes.HISTORY)}
+          animate={false}
+          icon={<FileText size={18} />}
+        >
+          Ver Historial
+        </Button>
+      </>
+    ) : (
+      <div className="flex flex-col gap-1">
+        <div className="flex gap-2 items-center">
+          <input
+            type="text"
+            placeholder="Nombre de la mesa..."
+            value={tableMgmt.tableName}
+            onChange={(e) => tableMgmt.setTableName(e.target.value)}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter' && !tableMgmt.isCreating) tableMgmt.createTable()
+            }}
+            className="px-3 py-2 rounded border border-border bg-background text-text focus:outline-none focus:ring-2 focus:ring-primary"
+            autoFocus
+            disabled={tableMgmt.isCreating}
+          />
+          {tableMgmt.isCreating ? (
+            <span className="text-sm text-amber-600 font-medium whitespace-nowrap">Creando...</span>
+          ) : (
+            <>
+              <Button variant="primary" onClick={tableMgmt.createTable} size="sm" animate={false}>
+                Crear
+              </Button>
+              <Button variant="ghost" onClick={tableMgmt.cancelCreating} size="sm" animate={false}>
+                Cancelar
+              </Button>
+            </>
+          )}
+        </div>
+        {appError && (
+          <p className="text-red-500 text-sm">{appError}</p>
+        )}
+      </div>
+    )}
+  </div>
+
   return (
     <div className="flex flex-col h-screen bg-surface ">
       <PageHeader
@@ -94,36 +153,9 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
         subtitle="Crea mesas, gestiona árbitros y partidos"
         showStatus={true}
         actions={
-          <div className="flex gap-2">
-            {!tableMgmt.isCreatingTable ? (
-              <Button variant="secondary" onClick={tableMgmt.startCreating} size="sm" animate={false}>
-                Nueva Mesa
-              </Button>
-            ) : (
-              <div className="flex gap-2 items-center">
-                <input
-                  type="text"
-                  placeholder="Nombre de la mesa..."
-                  value={tableMgmt.tableName}
-                  onChange={(e) => tableMgmt.setTableName(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') tableMgmt.createTable()
-                  }}
-                  className="px-3 py-2 rounded border border-border bg-background text-text focus:outline-none focus:ring-2 focus:ring-primary"
-                  autoFocus
-                />
-                <Button variant="primary" onClick={tableMgmt.createTable} size="sm" animate={false}>
-                  Crear
-                </Button>
-                <Button variant="ghost" onClick={tableMgmt.cancelCreating} size="sm" animate={false}>
-                  Cancelar
-                </Button>
-              </div>
-            )}
-            <Button variant="ghost" onClick={() => { logout(); navigate(Routes.AUTH) }} size="sm" animate={false}>
-              Atrás
-            </Button>
-          </div>
+          <Button variant="ghost" onClick={() => { logout(); navigate(Routes.AUTH) }} size="sm" animate={false}>
+            Atrás
+          </Button>
         }
       />
 
@@ -135,10 +167,16 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
             activePlayers={stats.activePlayers}
             viewMode={viewMode}
             onViewModeChange={setViewMode}
+            actions={dashboardActions}
+            statIcons={{
+              mesas: <Table2 className="text-blue-500" size={28} />,
+              partidos: <Swords className="text-amber-500" size={28} />,
+              jugadores: <Users className="text-emerald-500" size={28} />,
+            }}
           />
-          <DashboardGrid 
-            tables={tables} 
-            onTableClick={handleTableClick} 
+          <DashboardGrid
+            tables={tables}
+            onTableClick={handleTableClick}
             viewMode={viewMode}
             showPin={true}
             showQr={true}

@@ -1,12 +1,11 @@
-export interface ScoreChange {
-  action: 'POINT' | 'UNDO';
-  player: string | undefined;
-  timestamp: number;
-}
+import type { ScoreChange } from '@shared/types'
+
+export type { ScoreChange }
 
 export interface HistoryListProps {
-  history: ScoreChange[];
-  compact?: boolean;
-  onEdit?: (index: number) => void;
-  onDelete?: (index: number) => void;
+  history: ScoreChange[]
+  compact?: boolean
+  playerNames?: { a: string; b: string }
+  onEdit?: (index: number) => void
+  onDelete?: (index: number) => void
 }

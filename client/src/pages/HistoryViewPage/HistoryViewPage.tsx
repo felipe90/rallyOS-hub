@@ -1,21 +1,39 @@
 /**
  * History View Page
- * Owner-only page for viewing match history across all tables
+ * Owner-only page for viewing match history across all tables.
+ *
+ * Emits GET_ALL_HISTORY on mount to request aggregated history from the server,
+ * then renders collapsible per-table sections via HistoryAccordion.
  */
 
-import { useEffect } from 'react'
+import { useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSocketContext } from '@/contexts/SocketContext'
 import { useAuthContext } from '@/contexts/AuthContext'
 import { PageHeader } from '@/components/molecules/PageHeader'
+import { HistoryAccordion } from '@/components/molecules/HistoryAccordion'
 import { Button } from '@/components/atoms/Button'
 import { Typography } from '@/components/atoms/Typography'
 import { Routes } from '@/routes'
+import { SocketEvents } from '@shared/events'
+import { RefreshCw } from 'lucide-react'
 
 export function HistoryViewPage() {
   const navigate = useNavigate()
-  const { currentMatch } = useSocketContext()
+  const { socket, connected, allHistories } = useSocketContext()
   const { isOwner, isReferee } = useAuthContext()
+
+  // Request aggregated history from server
+  const requestHistory = useCallback(() => {
+    if (socket && connected) {
+      socket.emit(SocketEvents.CLIENT.GET_ALL_HISTORY)
+    }
+  }, [socket, connected])
+
+  // Emit on mount and when socket/connected changes
+  useEffect(() => {
+    requestHistory()
+  }, [requestHistory])
 
   // Redirect non-owners to their appropriate dashboard based on role
   useEffect(() => {
@@ -28,6 +46,9 @@ export function HistoryViewPage() {
     }
   }, [isOwner, isReferee, navigate])
 
+  const hasHistoryEntries = allHistories !== null && allHistories.length > 0
+  const isLoading = allHistories === null && connected
+
   // Don't render anything while checking auth
   if (!isOwner) {
     return null
@@ -38,33 +59,27 @@ export function HistoryViewPage() {
       <PageHeader
         title="Historial"
         actions={
-          <Button variant="ghost" onClick={() => navigate(-1)} size="sm">
-            Atrás
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={requestHistory} disabled={!connected}>
+              <RefreshCw className="w-4 h-4" />
+            </Button>
+            <Button variant="ghost" onClick={() => navigate(-1)} size="sm">
+              Atrás
+            </Button>
+          </div>
         }
       />
 
-      {/* History List */}
       <div className="flex-1 overflow-auto p-4 bg-primary/10">
-        {!currentMatch?.history || currentMatch.history.length === 0 ? (
-          <div className="text-center text-text-muted">
-            <Typography variant="body">Sin eventos registrados</Typography>
+        {isLoading ? (
+          <div className="text-center text-text-muted py-12">
+            <Typography variant="body">Cargando historial…</Typography>
           </div>
+        ) : hasHistoryEntries ? (
+          <HistoryAccordion entries={allHistories} />
         ) : (
-          <div className="space-y-2">
-            {currentMatch.history.map((event, idx) => (
-              <div
-                key={idx}
-                className="p-3 bg-surface-secondary rounded-lg border border-border"
-              >
-                <Typography variant="body">
-                  {event.action === 'POINT' ? '⚽ Punto' : '↩️ Deshacer'} - {event.player}
-                </Typography>
-                <Typography variant="caption" className="text-text-muted">
-                  {new Date(event.timestamp).toLocaleTimeString()}
-                </Typography>
-              </div>
-            ))}
+          <div className="text-center text-text-muted py-12">
+            <Typography variant="body">Sin eventos registrados</Typography>
           </div>
         )}
       </div>

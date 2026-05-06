@@ -7,11 +7,13 @@ import { AuthProvider } from '@/contexts'
 const defaultMockSocketContext: SocketContextType = {
   socket: null,
   currentMatch: null,
+  allHistories: null,
   tables: [],
   connected: true,
   connecting: false,
   error: null,
   errorCode: null,
+  appError: null,
   currentTable: null,
   emit: vi.fn(),
   createTable: vi.fn(),

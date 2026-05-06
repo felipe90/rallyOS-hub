@@ -12,7 +12,14 @@ export { TableStatusChip } from './TableStatusChip'
 export type { TableStatusChipProps } from './TableStatusChip'
 
 export { HistoryList } from './HistoryList'
-export type { HistoryListProps, ScoreChange } from './HistoryList'
+export type { HistoryListProps } from './HistoryList'
+export type { ScoreChange } from '@shared/types'
+
+export { HistoryTableSection } from './HistoryTableSection'
+export type { HistoryTableSectionProps } from './HistoryTableSection'
+
+export { HistoryAccordion } from './HistoryAccordion'
+export type { HistoryAccordionProps } from './HistoryAccordion'
 
 export { MatchContext, SetScore } from './MatchContext'
 export type { MatchContextProps, SetScoreProps } from './MatchContext'

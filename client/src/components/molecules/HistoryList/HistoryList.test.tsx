@@ -1,98 +1,198 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
-import { HistoryList } from './HistoryList';
+import { describe, it, expect } from 'vitest'
+import { render, screen } from '@testing-library/react'
+import { HistoryList } from './HistoryList'
+import type { ScoreChange } from '@shared/types'
 
-const mockHistory = [
-  { action: 'POINT' as const, player: 'Player A', timestamp: Date.now() - 60000 },
-  { action: 'POINT' as const, player: 'Player B', timestamp: Date.now() - 120000 },
-  { action: 'UNDO' as const, player: 'Player A', timestamp: Date.now() - 180000 },
-];
+const mockHistory: ScoreChange[] = [
+  {
+    id: 'evt-1',
+    player: 'A',
+    action: 'POINT',
+    pointsBefore: { a: 0, b: 0 },
+    pointsAfter: { a: 1, b: 0 },
+    timestamp: Date.now() - 60000,
+  },
+  {
+    id: 'evt-2',
+    player: 'B',
+    action: 'CORRECTION',
+    pointsBefore: { a: 1, b: 0 },
+    pointsAfter: { a: 1, b: 1 },
+    timestamp: Date.now() - 120000,
+  },
+  {
+    id: 'evt-3',
+    player: 'A',
+    action: 'SET_WON',
+    pointsBefore: { a: 11, b: 9 },
+    pointsAfter: { a: 11, b: 9 },
+    setNumber: 1,
+    timestamp: Date.now() - 180000,
+  },
+]
+
+const playerNames = { a: 'Juan', b: 'María' }
 
 describe('HistoryList', () => {
   it('renders empty state when no items', () => {
-    render(<HistoryList history={[]} />);
-    expect(screen.getByText('Sin eventos registrados')).toBeInTheDocument();
-  });
+    render(<HistoryList history={[]} />)
+    expect(screen.getByText('Sin eventos registrados')).toBeInTheDocument()
+  })
 
   it('renders empty state when history is undefined', () => {
-    render(<HistoryList history={undefined as any} />);
-    expect(screen.getByText('Sin eventos registrados')).toBeInTheDocument();
-  });
+    render(<HistoryList history={undefined as any} />)
+    expect(screen.getByText('Sin eventos registrados')).toBeInTheDocument()
+  })
 
-  it('renders history items in compact mode', () => {
-    render(<HistoryList history={mockHistory} compact={true} />);
-    expect(screen.getAllByText(/Punto/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Deshacer/).length).toBeGreaterThan(0);
-  });
+  // ── Action Labels (No Icons) ─────────────────────────────
 
-  it('renders history items in full mode', () => {
-    render(<HistoryList history={mockHistory} compact={false} />);
-    expect(screen.getAllByText(/Punto/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Deshacer/).length).toBeGreaterThan(0);
-  });
+  it('displays POINT action label without icon', () => {
+    render(
+      <HistoryList history={[mockHistory[0]]} playerNames={playerNames} />
+    )
+    // Should NOT have the icon
+    expect(screen.queryByText(/⚽/)).not.toBeInTheDocument()
+    // Should have plain text
+    expect(screen.getByText(/Punto/)).toBeInTheDocument()
+  })
 
-  it('displays POINT action correctly', () => {
-    render(<HistoryList history={[{ action: 'POINT', player: 'Test Player', timestamp: Date.now() }]} />);
-    expect(screen.getByText(/Punto/)).toBeInTheDocument();
-  });
+  it('displays CORRECTION action label without icon', () => {
+    render(
+      <HistoryList history={[mockHistory[1]]} playerNames={playerNames} />
+    )
+    expect(screen.queryByText(/✏️/)).not.toBeInTheDocument()
+    expect(screen.getByText(/Corrección/)).toBeInTheDocument()
+  })
 
-  it('displays UNDO action correctly', () => {
-    render(<HistoryList history={[{ action: 'UNDO', player: 'Test Player', timestamp: Date.now() }]} />);
-    expect(screen.getByText(/Deshacer/)).toBeInTheDocument();
-  });
+  it('displays SET_WON action label without icon', () => {
+    render(
+      <HistoryList history={[mockHistory[2]]} playerNames={playerNames} />
+    )
+    expect(screen.queryByText(/🏆/)).not.toBeInTheDocument()
+    expect(screen.getByText(/Set ganado/)).toBeInTheDocument()
+  })
 
-  it('shows edit button when onEdit is provided', () => {
-    const onEdit = vi.fn();
-    render(<HistoryList history={mockHistory} onEdit={onEdit} />);
-    expect(screen.getAllByText('Editar').length).toBeGreaterThan(0);
-  });
+  it('shows plain text format: "Action - PlayerName"', () => {
+    render(
+      <HistoryList history={[mockHistory[0]]} playerNames={playerNames} />
+    )
+    // Should be "Punto - Juan" (no icon)
+    expect(screen.getByText('Punto - Juan')).toBeInTheDocument()
+  })
 
-  it('shows delete button when onDelete is provided', () => {
-    const onDelete = vi.fn();
-    render(<HistoryList history={mockHistory} onDelete={onDelete} />);
-    expect(screen.getAllByText('Eliminar').length).toBeGreaterThan(0);
-  });
+  // ── Player Name Resolution ─────────────────────────────────────
 
-  it('calls onEdit with correct index', () => {
-    const onEdit = vi.fn();
-    render(<HistoryList history={mockHistory} onEdit={onEdit} />);
-    const editButtons = screen.getAllByText('Editar');
-    fireEvent.click(editButtons[0]);
-    expect(onEdit).toHaveBeenCalledWith(0);
-  });
+  it('resolves player A to name via playerNames prop', () => {
+    render(
+      <HistoryList history={[mockHistory[0]]} playerNames={playerNames} />
+    )
+    expect(screen.getByText(/Juan/)).toBeInTheDocument()
+  })
 
-  it('calls onDelete with correct index', () => {
-    const onDelete = vi.fn();
-    render(<HistoryList history={mockHistory} onDelete={onDelete} />);
-    const deleteButtons = screen.getAllByText('Eliminar');
-    fireEvent.click(deleteButtons[0]);
-    expect(onDelete).toHaveBeenCalledWith(0);
-  });
+  it('resolves player B to name via playerNames prop', () => {
+    render(
+      <HistoryList history={[mockHistory[1]]} playerNames={playerNames} />
+    )
+    expect(screen.getByText(/María/)).toBeInTheDocument()
+  })
 
-  it('displays player names correctly', () => {
-    render(<HistoryList history={[{ action: 'POINT', player: 'John Doe', timestamp: Date.now() }]} />);
-    expect(screen.getByText(/John Doe/)).toBeInTheDocument();
-  });
+  it('falls back to player A/B default when playerNames not provided', () => {
+    render(<HistoryList history={[mockHistory[0]]} />)
+    // Without playerNames, A maps to 'Player A'
+    expect(screen.getByText(/Player A/)).toBeInTheDocument()
+  })
 
-  it('displays unknown player when player is undefined', () => {
-    render(<HistoryList history={[{ action: 'POINT', player: undefined, timestamp: Date.now() }]} />);
-    expect(screen.getByText(/Desconocido/)).toBeInTheDocument();
-  });
+  it('falls back to Player B default when player B and no playerNames', () => {
+    render(<HistoryList history={[mockHistory[1]]} />)
+    expect(screen.getByText(/Player B/)).toBeInTheDocument()
+  })
+
+  it('shows Desconocido when player is undefined', () => {
+    const noPlayerEvent: ScoreChange = {
+      id: 'evt-no-player',
+      player: undefined,
+      action: 'POINT',
+      pointsBefore: { a: 0, b: 0 },
+      pointsAfter: { a: 0, b: 0 },
+      timestamp: Date.now(),
+    }
+    render(<HistoryList history={[noPlayerEvent]} />)
+    expect(screen.getByText(/Desconocido/)).toBeInTheDocument()
+  })
+
+  // ── Score Display ──────────────────────────────────────
+
+  it('displays score transitions in full mode', () => {
+    render(<HistoryList history={[mockHistory[0]]} />)
+    expect(screen.getByText('0-0 → 1-0')).toBeInTheDocument()
+  })
 
   it('displays formatted timestamp', () => {
-    const timestamp = new Date('2024-01-15T14:30:00').getTime();
-    render(<HistoryList history={[{ action: 'POINT', player: 'Player', timestamp }]} />);
-    expect(screen.getByText(/2:30/)).toBeInTheDocument();
-  });
+    const timestamp = new Date('2024-01-15T14:30:00').getTime()
+    const event: ScoreChange = {
+      id: 'evt-time',
+      player: 'A',
+      action: 'POINT',
+      pointsBefore: { a: 0, b: 0 },
+      pointsAfter: { a: 1, b: 0 },
+      timestamp,
+    }
+    render(<HistoryList history={[event]} playerNames={playerNames} />)
+    // 14:30 in local time format
+    expect(screen.getByText(/2:30/)).toBeInTheDocument()
+  })
 
-  it('displays emoji in action label', () => {
-    render(<HistoryList history={[{ action: 'POINT', player: 'Player', timestamp: Date.now() }]} />);
-    expect(screen.getByText(/⚽/)).toBeInTheDocument();
-  });
+  // ── Compact Mode ───────────────────────────────────────
 
-  it('does not show action buttons in compact mode', () => {
-    render(<HistoryList history={mockHistory} compact={true} onEdit={() => {}} onDelete={() => {}} />);
-    expect(screen.queryByText('Editar')).not.toBeInTheDocument();
-    expect(screen.queryByText('Eliminar')).not.toBeInTheDocument();
-  });
-});
+  it('renders history items in compact mode', () => {
+    render(
+      <HistoryList
+        history={mockHistory}
+        compact={true}
+        playerNames={playerNames}
+      />
+    )
+    // Action labels present WITHOUT icons (compact uses individual spans)
+    expect(screen.getByText('Punto')).toBeInTheDocument()
+    expect(screen.getByText('Corrección')).toBeInTheDocument()
+    // Player names present (multiple Juan because 2 events have player='A')
+    const juanElements = screen.getAllByText('Juan')
+    expect(juanElements.length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByText('María')).toBeInTheDocument()
+    // Ensure no icons
+    expect(screen.queryByText(/⚽/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/✏️/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/🏆/)).not.toBeInTheDocument()
+    // Score transitions visible
+    expect(screen.getByText('0-0 → 1-0')).toBeInTheDocument()
+    expect(screen.getByText('1-0 → 1-1')).toBeInTheDocument()
+  })
+
+  // ── Compact Styling ──────────────────────────────────────
+
+  it('uses compact padding (py-0.5) in compact mode', () => {
+    render(
+      <HistoryList
+        history={mockHistory}
+        compact={true}
+        playerNames={playerNames}
+      />
+    )
+    // Check for compact styling classes
+    const items = document.querySelectorAll('.py-0\\.5')
+    expect(items.length).toBeGreaterThan(0)
+  })
+
+  it('uses text-xs throughout in compact mode', () => {
+    render(
+      <HistoryList
+        history={mockHistory}
+        compact={true}
+        playerNames={playerNames}
+      />
+    )
+    // Compact row container has text-xs
+    const items = document.querySelectorAll('.text-xs')
+    expect(items.length).toBeGreaterThan(0)
+  })
+})

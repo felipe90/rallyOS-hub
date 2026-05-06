@@ -143,6 +143,13 @@ export interface DashboardHeaderProps {
     partidos?: ReactNode;
     jugadores?: ReactNode;
   };
+  statLabels?: {
+    tables?: string;
+    matches?: string;
+    players?: string;
+  };
+  gridViewLabel?: string;
+  listViewLabel?: string;
 }
 
 export function DashboardHeader({ 
@@ -153,6 +160,9 @@ export function DashboardHeader({
   onViewModeChange = () => {},
   actions,
   statIcons,
+  statLabels = {},
+  gridViewLabel = '',
+  listViewLabel = '',
 }: Partial<DashboardHeaderProps> & { viewMode?: 'grid' | 'list'; onViewModeChange?: (mode: 'grid' | 'list') => void } = {}) {
   const [tooltip, setTooltip] = useState<string | null>(null)
   const tooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -181,20 +191,20 @@ export function DashboardHeader({
               variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
               size="sm"
               onClick={() => onViewModeChange('grid')}
-              onMouseEnter={() => showTooltip('Vista en cuadrícula')}
+              onMouseEnter={() => showTooltip(gridViewLabel)}
               onMouseLeave={hideTooltip}
               className={`${viewMode === 'grid' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400 hover:text-slate-600'} transition-colors duration-200`}
-              aria-label="Grid view"
+              aria-label={gridViewLabel}
               icon={<LayoutGrid size={20} />}
             />
             <Button
               variant={viewMode === 'list' ? 'secondary' : 'ghost'}
               size="sm"
               onClick={() => onViewModeChange('list')}
-              onMouseEnter={() => showTooltip('Vista en lista')}
+              onMouseEnter={() => showTooltip(listViewLabel)}
               onMouseLeave={hideTooltip}
               className={`${viewMode === 'list' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400 hover:text-slate-600'} transition-colors duration-200`}
-              aria-label="List view"
+              aria-label={listViewLabel}
               icon={<List size={20} />}
             />
           </div>
@@ -207,9 +217,9 @@ export function DashboardHeader({
       </div>
       
       <div className="grid grid-cols-3 gap-4">
-        <StatCard title="Mesas" value={totalTables ?? 0} icon={statIcons?.mesas} />
-        <StatCard title="Partidos" value={liveMatches ?? 0} icon={statIcons?.partidos} />
-        <StatCard title="Jugadores" value={activePlayers ?? 0} icon={statIcons?.jugadores} />
+        <StatCard title={statLabels.tables || ''} value={totalTables ?? 0} icon={statIcons?.mesas} />
+        <StatCard title={statLabels.matches || ''} value={liveMatches ?? 0} icon={statIcons?.partidos} />
+        <StatCard title={statLabels.players || ''} value={activePlayers ?? 0} icon={statIcons?.jugadores} />
       </div>
     </div>
   );

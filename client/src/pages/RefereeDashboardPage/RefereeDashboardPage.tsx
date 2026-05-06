@@ -5,6 +5,7 @@
 
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useI18n } from '@/i18n'
 import { DashboardGrid } from '@/components/organisms/DashboardGrid'
 import { DashboardHeader } from '@/components/organisms/DashboardGrid'
 import { PageHeader } from '@/components/molecules/PageHeader'
@@ -27,6 +28,7 @@ export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashb
   const [pinModalOpen, setPinModalOpen] = useState(false)
   const [selectedTable, setSelectedTable] = useState<TableInfoWithPin | null>(null)
   const navigate = useNavigate()
+  const { i18nText } = useI18n()
   const { tables, connected, socket, requestTables } = useSocketContext()
   const { logout, setTablePin } = useAuthContext()
   const stats = useDashboardStats(tables)
@@ -67,15 +69,34 @@ export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashb
     clearError()
   }
 
+  /** Translate error codes from usePinSubmission to human-readable messages */
+  const translatePinError = (code: string | null): string | null => {
+    if (!code) return null
+    const map: Record<string, string> = {
+      NO_CONNECTION: i18nText('errorPinNoConnection'),
+      INVALID_PIN: i18nText('errorPinInvalid'),
+      REF_ASSIGN_FAILED: i18nText('errorPinAssignFailed'),
+      TIMEOUT: i18nText('errorPinTimeout'),
+      DISCONNECTED: i18nText('errorPinDisconnected'),
+    }
+    return map[code] || code
+  }
+
   return (
     <div className="flex flex-col h-screen bg-surface">
       <PageHeader
-        title="Panel de Árbitro"
-        subtitle="Gestiona tu mesa y arbitra"
+        title={i18nText('refereeTitle')}
+        subtitle={i18nText('refereeSubtitle')}
         showStatus={true}
+        connectionLabels={{
+          connected: i18nText('connectionConnected'),
+          connecting: i18nText('connectionConnecting'),
+          error: i18nText('connectionNoConnection'),
+          disconnected: i18nText('connectionDisconnected'),
+        }}
         actions={
           <Button variant="ghost" onClick={handleLogout} size="sm" animate={false}>
-            Atrás
+            {i18nText('commonBack')}
           </Button>
         }
       />
@@ -93,6 +114,13 @@ export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashb
               partidos: <Swords className="text-amber-500" size={28} />,
               jugadores: <Users className="text-emerald-500" size={28} />,
             }}
+            statLabels={{
+              tables: i18nText('dashboardStatTables'),
+              matches: i18nText('dashboardStatMatches'),
+              players: i18nText('dashboardStatPlayers'),
+            }}
+            gridViewLabel={i18nText('dashboardGridView')}
+            listViewLabel={i18nText('dashboardListView')}
           />
           <DashboardGrid 
             tables={tables} 
@@ -110,7 +138,12 @@ export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashb
         onClose={handlePinClose}
         onSubmit={handlePinSubmit}
         isLoading={pinLoading}
-        error={pinError}
+        error={translatePinError(pinError)}
+        title={i18nText('matchConfigTitle')}
+        forTableLabel={i18nText('matchConfigForTable', { tableName: selectedTable?.name || '' })}
+        cancelLabel={i18nText('commonCancel')}
+        submitLabel={i18nText('authEnter')}
+        submitLoadingLabel={i18nText('authVerifying')}
       />
     </div>
   )

@@ -10,6 +10,11 @@ export interface PinModalProps {
   onSubmit: (pin: string) => void
   isLoading?: boolean
   error?: string | null
+  title?: string
+  forTableLabel?: string
+  cancelLabel?: string
+  submitLabel?: string
+  submitLoadingLabel?: string
 }
 
 export function PinModal({
@@ -19,6 +24,11 @@ export function PinModal({
   onSubmit,
   isLoading = false,
   error,
+  title = 'Ingresa el PIN',
+  forTableLabel = 'para entrar a {{tableName}}',
+  cancelLabel = 'Cancelar',
+  submitLabel = 'Entrar',
+  submitLoadingLabel = 'Verificando...',
 }: PinModalProps) {
   const [pin, setPin] = useState('')
 
@@ -59,10 +69,10 @@ export function PinModal({
       
       {/* Modal content */}
       <div className="relative bg-surface rounded-lg shadow-xl p-6 w-full max-w-sm">
-        <Title className="text-center mb-2">Ingresa el PIN</Title>
+        <Title className="text-center mb-2">{title}</Title>
         
         <Body className="text-center text-text/70 mb-6">
-          para entrar a {tableName}
+          {forTableLabel.replace('{{tableName}}', tableName)}
         </Body>
 
         <div className="mb-6">
@@ -88,7 +98,7 @@ export function PinModal({
             className="flex-1"
             disabled={isLoading}
           >
-            Cancelar
+            {cancelLabel}
           </Button>
           
           <Button 
@@ -97,7 +107,7 @@ export function PinModal({
             className="flex-1"
             disabled={pin.length !== 4 || isLoading}
           >
-            {isLoading ? 'Verificando...' : 'Entrar'}
+            {isLoading ? submitLoadingLabel : submitLabel}
           </Button>
         </div>
       </div>

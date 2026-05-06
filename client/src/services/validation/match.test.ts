@@ -1,5 +1,20 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { validateMatchConfig, MIN_POINTS_PER_SET, MAX_POINTS_PER_SET } from './match'
+
+// Mock i18nText to return predictable values
+vi.mock('@/i18n', () => ({
+  i18nText: (key: string, params?: Record<string, unknown>) => {
+    const map: Record<string, string> = {
+      'validationPointsPerSetRange': `Puntos por set debe estar entre ${(params as any)?.min} y ${(params as any)?.max}`,
+      'validationBestOfRange': `Mejor de debe estar entre ${(params as any)?.min} y ${(params as any)?.max}`,
+      'validationBestOfOdd': 'Mejor de debe ser un número impar',
+      'validationMinDifference': 'Diferencia mínima debe ser al menos 1',
+      'validationHandicapARange': 'Handicap A debe estar entre 0 y 20',
+      'validationHandicapBRange': 'Handicap B debe estar entre 0 y 20',
+    }
+    return map[key] || key
+  },
+}))
 
 describe('validateMatchConfig', () => {
   it('returns valid for good config', () => {

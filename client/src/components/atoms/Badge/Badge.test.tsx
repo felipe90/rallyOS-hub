@@ -99,31 +99,31 @@ describe('Badge', () => {
 
 describe('Convenience Components', () => {
   it('WaitingBadge renders with waiting status and dot', () => {
-    const { container } = render(<WaitingBadge />)
+    const { container } = render(<WaitingBadge label="Waiting" />)
     expect(screen.getByText('Waiting')).toBeInTheDocument()
     expect(container.querySelector('.w-2')).toBeInTheDocument()
   })
 
   it('ConfiguringBadge renders with configuring status and dot', () => {
-    const { container } = render(<ConfiguringBadge />)
+    const { container } = render(<ConfiguringBadge label="Configuring" />)
     expect(screen.getByText('Configuring')).toBeInTheDocument()
     expect(container.querySelector('.w-2')).toBeInTheDocument()
   })
 
   it('LiveBadge renders with live status and dot', () => {
-    const { container } = render(<LiveBadge />)
+    const { container } = render(<LiveBadge label="Live" />)
     expect(screen.getByText('Live')).toBeInTheDocument()
     expect(container.querySelector('.w-2')).toBeInTheDocument()
   })
 
   it('FinishedBadge renders with finished status and dot', () => {
-    const { container } = render(<FinishedBadge />)
+    const { container } = render(<FinishedBadge label="Finished" />)
     expect(screen.getByText('Finished')).toBeInTheDocument()
     expect(container.querySelector('.w-2')).toBeInTheDocument()
   })
 
   it('convenience components accept className prop', () => {
-    render(<LiveBadge className="test-class" />)
+    render(<LiveBadge label="Live" className="test-class" />)
     const badge = screen.getByText('Live')
     expect(badge).toHaveClass('test-class')
   })

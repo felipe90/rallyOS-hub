@@ -1,3 +1,5 @@
+import { I18nextProvider } from 'react-i18next'
+import i18n from './i18n'
 import { Routes as ReactRoutes, Route, Navigate } from 'react-router-dom'
 import './index.css'
 import { SocketProvider } from './contexts/SocketContext'
@@ -50,12 +52,14 @@ function App() {
   const { Banner } = useAutoUpdateBanner()
 
   return (
-    <AuthProvider>
-      <SocketProvider>
-        <AppRoutes />
-        {Banner}
-      </SocketProvider>
-    </AuthProvider>
+    <I18nextProvider i18n={i18n}>
+      <AuthProvider>
+        <SocketProvider>
+          <AppRoutes />
+          {Banner}
+        </SocketProvider>
+      </AuthProvider>
+    </I18nextProvider>
   )
 }
 

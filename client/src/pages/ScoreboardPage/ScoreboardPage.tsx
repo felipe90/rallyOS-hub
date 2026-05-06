@@ -6,6 +6,7 @@
  */
 
 import { useNavigate, useParams } from 'react-router-dom'
+import { useI18n } from '@/i18n'
 import { useSocketContext, useAuthContext } from '@/contexts'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useScoreboardUrl } from '@/hooks/useScoreboardUrl'
@@ -24,22 +25,29 @@ import { Routes } from '@/routes'
 export interface ScoreboardPageProps {}
 
 function RefRevokedView() {
+  const { i18nText } = useI18n()
   return (
     <div className="flex flex-col items-center justify-center h-screen bg-surface gap-4 p-4">
-      <Typography variant="headline" className="text-center">Árbitr@ removido</Typography>
+      <Typography variant="headline" className="text-center">{i18nText('scoreboardRefRevokedTitle')}</Typography>
       <Typography variant="body" className="text-center text-muted-foreground">
-        El organizador ha regenerado el PIN de esta mesa.
+        {i18nText('scoreboardRefRevokedMessage')}
       </Typography>
-      <Typography variant="label" className="text-center">Redirigiendo a sala de espera...</Typography>
+      <Typography variant="label" className="text-center">{i18nText('scoreboardRefRevokedRedirecting')}</Typography>
     </div>
   )
 }
 
 function LoadingView() {
+  const { i18nText } = useI18n()
   return (
     <div className="flex flex-col items-center justify-center h-screen">
-      <ConnectionStatus />
-      <p className="text-text-muted">Cargando partido...</p>
+      <ConnectionStatus labels={{
+        connected: i18nText('connectionConnected'),
+        connecting: i18nText('connectionConnecting'),
+        error: i18nText('connectionNoConnection'),
+        disconnected: i18nText('connectionDisconnected'),
+      }} />
+      <p className="text-text-muted">{i18nText('scoreboardLoading')}</p>
     </div>
   )
 }
@@ -47,6 +55,7 @@ function LoadingView() {
 export function ScoreboardPage(_props: ScoreboardPageProps) {
   const { tableId } = useParams<{ tableId: string }>()
   const navigate = useNavigate()
+  const { i18nText } = useI18n()
   const { currentMatch, emit, connected, socket } = useSocketContext()
   const { isReferee, isOwner, tablePin } = useAuthContext()
   const { scoreboard: perms } = usePermissions()
@@ -76,7 +85,7 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
     }
   }, [currentMatch?.status, currentMatch?.winner, tableId])
 
-  if (!tableId) return <div>Invalid table ID</div>
+  if (!tableId) return <div>{i18nText('scoreboardInvalidTableId')}</div>
   if (refRevoked) return <RefRevokedView />
   if (!currentMatch) return <LoadingView />
 
@@ -87,9 +96,15 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
       <PageHeader
         title={`${currentMatch.playerNames?.a || 'A'} vs ${currentMatch.playerNames?.b || 'B'}`}
         landscape={isLandscape}
+        connectionLabels={{
+          connected: i18nText('connectionConnected'),
+          connecting: i18nText('connectionConnecting'),
+          error: i18nText('connectionNoConnection'),
+          disconnected: i18nText('connectionDisconnected'),
+        }}
         actions={<>
-          {canViewHistory && <Button variant="secondary" size="sm" onClick={() => setHistoryOpen(true)}>Historial</Button>}
-          <Button variant="ghost" size="sm" onClick={() => navigate(backRoute)}>Atrás</Button>
+          {canViewHistory && <Button variant="secondary" size="sm" onClick={() => setHistoryOpen(true)}>{i18nText('scoreboardHistory')}</Button>}
+          <Button variant="ghost" size="sm" onClick={() => navigate(backRoute)}>{i18nText('scoreboardBack')}</Button>
         </>}
       />
       <div className="flex-1 overflow-auto bg-primary">
@@ -118,6 +133,18 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
         initialHandicapB={currentMatch.config?.handicapB || 0}
         onSubmit={(config) => handleStartMatch({ ...config, pointsPerSet: 11 })}
         onClose={handleCancelMatch}
+        title={i18nText('matchConfigTitle')}
+        forTableLabel={i18nText('matchConfigForTable', { tableName: currentMatch.tableName || '' })}
+        playersLabel={i18nText('matchConfigPlayers')}
+        playerAPlaceholder={i18nText('matchConfigPlayerAPlaceholder')}
+        playerBPlaceholder={i18nText('matchConfigPlayerBPlaceholder')}
+        bestOfLabel={i18nText('matchConfigBestOf')}
+        handicapLabel={i18nText('matchConfigHandicap')}
+        teamALabel={i18nText('matchConfigTeamA')}
+        teamBLabel={i18nText('matchConfigTeamB')}
+        cancelLabel={i18nText('commonCancel')}
+        submitLabel={i18nText('matchConfigStart')}
+        submitLoadingLabel={i18nText('matchConfigStarting')}
       />
 
       <HistoryDrawer
@@ -130,10 +157,14 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
       {/* Match Winner Dialog */}
       <ConfirmDialog
         isOpen={showWinnerDialog}
-        title="¡Partido Finalizado!"
-        message={`Ganador: ${currentMatch.winner === 'A' ? currentMatch.playerNames?.a || 'Jugador A' : currentMatch.playerNames?.b || 'Jugador B'}`}
+        title={i18nText('scoreboardWinnerDialogTitle')}
+        message={i18nText('scoreboardWinnerDialogWinner', {
+          name: currentMatch.winner === 'A'
+            ? (currentMatch.playerNames?.a || i18nText('commonPlayerA'))
+            : (currentMatch.playerNames?.b || i18nText('commonPlayerB')),
+        })}
         severity="success"
-        confirmLabel="Continuar"
+        confirmLabel={i18nText('scoreboardWinnerDialogContinue')}
         cancelLabel=""
         onConfirm={() => {
           setShowWinnerDialog(false)
@@ -147,7 +178,7 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
       {canEdit && currentMatch.status === 'LIVE' && (
         <CoachMark
           id="scoreboard-tap-hint"
-          message="Tocá cualquier lado del marcador para sumar un punto"
+          message={i18nText('scoreboardCoachmarkMessage')}
           show={true}
         />
       )}

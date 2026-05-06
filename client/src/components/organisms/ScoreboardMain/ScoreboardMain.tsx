@@ -7,6 +7,7 @@ import { VSDivider, BackgroundDecor } from './components/ScoreDecorations';
 import { ToggleButton } from '../../atoms/Button/ToggleButton';
 import { MatchHistoryTicker } from '../../molecules/MatchHistoryTicker';
 import { Maximize2, Minimize2 } from 'lucide-react';
+import { useI18n } from '@/i18n';
 
 export interface ScoreboardMainProps {
   match: MatchStateExtended;
@@ -39,6 +40,7 @@ export function ScoreboardMain({
   onOrientationToggle,
   className = '',
 }: ScoreboardMainProps) {
+  const { i18nText } = useI18n();
   const { status, history } = match;
   
   const {
@@ -124,7 +126,7 @@ export function ScoreboardMain({
             <PlayerScoreArea
               isReferee={isReferee}
               side={leftPlayer}
-              playerName={leftName || 'Player A'}
+              playerName={leftName || i18nText('commonPlayerA')}
               score={leftScore}
               setsWon={leftSets}
               totalSets={totalSets}
@@ -140,7 +142,7 @@ export function ScoreboardMain({
             <PlayerScoreArea
               isReferee={isReferee}
               side={rightPlayer}
-              playerName={rightName || 'Player B'}
+              playerName={rightName || i18nText('commonPlayerB')}
               score={rightScore}
               setsWon={rightSets}
               totalSets={totalSets}

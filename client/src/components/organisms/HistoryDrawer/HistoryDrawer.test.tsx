@@ -3,6 +3,26 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { HistoryDrawer } from './HistoryDrawer';
 import type { ScoreChange } from '@shared/types';
 
+// Mock useI18n to return translated strings
+vi.mock('@/i18n', () => ({
+  useI18n: () => ({
+    i18nText: (key: string, params?: Record<string, unknown>) => {
+      const map: Record<string, string> = {
+        'historyDrawerTitle': 'Historial',
+        'historyNoEventsYet': 'Sin eventos aún',
+        'commonPlayerA': 'Player A',
+        'commonPlayerB': 'Player B',
+        'historyEventTypePoint': 'Punto',
+        'historyEventTypeSetWon': 'Set ganado',
+        'historyEventTypeCorrection': 'Corrección',
+      }
+      return map[key] || key
+    },
+  }),
+  i18nText: (key: string) => key,
+  default: { language: 'es' },
+}))
+
 const mockEvents: ScoreChange[] = [
   {
     id: 'event-1',

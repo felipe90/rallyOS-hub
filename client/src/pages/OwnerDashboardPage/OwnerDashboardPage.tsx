@@ -5,6 +5,7 @@
 
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useI18n } from '@/i18n'
 import { DashboardGrid } from '@/components/organisms/DashboardGrid'
 import { DashboardHeader } from '@/components/organisms/DashboardGrid'
 import { PageHeader } from '@/components/molecules/PageHeader'
@@ -30,6 +31,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
   const [pinModalOpen, setPinModalOpen] = useState(false)
   const [selectedTable, setSelectedTable] = useState<TableInfoWithPin | null>(null)
   const navigate = useNavigate()
+  const { i18nText } = useI18n()
   const { tables, connected, socket, requestTablesWithPins, appError } = useSocketContext()
   const { logout, ownerPin, setTablePin } = useAuthContext()
   const stats = useDashboardStats(tables)
@@ -89,6 +91,19 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
     clearError()
   }
 
+  /** Translate error codes from usePinSubmission to human-readable messages */
+  const translatePinError = (code: string | null): string | null => {
+    if (!code) return null
+    const map: Record<string, string> = {
+      NO_CONNECTION: i18nText('errorPinNoConnection'),
+      INVALID_PIN: i18nText('errorPinInvalid'),
+      REF_ASSIGN_FAILED: i18nText('errorPinAssignFailed'),
+      TIMEOUT: i18nText('errorPinTimeout'),
+      DISCONNECTED: i18nText('errorPinDisconnected'),
+    }
+    return map[code] || code
+  }
+
   const dashboardActions = <div className="flex gap-2 items-center">
     {!tableMgmt.isCreatingTable ? (
       <>
@@ -99,7 +114,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
           icon={<Plus size={18}
           />}
         >
-          Nueva Mesa
+          {i18nText('ownerCreateTable')}
         </Button>
         <Button
           variant="secondary"
@@ -108,7 +123,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
           animate={false}
           icon={<FileText size={18} />}
         >
-          Ver Historial
+          {i18nText('ownerViewHistory')}
         </Button>
       </>
     ) : (
@@ -116,7 +131,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
         <div className="flex gap-2 items-center">
           <input
             type="text"
-            placeholder="Nombre de la mesa..."
+            placeholder={i18nText('ownerTableNamePlaceholder')}
             value={tableMgmt.tableName}
             onChange={(e) => tableMgmt.setTableName(e.target.value)}
             onKeyPress={(e) => {
@@ -127,14 +142,14 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
             disabled={tableMgmt.isCreating}
           />
           {tableMgmt.isCreating ? (
-            <span className="text-sm text-amber-600 font-medium whitespace-nowrap">Creando...</span>
+            <span className="text-sm text-amber-600 font-medium whitespace-nowrap">{i18nText('ownerCreating')}</span>
           ) : (
             <>
               <Button variant="primary" onClick={tableMgmt.createTable} size="sm" animate={false}>
-                Crear
+                {i18nText('ownerCreate')}
               </Button>
               <Button variant="ghost" onClick={tableMgmt.cancelCreating} size="sm" animate={false}>
-                Cancelar
+                {i18nText('commonCancel')}
               </Button>
             </>
           )}
@@ -149,12 +164,18 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
   return (
     <div className="flex flex-col h-screen bg-surface ">
       <PageHeader
-        title="Panel de Organizador"
-        subtitle="Crea mesas, gestiona árbitros y partidos"
+        title={i18nText('ownerTitle')}
+        subtitle={i18nText('ownerSubtitle')}
         showStatus={true}
+        connectionLabels={{
+          connected: i18nText('connectionConnected'),
+          connecting: i18nText('connectionConnecting'),
+          error: i18nText('connectionNoConnection'),
+          disconnected: i18nText('connectionDisconnected'),
+        }}
         actions={
           <Button variant="ghost" onClick={() => { logout(); navigate(Routes.AUTH) }} size="sm" animate={false}>
-            Atrás
+            {i18nText('commonBack')}
           </Button>
         }
       />
@@ -173,6 +194,13 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
               partidos: <Swords className="text-amber-500" size={28} />,
               jugadores: <Users className="text-emerald-500" size={28} />,
             }}
+            statLabels={{
+              tables: i18nText('dashboardStatTables'),
+              matches: i18nText('dashboardStatMatches'),
+              players: i18nText('dashboardStatPlayers'),
+            }}
+            gridViewLabel={i18nText('dashboardGridView')}
+            listViewLabel={i18nText('dashboardListView')}
           />
           <DashboardGrid
             tables={tables}
@@ -198,7 +226,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
         onClose={handlePinClose}
         onSubmit={handlePinSubmit}
         isLoading={pinLoading}
-        error={pinError}
+        error={translatePinError(pinError)}
       />
     </div>
   )

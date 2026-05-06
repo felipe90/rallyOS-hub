@@ -6,6 +6,44 @@ import { useAuthContext } from '@/contexts/AuthContext'
 import { useSocketContext } from '@/contexts/SocketContext'
 import { usePermissions } from '@/hooks/usePermissions'
 
+// Mock useI18n to return translated strings
+vi.mock('@/i18n', () => ({
+  useI18n: () => ({
+    i18nText: (key: string, params?: Record<string, unknown>) => {
+      const map: Record<string, string> = {
+        'scoreboardRefRevokedTitle': 'Árbitr@ removido',
+        'scoreboardRefRevokedMessage': 'El organizador ha regenerado el PIN de esta mesa.',
+        'scoreboardRefRevokedRedirecting': 'Redirigiendo a sala de espera...',
+        'scoreboardLoading': 'Cargando partido...',
+        'scoreboardInvalidTableId': 'Invalid table ID',
+        'scoreboardHistory': 'Historial',
+        'scoreboardBack': 'Atrás',
+        'scoreboardWinnerDialogTitle': '¡Partido Finalizado!',
+        'scoreboardWinnerDialogContinue': 'Continuar',
+        'scoreboardCoachmarkMessage': 'Tocá cualquier lado del marcador para sumar un punto',
+        'matchConfigTitle': 'Configurar Partido',
+        'matchConfigForTable': `para ${(params as any)?.tableName || ''}`,
+        'matchConfigPlayers': 'Jugadores',
+        'matchConfigPlayerAPlaceholder': 'Jugador A',
+        'matchConfigPlayerBPlaceholder': 'Jugador B',
+        'matchConfigBestOf': 'Mejor de',
+        'matchConfigHandicap': 'Handicap',
+        'matchConfigTeamA': 'Equipo A',
+        'matchConfigTeamB': 'Equipo B',
+        'matchConfigStart': 'Iniciar Partido',
+        'matchConfigStarting': 'Iniciando...',
+        'commonBack': 'Atrás',
+        'commonCancel': 'Cancelar',
+        'commonPlayerA': 'Player A',
+        'commonPlayerB': 'Player B',
+      }
+      return map[key] || key
+    },
+  }),
+  i18nText: (key: string) => key,
+  default: { language: 'es' },
+}))
+
 const mockUseAuthContext = useAuthContext as ReturnType<typeof vi.fn>
 const mockUseSocketContext = useSocketContext as ReturnType<typeof vi.fn>
 const mockUsePermissions = usePermissions as ReturnType<typeof vi.fn>

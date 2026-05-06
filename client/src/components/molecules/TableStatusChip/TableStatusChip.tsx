@@ -28,6 +28,7 @@ export interface TableStatusChipProps {
   showDeleteConfirm?: boolean;        // Show delete confirmation
   onDeleteConfirm?: () => void;       // Confirm delete action
   onDeleteCancel?: () => void;        // Cancel delete action
+  statusLabel?: string;
 }
 
 const statusBadge: Record<TableStatus, typeof WaitingBadge> = {
@@ -35,6 +36,13 @@ const statusBadge: Record<TableStatus, typeof WaitingBadge> = {
   CONFIGURING: ConfiguringBadge,
   LIVE: LiveBadge,
   FINISHED: FinishedBadge,
+};
+
+const statusBadgeLabels: Record<TableStatus, string> = {
+  WAITING: 'Waiting',
+  CONFIGURING: 'Configuring',
+  LIVE: 'Live',
+  FINISHED: 'Finished',
 };
 
 export function TableStatusChip({
@@ -56,6 +64,7 @@ export function TableStatusChip({
   showDeleteConfirm = false,
   onDeleteConfirm,
   onDeleteCancel,
+  statusLabel,
 }: TableStatusChipProps) {
   const StatusBadgeComponent = statusBadge[status];
 
@@ -95,7 +104,7 @@ export function TableStatusChip({
     >
       <div className="flex items-center justify-between">
         <Body className="font-medium text-text-h">Mesa {tableNumber}</Body>
-        <StatusBadgeComponent />
+        <StatusBadgeComponent label={statusLabel || statusBadgeLabels[status]} />
       </div>
       
       <Body className="text-sm text-text/70">{tableName}</Body>

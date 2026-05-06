@@ -3,6 +3,8 @@
  *
  * Handles socket events and PIN submission for the owner login process.
  * Extracted from AuthPage to keep the page purely presentational.
+ *
+ * Returns error codes (strings) — callers translate via i18nText().
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
@@ -10,8 +12,6 @@ import { useNavigate } from 'react-router-dom'
 import type { Socket } from 'socket.io-client'
 import { SocketEvents } from '@shared/events'
 import { Routes } from '@/routes'
-import { getErrorMessage } from '@/services/errors'
-import { validateOwnerPin } from '@/services/validation'
 
 export interface AuthFlowConfig {
   socket: Socket | null
@@ -40,17 +40,8 @@ export function useAuthFlow({ socket, connected, setOwner, login }: AuthFlowConf
     }
 
     const handleError = (err: { code: string; message: string }) => {
-      const handledCodes = ['INVALID_OWNER_PIN', 'VALIDATION_ERROR']
-      if (handledCodes.includes(err.code)) {
-        setError(getErrorMessage(err.code, {
-          code: 'VALIDATION_ERROR',
-          field: 'pin',
-          message: err.message,
-          expected: '8 dígitos numéricos',
-          received: 'formato inválido',
-        }))
-        setLoading(false)
-      }
+      setError(err.code)
+      setLoading(false)
     }
 
     socket.on(SocketEvents.SERVER.OWNER_VERIFIED, handleOwnerVerified)
@@ -66,7 +57,7 @@ export function useAuthFlow({ socket, connected, setOwner, login }: AuthFlowConf
   const submitPin = useCallback(
     (pin: string) => {
       if (!validateOwnerPin(pin)) {
-        setError('El PIN debe tener exactamente 8 dígitos')
+        setError('INVALID_OWNER_PIN_FORMAT')
         return
       }
 
@@ -77,7 +68,7 @@ export function useAuthFlow({ socket, connected, setOwner, login }: AuthFlowConf
       if (socket && connected) {
         socket.emit(SocketEvents.CLIENT.VERIFY_OWNER, { pin })
       } else {
-        setError('Error de conexión')
+        setError('CONNECTION_ERROR')
         setLoading(false)
       }
     },
@@ -87,4 +78,11 @@ export function useAuthFlow({ socket, connected, setOwner, login }: AuthFlowConf
   const clearError = useCallback(() => setError(''), [])
 
   return { submitPin, error, loading, clearError }
+}
+
+/**
+ * Validate owner PIN has exactly 8 numeric digits.
+ */
+function validateOwnerPin(pin: string): boolean {
+  return /^\d{8}$/.test(pin)
 }

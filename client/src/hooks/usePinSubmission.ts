@@ -9,6 +9,15 @@ import type { Socket } from 'socket.io-client'
 import { SocketEvents } from '@shared/events'
 import { validateTablePin } from '@/services/validation'
 
+/** Error codes returned by usePinSubmission — callers translate via i18nText() */
+export type PinErrorCode =
+  | 'NO_CONNECTION'
+  | 'INVALID_PIN'
+  | 'REF_ASSIGN_FAILED'
+  | 'TIMEOUT'
+  | 'DISCONNECTED'
+  | string
+
 export interface PinSubmissionResult {
   success: boolean
   error?: string
@@ -22,13 +31,16 @@ export function usePinSubmission(socket: Socket | null) {
     (pin: string, tableId: string): Promise<PinSubmissionResult> => {
       return new Promise((resolve) => {
         if (!socket) {
-          resolve({ success: false, error: 'Sin conexión' })
+          const code: PinErrorCode = 'NO_CONNECTION'
+          setError(code)
+          resolve({ success: false, error: code })
           return
         }
 
         if (!validateTablePin(pin)) {
-          setError('PIN inválido')
-          resolve({ success: false, error: 'PIN inválido' })
+          const code: PinErrorCode = 'INVALID_PIN'
+          setError(code)
+          resolve({ success: false, error: code })
           return
         }
 
@@ -40,15 +52,16 @@ export function usePinSubmission(socket: Socket | null) {
           if (response.success || response.tableId) {
             resolve({ success: true })
           } else {
-            setError('No se pudo asignar el árbitro')
-            resolve({ success: false, error: 'No se pudo asignar el árbitro' })
+            const code: PinErrorCode = 'REF_ASSIGN_FAILED'
+            setError(code)
+            resolve({ success: false, error: code })
           }
         }
 
         const handleError = (err: { code: string; message: string }) => {
           cleanup()
-          setError(err.message)
-          resolve({ success: false, error: err.message })
+          setError(err.code)
+          resolve({ success: false, error: err.code })
         }
 
         let cleanupCalled = false
@@ -70,15 +83,17 @@ export function usePinSubmission(socket: Socket | null) {
         // Timeout fallback — resolve as FAILURE, never assume success
         const timeoutId = setTimeout(() => {
           cleanup()
-          setError('Tiempo de espera agotado')
-          resolve({ success: false, error: 'Timeout' })
+          const code: PinErrorCode = 'TIMEOUT'
+          setError(code)
+          resolve({ success: false, error: code })
         }, 5000)
 
         // Handle socket disconnect during submission
         const handleDisconnect = () => {
           cleanup()
-          setError('Conexión perdida')
-          resolve({ success: false, error: 'Disconnected' })
+          const code: PinErrorCode = 'DISCONNECTED'
+          setError(code)
+          resolve({ success: false, error: code })
         }
 
         socket.on('disconnect', handleDisconnect)

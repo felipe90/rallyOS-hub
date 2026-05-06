@@ -2,10 +2,11 @@
  * Match config validation
  *
  * Pure functions for validating match configuration.
- * No React dependencies - testable in isolation.
+ * Uses i18nText singleton — no React dependencies.
  */
 
 import type { MatchConfig } from '@shared/types'
+import { i18nText } from '@/i18n'
 
 export const MIN_POINTS_PER_SET = 1
 export const MAX_POINTS_PER_SET = 99
@@ -20,29 +21,29 @@ export function validateMatchConfig(config: Partial<MatchConfig>): { valid: bool
 
   if (config.pointsPerSet !== undefined) {
     if (config.pointsPerSet < MIN_POINTS_PER_SET || config.pointsPerSet > MAX_POINTS_PER_SET) {
-      errors.push(`Puntos por set debe estar entre ${MIN_POINTS_PER_SET} y ${MAX_POINTS_PER_SET}`)
+      errors.push(i18nText('validationPointsPerSetRange', { min: MIN_POINTS_PER_SET, max: MAX_POINTS_PER_SET }))
     }
   }
 
   if (config.bestOf !== undefined) {
     if (config.bestOf < MIN_BEST_OF || config.bestOf > MAX_BEST_OF) {
-      errors.push(`Mejor de debe estar entre ${MIN_BEST_OF} y ${MAX_BEST_OF}`)
+      errors.push(i18nText('validationBestOfRange', { min: MIN_BEST_OF, max: MAX_BEST_OF }))
     }
     if (config.bestOf % 2 === 0) {
-      errors.push('Mejor de debe ser un número impar')
+      errors.push(i18nText('validationBestOfOdd'))
     }
   }
 
   if (config.minDifference !== undefined && config.minDifference < 1) {
-    errors.push('Diferencia mínima debe ser al menos 1')
+    errors.push(i18nText('validationMinDifference'))
   }
 
   if (config.handicapA !== undefined && (config.handicapA < 0 || config.handicapA > 20)) {
-    errors.push('Handicap A debe estar entre 0 y 20')
+    errors.push(i18nText('validationHandicapARange'))
   }
 
   if (config.handicapB !== undefined && (config.handicapB < 0 || config.handicapB > 20)) {
-    errors.push('Handicap B debe estar entre 0 y 20')
+    errors.push(i18nText('validationHandicapBRange'))
   }
 
   return { valid: errors.length === 0, errors }

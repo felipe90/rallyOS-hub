@@ -1,3 +1,4 @@
+import { useI18n } from '@/i18n';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { ScoreChange } from '@shared/types';
 import { Body, Caption } from '../../atoms/Typography';
@@ -19,6 +20,7 @@ export function HistoryDrawer({
   onUndo,
   className = '',
 }: HistoryDrawerProps) {
+  const { i18nText } = useI18n();
   return (
     <AnimatePresence>
       {isOpen && (
@@ -45,7 +47,7 @@ export function HistoryDrawer({
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
           >
             <div className="flex items-center justify-between p-4 bg-surface-low">
-              <Body className="font-medium text-text-h">Historial</Body>
+              <Body className="font-medium text-text-h">{i18nText('historyDrawerTitle')}</Body>
               <button
                 className="p-2 rounded-[--radius-md] hover:bg-surface transition-colors"
                 onClick={onClose}
@@ -57,7 +59,7 @@ export function HistoryDrawer({
             <div className="flex-1 overflow-y-auto">
               {events.length === 0 ? (
                 <div className="flex items-center justify-center h-full p-8">
-                  <Body className="text-text/50">Sin eventos aún</Body>
+                  <Body className="text-text/50">{i18nText('historyNoEventsYet')}</Body>
                 </div>
               ) : (
                 <div className="flex flex-col">
@@ -83,10 +85,10 @@ export function HistoryDrawer({
                               {event.pointsAfter.a} - {event.pointsAfter.b}
                             </span>
                             <Caption className="text-text/50">
-                              {event.player === 'A' ? 'Player A' : 'Player B'}
+                              {event.player === 'A' ? i18nText('commonPlayerA') : i18nText('commonPlayerB')}
                               {' · '}
-                              {event.action === 'POINT' ? 'Punto' : 
-                                event.action === 'SET_WON' ? 'Set ganado' : 'Corrección'}
+                              {event.action === 'POINT' ? i18nText('historyEventTypePoint') : 
+                                event.action === 'SET_WON' ? i18nText('historyEventTypeSetWon') : i18nText('historyEventTypeCorrection')}
                             </Caption>
                           </div>
                           

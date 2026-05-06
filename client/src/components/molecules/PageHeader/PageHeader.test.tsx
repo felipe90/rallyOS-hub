@@ -15,13 +15,13 @@ describe('PageHeader', () => {
   })
 
   it('shows ConnectionStatus by default (showStatus=true)', () => {
-    renderWithProviders(<PageHeader title="Test" showStatus={true} />)
-    expect(screen.getByText('Conectado')).toBeInTheDocument()
+    renderWithProviders(<PageHeader title="Test" showStatus={true} connectionLabels={{ connected: 'Connected' }} />)
+    expect(screen.getByText('Connected')).toBeInTheDocument()
   })
 
   it('hides ConnectionStatus when showStatus=false', () => {
-    renderWithProviders(<PageHeader title="Test" showStatus={false} />)
-    expect(screen.queryByText('Conectado')).not.toBeInTheDocument()
+    renderWithProviders(<PageHeader title="Test" showStatus={false} connectionLabels={{ connected: 'Connected' }} />)
+    expect(screen.queryByText('Connected')).not.toBeInTheDocument()
   })
 
   it('renders action slots correctly', () => {

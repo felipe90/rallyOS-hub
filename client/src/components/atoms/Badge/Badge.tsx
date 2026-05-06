@@ -46,18 +46,18 @@ export function Badge({ status = 'default', children, className = '', dot = fals
 }
 
 /* Convenience components for common badge types */
-export function WaitingBadge({ className = '' }: { className?: string }) {
-  return <Badge status="waiting" className={className} dot>Waiting</Badge>;
+export function WaitingBadge({ label, className = '' }: { label: string; className?: string }) {
+  return <Badge status="waiting" className={className} dot>{label}</Badge>;
 }
 
-export function ConfiguringBadge({ className = '' }: { className?: string }) {
-  return <Badge status="configuring" className={className} dot>Configuring</Badge>;
+export function ConfiguringBadge({ label, className = '' }: { label: string; className?: string }) {
+  return <Badge status="configuring" className={className} dot>{label}</Badge>;
 }
 
-export function LiveBadge({ className = '' }: { className?: string }) {
-  return <Badge status="live" className={className} dot>Live</Badge>;
+export function LiveBadge({ label, className = '' }: { label: string; className?: string }) {
+  return <Badge status="live" className={className} dot>{label}</Badge>;
 }
 
-export function FinishedBadge({ className = '' }: { className?: string }) {
-  return <Badge status="finished" className={className} dot>Finished</Badge>;
+export function FinishedBadge({ label, className = '' }: { label: string; className?: string }) {
+  return <Badge status="finished" className={className} dot>{label}</Badge>;
 }

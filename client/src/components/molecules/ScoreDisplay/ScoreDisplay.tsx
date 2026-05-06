@@ -6,6 +6,7 @@ import { Body } from '../../atoms/Typography';
 interface ScoreDisplayProps {
   score: number;
   player: 'A' | 'B';
+  label?: string;
   meta?: string;
   serving?: boolean;
   winner?: boolean;
@@ -14,6 +15,7 @@ interface ScoreDisplayProps {
 export function ScoreDisplay({ 
   score, 
   player, 
+  label,
   meta, 
   serving = false,
   winner = false,
@@ -43,7 +45,7 @@ export function ScoreDisplay({
       
       <div className="flex items-center gap-2">
         <span className="font-heading text-lg font-medium text-text-h">
-          Player {player}
+          {label || `Player ${player}`}
         </span>
         {serving && (
           <span className="w-2 h-2 bg-amber rounded-full animate-pulse" />
@@ -62,28 +64,33 @@ interface ScorePairProps {
   score: Score;
   serving: 'A' | 'B';
   playerNames: { a: string; b: string };
+  labelA?: string;
+  labelB?: string;
+  vsLabel?: string;
 }
 
-export function ScorePair({ score, serving, playerNames }: ScorePairProps) {
+export function ScorePair({ score, serving, playerNames, labelA, labelB, vsLabel }: ScorePairProps) {
   const currentPoints = score.a + score.b;
   
   return (
     <div className="flex items-center justify-center gap-8 landscape:gap-16">
       <ScoreDisplay 
         score={score.a} 
-        player="A" 
+        player="A"
+        label={labelA}
         meta={playerNames.a}
         serving={serving === 'A'}
       />
       
       <div className="flex flex-col items-center gap-1 px-4">
-        <Body className="text-text/50 text-xl landscape:text-2xl">vs</Body>
+        <Body className="text-text/50 text-xl landscape:text-2xl">{vsLabel || 'vs'}</Body>
         <Body className="text-text/70 text-sm landscape:text-lg">#{currentPoints}</Body>
       </div>
       
       <ScoreDisplay 
         score={score.b} 
-        player="B" 
+        player="B"
+        label={labelB}
         meta={playerNames.b}
         serving={serving === 'B'}
       />

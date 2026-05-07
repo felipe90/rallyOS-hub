@@ -1,30 +1,12 @@
-# Host Header Validation
+# Delta for Host Header Validation
 
-## Purpose
-
-Prevent Host header injection attacks by validating the Host header against expected values.
-
-## Requirements
-
-### Requirement: Host header validated
-
-The server SHALL validate the Host header on incoming HTTP requests.
-
-#### Scenario: Valid host accepted
-
-- GIVEN a request with Host header matching an allowed origin
-- WHEN the server processes it
-- THEN it SHALL respond normally
-
-#### Scenario: Invalid host rejected
-
-- GIVEN a request with Host header `evil.com`
-- WHEN the server processes it
-- THEN it SHALL respond with HTTP 400 Bad Request
+## MODIFIED Requirements
 
 ### Requirement: Host whitelist configurable
 
-The allowed Host values SHALL derive from `HUB_ALLOWED_ORIGINS`, falling back to defaults. Defaults SHALL include `HUB_DOMAIN` (default: `rallyos-hub.local`) alongside `localhost`, `127.0.0.1`, `orangepi.local`, and `rallyos.local`. CORS default origins SHALL be computed dynamically: base static origins (`localhost:*`, `127.0.0.1:*`, `orangepi.local:3000`), plus `rallyos.local:3000` (latent bug fix — was never in CORS despite dnsmasq config), plus `http://{HUB_DOMAIN}:3000` and `https://{HUB_DOMAIN}:3000` (dynamic, derived from env var).
+The allowed Host values SHALL derive from `HUB_ALLOWED_ORIGINS`, falling back to defaults. Defaults SHALL include `HUB_DOMAIN` (default: `rallyos-hub.local`) alongside `localhost`, `127.0.0.1`, `orangepi.local`, and the newly-added `rallyos.local`. CORS default origins SHALL be computed dynamically: base static origins (`localhost:*`, `127.0.0.1:*`, `orangepi.local:3000`), plus `rallyos.local:3000` (latent bug fix — was never in CORS despite dnsmasq config), plus `http://{HUB_DOMAIN}:3000` and `https://{HUB_DOMAIN}:3000` (dynamic, derived from env var).
+
+(Previously: defaults were `localhost`, `127.0.0.1`, and `orangepi.local` only. `rallyos.local` was configured in dnsmasq but MISSING from CORS — a latent bug. No `HUB_DOMAIN` env var existed.)
 
 #### Scenario: Default hosts include rallyos-hub.local
 
@@ -63,6 +45,8 @@ The allowed Host values SHALL derive from `HUB_ALLOWED_ORIGINS`, falling back to
 - GIVEN `HUB_DOMAIN=custom.local`
 - WHEN the server constructs allowed hosts and origins
 - THEN `custom.local` SHALL be used and `rallyos-hub.local` SHALL NOT appear
+
+## ADDED Requirements
 
 ### Requirement: HUB_DOMAIN env var with fallback
 

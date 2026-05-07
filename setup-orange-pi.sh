@@ -246,6 +246,7 @@ show_next_steps() {
     echo ""
     echo -e "  2. Access from browser:"
     echo -e "     ${CYAN}https://localhost:3000${NC} (on Orange Pi)"
+    echo -e "     ${CYAN}https://rallyos-hub.local:3000${NC} (primary domain)"
     echo -e "     ${CYAN}https://orangepi.local:3000${NC} (from other machine)"
     echo ""
     echo -e "  3. Monitor:"

@@ -11,7 +11,7 @@ import helmet from 'helmet';
 import path from 'path';
 import fs from 'fs';
 import { logger } from './utils/logger';
-import { getAllowedOrigins } from './config/allowedOrigins';
+import { getAllowedOrigins, getHubDomain } from './config/allowedOrigins';
 
 const app = express();
 
@@ -24,7 +24,8 @@ const allowedHosts = getAllowedOrigins()
 
 app.use((req, res, next) => {
   const host = req.hostname;
-  if (host && !allowedHosts.includes(host) && !host.startsWith('192.168.') && host !== '10.0.0.1') {
+  const hubDomain = getHubDomain();
+  if (host && !allowedHosts.includes(host) && host !== hubDomain && !host.startsWith('192.168.') && host !== '10.0.0.1') {
     logger.warn({ host }, 'Blocked invalid Host header');
     res.status(400).json({ error: 'Invalid host' });
     return;

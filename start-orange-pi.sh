@@ -122,6 +122,7 @@ main() {
         echo ""
         echo -e "Access from:"
         echo -e "  Local:     ${BLUE}https://localhost:3000${NC}"
+        echo -e "  Domain:    ${BLUE}https://rallyos-hub.local:3000${NC}"
         echo -e "  AP Net:    ${BLUE}https://192.168.4.1:3000${NC}"
         echo -e "  Main WiFi: ${BLUE}https://${PI_IP}:3000${NC}"
         echo ""

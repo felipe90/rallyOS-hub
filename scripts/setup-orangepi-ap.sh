@@ -82,6 +82,7 @@ listen-address=${AP_IP}
 dhcp-range=${DHCP_RANGE_START},${DHCP_RANGE_END},255.255.255.0,24h
 domain=local
 address=/rallyos.local/${AP_IP}
+address=/rallyos-hub.local/${AP_IP}
 EOF
 
 # 7. Configure static IP (persistent in /etc/network/interfaces)

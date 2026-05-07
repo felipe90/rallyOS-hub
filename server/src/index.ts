@@ -11,6 +11,7 @@ import { createSocketServer } from './socket';
 import { TableManager } from './domain/tableManager';
 import { logger } from './utils/logger';
 import { initOwnerPin } from './config/ownerPin';
+import { getHubDomain } from './config/allowedOrigins';
 
 // Owner PIN initialization
 // If set via env → use it (production). If not → generate random (plug-and-play Orange Pi).
@@ -34,6 +35,7 @@ const hubConfig = {
   ssid: process.env.HUB_SSID || 'RallyOS',
   ip: process.env.HUB_IP || '192.168.4.1',
   port: parseInt(process.env.PORT || '3000'),
+  domain: getHubDomain(),
   ownerPin,
 };
 
@@ -45,6 +47,7 @@ createSocketServer(io, tableManager, ownerPin);
 httpsServer.listen(PORT, () => {
   logger.info({ port: PORT }, 'rallyOS-hub is live (SECURE)');
   logger.info({ url: `https://localhost:${PORT}` }, 'Local URL');
+  logger.info({ url: `https://${hubConfig.domain}:${PORT}` }, 'Domain URL');
   logger.info({ url: `https://YOUR_IP:${PORT}` }, 'Network URL - Connect mobile phone to same WiFi');
 });
 

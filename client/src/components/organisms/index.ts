@@ -6,3 +6,6 @@ export type { DashboardGridProps, DashboardHeaderProps } from './DashboardGrid'
 
 export { HistoryDrawer } from './HistoryDrawer'
 export type { HistoryDrawerProps } from './HistoryDrawer'
+
+export { KioskTableCard } from './KioskTableCard'
+export type { KioskTableCardProps } from './KioskTableCard'

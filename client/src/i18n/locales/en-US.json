@@ -107,5 +107,10 @@
   "errorAuthInvalidPin": "Incorrect owner PIN",
   "errorAuthInvalidPinFormat": "PIN must be exactly 8 digits",
   "errorAuthConnectionError": "Connection error",
-  "errorAuthValidationError": "Validation error. Check the entered PIN."
+  "errorAuthValidationError": "Validation error. Check the entered PIN.",
+  "kioskPageTitle": "Scoreboard",
+  "kioskNoActiveMatches": "No active matches",
+  "kioskStatusLive": "LIVE",
+  "kioskStatusPaused": "Paused",
+  "kioskStatusFinished": "Finished"
 }

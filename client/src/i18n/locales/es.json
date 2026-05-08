@@ -107,5 +107,10 @@
   "errorAuthInvalidPin": "PIN de organizador incorrecto",
   "errorAuthInvalidPinFormat": "El PIN debe tener exactamente 8 dígitos",
   "errorAuthConnectionError": "Error de conexión",
-  "errorAuthValidationError": "Error de validación. Verificá el PIN ingresado."
+  "errorAuthValidationError": "Error de validación. Verificá el PIN ingresado.",
+  "kioskPageTitle": "Marcador",
+  "kioskNoActiveMatches": "No hay partidos activos",
+  "kioskStatusLive": "EN VIVO",
+  "kioskStatusPaused": "Pausado",
+  "kioskStatusFinished": "Finalizado"
 }

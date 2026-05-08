@@ -1,0 +1,1 @@
+export { KioskAllTablesPage } from './KioskAllTablesPage'

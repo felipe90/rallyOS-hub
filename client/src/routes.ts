@@ -9,6 +9,7 @@ export const Routes = {
   DASHBOARD_OWNER: '/dashboard/owner',
   DASHBOARD_REFEREE: '/dashboard/referee',
   DASHBOARD_SPECTATOR: '/dashboard/spectator',
+  SCOREBOARD_KIOSK: '/scoreboard/all/kiosk',
   SCOREBOARD_REFEREE: '/scoreboard/:tableId/referee',
   SCOREBOARD_VIEW: '/scoreboard/:tableId/view',
   HISTORY: '/history',

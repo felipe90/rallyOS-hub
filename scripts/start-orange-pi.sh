@@ -117,6 +117,14 @@ main() {
         PI_IP=$(hostname -I | awk '{print $1}')
         
         print_success "Service is running!"
+
+        # Restart HDMI kiosk so it reconnects to the fresh hub
+        if systemctl is-enabled rallyos-kiosk --quiet 2>/dev/null; then
+            print_step "Restarting HDMI kiosk display..."
+            systemctl restart rallyos-kiosk 2>/dev/null || true
+            print_success "Kiosk restarted"
+        fi
+
         echo ""
         echo -e "${GREEN}══════════════════════════════════════════════════════════${NC}"
         echo -e "${GREEN}✓ RallyOS Hub is ready!${NC}"

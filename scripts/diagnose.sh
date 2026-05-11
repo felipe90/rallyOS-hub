@@ -7,7 +7,8 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+REPO_PATH="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$REPO_PATH"
 
 # Colors
 GREEN='\033[0;32m'

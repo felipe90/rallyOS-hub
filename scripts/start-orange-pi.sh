@@ -74,17 +74,15 @@ main() {
     check_compose
     check_docker_daemon
 
-    # We are in the project root ($SCRIPT_DIR)
+    # We are in the project root ($REPO_PATH)
     # Check for .env in the ROOT (same as Mac)
     if [ ! -f ".env" ]; then
-        print_error ".env file not found in project root."
-        print_step "Creating .env from server/.env.example..."
-        if [ -f "server/.env.example" ]; then
-            cp server/.env.example .env
-            print_error ".env created. Use 'cat > .env << 'EOF'' to edit it."
-            exit 1
+        print_step ".env not found — creating from .env.example..."
+        if [ -f ".env.example" ]; then
+            cp .env.example .env
+            print_success ".env created (PIN: 12345678, Domain: rallyos-hub.local)"
         else
-            print_error "server/.env.example not found. Cannot proceed."
+            print_error ".env.example not found. Cannot proceed."
             exit 1
         fi
     fi

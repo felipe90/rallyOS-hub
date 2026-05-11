@@ -1,8 +1,6 @@
 # docker-compose.yml for rallyOS-hub
 # Production-ready configuration for Orange Pi and other ARM devices
 
-version: '3.8'
-
 services:
   hub:
     container_name: rallyo-hub

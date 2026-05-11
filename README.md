@@ -59,7 +59,7 @@ Real-time scoreboard system for rally events with multi-table support, PWA, offl
 
 ```bash
 # One command — installs deps, generates SSL certs, starts both
-./dev.sh
+./scripts/dev.sh
 
 # Or manually:
 # Terminal 1 — Server
@@ -100,7 +100,7 @@ Copy `.env.example` to `.env` and adjust:
 ### Quick start (macOS / Linux / ARM)
 
 ```bash
-./start.sh
+./scripts/start.sh
 ```
 
 This script:
@@ -134,21 +134,25 @@ RallyOS Hub is designed to run on **Orange Pi Zero 3** (or Zero 2W) as a standal
 ### One-time setup
 
 ```bash
-# On the Orange Pi
-./setup-orange-pi.sh
+# On the Orange Pi — one script does EVERYTHING
+sudo ./scripts/setup-orangepi-ap.sh
 ```
 
-This interactive script:
-- Detects the Orange Pi model
-- Installs Docker + Docker Compose
-- Enables Docker on boot
-- Creates `.env` from template
-- Pre-pulls base Docker images
+This single script handles:
+- System updates
+- Docker + Docker Compose installation
+- `.env` creation from template
+- **WiFi Access Point** (hostapd) — creates `RallyOS-Table1` SSID
+- **DHCP + DNS** (dnsmasq) — assigns IPs, resolves `rallyos-hub.local`
+- **Captive Portal** (iptables) — auto-redirects WiFi clients to the hub
+- **HDMI Kiosk** (Chromium + X11) — auto-starts the scoreboard on connected display
+
+Safe to re-run — skips what's already installed.
 
 ### Start the hub
 
 ```bash
-./start-orange-pi.sh
+./scripts/start-orange-pi.sh
 ```
 
 The hub will be accessible at:
@@ -159,27 +163,10 @@ The hub will be accessible at:
 
 > ℹ️ Use the domain URL (`rallyos-hub.local`) for PWA installation. It survives IP changes — if the Orange Pi gets a new IP via DHCP, you only need to restart dnsmasq. PWAs installed via IP address will break on IP change.
 
-### Access Point + DNS mode
-
-```bash
-sudo ./scripts/setup-orangepi-ap.sh
-```
-
-Configures the USB WiFi adapter (RTL8821CU) as an access point with:
-- **DHCP server** (dnsmasq) — assigns IPs to connected clients
-- **Local DNS** — resolves `rallyos-hub.local` and `rallyos.local` to the Orange Pi IP
-- **NAT forwarding** (iptables) — routes traffic to internet if available
-- **Persistent config** across reboots
-
-**How DNS works**: When clients connect to the Orange Pi's WiFi, they receive the Orange Pi as their DNS server. dnsmasq intercepts queries for `rallyos-hub.local` and `rallyos.local`, resolving them to the Orange Pi's IP (`192.168.4.1` in AP mode). This means:
-- ✅ No `/etc/hosts` editing needed on client devices
-- ✅ Works on phones, tablets, laptops automatically
-- ✅ PWA survives IP changes (just restart dnsmasq)
-
 ### Diagnostics
 
 ```bash
-./diagnose.sh
+./scripts/diagnose.sh
 ```
 
 Non-interactive TTL-safe script that checks: system info, Docker status, disk usage, memory, network, container health, and recent logs.
@@ -223,7 +210,7 @@ grep "address=" /etc/dnsmasq.conf
 | **PWA won't install** | Browser shows no install prompt | Ensure you're accessing via `https://rallyos-hub.local:3000` (not IP). Accept the SSL warning first. PWA requires HTTPS + valid manifest. |
 | **CORS errors in browser console** | `Access-Control-Allow-Origin` errors | Check `HUB_ALLOWED_ORIGINS` includes your domain in `.env` or `docker-compose.yml`. Default: includes `rallyos-hub.local`, `rallyos.local`, and `orangepi.local`. |
 | **SSL certificate warning won't go away** | Every visit shows cert error | Expected behavior. Self-signed certs always trigger warnings in browsers. On first visit, click "Advanced" → "Proceed to rallyos-hub.local (unsafe)". The PWA will remember the exception after installation. |
-| **Container won't start** | `docker compose ps` shows `Exit` | Run `./diagnose.sh` for full system check. Check logs: `docker compose -f docker-compose.yml logs --tail=50 hub`. Common: port 3000 in use, missing `.env` file, Docker not running. |
+| **Container won't start** | `docker compose ps` shows `Exit` | Run `./scripts/diagnose.sh` for full system check. Check logs: `docker compose -f docker-compose.yml logs --tail=50 hub`. Common: port 3000 in use, missing `.env` file, Docker not running. |
 | **PWA installed with old IP, now broken** | App opens blank or error page | The old PWA was installed with an IP address URL. Uninstall it (long-press icon → Uninstall), then re-install from `https://rallyos-hub.local:3000`. The domain-based PWA survives IP changes. |
 
 ## Authentication
@@ -351,20 +338,20 @@ rallyOS-hub/
 │       ├── socket.ts     # Socket.IO initialization
 │       └── index.ts      # Entry point
 ├── shared/               # Shared types, events, validation (SSoT)
-├── scripts/              # Utility scripts
-│   └── setup-orangepi-ap.sh  # Orange Pi AP configuration
+├── scripts/               # All utility scripts
+│   ├── setup-orangepi-ap.sh  # Orange Pi full setup (Docker + AP + Kiosk)
+│   ├── start-orange-pi.sh    # Orange Pi startup
+│   ├── start.sh              # Docker production launcher
+│   ├── dev.sh                # Local development launcher
+│   ├── diagnose.sh           # Orange Pi diagnostics
+│   ├── start-kiosk.sh        # Chromium kiosk launcher
+│   └── rallyos-kiosk.service # systemd unit for kiosk
 ├── openspec/             # SDD documentation
 ├── docs/                 # Additional documentation
 ├── .github/workflows/    # CI/CD pipelines
 ├── .husky/               # Git hooks
-│
 ├── docker-compose.yml    # Production Docker setup
 ├── Dockerfile            # Multi-stage ARM-compatible build
-├── dev.sh                # Local development launcher
-├── start.sh              # Docker production launcher
-├── setup-orange-pi.sh    # Orange Pi one-time setup
-├── start-orange-pi.sh    # Orange Pi startup
-├── diagnose.sh           # Orange Pi diagnostics
 └── .env.example          # Environment template
 ```
 

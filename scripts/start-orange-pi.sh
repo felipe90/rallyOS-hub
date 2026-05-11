@@ -37,7 +37,7 @@ print_error() {
 # --- CHECKS ---
 check_docker() {
     if ! command -v docker &> /dev/null; then
-        print_error "Docker not found. Please run setup-orange-pi.sh first."
+        print_error "Docker not found. Please run setup-orangepi-ap.sh first."
         exit 1
     fi
     print_success "Docker found: $(docker --version)"

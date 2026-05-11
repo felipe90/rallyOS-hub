@@ -231,7 +231,7 @@ check_container() {
     if docker images | grep -q "rallyos-hub"; then
         check_pass "Docker image found (rallyos-hub)"
     else
-        check_warn "Docker image not found (run './start-orange-pi.sh' to build)"
+        check_warn "Docker image not found (run './scripts/start-orange-pi.sh' to build)"
     fi
     
     # Check if container is running

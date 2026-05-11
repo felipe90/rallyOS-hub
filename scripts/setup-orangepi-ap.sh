@@ -160,10 +160,11 @@ else
         echo "  Stopping systemd-resolved (port 53 conflict)..."
         systemctl stop systemd-resolved
         systemctl disable systemd-resolved
-        # Without systemd-resolved, resolv.conf is broken — fix it so the host can resolve
-        rm -f /etc/resolv.conf
-        echo "nameserver 8.8.8.8" > /etc/resolv.conf
     fi
+
+    # Ensure host DNS works without systemd-resolved (always, not just first run)
+    rm -f /etc/resolv.conf
+    echo "nameserver 8.8.8.8" > /etc/resolv.conf
 
     # Docker daemon must use external DNS directly (dnsmasq catch-all breaks registry pulls)
     echo "  Configuring Docker DNS..."

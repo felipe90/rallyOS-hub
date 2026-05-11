@@ -131,7 +131,30 @@ systemctl start dnsmasq
 ip addr add ${AP_IP}/24 dev ${AP_INTERFACE} 2>/dev/null || true
 ip link set ${AP_INTERFACE} up
 
-# 11. Final Check
+# 11. Install & enable Chromium Kiosk service (HDMI display)
+echo ""
+echo "🖥️  Setting up Chromium Kiosk (HDMI display)..."
+
+# Detect repo path dynamically (where this script lives)
+REPO_PATH="$(cd "$(dirname "$0")/.." && pwd)"
+
+# Install X11 + Chromium
+echo "📦 Installing X11 and Chromium..."
+apt-get install -y -qq xserver-xorg xinit chromium 2>/dev/null || {
+    echo "⚠️  chromium package not found, trying chromium-browser..."
+    apt-get install -y -qq chromium-browser 2>/dev/null || echo "⚠️  No Chromium package found — install manually"
+}
+
+# Generate service file with actual path
+echo "📝 Installing kiosk systemd service..."
+sed "s|__REPO_PATH__|${REPO_PATH}|g" "${REPO_PATH}/scripts/rallyos-kiosk.service" \
+    > /etc/systemd/system/rallyos-kiosk.service
+
+systemctl daemon-reload
+systemctl enable rallyos-kiosk
+systemctl restart rallyos-kiosk 2>/dev/null || true
+
+# 12. Final Check
 echo ""
 echo "========================================="
 echo " ✅ Setup Complete!"
@@ -143,4 +166,5 @@ echo " Interface: ${AP_INTERFACE}"
 echo ""
 systemctl is-active hostapd --quiet && echo "✓ hostapd: RUNNING" || echo "✗ hostapd: FAILED"
 systemctl is-active dnsmasq --quiet && echo "✓ dnsmasq: RUNNING" || echo "✗ dnsmasq: FAILED"
+systemctl is-active rallyos-kiosk --quiet && echo "✓ rallyos-kiosk: RUNNING" || echo "✗ rallyos-kiosk: FAILED (check journalctl -u rallyos-kiosk)"
 echo "========================================="

@@ -32,9 +32,23 @@ if ! pgrep -x Xorg >/dev/null 2>&1; then
     sleep 3
 fi
 
+# Auto-detect Chromium binary (chromium on Armbian ARM64, chromium-browser on Debian x86)
+CHROMIUM_BIN=""
+for bin in chromium chromium-browser; do
+    if command -v "$bin" >/dev/null 2>&1; then
+        CHROMIUM_BIN="$bin"
+        break
+    fi
+done
+
+if [ -z "$CHROMIUM_BIN" ]; then
+    echo "[kiosk] FATAL: Chromium not found. Install with: sudo apt install chromium"
+    exit 1
+fi
+
 # Launch Chromium in kiosk mode
 echo "[kiosk] Launching Chromium kiosk → ${KIOSK_URL}"
-exec chromium-browser \
+exec "$CHROMIUM_BIN" \
     --kiosk \
     --no-first-run \
     --noerrdialogs \
@@ -45,7 +59,4 @@ exec chromium-browser \
     --disable-features=TranslateUI \
     --disk-cache-dir=/tmp/chromium-cache \
     --user-data-dir=/tmp/chromium-kiosk \
-    "${KIOSK_URL}" 2>&1 || {
-    echo "[kiosk] FATAL: Chromium not found. Install with: sudo apt install chromium-browser"
-    exit 1
-}
+    "${KIOSK_URL}" 2>&1

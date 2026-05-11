@@ -198,7 +198,7 @@ EOF
     cp /etc/dnsmasq.conf /etc/dnsmasq.conf.orig 2>/dev/null || true
     cat > /etc/dnsmasq.conf << EOF
 interface=${AP_INTERFACE}
-bind-interfaces
+bind-dynamic
 listen-address=${AP_IP}
 dhcp-range=${DHCP_RANGE_START},${DHCP_RANGE_END},255.255.255.0,24h
 domain=local

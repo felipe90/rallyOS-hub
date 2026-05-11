@@ -247,6 +247,9 @@ EOF
     systemctl enable dnsmasq
     systemctl start dnsmasq
 
+    # Re-assert host DNS — dnsmasq's start-resolvconf hook overwrites resolv.conf
+    echo "nameserver 8.8.8.8" > /etc/resolv.conf
+
     # Reload Docker to pick up daemon.json DNS config
     systemctl restart docker 2>/dev/null || true
 

@@ -50,7 +50,8 @@ COPY server/package*.json ./
 RUN npm cache clean --force
 
 # Install dependencies (including dev for TypeScript compilation)
-RUN npm ci --force
+# Skip Playwright browser download — we only need TypeScript compilation
+RUN PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm ci --force
 
 # Compile TypeScript to JavaScript (fresh compilation)
 RUN npm run build

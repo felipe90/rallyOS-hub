@@ -141,6 +141,14 @@ app.get('/api/owner-pin', (req, res) => {
   res.json({ pin, isRandom: true });
 });
 
+// Captive Portal redirect — redirects browser to the hub PWA
+// Typical flow: user connects to WiFi → OS detects captive portal → requests HTTP → redirected here
+app.get('/captive-portal', (req, res) => {
+  const domain = process.env.HUB_DOMAIN || 'rallyos-hub.local';
+  const port = process.env.HUB_PORT || '3000';
+  res.redirect(302, `https://${domain}:${port}`);
+});
+
 // SPA fallback — serve index.html for any unmatched route.
 // Express 5 uses path-to-regexp v8 which doesn't support bare '*'.
 // Using middleware instead of a route handler avoids the issue entirely.

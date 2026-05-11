@@ -1,0 +1,24 @@
+[Unit]
+Description=RallyOS Hub — Chromium Kiosk Display
+Documentation=https://github.com/rallyOS-hub
+After=docker.service network.target
+Wants=docker.service
+
+[Service]
+Type=simple
+User=root
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/root/.Xauthority
+ExecStartPre=/bin/sleep 10
+ExecStart=/bin/bash /home/orangepi/rallyOS-hub/scripts/start-kiosk.sh
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Prevent X11 and Chromium from being killed on session exit
+KillMode=process
+TimeoutStopSec=10
+
+[Install]
+WantedBy=multi-user.target

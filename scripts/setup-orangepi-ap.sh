@@ -83,6 +83,8 @@ dhcp-range=${DHCP_RANGE_START},${DHCP_RANGE_END},255.255.255.0,24h
 domain=local
 address=/rallyos.local/${AP_IP}
 address=/rallyos-hub.local/${AP_IP}
+# Captive Portal — catch all unresolved DNS queries
+address=/#/${AP_IP}
 EOF
 
 # 7. Configure static IP (persistent in /etc/network/interfaces)
@@ -110,6 +112,9 @@ iptables -F FORWARD 2>/dev/null || true
 iptables -t nat -A POSTROUTING -o ${WAN_INTERFACE} -j MASQUERADE
 iptables -A FORWARD -i ${WAN_INTERFACE} -o ${AP_INTERFACE} -m state --state RELATED,ESTABLISHED -j ACCEPT
 iptables -A FORWARD -i ${AP_INTERFACE} -o ${WAN_INTERFACE} -j ACCEPT
+
+# Captive Portal — redirect HTTP (port 80) to rallyOS-hub landing
+iptables -t nat -A PREROUTING -i ${AP_INTERFACE} -p tcp --dport 80 -j DNAT --to-destination ${AP_IP}:3000
 
 netfilter-persistent save
 

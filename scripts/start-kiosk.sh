@@ -50,6 +50,7 @@ fi
 echo "[kiosk] Launching Chromium kiosk → ${KIOSK_URL}"
 exec "$CHROMIUM_BIN" \
     --kiosk \
+    --no-sandbox \
     --no-first-run \
     --noerrdialogs \
     --disable-session-crashed-bubble \

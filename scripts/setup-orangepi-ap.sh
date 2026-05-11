@@ -155,6 +155,13 @@ else
     echo iptables-persistent iptables-persistent/autosave_v6 boolean true | debconf-set-selections 2>/dev/null || true
     DEBIAN_FRONTEND=noninteractive apt-get install -y -qq hostapd dnsmasq iptables-persistent net-tools
 
+    # Free port 53 from systemd-resolved
+    if systemctl is-active systemd-resolved --quiet 2>/dev/null; then
+        echo "  Stopping systemd-resolved (port 53 conflict)..."
+        systemctl stop systemd-resolved
+        systemctl disable systemd-resolved
+    fi
+
     systemctl stop hostapd 2>/dev/null || true
     systemctl stop dnsmasq 2>/dev/null || true
 
@@ -211,15 +218,18 @@ EOF
 
     netfilter-persistent save 2>/dev/null || echo "  (iptables-persistent NA — rules may not survive reboot)"
 
+    # Bring interface up BEFORE starting services (dnsmasq needs the IP to exist)
+    echo "  Bringing interface up..."
+    ip addr add ${AP_IP}/24 dev ${AP_INTERFACE} 2>/dev/null || true
+    ip link set ${AP_INTERFACE} up
+    sleep 1
+
     echo "  Starting AP services..."
     systemctl unmask hostapd 2>/dev/null || true
     systemctl enable hostapd
     systemctl start hostapd
     systemctl enable dnsmasq
     systemctl start dnsmasq
-
-    ip addr add ${AP_IP}/24 dev ${AP_INTERFACE} 2>/dev/null || true
-    ip link set ${AP_INTERFACE} up
 
     _step_ok
 fi

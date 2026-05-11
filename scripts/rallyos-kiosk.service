@@ -10,7 +10,7 @@ User=root
 Environment=DISPLAY=:0
 Environment=XAUTHORITY=/root/.Xauthority
 ExecStartPre=/bin/sleep 10
-ExecStart=/bin/bash /home/orangepi/rallyOS-hub/scripts/start-kiosk.sh
+ExecStart=/bin/bash /root/rallyOS-hub/scripts/start-kiosk.sh
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal

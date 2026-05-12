@@ -68,6 +68,10 @@ echo "[kiosk] Launching Chromium kiosk → ${KIOSK_URL}"
 matchbox-window-manager -use_titlebar no &
 sleep 1
 
+# Hide the mouse cursor immediately (kiosk mode)
+unclutter -idle 0 -root &
+sleep 0.5
+
 exec "$CHROMIUM_BIN" \
     --kiosk \
     --start-fullscreen \

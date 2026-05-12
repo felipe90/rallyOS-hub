@@ -1,7 +1,8 @@
 #!/bin/bash
 #
-# RallyOS Orange Pi Diagnostics Script - TTL Compatible
-# Non-interactive. No nano/vi references.
+# RallyOS Hub — Orange Pi Diagnostics
+# Quick health report. Run this when something breaks.
+# Usage: sudo ./scripts/diagnose.sh
 #
 
 set -e
@@ -18,313 +19,307 @@ RED='\033[0;31m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-CHECKS_PASSED=0
-CHECKS_FAILED=0
-CHECKS_WARNING=0
+PASS=0
+FAIL=0
+WARN=0
 
-print_header() {
+_ok()   { echo -e "  ${GREEN}✓${NC} $1"; ((PASS++)); }
+_bad()  { echo -e "  ${RED}✗${NC} $1"; ((FAIL++)); }
+_warn() { echo -e "  ${YELLOW}⚠${NC} $1"; ((WARN++)); }
+_info() { echo -e "  ${BLUE}ℹ${NC} $1"; }
+
+header() {
     echo -e "${CYAN}"
     echo "╔═══════════════════════════════════════════════════════════╗"
-    echo "║         RallyOS Hub - Diagnostic Report                   ║"
+    echo "║         RallyOS Hub — Diagnostic Report                  ║"
     echo "╚═══════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
-    echo "Generated: $(date)"
+    echo "Date: $(date)"
+    echo "Host: $(hostname) — $(uname -m)"
     echo ""
 }
 
-print_section() {
+section() {
     echo ""
-    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${BLUE}▶ $1${NC}"
-    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${CYAN}───${NC} ${BLUE}$1${NC} ${CYAN}─────────────────────────────────────────${NC}"
 }
 
-check_pass() {
-    echo -e "${GREEN}✓${NC} $1"
-    ((CHECKS_PASSED++))
-}
+# ── DNS ─────────────────────────────────────────────────────
+check_dns() {
+    section "DNS"
 
-check_fail() {
-    echo -e "${RED}✗${NC} $1"
-    ((CHECKS_FAILED++))
-}
-
-check_warn() {
-    echo -e "${YELLOW}⚠${NC} $1"
-    ((CHECKS_WARNING++))
-}
-
-info() {
-    echo -e "${BLUE}ℹ${NC} $1"
-}
-
-# System Information
-check_system() {
-    print_section "System Information"
-    echo "OS: $(uname -s)"
-    echo "Kernel: $(uname -r)"
-    echo "Architecture: $(uname -m)"
-    
-    if [ -f /proc/device-tree/model ]; then
-        echo "Hardware: $(cat /proc/device-tree/model)"
-        check_pass "Orange Pi detected"
+    # resolv.conf
+    if grep -q "^nameserver 8.8.8.8" /etc/resolv.conf 2>/dev/null; then
+        _ok "resolv.conf → 8.8.8.8"
     else
-        check_warn "Could not detect Orange Pi model"
+        _bad "resolv.conf missing or wrong DNS (check: cat /etc/resolv.conf)"
     fi
-    
-    if [ -f /etc/os-release ]; then
-        . /etc/os-release
-        echo "OS Release: $PRETTY_NAME"
+
+    # Can resolve
+    if nslookup google.com >/dev/null 2>&1 || getent hosts google.com >/dev/null 2>&1; then
+        _ok "DNS resolution works"
+    else
+        _bad "Cannot resolve external hosts"
+    fi
+
+    # Docker daemon.json
+    if grep -q '"8.8.8.8"' /etc/docker/daemon.json 2>/dev/null; then
+        _ok "Docker daemon.json has external DNS"
+    else
+        _warn "Docker daemon.json missing DNS config — registry pulls may fail"
     fi
 }
 
-# Environment Files
-check_env_files() {
-    print_section "Environment Files"
-    
-    if [ -f "docker-compose.yml" ]; then
-        check_pass "docker-compose.yml found"
+# ── dnsmasq ─────────────────────────────────────────────────
+check_dnsmasq() {
+    section "dnsmasq (WiFi AP + DHCP)"
+
+    if systemctl is-active dnsmasq --quiet 2>/dev/null; then
+        _ok "dnsmasq is running"
     else
-        check_fail "docker-compose.yml not found"
+        _bad "dnsmasq is NOT running"
+        journalctl -u dnsmasq --no-pager -n 3 2>/dev/null | while IFS= read -r line; do
+            echo "    $line"
+        done
+        return
     fi
-    
-    if [ -f "Dockerfile" ]; then
-        check_pass "Dockerfile found"
+
+    grep -q "bind-dynamic" /etc/dnsmasq.conf 2>/dev/null \
+        && _ok "bind-dynamic (survives boot without IP)" \
+        || _warn "Not using bind-dynamic — may fail at boot"
+
+    grep -q "address=/#/" /etc/dnsmasq.conf 2>/dev/null \
+        && _ok "Catch-all active (captive portal)" \
+        || _warn "No catch-all — captive portal won't redirect"
+
+    grep -q "address=/rallyos-hub.local" /etc/dnsmasq.conf 2>/dev/null \
+        && _ok "rallyos-hub.local resolves" \
+        || _warn "rallyos-hub.local not configured"
+}
+
+# ── Firewall ────────────────────────────────────────────────
+check_iptables() {
+    section "iptables (NAT + redirect)"
+
+    # Port 80 → 3000 redirect (captive portal)
+    if iptables -t nat -L PREROUTING 2>/dev/null | grep -q "dpt:80.*192.168.4.1:3000"; then
+        _ok "Port 80 → 192.168.4.1:3000 redirect"
     else
-        check_fail "Dockerfile not found"
+        _bad "Missing port 80 redirect — captive portal won't intercept"
     fi
-    
-    if [ -f ".env" ]; then
-        check_pass ".env file exists (root level)"
-        echo "  TOURNAMENT_OWNER_PIN: $(grep TOURNAMENT_OWNER_PIN .env 2>/dev/null | cut -d= -f2 || echo 'not set')"
-        echo "  PORT: $(grep '^PORT=' .env 2>/dev/null | cut -d= -f2 || echo '3000')"
+
+    # DNS redirect (Android fix)
+    if iptables -t nat -L PREROUTING 2>/dev/null | grep -q "dpt:53.*REDIRECT"; then
+        _ok "DNS redirect (port 53) — Android compatible"
     else
-        check_warn ".env not found (create with: cat > .env << 'EOF')"
+        _warn "No DNS redirect — Android may ignore captive portal"
     fi
 }
 
-# Docker Check
-check_docker() {
-    print_section "Docker Installation"
-    
-    if command -v docker &> /dev/null; then
-        DOCKER_VERSION=$(docker --version 2>/dev/null)
-        check_pass "Docker installed: $DOCKER_VERSION"
-    else
-        check_fail "Docker not found"
-        return 1
-    fi
-    
-    if docker info &> /dev/null; then
-        check_pass "Docker daemon is running"
-    else
-        check_fail "Docker daemon is NOT running"
-        return 1
-    fi
-    
-    # Check for compose v2 (preferred)
-    if docker compose version &> /dev/null; then
-        check_pass "Docker Compose v2 (docker compose)"
-    elif command -v docker-compose &> /dev/null; then
-        check_pass "Docker Compose v1 (docker-compose)"
-    else
-        check_fail "Docker Compose not found"
-        return 1
-    fi
-}
+# ── AP Interface ────────────────────────────────────────────
+check_ap_interface() {
+    section "WiFi AP Interface (wlx90de8018370a)"
 
-# Disk Space
-check_disk() {
-    print_section "Storage"
-    
-    DISK_USAGE=$(df -h / | tail -1 | awk '{print $5}')
-    DISK_FREE=$(df -h / | tail -1 | awk '{print $4}')
-    
-    echo "Root partition: $DISK_FREE free ($DISK_USAGE used)"
-    
-    USAGE_NUM=${DISK_USAGE%\%}
-    if [ "$USAGE_NUM" -gt 80 ]; then
-        check_fail "Disk usage is critical (>80%)"
-    elif [ "$USAGE_NUM" -gt 70 ]; then
-        check_warn "Disk usage is high (>70%)"
-    else
-        check_pass "Disk usage is good (<70%)"
-    fi
-    
-    if command -v docker &> /dev/null; then
-        DOCKER_SIZE=$(docker system df 2>/dev/null | tail -1 | awk '{print $2}' || echo "N/A")
-        echo "Docker images: $DOCKER_SIZE"
-    fi
-}
-
-# Memory
-check_memory() {
-    print_section "Memory"
-    
-    TOTAL_MEM=$(free -h | grep Mem | awk '{print $2}')
-    USED_MEM=$(free -h | grep Mem | awk '{print $3}')
-    AVAILABLE_MEM=$(free -h | grep Mem | awk '{print $7}')
-    
-    echo "Total: $TOTAL_MEM"
-    echo "Used: $USED_MEM"
-    echo "Available: $AVAILABLE_MEM"
-    
-    FREE_PCT=$(($(free | grep Mem | awk '{print $7}') * 100 / $(free | grep Mem | awk '{print $2}')))
-    
-    if [ "$FREE_PCT" -lt 20 ]; then
-        check_fail "Low memory (< 20% free)"
-    elif [ "$FREE_PCT" -lt 30 ]; then
-        check_warn "Memory is getting tight (< 30% free)"
-    else
-        check_pass "Memory usage is good (> 30% free)"
-    fi
-}
-
-# Network
-check_network() {
-    print_section "Network"
-    
-    # Check internet
-    if ping -c 1 8.8.8.8 &> /dev/null; then
-        check_pass "Internet connectivity OK"
-    else
-        check_warn "No internet connectivity"
-    fi
-    
-    # Local IP
-    LOCAL_IP=$(hostname -I | awk '{print $1}')
-    if [ -n "$LOCAL_IP" ]; then
-        check_pass "Local IP: $LOCAL_IP"
-    else
-        check_fail "Could not determine local IP"
-    fi
-    
-    # Hostname
-    HOSTNAME=$(hostname)
-    check_pass "Hostname: $HOSTNAME"
-    
-    # AP Interface check
     if ip link show wlx90de8018370a &>/dev/null; then
-        AP_IP=$(ip addr show wlx90de8018370a | grep 'inet ' | awk '{print $2}' | cut -d/ -f1)
-        check_pass "AP Interface (wlx90de8018370a): $AP_IP"
+        local state
+        state=$(ip link show wlx90de8018370a | grep -oP '(?<=state )\w+')
+        _ok "Interface found — state: $state"
     else
-        check_warn "AP Interface not found"
+        _bad "AP interface not found — USB WiFi adapter?"
+        return
     fi
-    
-    # Port availability
-    if ! nc -z localhost 3000 2>/dev/null; then
-        check_pass "Port 3000 is available"
+
+    local ap_ip
+    ap_ip=$(ip addr show wlx90de8018370a 2>/dev/null | grep 'inet ' | awk '{print $2}' | cut -d/ -f1)
+    if [ -n "$ap_ip" ]; then
+        _ok "AP IP: $ap_ip"
     else
-        check_warn "Port 3000 is already in use"
+        _bad "AP interface has NO IP — DHCP won't work"
+        _info "Fix: sudo ip addr add 192.168.4.1/24 dev wlx90de8018370a && sudo ip link set wlx90de8018370a up"
+    fi
+
+    # systemd-networkd
+    if [ -f "/etc/systemd/network/10-rallyos-wlx90de8018370a.network" ]; then
+        _ok "systemd-networkd config present"
+    else
+        _warn "No systemd-networkd config — IP may not survive reboot"
     fi
 }
 
-# Container Status
-check_container() {
-    print_section "Container Status"
-    
-    if ! command -v docker &> /dev/null; then
-        check_warn "Docker not available"
-        return 1
-    fi
-    
-    # Check if image exists
-    if docker images | grep -q "rallyos-hub"; then
-        check_pass "Docker image found (rallyos-hub)"
+# ── Kiosk (HDMI) ────────────────────────────────────────────
+check_kiosk() {
+    section "HDMI Kiosk"
+
+    # Service status
+    if systemctl is-active rallyos-kiosk --quiet 2>/dev/null; then
+        _ok "rallyos-kiosk service is running"
     else
-        check_warn "Docker image not found (run './scripts/start-orange-pi.sh' to build)"
+        _bad "rallyos-kiosk service is NOT running"
+        journalctl -u rallyos-kiosk --no-pager -n 3 2>/dev/null | while IFS= read -r line; do
+            echo "    $line"
+        done
     fi
-    
-    # Check if container is running
-    if docker ps | grep -q "rallyo-hub"; then
-        check_pass "Container is RUNNING"
-        CONTAINER_ID=$(docker ps | grep rallyo-hub | awk '{print $1}')
-        UPTIME=$(docker ps | grep rallyo-hub | awk '{print $10" "$11" "$12}')
-        echo "  ID: $CONTAINER_ID"
-        echo "  Uptime: $UPTIME"
-    elif docker ps -a | grep -q "rallyo-hub"; then
-        check_warn "Container exists but is STOPPED"
-        echo "  Run: docker compose up -d"
+
+    # Chromium running
+    if pgrep -x chromium >/dev/null 2>&1; then
+        local chrom_mem
+        chrom_mem=$(ps -o rss= -p "$(pgrep -x chromium | head -1)" 2>/dev/null | awk '{printf "%.0fM", $1/1024}')
+        _ok "Chromium is running (~$chrom_mem)"
     else
-        check_warn "Container not found"
+        _bad "Chromium is NOT running"
     fi
-    
-    # Check health
-    if docker ps | grep -q "rallyo-hub"; then
-        if wget -q --no-check-certificate -O- https://localhost:3000/health &> /dev/null; then
-            check_pass "Health check: OK"
-        else
-            check_fail "Health check: FAILED"
-        fi
+
+    # Xorg
+    if pgrep -x Xorg >/dev/null 2>&1; then
+        _ok "X server is running"
+    else
+        _bad "X server is NOT running — no display possible"
+    fi
+
+    # HDMI connected
+    if [ -d /sys/class/drm ]; then
+        for card in /sys/class/drm/card*-*/status; do
+            local name status
+            name=$(basename "$(dirname "$card")")
+            status=$(cat "$card" 2>/dev/null || echo "unknown")
+            if [ "$status" = "connected" ]; then
+                _ok "$name → connected"
+            else
+                _info "$name → $status"
+            fi
+        done
+    fi
+
+    # DPMS check
+    if grep -q "xset.*-dpms" "$REPO_PATH/scripts/start-kiosk.sh" 2>/dev/null; then
+        _ok "DPMS disabled in kiosk script"
+    else
+        _warn "DPMS not disabled — HDMI may go blank over time"
+    fi
+
+    # No zombie xmessage
+    if pgrep -x xmessage >/dev/null 2>&1; then
+        _warn "xmessage zombie detected — may block display"
     fi
 }
 
-# Container Resources
-check_container_resources() {
-    print_section "Container Resources"
-    
-    if ! docker ps | grep -q "rallyo-hub"; then
-        info "Container not running"
-        return 0
+# ── Docker Hub ──────────────────────────────────────────────
+check_hub() {
+    section "Docker Hub"
+
+    if ! command -v docker &>/dev/null; then
+        _bad "Docker not installed"
+        return
     fi
-    
-    docker stats --no-stream rallyo-hub 2>/dev/null || {
-        check_warn "Could not get container stats"
-        return 1
-    }
+
+    if docker info &>/dev/null; then
+        _ok "Docker daemon running"
+    else
+        _bad "Docker daemon stopped"
+        return
+    fi
+
+    # Running containers
+    local running
+    running=$(docker ps --format '{{.Names}}' 2>/dev/null)
+    if echo "$running" | grep -q "rallyo-hub"; then
+        local health
+        health=$(docker inspect rallyo-hub --format '{{.State.Health.Status}}' 2>/dev/null || echo "unknown")
+        _ok "Container rallyo-hub: $health"
+    else
+        _bad "Container rallyo-hub NOT running"
+        _info "Run: sudo ./scripts/start-orange-pi.sh"
+    fi
+
+    # Old conflicting container
+    if docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q "rallyos-hub"; then
+        _warn "Old container 'rallyos-hub' exists — may conflict. Remove: docker rm -f rallyos-hub"
+    fi
+
+    # Health endpoint
+    if curl -sk https://localhost:3000/health >/dev/null 2>&1; then
+        _ok "Health endpoint responds"
+    else
+        _warn "Health endpoint not reachable — hub may be starting up"
+    fi
 }
 
-# Logs
-check_logs() {
-    print_section "Recent Container Logs"
-    
-    if ! command -v docker &> /dev/null; then
-        return 1
+# ── Memory ──────────────────────────────────────────────────
+check_memory() {
+    section "Memory"
+
+    local total used avail
+    read -r total used _ avail <<< "$(free -m | awk '/^Mem:/{print $2, $3, $4, $7}')"
+    local pct=$(( (total - avail) * 100 / total ))
+
+    echo "  Total: ${total}MB  |  Used: ${used}MB  |  Available: ${avail}MB  |  Usage: ${pct}%"
+
+    if [ "$pct" -gt 85 ]; then
+        _bad "Memory critical (>85%) — OOM risk. Close Chromium tabs or reduce Docker memory"
+    elif [ "$pct" -gt 65 ]; then
+        _warn "Memory high (${pct}%)"
+    else
+        _ok "Memory OK (${pct}%)"
     fi
-    
-    echo "Last 20 log lines:"
-    echo "────────────────────────────────────────"
-    docker compose -f docker-compose.yml logs --tail=20 hub 2>/dev/null || {
-        docker-compose -f docker-compose.yml logs --tail=20 hub 2>/dev/null || check_warn "Could not retrieve logs"
-    }
-    echo "────────────────────────────────────────"
+
+    # Swap
+    if swapon --show 2>/dev/null | grep -q .; then
+        _ok "Swap active"
+    else
+        _warn "No swap — OOM killer may strike under load"
+    fi
 }
 
-# Summary
+# ── Boot ────────────────────────────────────────────────────
+check_boot() {
+    section "Boot Performance"
+
+    # Wait-online timeout
+    if [ -f /etc/systemd/system/systemd-networkd-wait-online.service.d/timeout.conf ]; then
+        _ok "wait-online timeout capped"
+    else
+        _warn "wait-online not capped — boot may hang 2 min"
+    fi
+
+    # Failed units
+    local failed_units
+    failed_units=$(systemctl --failed --no-legend 2>/dev/null | awk '{print $1}')
+    if [ -n "$failed_units" ]; then
+        _warn "Failed systemd units: $failed_units"
+    else
+        _ok "No failed systemd units"
+    fi
+}
+
+# ── Summary ─────────────────────────────────────────────────
 print_summary() {
-    print_section "Summary"
-    
+    section "Summary"
     echo ""
-    echo -e "${GREEN}Passed: $CHECKS_PASSED${NC}"
-    echo -e "${YELLOW}Warnings: $CHECKS_WARNING${NC}"
-    echo -e "${RED}Failed: $CHECKS_FAILED${NC}"
+    echo -e "  ${GREEN}Passed:  $PASS${NC}"
+    echo -e "  ${YELLOW}Warnings: $WARN${NC}"
+    echo -e "  ${RED}Failed:  $FAIL${NC}"
     echo ""
-    
-    if [ $CHECKS_FAILED -eq 0 ]; then
-        echo -e "${GREEN}No critical issues found!${NC}"
+
+    if [ "$FAIL" -eq 0 ] && [ "$WARN" -eq 0 ]; then
+        echo -e "  ${GREEN}✅ Everything looks good!${NC}"
+    elif [ "$FAIL" -eq 0 ]; then
+        echo -e "  ${YELLOW}⚠️  Warnings only — system should work but has non-critical issues.${NC}"
     else
-        echo -e "${RED}There are critical issues that need attention.${NC}"
+        echo -e "  ${RED}❌ $FAIL critical issue(s) found — fix FAILED items above.${NC}"
     fi
     echo ""
 }
 
-# Main execution
 main() {
-    print_header
-    
-    check_system
-    check_env_files
-    check_docker || {
-        check_fail "Docker is required but not properly installed"
-        exit 1
-    }
-    
-    check_disk
+    header
+    check_dns
+    check_dnsmasq
+    check_iptables
+    check_ap_interface
+    check_kiosk
+    check_hub
     check_memory
-    check_network
-    check_container
-    check_container_resources
-    check_logs
+    check_boot
     print_summary
 }
 

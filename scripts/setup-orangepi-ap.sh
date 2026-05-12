@@ -141,10 +141,10 @@ ENVEOF
 else
     echo "  .env already exists — checking for issues..."
 
-    local env_fixed=0
+    env_fixed=0
 
     # Check HUB_ALLOWED_ORIGINS
-    local current_origins
+    current_origins=""
     current_origins=$(grep '^HUB_ALLOWED_ORIGINS=' "${REPO_PATH}/.env" 2>/dev/null)
     if [ -z "$current_origins" ]; then
         echo "  ℹ️  HUB_ALLOWED_ORIGINS: not set — server uses safe defaults (OK)"

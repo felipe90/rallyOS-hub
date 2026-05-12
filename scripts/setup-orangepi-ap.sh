@@ -117,12 +117,30 @@ _step_start "Environment config"
 REPO_PATH="$(cd "$(dirname "$0")/.." && pwd)"
 
 if [ ! -f "${REPO_PATH}/.env" ]; then
-    cp "${REPO_PATH}/.env.example" "${REPO_PATH}/.env" 2>/dev/null || {
-        _step_warn ".env.example not found — manual config needed"
-    }
+    echo "  Creating .env with Orange Pi defaults..."
+
+    # Generate a random encryption secret
+    ENCRYPTION_SECRET=$(openssl rand -hex 32 2>/dev/null || echo "CHANGE_ME_RANDOM_SECRET_32BYTES_HEX")
+
+    cat > "${REPO_PATH}/.env" << ENVEOF
+NODE_ENV=production
+PORT=3000
+TOURNAMENT_OWNER_PIN=${TOURNAMENT_OWNER_PIN:-12345678}
+HUB_SSID=${AP_SSID}
+HUB_IP=${AP_IP}
+HUB_DOMAIN=rallyos-hub.local
+HUB_ALLOWED_ORIGINS=https://localhost:3000,http://localhost:3000,https://${AP_IP}:3000,http://${AP_IP}:3000,https://rallyos-hub.local:3000,http://rallyos-hub.local:3000
+NODE_OPTIONS_MEMORY=512
+ENCRYPTION_SECRET=${ENCRYPTION_SECRET}
+ENVEOF
+
+    echo "  ✅ .env created with AP_IP=${AP_IP} and HUB_DOMAIN=rallyos-hub.local"
     _step_ok
 else
-    _step_skip "already exists"
+    _step_skip "already exists — not overwriting"
+    echo "  ℹ️  If you changed AP_IP or HUB_DOMAIN, update .env manually"
+    echo "  ℹ️  Current HUB_ALLOWED_ORIGINS:"
+    grep '^HUB_ALLOWED_ORIGINS=' "${REPO_PATH}/.env" 2>/dev/null || echo "     (not set — using server defaults)"
 fi
 
 # ==== Step 5: AP interface detection =============================
@@ -283,9 +301,16 @@ echo "  Installing systemd service..."
 sed "s|__REPO_PATH__|${REPO_PATH}|g" "${REPO_PATH}/scripts/rallyos-kiosk.service" \
     > /etc/systemd/system/rallyos-kiosk.service
 
-systemctl daemon-reload
+    systemctl daemon-reload
 systemctl enable rallyos-kiosk
 systemctl restart rallyos-kiosk 2>/dev/null || true
+
+echo "  Installing diagnostic service..."
+sed "s|__REPO_PATH__|${REPO_PATH}|g" "${REPO_PATH}/scripts/rallyos-diagnose.service" \
+    > /etc/systemd/system/rallyos-diagnose.service
+systemctl daemon-reload
+systemctl enable rallyos-diagnose 2>/dev/null || true
+echo "  ✅ rallyos-diagnose will run on every boot"
 
 _step_ok
 

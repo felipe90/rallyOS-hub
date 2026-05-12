@@ -5,7 +5,7 @@
 
 set -e
 
-KIOSK_URL="${1:-http://localhost:3000/scoreboard/all/kiosk}"
+KIOSK_URL="${1:-https://localhost:3000/scoreboard/all/kiosk}"
 DISPLAY="${DISPLAY:-:0}"
 
 # Wait for Docker containers to be healthy
@@ -56,6 +56,7 @@ echo "[kiosk] Launching Chromium kiosk → ${KIOSK_URL}"
 exec "$CHROMIUM_BIN" \
     --kiosk \
     --no-sandbox \
+    --ignore-certificate-errors \
     --no-first-run \
     --noerrdialogs \
     --disable-session-crashed-bubble \

@@ -275,7 +275,7 @@ apt-get install -y -qq xserver-xorg xinit 2>/dev/null || true
 apt-get install -y -qq chromium 2>/dev/null || apt-get install -y -qq chromium-browser 2>/dev/null || {
     _step_warn "Chromium not available — install manually"
 }
-apt-get install -y -qq matchbox-window-manager unclutter 2>/dev/null || {
+apt-get install -y -qq matchbox-window-manager unclutter x11-xserver-utils 2>/dev/null || {
     _step_warn "kiosk tools not available — fullscreen/cursor may not work"
 }
 

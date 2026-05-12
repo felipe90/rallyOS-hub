@@ -68,9 +68,18 @@ echo "[kiosk] Launching Chromium kiosk → ${KIOSK_URL}"
 matchbox-window-manager -use_titlebar no &
 sleep 1
 
-# Hide the mouse cursor immediately (kiosk mode)
+# Hide the mouse cursor — create transparent cursor via X11 bitmap
+cat > /tmp/empty.xbm << 'CURSOR_EOF'
+#define empty_width 1
+#define empty_height 1
+static char empty_bits[] = {
+0x00};
+CURSOR_EOF
+cp /tmp/empty.xbm /tmp/empty_mask.xbm
+xsetroot -cursor /tmp/empty.xbm /tmp/empty_mask.xbm 2>/dev/null || true
+
+# Hide cursor with unclutter as backup
 unclutter -idle 0 -root &
-sleep 0.5
 
 exec "$CHROMIUM_BIN" \
     --kiosk \

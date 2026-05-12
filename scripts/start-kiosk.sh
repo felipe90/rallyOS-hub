@@ -63,6 +63,11 @@ echo "[kiosk] Detected display: ${RESOLUTION}"
 
 # Launch Chromium in kiosk mode
 echo "[kiosk] Launching Chromium kiosk → ${KIOSK_URL}"
+
+# Start a minimal window manager so Chromium can do fullscreen
+matchbox-window-manager -use_titlebar no &
+sleep 1
+
 exec "$CHROMIUM_BIN" \
     --kiosk \
     --start-fullscreen \

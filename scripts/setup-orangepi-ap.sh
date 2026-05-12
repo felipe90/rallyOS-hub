@@ -270,10 +270,13 @@ fi
 # ==== Step 7: Chromium Kiosk =====================================
 _step_start "Chromium Kiosk (HDMI display)"
 
-echo "  Installing X11 + Chromium..."
+echo "  Installing X11 + Chromium + minimal window manager..."
 apt-get install -y -qq xserver-xorg xinit 2>/dev/null || true
 apt-get install -y -qq chromium 2>/dev/null || apt-get install -y -qq chromium-browser 2>/dev/null || {
     _step_warn "Chromium not available — install manually"
+}
+apt-get install -y -qq matchbox-window-manager 2>/dev/null || {
+    _step_warn "matchbox-window-manager not available — fullscreen may not work"
 }
 
 echo "  Installing systemd service..."

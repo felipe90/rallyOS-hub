@@ -56,10 +56,17 @@ if [ -z "$CHROMIUM_BIN" ]; then
     exit 1
 fi
 
+# Auto-detect display resolution from DRM (EDID preferred mode)
+RESOLUTION=$(cat /sys/class/drm/card*-*/modes 2>/dev/null | head -1 || echo "1920x1080")
+echo "[kiosk] Detected display: ${RESOLUTION}"
+
 # Launch Chromium in kiosk mode
 echo "[kiosk] Launching Chromium kiosk → ${KIOSK_URL}"
 exec "$CHROMIUM_BIN" \
     --kiosk \
+    --start-fullscreen \
+    --window-size="${RESOLUTION}" \
+    --window-position=0,0 \
     --no-sandbox \
     --ignore-certificate-errors \
     --no-first-run \

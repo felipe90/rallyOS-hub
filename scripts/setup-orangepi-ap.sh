@@ -116,10 +116,12 @@ _step_start "Environment config"
 
 REPO_PATH="$(cd "$(dirname "$0")/.." && pwd)"
 
+REQUIRED_ORIGINS="localhost:3000,192.168.4.1:3000,rallyos-hub.local:3000"
+CORRECT_ORIGINS="https://localhost:3000,http://localhost:3000,https://${AP_IP}:3000,http://${AP_IP}:3000,https://rallyos-hub.local:3000,http://rallyos-hub.local:3000"
+
 if [ ! -f "${REPO_PATH}/.env" ]; then
     echo "  Creating .env with Orange Pi defaults..."
 
-    # Generate a random encryption secret
     ENCRYPTION_SECRET=$(openssl rand -hex 32 2>/dev/null || echo "CHANGE_ME_RANDOM_SECRET_32BYTES_HEX")
 
     cat > "${REPO_PATH}/.env" << ENVEOF
@@ -129,7 +131,7 @@ TOURNAMENT_OWNER_PIN=${TOURNAMENT_OWNER_PIN:-12345678}
 HUB_SSID=${AP_SSID}
 HUB_IP=${AP_IP}
 HUB_DOMAIN=rallyos-hub.local
-HUB_ALLOWED_ORIGINS=https://localhost:3000,http://localhost:3000,https://${AP_IP}:3000,http://${AP_IP}:3000,https://rallyos-hub.local:3000,http://rallyos-hub.local:3000
+HUB_ALLOWED_ORIGINS=${CORRECT_ORIGINS}
 NODE_OPTIONS_MEMORY=512
 ENCRYPTION_SECRET=${ENCRYPTION_SECRET}
 ENVEOF
@@ -137,10 +139,36 @@ ENVEOF
     echo "  ✅ .env created with AP_IP=${AP_IP} and HUB_DOMAIN=rallyos-hub.local"
     _step_ok
 else
-    _step_skip "already exists — not overwriting"
-    echo "  ℹ️  If you changed AP_IP or HUB_DOMAIN, update .env manually"
-    echo "  ℹ️  Current HUB_ALLOWED_ORIGINS:"
-    grep '^HUB_ALLOWED_ORIGINS=' "${REPO_PATH}/.env" 2>/dev/null || echo "     (not set — using server defaults)"
+    echo "  .env already exists — checking for issues..."
+
+    local env_fixed=0
+
+    # Check HUB_ALLOWED_ORIGINS
+    local current_origins
+    current_origins=$(grep '^HUB_ALLOWED_ORIGINS=' "${REPO_PATH}/.env" 2>/dev/null)
+    if [ -z "$current_origins" ]; then
+        echo "  ℹ️  HUB_ALLOWED_ORIGINS: not set — server uses safe defaults (OK)"
+    elif echo "$current_origins" | grep -q "rallyos-hub.local:3000"; then
+        echo "  ✅ HUB_ALLOWED_ORIGINS includes rallyos-hub.local (OK)"
+    else
+        echo "  ⚠️  HUB_ALLOWED_ORIGINS is MISSING rallyos-hub.local — fixing..."
+        sed -i "s|^HUB_ALLOWED_ORIGINS=.*|HUB_ALLOWED_ORIGINS=${CORRECT_ORIGINS}|" "${REPO_PATH}/.env"
+        echo "  ✅ HUB_ALLOWED_ORIGINS fixed to include all required origins"
+        env_fixed=1
+    fi
+
+    # Check NODE_OPTIONS_MEMORY (armbian Orangepi needs 512 max)
+    if ! grep -q '^NODE_OPTIONS_MEMORY=' "${REPO_PATH}/.env" 2>/dev/null; then
+        echo "  ⚠️  NODE_OPTIONS_MEMORY not set — adding for Orange Pi (512MB)..."
+        echo "NODE_OPTIONS_MEMORY=512" >> "${REPO_PATH}/.env"
+        env_fixed=1
+    fi
+
+    if [ $env_fixed -eq 1 ]; then
+        echo "  ℹ️  .env was updated — rebuild Docker to apply: sudo docker compose up -d --build"
+    fi
+
+    _step_ok
 fi
 
 # ==== Step 5: AP interface detection =============================

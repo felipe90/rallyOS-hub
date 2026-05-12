@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useI18n } from '@/i18n'
 import { useSocketContext } from '@/contexts/SocketContext'
 import { ConnectionStatus, Typography } from '@/components/atoms'
@@ -8,8 +9,16 @@ import type { TableInfo } from '@shared/types'
 const ACTIVE_STATUSES: TableInfo['status'][] = ['LIVE', 'WAITING']
 
 export function KioskAllTablesPage() {
-  const { tables } = useSocketContext()
+  const { tables, connected, connecting } = useSocketContext()
   const { i18nText } = useI18n()
+
+  // Auto-reload when socket permanently disconnects (all retries exhausted)
+  useEffect(() => {
+    if (!connected && !connecting) {
+      const timer = setTimeout(() => window.location.reload(), 10_000)
+      return () => clearTimeout(timer)
+    }
+  }, [connected, connecting])
 
   const activeTables = tables.filter((t) => ACTIVE_STATUSES.includes(t.status))
 

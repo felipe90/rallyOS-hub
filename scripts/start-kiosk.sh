@@ -32,6 +32,11 @@ if ! pgrep -x Xorg >/dev/null 2>&1; then
     sleep 3
 fi
 
+# Disable DPMS / screen blanking — prevent HDMI signal loss over time
+xset -dpms 2>/dev/null || true
+xset s off 2>/dev/null || true
+xset s noblank 2>/dev/null || true
+
 # Auto-detect Chromium binary (chromium on Armbian ARM64, chromium-browser on Debian x86)
 CHROMIUM_BIN=""
 for bin in chromium chromium-browser; do

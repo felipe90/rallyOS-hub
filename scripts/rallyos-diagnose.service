@@ -1,0 +1,15 @@
+[Unit]
+Description=RallyOS Hub — Boot-time Diagnostic Report
+Documentation=https://github.com/rallyOS-hub
+After=network.target docker.service
+Wants=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash __REPO_PATH__/scripts/diagnose.sh --boot
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

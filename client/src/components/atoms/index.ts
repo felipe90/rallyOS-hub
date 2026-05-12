@@ -29,3 +29,5 @@ export type { CoachMarkProps } from './CoachMark/CoachMark'
 
 export { LanguageSwitcher } from './LanguageSwitcher/LanguageSwitcher'
 export type { LanguageSwitcherProps } from './LanguageSwitcher/LanguageSwitcher'
+
+export { FullscreenButton } from './FullscreenButton'

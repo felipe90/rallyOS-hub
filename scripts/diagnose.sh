@@ -6,6 +6,7 @@
 #
 #   --log, --save    Also write output to /var/log/rallyos-diagnose.log
 #   --boot           Silent mode for boot-time (no colors, no spinners)
+#   --errors-only    Only show ⚠️ and ✗ (suppress ✓ and ℹ)
 #
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -15,10 +16,12 @@ cd "$REPO_PATH"
 # ── Flags ────────────────────────────────────────────────────────
 LOG_MODE=false
 BOOT_MODE=false
+ERRORS_ONLY=false
 for arg in "$@"; do
     case "$arg" in
-        --log|--save) LOG_MODE=true ;;
-        --boot)       BOOT_MODE=true; LOG_MODE=true ;;
+        --log|--save)   LOG_MODE=true ;;
+        --boot)         BOOT_MODE=true; LOG_MODE=true ;;
+        --errors-only)  ERRORS_ONLY=true ;;
     esac
 done
 
@@ -41,22 +44,27 @@ fi
 
 PASS=0; FAIL=0; WARN=0
 
-_ok()   { echo -e "  ${GREEN}✓${NC} $1"; ((PASS++)); }
+_ok()   { [ "$ERRORS_ONLY" = true ] || echo -e "  ${GREEN}✓${NC} $1"; ((PASS++)); }
 _bad()  { echo -e "  ${RED}✗${NC} $1"; ((FAIL++)); }
 _warn() { echo -e "  ${YELLOW}⚠${NC} $1"; ((WARN++)); }
-_info() { echo -e "  ${BLUE}ℹ${NC} $1"; }
+_info() { [ "$ERRORS_ONLY" = true ] || echo -e "  ${BLUE}ℹ${NC} $1"; }
 
 header() {
-    echo -e "${CYAN}"
-    echo "╔═══════════════════════════════════════════════════════════╗"
-    echo "║         RallyOS Hub — Diagnostic Report                  ║"
-    echo "╚═══════════════════════════════════════════════════════════╝"
-    echo -e "${NC}"
-    echo "Date: $(date)"
-    echo "Host: $(hostname) — $(uname -m)"
-    [ "$LOG_MODE" = true ] && echo "Log:  ${LOG_FILE}"
-    echo "Uptime: $(uptime -p | sed 's/up //')"
-    echo ""
+    if [ "$ERRORS_ONLY" = true ]; then
+        echo "═══ RallyOS Diagnostic ($(date +%H:%M)) — $(hostname) ═══"
+        echo ""
+    else
+        echo -e "${CYAN}"
+        echo "╔═══════════════════════════════════════════════════════════╗"
+        echo "║         RallyOS Hub — Diagnostic Report                  ║"
+        echo "╚═══════════════════════════════════════════════════════════╝"
+        echo -e "${NC}"
+        echo "Date: $(date)"
+        echo "Host: $(hostname) — $(uname -m)"
+        [ "$LOG_MODE" = true ] && echo "Log:  ${LOG_FILE}"
+        echo "Uptime: $(uptime -p | sed 's/up //')"
+        echo ""
+    fi
 }
 
 section() {

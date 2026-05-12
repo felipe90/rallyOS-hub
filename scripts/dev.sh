@@ -6,7 +6,11 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$REPO_ROOT"
+
+# shellcheck source=lib/ensure-pnpm.sh
+source "$SCRIPT_DIR/lib/ensure-pnpm.sh"
 
 # Colors
 GREEN='\033[0;32m'
@@ -17,8 +21,8 @@ MAGENTA='\033[0;35m'
 NC='\033[0m' # No Color
 
 # Configuration
-SERVER_DIR="$SCRIPT_DIR/server"
-CLIENT_DIR="$SCRIPT_DIR/client"
+SERVER_DIR="$REPO_ROOT/server"
+CLIENT_DIR="$REPO_ROOT/client"
 SERVER_PORT="${SERVER_PORT:-3000}"
 CLIENT_PORT="${CLIENT_PORT:-5173}"
 SERVER_URL="https://localhost:$SERVER_PORT"
@@ -94,6 +98,13 @@ main() {
         exit 1
     fi
     print_success "Project structure OK"
+
+    print_step "Checking Node.js and pnpm..."
+    if ! ensure_pnpm "$REPO_ROOT"; then
+        print_error "pnpm is required for local dev. Install Node 22+ with Corepack, or see https://pnpm.io/installation"
+        exit 1
+    fi
+    print_success "pnpm $(pnpm -v) — OK"
     
     # Check for SSL certificates
     print_step "Checking SSL certificates..."
@@ -122,39 +133,28 @@ main() {
     # Install dependencies if needed
     print_step "Checking dependencies..."
     
-    if [ ! -d "$SERVER_DIR/node_modules" ]; then
-        echo -e "${YELLOW}  Installing server dependencies...${NC}"
-        cd "$SERVER_DIR"
-        npm ci 2>&1 | tail -3
-        cd "$SCRIPT_DIR"
-        print_success "Server dependencies installed"
+    if [ ! -d "$SERVER_DIR/node_modules" ] || [ ! -d "$CLIENT_DIR/node_modules" ]; then
+        echo -e "${YELLOW}  Installing workspace dependencies (pnpm)...${NC}"
+        cd "$REPO_ROOT"
+        pnpm install --frozen-lockfile 2>&1 | tail -5
+        print_success "Dependencies installed"
     else
-        print_success "Server dependencies OK"
-    fi
-    
-    if [ ! -d "$CLIENT_DIR/node_modules" ]; then
-        echo -e "${YELLOW}  Installing client dependencies...${NC}"
-        cd "$CLIENT_DIR"
-        npm ci 2>&1 | tail -3
-        cd "$SCRIPT_DIR"
-        print_success "Client dependencies installed"
-    else
-        print_success "Client dependencies OK"
+        print_success "Dependencies OK"
     fi
     
     # Compile server
     print_step "Compiling server..."
     cd "$SERVER_DIR"
-    npm run build > /dev/null 2>&1
+    pnpm run build > /dev/null 2>&1
     print_success "Server compilation complete"
-    cd "$SCRIPT_DIR"
+    cd "$REPO_ROOT"
     
     # Build client for development (served by server on port 3000)
     print_step "Building client..."
     cd "$CLIENT_DIR"
-    npm run build > /dev/null 2>&1
+    pnpm run build > /dev/null 2>&1
     print_success "Client build complete"
-    cd "$SCRIPT_DIR"
+    cd "$REPO_ROOT"
     
     # Create pipes for real-time log streaming
     SERVER_LOG=$(mktemp -u)
@@ -177,9 +177,9 @@ main() {
     }
     
     # Load environment variables from .env (if exists)
-    if [ -f "$SCRIPT_DIR/.env" ]; then
+    if [ -f "$REPO_ROOT/.env" ]; then
         set -a
-        source "$SCRIPT_DIR/.env"
+        source "$REPO_ROOT/.env"
         set +a
         print_success "Environment loaded from .env"
     fi
@@ -225,7 +225,7 @@ main() {
     # Start client
     print_step "Starting client development server on port $CLIENT_PORT..."
     cd "$CLIENT_DIR"
-    VITE_ENCRYPTION_SECRET="$ENCRYPTION_SECRET" VITE_SERVER_URL="$SERVER_URL" npm run dev > "$CLIENT_LOG" 2>&1 &
+    VITE_ENCRYPTION_SECRET="$ENCRYPTION_SECRET" VITE_SERVER_URL="$SERVER_URL" pnpm run dev > "$CLIENT_LOG" 2>&1 &
     CLIENT_PID=$!
     print_success "Client started (PID: $CLIENT_PID)"
     

@@ -8,8 +8,12 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_DIR"
+
+# shellcheck source=lib/ensure-pnpm.sh
+source "$SCRIPT_DIR/lib/ensure-pnpm.sh"
 
 echo -e "${BLUE}╔════════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║         RallyOS Hub - Docker Setup         ║${NC}"
@@ -41,42 +45,42 @@ if ! docker info &>/dev/null; then
     sleep 5
 fi
 
-# Pre-build: Ensure client and server are built locally first
+if ! ensure_pnpm "$PROJECT_DIR"; then
+    echo -e "${RED}✗ pnpm is required for local pre-build. Install Node 22+ with Corepack, or see https://pnpm.io/installation${NC}"
+    exit 1
+fi
+
+# Pre-build: install workspace deps once, then build client and server
+echo -e "${YELLOW}📦 Installing dependencies (pnpm workspace)...${NC}"
+cd "$PROJECT_DIR"
+if ! pnpm install --frozen-lockfile 2>&1 | tail -5; then
+    echo -e "${RED}✗ pnpm install failed!${NC}"
+    exit 1
+fi
+echo -e "${GREEN}✓${NC} Dependencies installed"
+
 echo -e "${YELLOW}📦 Pre-building client...${NC}"
 if [ -f "client/package.json" ]; then
-    cd "$PROJECT_DIR/client"
-    if ! npm ci --force 2>&1 | tail -3; then
-        echo -e "${RED}✗ npm ci failed for client!${NC}"
-        exit 1
-    fi
-    if ! npm run build 2>&1 | tee /tmp/client-build.log | grep -E "built|error" | tail -5; then
+    if ! pnpm --filter client run build 2>&1 | tee /tmp/client-build.log | grep -E "built|error" | tail -5; then
         echo -e "${RED}✗ Client build failed!${NC}"
         echo -e "${YELLOW}📋 Error log:${NC}"
         cat /tmp/client-build.log | grep -E "error|Error|ERROR" | head -20
         exit 1
     fi
-    cd "$PROJECT_DIR"
     echo -e "${GREEN}✓${NC} Client pre-build complete"
 else
     echo -e "${RED}✗ Client directory not found${NC}"
     exit 1
 fi
 
-# Pre-build: Ensure server is built locally first
 echo -e "${YELLOW}📦 Pre-building server...${NC}"
 if [ -f "server/package.json" ]; then
-    cd "$PROJECT_DIR/server"
-    if ! npm ci --force 2>&1 | tail -3; then
-        echo -e "${RED}✗ npm ci failed for server!${NC}"
-        exit 1
-    fi
-    if ! npm run build 2>&1 | tee /tmp/server-build.log | grep -E "tsc|error" | tail -5; then
+    if ! pnpm --filter server run build 2>&1 | tee /tmp/server-build.log | grep -E "tsc|error" | tail -5; then
         echo -e "${RED}✗ Server build failed!${NC}"
         echo -e "${YELLOW}📋 Error log:${NC}"
         cat /tmp/server-build.log | grep -E "error|Error|ERROR" | head -20
         exit 1
     fi
-    cd "$PROJECT_DIR"
     echo -e "${GREEN}✓${NC} Server pre-build complete"
 else
     echo -e "${RED}✗ Server directory not found${NC}"

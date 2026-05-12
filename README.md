@@ -53,20 +53,23 @@ Real-time scoreboard system for rally events with multi-table support, PWA, offl
 
 ### Prerequisites
 - Node.js 22+
-- npm
+- [pnpm](https://pnpm.io/) 9+ (`corepack enable` then `corepack prepare pnpm@latest --activate`)
 
 ### Development (local, no Docker)
 
 ```bash
-# One command — installs deps, generates SSL certs, starts both
+# From repo root — install once (workspace: client + server + root hooks)
+pnpm install
+
+# One command — installs deps if needed, generates SSL certs, starts both
 ./scripts/dev.sh
 
 # Or manually:
 # Terminal 1 — Server
-cd server && npm install && npm run dev
+cd server && pnpm run dev
 
 # Terminal 2 — Client
-cd client && npm install && npm run dev
+cd client && pnpm run dev
 ```
 
 The app will be available at:
@@ -76,7 +79,7 @@ The app will be available at:
 ### Production Build
 
 ```bash
-cd client && npm run build
+pnpm --filter client run build
 # Output: client/dist/
 ```
 
@@ -285,19 +288,19 @@ The client is configured as a Progressive Web App:
 ## Testing
 
 ```bash
-# Client unit tests
-cd client && npm test                  # Vitest (watch)
-cd client && npm run test:coverage     # With coverage
+# Client unit tests (from repo root)
+pnpm --filter client run test                  # Vitest (watch)
+pnpm --filter client run test:coverage         # With coverage
 
 # Client E2E
-cd client && npm run test:e2e          # Playwright (headless)
-cd client && npm run test:e2e:ui       # Playwright UI mode
+pnpm --filter client run test:e2e              # Playwright (headless)
+pnpm --filter client run test:e2e:ui          # Playwright UI mode
 
 # Server unit tests
-cd server && npm test                  # Jest
+pnpm --filter server run test                  # Jest
 
-# Everything
-cd client && npm run test:all          # Vitest + Playwright
+# Everything (client)
+pnpm --filter client run test:all              # Vitest + Playwright
 ```
 
 ### CI/CD

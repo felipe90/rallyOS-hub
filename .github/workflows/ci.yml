@@ -10,33 +10,30 @@ jobs:
   test-client:
     name: Client Unit Tests
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: client/package-lock.json
-      
+          cache: 'pnpm'
+
       - name: Install dependencies
-        run: |
-          cd client
-          npm ci
-      
+        run: pnpm install --frozen-lockfile --filter client...
+
       - name: Run unit tests
-        run: |
-          cd client
-          npm run test -- --run
-      
+        run: pnpm --filter client run test -- --run
+
       - name: Run tests with coverage
-        run: |
-          cd client
-          npm run test:coverage
-      
+        run: pnpm --filter client run test:coverage
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
@@ -47,67 +44,63 @@ jobs:
   test-server:
     name: Server Unit Tests
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: server/package-lock.json
-      
+          cache: 'pnpm'
+
       - name: Install dependencies
-        run: |
-          cd server
-          npm ci
-      
+        run: pnpm install --frozen-lockfile --filter server...
+
       - name: Run unit tests
-        run: |
-          cd server
-          npm run test
+        run: pnpm --filter server run test
 
   e2e:
     name: E2E Tests
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: client/package-lock.json
-      
+          cache: 'pnpm'
+
       - name: Install dependencies
-        run: |
-          cd client
-          npm ci
-      
+        run: pnpm install --frozen-lockfile --filter client...
+
       - name: Install Playwright browsers
-        run: |
-          cd client
-          npx playwright install --with-deps
-      
+        run: pnpm --filter client exec playwright install --with-deps
+
       - name: Start server for e2e tests
         run: |
           cd client
-          npm run dev &
+          pnpm run dev &
           sleep 15
           curl -f http://localhost:5173 || exit 1
 
       - name: Run E2E tests
-        run: |
-          cd client
-          npx playwright test --project=chromium
+        run: pnpm --filter client exec playwright test --project=chromium
         env:
           CI: true
-      
+
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: failure()
@@ -118,28 +111,27 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: client/package-lock.json
-      
+          cache: 'pnpm'
+
       - name: Install dependencies
-        run: |
-          cd client
-          npm ci
-      
+        run: pnpm install --frozen-lockfile --filter client...
+
       - name: Build
-        run: |
-          cd client
-          npm run build
-      
+        run: pnpm --filter client run build
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -149,41 +141,26 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
-      - name: Setup Node.js for client
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: client/package-lock.json
-      
-      - name: Setup Node.js for server
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: server/package-lock.json
-      
-      - name: Install client dependencies
-        run: |
-          cd client
-          npm ci
-      
-      - name: Install server dependencies
-        run: |
-          cd server
-          npm ci
-      
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Run client lint
-        run: |
-          cd client
-          npm run lint
-      
+        run: pnpm --filter client run lint
+
       - name: Run server lint
-        run: |
-          cd server
-          npm run lint
+        run: pnpm --filter server run lint

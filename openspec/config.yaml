@@ -33,14 +33,14 @@ rules:
 
 testing:
   runner: vitest+jest
-  command: "cd client && npm test && cd ../server && npm test"
+  command: "pnpm --filter client run test && pnpm --filter server run test"
   layers:
     unit: true
     integration: true
     e2e: true
   coverage:
     available: true
-    command: "cd client && npm run test:coverage"
+    command: "pnpm --filter client run test:coverage"
   quality:
     linter: eslint
     type_checker: tsc --noEmit

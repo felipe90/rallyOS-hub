@@ -208,15 +208,26 @@ address=/rallyos-hub.local/${AP_IP}
 address=/#/${AP_IP}
 EOF
 
-    if ! grep -q "auto ${AP_INTERFACE}" /etc/network/interfaces 2>/dev/null; then
-        cat >> /etc/network/interfaces << EOF
+    # Use systemd-networkd instead of /etc/network/interfaces (more reliable on Armbian)
+    echo "  Configuring static IP via systemd-networkd..."
+    mkdir -p /etc/systemd/network
+    cat > "/etc/systemd/network/10-rallyos-${AP_INTERFACE}.network" << ND_EOF
+[Match]
+Name=${AP_INTERFACE}
 
-auto ${AP_INTERFACE}
-iface ${AP_INTERFACE} inet static
-    address ${AP_IP}
-    netmask 255.255.255.0
-EOF
-    fi
+[Network]
+Address=${AP_IP}/24
+ND_EOF
+    systemctl enable systemd-networkd 2>/dev/null || true
+    systemctl restart systemd-networkd 2>/dev/null || true
+
+    # Cap wait-online timeout so boot doesn't hang 2 minutes
+    mkdir -p /etc/systemd/system/systemd-networkd-wait-online.service.d
+    cat > /etc/systemd/system/systemd-networkd-wait-online.service.d/timeout.conf << WOT_EOF
+[Service]
+ExecStart=
+ExecStart=/lib/systemd/systemd-networkd-wait-online --timeout=30
+WOT_EOF
 
     echo "  Configuring NAT + iptables..."
     echo 1 > /proc/sys/net/ipv4/ip_forward

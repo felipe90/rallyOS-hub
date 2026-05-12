@@ -17,7 +17,6 @@ import { NotFoundPage } from './pages/NotFoundPage'
 import { KioskAllTablesPage } from './pages/KioskAllTablesPage'
 import { useAutoUpdateBanner } from './hooks/useAutoUpdate'
 import { LanguageSwitcher } from './components/atoms'
-import { FullscreenButton } from './components/atoms'
 import { useI18n } from './i18n'
 
 function AppRoutes() {
@@ -63,7 +62,6 @@ function App() {
         <SocketProvider>
           <AppRoutes />
           {Banner}
-          <FullscreenButton />
           <LanguageSwitcher language={language} onChangeLanguage={changeLanguage} />
         </SocketProvider>
       </AuthProvider>

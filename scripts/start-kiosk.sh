@@ -28,6 +28,11 @@ fi
 # Start X server if not already running
 if ! pgrep -x Xorg >/dev/null 2>&1; then
     echo "[kiosk] Starting X server..."
+    # Suppress default xinitrc (no desktop, no window manager, no error popup)
+    cat > /root/.xinitrc << 'XINITRC_EOF'
+# Minimal xinitrc — just keep the X server alive, Chromium handles everything
+while true; do sleep 3600; done
+XINITRC_EOF
     startx &
     sleep 3
 fi

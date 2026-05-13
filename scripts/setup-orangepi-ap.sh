@@ -275,21 +275,9 @@ ExecStart=
 ExecStart=/lib/systemd/systemd-networkd-wait-online --timeout=30
 WOT_EOF
 
-    echo "  Configuring NAT + iptables..."
+    # Enable IP forwarding (persistent)
     echo 1 > /proc/sys/net/ipv4/ip_forward
     sed -i 's/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/' /etc/sysctl.conf 2>/dev/null || true
-
-    iptables -t nat -F POSTROUTING 2>/dev/null || true
-    iptables -F FORWARD 2>/dev/null || true
-    iptables -t nat -A POSTROUTING -o ${WAN_INTERFACE} -j MASQUERADE
-    iptables -A FORWARD -i ${WAN_INTERFACE} -o ${AP_INTERFACE} -m state --state RELATED,ESTABLISHED -j ACCEPT
-    iptables -A FORWARD -i ${AP_INTERFACE} -o ${WAN_INTERFACE} -j ACCEPT
-    iptables -t nat -A PREROUTING -i ${AP_INTERFACE} -p tcp --dport 80 -j DNAT --to-destination ${AP_IP}:3000
-    # Force Android devices to use dnsmasq — many ignore DHCP DNS and use 8.8.8.8 via DNS-over-HTTPS
-    iptables -t nat -A PREROUTING -i ${AP_INTERFACE} -p udp --dport 53 -j REDIRECT --to-port 53
-    iptables -t nat -A PREROUTING -i ${AP_INTERFACE} -p tcp --dport 53 -j REDIRECT --to-port 53
-
-    netfilter-persistent save 2>/dev/null || echo "  (iptables-persistent NA — rules may not survive reboot)"
 
     # Bring interface up BEFORE starting services (dnsmasq needs the IP to exist)
     echo "  Bringing interface up..."
@@ -309,6 +297,20 @@ WOT_EOF
 
     # Reload Docker to pick up daemon.json DNS config
     systemctl restart docker 2>/dev/null || true
+
+    # iptables rules MUST come AFTER Docker restart — Docker flushes custom chains
+    echo "  Configuring NAT + iptables (after Docker restart)..."
+    iptables -t nat -F POSTROUTING 2>/dev/null || true
+    iptables -F FORWARD 2>/dev/null || true
+    iptables -t nat -A POSTROUTING -o ${WAN_INTERFACE} -j MASQUERADE
+    iptables -A FORWARD -i ${WAN_INTERFACE} -o ${AP_INTERFACE} -m state --state RELATED,ESTABLISHED -j ACCEPT
+    iptables -A FORWARD -i ${AP_INTERFACE} -o ${WAN_INTERFACE} -j ACCEPT
+    iptables -t nat -A PREROUTING -i ${AP_INTERFACE} -p tcp --dport 80 -j DNAT --to-destination ${AP_IP}:3000
+    # Force Android devices to use dnsmasq — many ignore DHCP DNS and use 8.8.8.8 via DNS-over-HTTPS
+    iptables -t nat -A PREROUTING -i ${AP_INTERFACE} -p udp --dport 53 -j REDIRECT --to-port 53
+    iptables -t nat -A PREROUTING -i ${AP_INTERFACE} -p tcp --dport 53 -j REDIRECT --to-port 53
+
+    netfilter-persistent save 2>/dev/null || echo "  (iptables-persistent NA — rules may not survive reboot)"
 
     _step_ok
 fi

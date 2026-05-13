@@ -38,12 +38,18 @@ When wifiPassword is absent from hub config, the system SHALL hide the QR and di
 - WHEN scoreboard renders
 - THEN QR is hidden AND domain text still renders
 
-### Requirement: All Scoreboard Views
+### Requirement: Kiosk-Only Visibility
 
-QR and domain text MUST render on every scoreboard view. No per-table rotation.
+WiFi QR and domain text SHALL render ONLY on the kiosk all-tables view (TV scoreboard). Other scoreboard views (per-table referee, view) SHALL NOT display the QR.
 
-#### Scenario: QR visible across all views
+#### Scenario: QR on kiosk only
 
 - GIVEN hub config provides wifiPassword
-- WHEN any scoreboard view (kiosk, all-tables) displays
+- WHEN kiosk all-tables view (`/scoreboard/all/kiosk`) displays
 - THEN WiFi QR and domain text are visible
+
+#### Scenario: QR absent on per-table views
+
+- GIVEN hub config provides wifiPassword
+- WHEN a per-table scoreboard view (referee, view) displays
+- THEN WiFi QR and domain text are NOT visible

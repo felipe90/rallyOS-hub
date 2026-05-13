@@ -1,16 +1,23 @@
 import { useEffect } from 'react'
-import { useI18n } from '@/i18n'
+import { useI18n, changeLanguage } from '@/i18n'
 import { useSocketContext } from '@/contexts/SocketContext'
 import { ConnectionStatus, Typography } from '@/components/atoms'
 import { KioskTableCard } from '@/components/organisms/KioskTableCard'
+import { QRCodeSVG } from 'qrcode.react'
 import type { TableInfo } from '@shared/types'
 
 /** Active table statuses shown on the kiosk */
 const ACTIVE_STATUSES: TableInfo['status'][] = ['LIVE', 'WAITING']
 
 export function KioskAllTablesPage() {
-  const { tables, connected, connecting } = useSocketContext()
+  const { tables, connected, connecting, hubConfig } = useSocketContext()
   const { i18nText } = useI18n()
+
+  // Spanish default on TV scoreboard
+  useEffect(() => {
+    const explicit = localStorage.getItem('rallyos-lang-explicit')
+    if (!explicit) changeLanguage('es')
+  }, [])
 
   // Auto-reload when socket permanently disconnects (all retries exhausted)
   useEffect(() => {
@@ -53,6 +60,25 @@ export function KioskAllTablesPage() {
           {activeTables.map((table) => (
             <KioskTableCard key={table.id} table={table} />
           ))}
+        </div>
+      )}
+
+      {/* WiFi QR Code + Domain Link — visible on all scoreboard views */}
+      {hubConfig?.domain && (
+        <div className="flex flex-col items-center gap-2 pb-6">
+          {hubConfig.wifiPassword && (
+            <QRCodeSVG
+              value={`WIFI:T:WPA;S:${hubConfig.ssid};P:${hubConfig.wifiPassword};;`}
+              size={200}
+              bgColor="#ffffff"
+              fgColor="#000000"
+              level="M"
+              includeMargin={true}
+            />
+          )}
+          <Typography variant="label" className="text-center text-text/80 text-sm">
+            {i18nText('scoreboardWifiDomain', { domain: hubConfig.domain })}
+          </Typography>
         </div>
       )}
     </div>

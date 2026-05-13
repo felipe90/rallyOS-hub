@@ -159,8 +159,9 @@ check_hostapd() {
     local clients
     clients=$(iw dev "$iface" station dump 2>/dev/null)
     local client_count
-    client_count=$(echo "$clients" | grep -c "Station" 2>/dev/null || echo "0")
-    if [ "$client_count" -gt 0 ]; then
+    client_count=$(echo "$clients" | grep -c "Station" 2>/dev/null | tr -d '[:space:]')
+    client_count=${client_count:-0}
+    if [ "$client_count" -gt 0 ] 2>/dev/null; then
         _ok "Connected clients: $client_count"
         echo "$clients" | grep "Station" | while IFS= read -r line; do
             local mac
@@ -240,7 +241,7 @@ check_iptables() {
 
     # Port 80 → 3000 redirect (captive portal)
     local port80_rule
-    port80_rule=$(iptables -t nat -L PREROUTING 2>/dev/null | grep "dpt:80" | head -1)
+    port80_rule=$(iptables -t nat -L PREROUTING -n 2>/dev/null | grep "dpt:80" | head -1)
     if [ -n "$port80_rule" ]; then
         local dest
         dest=$(echo "$port80_rule" | grep -oP 'to:[0-9.]+:[0-9]+' || echo "unknown")
@@ -252,7 +253,7 @@ check_iptables() {
 
     # DNS redirect (Android fix)
     local dns53_rule
-    dns53_rule=$(iptables -t nat -L PREROUTING 2>/dev/null | grep "dpt:53" | head -1)
+    dns53_rule=$(iptables -t nat -L PREROUTING -n 2>/dev/null | grep "dpt:53" | head -1)
     if [ -n "$dns53_rule" ]; then
         _ok "DNS redirect (port 53 → dnsmasq) — Android compatible"
     else

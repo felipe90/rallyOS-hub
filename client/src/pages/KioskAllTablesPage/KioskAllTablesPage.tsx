@@ -3,7 +3,7 @@ import { useI18n, changeLanguage } from '@/i18n'
 import { useSocketContext } from '@/contexts/SocketContext'
 import { ConnectionStatus, Typography } from '@/components/atoms'
 import { KioskTableCard } from '@/components/organisms/KioskTableCard'
-import { QRCodeSVG } from 'qrcode.react'
+import { WifiQrCode } from '@/components/molecules/WifiQrCode'
 import type { TableInfo } from '@shared/types'
 
 /** Active table statuses shown on the kiosk */
@@ -63,24 +63,8 @@ export function KioskAllTablesPage() {
         </div>
       )}
 
-      {/* WiFi QR Code + Domain Link — visible on all scoreboard views */}
-      {hubConfig?.domain && (
-        <div className="flex flex-col items-center gap-2 pb-6">
-          {hubConfig.wifiPassword && (
-            <QRCodeSVG
-              value={`WIFI:T:WPA;S:${hubConfig.ssid};P:${hubConfig.wifiPassword};;`}
-              size={200}
-              bgColor="#ffffff"
-              fgColor="#000000"
-              level="M"
-              includeMargin={true}
-            />
-          )}
-          <Typography variant="label" className="text-center text-text/80 text-sm">
-            {i18nText('scoreboardWifiDomain', { domain: hubConfig.domain })}
-          </Typography>
-        </div>
-      )}
+      {/* WiFi QR Code + Domain Link */}
+      <WifiQrCode hubConfig={hubConfig} />
     </div>
   )
 }

@@ -57,6 +57,7 @@ export const SocketEvents = {
     PLAYER_LEFT: 'PLAYER_LEFT',
     ERROR: 'ERROR',
     RATE_LIMIT_STATUS: 'RATE_LIMIT_STATUS',
+    HUB_CONFIG: 'HUB_CONFIG',
   },
 } as const;
 

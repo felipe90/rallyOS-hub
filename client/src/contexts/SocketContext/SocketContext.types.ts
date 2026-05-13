@@ -1,5 +1,6 @@
 import type { TableInfo, MatchStateExtended, AllHistoryEntry } from '@shared/types'
 import type { Socket } from 'socket.io-client'
+import type { HubConfigData } from '../../hooks/useSocketState'
 
 export interface SocketState {
   connected: boolean
@@ -19,6 +20,7 @@ export interface SocketContextType {
   currentTable: TableInfo | null
   currentMatch: MatchStateExtended | null
   allHistories: AllHistoryEntry[] | null
+  hubConfig: HubConfigData | null
   connect: () => void
   disconnect: () => void
   emit: (event: string, data?: unknown) => void

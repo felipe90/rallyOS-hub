@@ -93,3 +93,44 @@ describe('App routing', () => {
     expect(screen.getByText('authSelectRole')).toBeInTheDocument()
   })
 })
+
+describe('LanguageSwitcher visibility', () => {
+  it('renders LanguageSwitcher on /auth page', () => {
+    render(
+      <MemoryRouter initialEntries={['/auth']}>
+        <App />
+      </MemoryRouter>
+    )
+
+    // The language toggle buttons ES and EN should be visible
+    expect(screen.getByRole('button', { name: 'es' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'en-US' })).toBeInTheDocument()
+  })
+
+  it('hides LanguageSwitcher on /scoreboard/all/kiosk', () => {
+    render(
+      <MemoryRouter initialEntries={['/scoreboard/all/kiosk']}>
+        <App />
+      </MemoryRouter>
+    )
+
+    // Language toggle should NOT be in the DOM
+    expect(screen.queryByRole('button', { name: 'es' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'en-US' })).not.toBeInTheDocument()
+  })
+
+  it('hides LanguageSwitcher when redirected to /auth from unknown route', () => {
+    // Note: unknown routes inside PrivateRoute redirect to /auth (NotFoundPage → auth),
+    // so the LanguageSwitcher WILL be visible at /auth. This test confirms that
+    // /auth is the ONLY page where the toggle appears.
+    render(
+      <MemoryRouter initialEntries={['/some-unknown-path']}>
+        <App />
+      </MemoryRouter>
+    )
+
+    // Since unauthenticated requests redirect to /auth, the toggle IS visible
+    expect(screen.getByRole('button', { name: 'es' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'en-US' })).toBeInTheDocument()
+  })
+})

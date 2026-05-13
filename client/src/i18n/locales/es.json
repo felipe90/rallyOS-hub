@@ -112,5 +112,6 @@
   "kioskNoActiveMatches": "No hay partidos activos",
   "kioskStatusLive": "EN VIVO",
   "kioskStatusPaused": "Pausado",
-  "kioskStatusFinished": "Finalizado"
+  "kioskStatusFinished": "Finalizado",
+  "scoreboardWifiDomain": "Abrí {{domain}}"
 }

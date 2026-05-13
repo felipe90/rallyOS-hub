@@ -6,7 +6,7 @@
  */
 
 import { useNavigate, useParams } from 'react-router-dom'
-import { useI18n } from '@/i18n'
+import { useI18n, changeLanguage } from '@/i18n'
 import { useSocketContext, useAuthContext } from '@/contexts'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useScoreboardUrl } from '@/hooks/useScoreboardUrl'
@@ -19,6 +19,7 @@ import { HistoryDrawer } from '@/components/organisms/HistoryDrawer'
 import { PageHeader } from '@/components/molecules/PageHeader'
 import { ConfirmDialog } from '@/components/molecules/ConfirmDialog'
 import { ConnectionStatus, Button, Typography, CoachMark } from '@/components/atoms'
+import { QRCodeSVG } from 'qrcode.react'
 import { useState, useEffect } from 'react'
 import { Routes } from '@/routes'
 
@@ -56,7 +57,7 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
   const { tableId } = useParams<{ tableId: string }>()
   const navigate = useNavigate()
   const { i18nText } = useI18n()
-  const { currentMatch, emit, connected, socket } = useSocketContext()
+  const { currentMatch, emit, connected, socket, hubConfig } = useSocketContext()
   const { isReferee, isOwner, tablePin } = useAuthContext()
   const { scoreboard: perms } = usePermissions()
   const { canEdit, canConfigure, canViewHistory } = perms
@@ -84,6 +85,13 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
       sessionStorage.removeItem(key)
     }
   }, [currentMatch?.status, currentMatch?.winner, tableId])
+
+  // Scoreboard page defaults to Spanish unless user explicitly chose a language
+  useEffect(() => {
+    if (!localStorage.getItem('rallyos-lang-explicit')) {
+      changeLanguage('es-AR')
+    }
+  }, [])
 
   if (!tableId) return <div>{i18nText('scoreboardInvalidTableId')}</div>
   if (refRevoked) return <RefRevokedView />
@@ -121,6 +129,25 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
           isLandscape={isLandscape}
           onOrientationToggle={toggleOrientation}
         />
+
+        {/* WiFi QR Code + Domain Link — visible on all scoreboard views */}
+        {hubConfig?.domain && (
+          <div className="flex flex-col items-center gap-2 mt-4 pb-4">
+            {hubConfig.wifiPassword && (
+              <QRCodeSVG
+                value={`WIFI:T:WPA;S:${hubConfig.ssid};P:${hubConfig.wifiPassword};;`}
+                size={180}
+                bgColor="#ffffff"
+                fgColor="#000000"
+                level="M"
+                includeMargin={true}
+              />
+            )}
+            <Typography variant="label" className="text-center text-text/80 text-sm">
+              {i18nText('scoreboardWifiDomain', { domain: hubConfig.domain })}
+            </Typography>
+          </div>
+        )}
       </div>
 
       {/* Match Config Modal */}

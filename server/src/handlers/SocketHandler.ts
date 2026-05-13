@@ -12,7 +12,7 @@
 
 import { Server, Socket } from 'socket.io';
 import { TableManager } from '../domain/tableManager';
-import { TableInfo } from '../domain/types';
+import { TableInfo, HubConfig } from '../domain/types';
 import { logger } from '../utils/logger';
 import { RateLimiter } from '../services/security/RateLimiter';
 import { SocketEvents } from '../../../shared/events';
@@ -27,6 +27,7 @@ export class SocketHandler {
   private io: Server;
   private tableManager: TableManager;
   private ownerPin: string;
+  private hubConfig: HubConfig;
   private connectionRateLimiter: RateLimiter;
   
   // Handler instances
@@ -35,10 +36,11 @@ export class SocketHandler {
   private authHandler: AuthHandler;
   private adminHandler: AdminHandler;
 
-  constructor(io: Server, tableManager: TableManager, ownerPin: string) {
+  constructor(io: Server, tableManager: TableManager, ownerPin: string, hubConfig: HubConfig) {
     this.io = io;
     this.tableManager = tableManager;
     this.ownerPin = ownerPin;
+    this.hubConfig = hubConfig;
     this.connectionRateLimiter = new RateLimiter(60_000, 20); // 20 connections per 60s per IP
     
     // Initialize handlers
@@ -96,6 +98,15 @@ export class SocketHandler {
 
       // Send current tables to new client
       socket.emit(SocketEvents.SERVER.TABLE_LIST, this.getPublicTableList());
+
+      // Send hub config to new client (WiFi QR credentials + domain)
+      socket.emit(SocketEvents.SERVER.HUB_CONFIG, {
+        ssid: this.hubConfig.ssid,
+        ip: this.hubConfig.ip,
+        port: this.hubConfig.port,
+        wifiPassword: this.hubConfig.wifiPassword,
+        domain: this.hubConfig.domain,
+      });
 
       // Register all handler events
       this.tableHandler.registerHandlers(socket);

@@ -61,6 +61,8 @@ export interface HubConfig {
   ssid: string;
   ip: string;
   port: number;
+  domain: string;
+  wifiPassword: string;
 }
 
 /**

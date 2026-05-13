@@ -63,6 +63,7 @@ vi.mock('@/i18n', () => ({
     language: 'en-US',
     changeLanguage: vi.fn(),
   }),
+  changeLanguage: vi.fn(),
   SUPPORTED_LANGS: [
     { code: 'es', label: 'ES' },
     { code: 'en-US', label: 'EN' },

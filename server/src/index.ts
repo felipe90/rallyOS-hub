@@ -36,12 +36,13 @@ const hubConfig = {
   ip: process.env.HUB_IP || '192.168.4.1',
   port: parseInt(process.env.PORT || '3000'),
   domain: getHubDomain(),
+  wifiPassword: process.env.HUB_WIFI_PASSWORD || '',
   ownerPin,
 };
 
 // Create TableManager and SocketHandler
 const tableManager = new TableManager(hubConfig);
-createSocketServer(io, tableManager, ownerPin);
+createSocketServer(io, tableManager, ownerPin, hubConfig);
 
 // Start listening
 httpsServer.listen(PORT, () => {

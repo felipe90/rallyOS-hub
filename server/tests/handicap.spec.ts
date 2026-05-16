@@ -12,7 +12,7 @@ describe('getAllHistories — handicap', () => {
   let manager: TableManager;
 
   beforeEach(() => {
-    manager = new TableManager({ ssid: 'TestHub', ip: '127.0.0.1', port: 3000 });
+    manager = new TableManager({ ssid: 'TestHub', ip: '127.0.0.1', port: 3000, domain: 'localhost', wifiPassword: 'test123' });
   });
 
   it('includes handicap in payload when config has handicapA and handicapB', () => {

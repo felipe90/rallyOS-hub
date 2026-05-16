@@ -8,14 +8,16 @@
 import { Server as IOServer } from 'socket.io';
 import { SocketHandler } from './handlers/SocketHandler';
 import { TableManager } from './domain/tableManager';
+import { HubConfig } from './domain/types';
 import { logger } from './utils/logger';
 
 export function createSocketServer(
   io: IOServer,
   tableManager: TableManager,
-  ownerPin: string
+  ownerPin: string,
+  hubConfig: HubConfig,
 ): SocketHandler {
-  const socketHandler = new SocketHandler(io, tableManager, ownerPin);
+  const socketHandler = new SocketHandler(io, tableManager, ownerPin, hubConfig);
 
   logger.info('Socket.IO initialized');
   logger.debug({ transports: io.engine.opts.transports }, 'Socket.IO transports');

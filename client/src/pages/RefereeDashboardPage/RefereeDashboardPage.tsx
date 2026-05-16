@@ -14,6 +14,7 @@ import { useSocketContext } from '@/contexts/SocketContext'
 import { useAuthContext } from '@/contexts/AuthContext'
 import { useDashboardStats } from '@/hooks/useDashboardStats'
 import { usePinSubmission } from '@/hooks/usePinSubmission'
+import { useRefereeSession } from '@/hooks/useRefereeSession'
 import { Button } from '@/components/atoms/Button'
 import { Routes, buildScoreboardRoute } from '@/routes'
 import type { TableInfoWithPin } from '@shared/types'
@@ -33,12 +34,32 @@ export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashb
   const { logout, setTablePin } = useAuthContext()
   const stats = useDashboardStats(tables)
   const { submitPin, loading: pinLoading, error: pinError, clearError } = usePinSubmission(socket)
+  const { saveSession, findAnyValidSession, clearSession } = useRefereeSession()
 
   // Referee gets regular tables (no PINs visible)
   useEffect(() => {
     if (!connected) return
     requestTables()
   }, [connected, requestTables])
+
+  // Auto-restore valid referee session — skip PIN modal if session exists
+  useEffect(() => {
+    if (!connected || tables.length === 0) return
+    const session = findAnyValidSession(tables)
+    if (session) {
+      setTablePin(session.pin)
+      navigate(buildScoreboardRoute(session.tableId, 'referee'))
+    }
+  }, [connected, tables, findAnyValidSession, setTablePin, navigate])
+
+  // Clear sessions for tables that transition to FINISHED
+  useEffect(() => {
+    for (const table of tables) {
+      if (table.status === 'FINISHED') {
+        clearSession(table.id)
+      }
+    }
+  }, [tables, clearSession])
 
   const handleLogout = () => {
     logout()
@@ -59,6 +80,7 @@ export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashb
     setTablePin(pin)
     const result = await submitPin(pin, selectedTable.id)
     if (result.success) {
+      saveSession(selectedTable.id, pin)
       navigate(buildScoreboardRoute(selectedTable.id, 'referee'))
     }
   }

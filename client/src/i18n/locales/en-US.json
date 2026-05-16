@@ -112,5 +112,6 @@
   "kioskNoActiveMatches": "No active matches",
   "kioskStatusLive": "LIVE",
   "kioskStatusPaused": "Paused",
-  "kioskStatusFinished": "Finished"
+  "kioskStatusFinished": "Finished",
+  "scoreboardWifiDomain": "Open {{domain}}"
 }

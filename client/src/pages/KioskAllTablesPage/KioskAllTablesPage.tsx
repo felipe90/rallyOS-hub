@@ -1,16 +1,23 @@
 import { useEffect } from 'react'
-import { useI18n } from '@/i18n'
+import { useI18n, changeLanguage } from '@/i18n'
 import { useSocketContext } from '@/contexts/SocketContext'
 import { ConnectionStatus, Typography } from '@/components/atoms'
 import { KioskTableCard } from '@/components/organisms/KioskTableCard'
+import { WifiQrCode } from '@/components/molecules/WifiQrCode'
 import type { TableInfo } from '@shared/types'
 
 /** Active table statuses shown on the kiosk */
 const ACTIVE_STATUSES: TableInfo['status'][] = ['LIVE', 'WAITING']
 
 export function KioskAllTablesPage() {
-  const { tables, connected, connecting } = useSocketContext()
+  const { tables, connected, connecting, hubConfig } = useSocketContext()
   const { i18nText } = useI18n()
+
+  // Spanish default on TV scoreboard
+  useEffect(() => {
+    const explicit = localStorage.getItem('rallyos-lang-explicit')
+    if (!explicit) changeLanguage('es')
+  }, [])
 
   // Auto-reload when socket permanently disconnects (all retries exhausted)
   useEffect(() => {
@@ -55,6 +62,9 @@ export function KioskAllTablesPage() {
           ))}
         </div>
       )}
+
+      {/* WiFi QR Code + Domain Link */}
+      <WifiQrCode hubConfig={hubConfig} />
     </div>
   )
 }

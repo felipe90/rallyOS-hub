@@ -6,7 +6,8 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+REPO_PATH="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$REPO_PATH"
 
 # Colors
 GREEN='\033[0;32m'
@@ -17,8 +18,8 @@ MAGENTA='\033[0;35m'
 NC='\033[0m' # No Color
 
 # Configuration
-SERVER_DIR="$SCRIPT_DIR/server"
-CLIENT_DIR="$SCRIPT_DIR/client"
+SERVER_DIR="$REPO_PATH/server"
+CLIENT_DIR="$REPO_PATH/client"
 SERVER_PORT="${SERVER_PORT:-3000}"
 CLIENT_PORT="${CLIENT_PORT:-5173}"
 SERVER_URL="https://localhost:$SERVER_PORT"
@@ -126,7 +127,7 @@ main() {
         echo -e "${YELLOW}  Installing server dependencies...${NC}"
         cd "$SERVER_DIR"
         npm ci 2>&1 | tail -3
-        cd "$SCRIPT_DIR"
+        cd "$REPO_PATH"
         print_success "Server dependencies installed"
     else
         print_success "Server dependencies OK"
@@ -136,7 +137,7 @@ main() {
         echo -e "${YELLOW}  Installing client dependencies...${NC}"
         cd "$CLIENT_DIR"
         npm ci 2>&1 | tail -3
-        cd "$SCRIPT_DIR"
+        cd "$REPO_PATH"
         print_success "Client dependencies installed"
     else
         print_success "Client dependencies OK"
@@ -147,14 +148,14 @@ main() {
     cd "$SERVER_DIR"
     npm run build > /dev/null 2>&1
     print_success "Server compilation complete"
-    cd "$SCRIPT_DIR"
+    cd "$REPO_PATH"
     
     # Build client for development (served by server on port 3000)
     print_step "Building client..."
     cd "$CLIENT_DIR"
     npm run build > /dev/null 2>&1
     print_success "Client build complete"
-    cd "$SCRIPT_DIR"
+    cd "$REPO_PATH"
     
     # Create pipes for real-time log streaming
     SERVER_LOG=$(mktemp -u)
@@ -177,9 +178,9 @@ main() {
     }
     
     # Load environment variables from .env (if exists)
-    if [ -f "$SCRIPT_DIR/.env" ]; then
+    if [ -f "$REPO_PATH/.env" ]; then
         set -a
-        source "$SCRIPT_DIR/.env"
+        source "$REPO_PATH/.env"
         set +a
         print_success "Environment loaded from .env"
     fi

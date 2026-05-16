@@ -17,10 +17,12 @@ vi.mock('@/i18n', () => ({
       const map: Record<string, string> = {
         'kioskNoActiveMatches': 'No active matches',
         'kioskPageTitle': 'Scoreboard',
+        'scoreboardWifiDomain': 'Abrí rallyos-hub.local',
       }
       return map[key] || key
     },
   }),
+  changeLanguage: vi.fn(),
 }))
 
 const mockUseSocketContext = useSocketContext as ReturnType<typeof vi.fn>

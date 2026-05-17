@@ -33,11 +33,9 @@ jobs:
           npm run test -- --run
       
       - name: Run tests with coverage
-        env:
-          NODE_OPTIONS: '--max-old-space-size=5120'
         run: |
           cd client
-          npm run test:coverage -- --maxWorkers=1
+          npm run test:coverage -- --exclude='src/__tests__/App.test.tsx'
       
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4

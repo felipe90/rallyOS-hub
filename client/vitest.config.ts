@@ -19,8 +19,13 @@ export default defineConfig({
       '**/*.config.*',
       '**/mockData',
       '**/dist',
-      'src/server/**'
+      'src/server/**',
     ],
+    poolOptions: {
+      forks: {
+        execArgv: ['--max-old-space-size=6144'],
+      },
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

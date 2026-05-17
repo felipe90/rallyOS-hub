@@ -3,6 +3,29 @@ import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import App from '../App'
 
+// Mock heavy page components that App.tsx statically imports
+// but are NEVER rendered by these tests. Without these mocks,
+// all page modules and their transitive dependencies (ScoreboardMain,
+// MatchConfigModal, etc.) are loaded, causing OOM on constrained runners.
+vi.mock('@/pages/OwnerDashboardPage', () => ({
+  OwnerDashboardPage: () => <div data-testid="owner-dashboard" />,
+}))
+vi.mock('@/pages/RefereeDashboardPage', () => ({
+  RefereeDashboardPage: () => <div data-testid="referee-dashboard" />,
+}))
+vi.mock('@/pages/SpectatorDashboardPage', () => ({
+  SpectatorDashboardPage: () => <div data-testid="spectator-dashboard" />,
+}))
+vi.mock('@/pages/ScoreboardPage', () => ({
+  ScoreboardPage: () => <div data-testid="scoreboard" />,
+}))
+vi.mock('@/pages/HistoryViewPage', () => ({
+  HistoryViewPage: () => <div data-testid="history" />,
+}))
+vi.mock('@/pages/NotFoundPage', () => ({
+  NotFoundPage: () => <div data-testid="not-found" />,
+}))
+
 // Mock SocketContext — provide minimal context
 vi.mock('@/contexts/SocketContext', () => ({
   useSocketContext: () => ({

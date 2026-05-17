@@ -11,6 +11,7 @@ import { useSocketContext, useAuthContext } from '@/contexts'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useScoreboardUrl } from '@/hooks/useScoreboardUrl'
 import { useOrientation } from '@/hooks/useOrientation'
+import { useWakeLock } from '@/hooks/useWakeLock'
 import { useScoreboardEvents } from './useScoreboardEvents'
 import { useMatchState, useRefAuth, useRefRevoked } from './'
 import { ScoreboardMain } from '@/components/organisms/ScoreboardMain'
@@ -61,6 +62,7 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
   const { scoreboard: perms } = usePermissions()
   const { canEdit, canConfigure, canViewHistory } = perms
   const { isLandscape, toggle: toggleOrientation } = useOrientation()
+  useWakeLock()
 
   useScoreboardUrl(tableId)
   const { handleScorePoint, handleSubtractPoint, handleUndo, handleSetServer, handleSwapSides, handleStartMatch, handleCancelMatch } =

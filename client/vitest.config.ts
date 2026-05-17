@@ -2,6 +2,24 @@ import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 
+const isCoverage = process.env.VITEST_COVERAGE === '1'
+
+const baseExclude = [
+  'node_modules/',
+  'src/test/',
+  '**/*.d.ts',
+  '**/*.config.*',
+  '**/mockData',
+  '**/dist',
+  'src/server/**',
+]
+
+// App.test.tsx imports the full App tree and OOMs under v8 coverage
+// on GitHub Actions 7GB runners. Exclude it from coverage runs.
+const testExclude = isCoverage
+  ? [...baseExclude, 'src/__tests__/App.test.tsx']
+  : baseExclude
+
 export default defineConfig({
   plugins: [react()],
   define: {
@@ -12,15 +30,12 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
-    exclude: [
-      'node_modules/',
-      'src/test/',
-      '**/*.d.ts',
-      '**/*.config.*',
-      '**/mockData',
-      '**/dist',
-      'src/server/**'
-    ],
+    exclude: testExclude,
+    poolOptions: {
+      forks: {
+        ...(isCoverage ? { singleFork: true } : {}),
+      },
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
@@ -31,14 +46,14 @@ export default defineConfig({
         '**/*.config.*',
         '**/mockData',
         '**/dist',
-        'src/server/**'
-      ]
-    }
+        'src/server/**',
+      ],
+    },
   },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
       '@shared': path.resolve(__dirname, '../shared'),
-    }
-  }
+    },
+  },
 })

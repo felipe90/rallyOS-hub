@@ -35,7 +35,7 @@ jobs:
       - name: Run tests with coverage
         run: |
           cd client
-          npm run test:coverage -- --exclude='src/__tests__/App.test.tsx'
+          npm run test:coverage
       
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4

@@ -8,8 +8,8 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$PROJECT_DIR"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR/.."
 
 echo -e "${BLUE}╔════════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║         RallyOS Hub - Docker Setup         ║${NC}"
@@ -44,7 +44,7 @@ fi
 # Pre-build: Ensure client and server are built locally first
 echo -e "${YELLOW}📦 Pre-building client...${NC}"
 if [ -f "client/package.json" ]; then
-    cd "$PROJECT_DIR/client"
+    cd "$SCRIPT_DIR/../client"
     if ! npm ci --force 2>&1 | tail -3; then
         echo -e "${RED}✗ npm ci failed for client!${NC}"
         exit 1
@@ -55,7 +55,7 @@ if [ -f "client/package.json" ]; then
         cat /tmp/client-build.log | grep -E "error|Error|ERROR" | head -20
         exit 1
     fi
-    cd "$PROJECT_DIR"
+    cd "$SCRIPT_DIR/.."
     echo -e "${GREEN}✓${NC} Client pre-build complete"
 else
     echo -e "${RED}✗ Client directory not found${NC}"
@@ -65,7 +65,7 @@ fi
 # Pre-build: Ensure server is built locally first
 echo -e "${YELLOW}📦 Pre-building server...${NC}"
 if [ -f "server/package.json" ]; then
-    cd "$PROJECT_DIR/server"
+    cd "$SCRIPT_DIR/../server"
     if ! npm ci --force 2>&1 | tail -3; then
         echo -e "${RED}✗ npm ci failed for server!${NC}"
         exit 1
@@ -76,7 +76,7 @@ if [ -f "server/package.json" ]; then
         cat /tmp/server-build.log | grep -E "error|Error|ERROR" | head -20
         exit 1
     fi
-    cd "$PROJECT_DIR"
+    cd "$SCRIPT_DIR/.."
     echo -e "${GREEN}✓${NC} Server pre-build complete"
 else
     echo -e "${RED}✗ Server directory not found${NC}"

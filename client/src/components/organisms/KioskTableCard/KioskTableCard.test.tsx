@@ -107,4 +107,35 @@ describe('KioskTableCard', () => {
     const { container } = render(<KioskTableCard table={table} className="custom-class" />)
     expect(container.firstElementChild?.className).toContain('custom-class')
   })
+
+  describe('condensed mode', () => {
+    it('renders table name and scores when condensed', () => {
+      const table = makeTable()
+      render(<KioskTableCard table={table} condensed />)
+
+      // All critical content must still be visible in condensed mode
+      expect(screen.getByText('Mesa 1')).toBeInTheDocument()
+      expect(screen.getByText('5')).toBeInTheDocument()
+      expect(screen.getByText('3')).toBeInTheDocument()
+      expect(screen.getByText('Alice')).toBeInTheDocument()
+      expect(screen.getByText('Bob')).toBeInTheDocument()
+      expect(screen.getByText('LIVE')).toBeInTheDocument()
+    })
+
+    it('sets data-condensed="false" when condensed is not provided', () => {
+      const table = makeTable()
+      const { container } = render(<KioskTableCard table={table} />)
+
+      const card = container.firstElementChild!
+      expect(card.getAttribute('data-condensed')).toBe('false')
+    })
+
+    it('sets data-condensed="true" when condensed prop is true', () => {
+      const table = makeTable()
+      const { container } = render(<KioskTableCard table={table} condensed />)
+
+      const card = container.firstElementChild!
+      expect(card.getAttribute('data-condensed')).toBe('true')
+    })
+  })
 })

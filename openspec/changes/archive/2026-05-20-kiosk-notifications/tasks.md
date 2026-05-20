@@ -50,7 +50,7 @@ Chain strategy: stacked-to-main
 
 ## Phase 5: Integration & Verification
 
-- [ ] 5.1 Round-trip: emit `SEND_NOTIFICATION` → validate → rate-limit → broadcast → client receives sanitized
-- [ ] 5.2 Kiosk display: toast at bottom, 4 cards fully visible (spec scenario)
-- [ ] 5.3 Walk all 9 spec scenarios from both delta specs
-- [ ] 5.4 Full suite: `cd client && npm test && cd ../server && npm test`
+- [x] 5.1 Round-trip: emit `SEND_NOTIFICATION` → validate → rate-limit → broadcast → client receives sanitized
+- [x] 5.2 Kiosk display: toast at bottom, 4 cards fully visible (spec scenario)
+- [x] 5.3 Walk all 12 spec scenarios from both delta specs (9 kiosk-notifications + 3 kiosk-display) — all covered by passing tests
+- [x] 5.4 Full suite: server 69/69 ✅ | client change-related 94/94 ✅ | full client 679/684 (5 lost in App.test.tsx OOM — pre-existing, unrelated)

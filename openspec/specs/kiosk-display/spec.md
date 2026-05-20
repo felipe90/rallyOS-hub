@@ -70,6 +70,13 @@ The kiosk MUST render active tables in a responsive CSS grid optimized for HDMI 
 |-------|-----------|--------|
 | `score:update` | Server→Client | Updates single table card score |
 | `table:statusUpdate` | Server→Client | Adds card (LIVE/WAITING) or removes card (FINISHED) |
+| `KIOSK_NOTIFICATION` | Server→Client | Renders color-coded toast at bottom |
+
+#### Scenario: Toast does not obscure scores
+
+- GIVEN cards displayed AND `KIOSK_NOTIFICATION` received
+- WHEN toast renders
+- THEN all cards remain visible
 
 #### Scenario: Multi-table grid
 
@@ -100,3 +107,19 @@ The kiosk MUST render active tables in a responsive CSS grid optimized for HDMI 
 - GIVEN kiosk shows 2 tables
 - WHEN Server→Client `table:statusUpdate` → LIVE for new table
 - THEN card added to grid
+
+### Requirement: Kiosk Notification Toast Overlay
+
+Kiosk MUST render toast at screen BOTTOM, semi-transparent, color-coded, auto-dismiss after configured duration. Toast MUST NOT obscure active table scores.
+
+#### Scenario: Toast at bottom, scores visible
+
+- GIVEN 4 active cards displayed
+- WHEN `KIOSK_NOTIFICATION` arrives
+- THEN toast at bottom, all cards fully visible
+
+#### Scenario: Toast auto-dismiss
+
+- GIVEN toast displayed
+- WHEN duration elapses
+- THEN animates out, removed from DOM

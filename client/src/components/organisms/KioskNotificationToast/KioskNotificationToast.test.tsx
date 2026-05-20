@@ -106,7 +106,7 @@ describe('KioskNotificationToast', () => {
       expect(screen.getByText('All matches are starting!')).toBeInTheDocument()
     })
 
-    it('renders an icon for info type', () => {
+    it('renders an info icon for info type', () => {
       const notification = makeNotification({ type: 'info' })
       render(
         <KioskNotificationToast
@@ -115,12 +115,10 @@ describe('KioskNotificationToast', () => {
         />,
       )
 
-      // The icon should be present (lucide-react renders SVG)
-      const iconContainer = document.querySelector('svg')
-      expect(iconContainer).toBeInTheDocument()
+      expect(screen.getByTestId('toast-icon-info')).toBeInTheDocument()
     })
 
-    it('renders an icon for warning type', () => {
+    it('renders a warning icon for warning type', () => {
       const notification = makeNotification({ type: 'warning' })
       render(
         <KioskNotificationToast
@@ -129,11 +127,10 @@ describe('KioskNotificationToast', () => {
         />,
       )
 
-      const iconContainer = document.querySelector('svg')
-      expect(iconContainer).toBeInTheDocument()
+      expect(screen.getByTestId('toast-icon-warning')).toBeInTheDocument()
     })
 
-    it('renders an icon for error type', () => {
+    it('renders an error icon for error type', () => {
       const notification = makeNotification({ type: 'error' })
       render(
         <KioskNotificationToast
@@ -142,11 +139,10 @@ describe('KioskNotificationToast', () => {
         />,
       )
 
-      const iconContainer = document.querySelector('svg')
-      expect(iconContainer).toBeInTheDocument()
+      expect(screen.getByTestId('toast-icon-error')).toBeInTheDocument()
     })
 
-    it('renders an icon for important type', () => {
+    it('renders an important icon for important type', () => {
       const notification = makeNotification({ type: 'important' })
       render(
         <KioskNotificationToast
@@ -155,8 +151,7 @@ describe('KioskNotificationToast', () => {
         />,
       )
 
-      const iconContainer = document.querySelector('svg')
-      expect(iconContainer).toBeInTheDocument()
+      expect(screen.getByTestId('toast-icon-important')).toBeInTheDocument()
     })
   })
 

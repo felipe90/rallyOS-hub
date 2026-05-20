@@ -127,7 +127,7 @@ export function KioskNotificationToast({ notification, onDismiss }: KioskNotific
       role="alert"
     >
       <div className="flex items-center gap-3 px-6 py-4 max-w-4xl mx-auto">
-        <Icon className="w-6 h-6 flex-shrink-0" />
+        <Icon className="w-6 h-6 flex-shrink-0" data-testid={`toast-icon-${notification.type}`} />
         <span className="text-lg font-semibold flex-1">{notification.message}</span>
       </div>
     </motion.div>

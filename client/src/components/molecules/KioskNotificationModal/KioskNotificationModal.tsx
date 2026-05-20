@@ -23,7 +23,6 @@ export interface KioskNotificationModalProps {
   typeImportantLabel?: string
   messageLabel?: string
   messagePlaceholder?: string
-  charCounterLabel?: string
   durationLabel?: string
   cancelLabel?: string
   submitLabel?: string
@@ -61,7 +60,6 @@ export function KioskNotificationModal({
   typeImportantLabel = 'notificationTypeImportant',
   messageLabel = 'notificationMessageLabel',
   messagePlaceholder = 'notificationMessagePlaceholder',
-  charCounterLabel = 'notificationCharCounter',
   durationLabel = 'notificationDurationLabel',
   cancelLabel = 'commonCancel',
   submitLabel = 'notificationSend',

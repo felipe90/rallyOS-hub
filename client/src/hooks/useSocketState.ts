@@ -7,7 +7,7 @@
 import { useEffect, useState } from 'react'
 import type { Socket } from 'socket.io-client'
 import { SocketEvents } from '@shared/events'
-import type { TableInfo, TableInfoWithPin, MatchStateExtended, ScoreChange, AllHistoryEntry } from '@shared/types'
+import type { TableInfo, TableInfoWithPin, MatchStateExtended, ScoreChange, AllHistoryEntry, KioskNotificationData } from '@shared/types'
 
 export interface HubConfigData {
   ssid: string
@@ -24,6 +24,7 @@ export function useSocketState(socket: Socket | null) {
   const [appError, setAppError] = useState<string | null>(null)
   const [allHistories, setAllHistories] = useState<AllHistoryEntry[] | null>(null)
   const [hubConfig, setHubConfig] = useState<HubConfigData | null>(null)
+  const [kioskNotification, setKioskNotification] = useState<KioskNotificationData | null>(null)
 
   useEffect(() => {
     if (!socket) return
@@ -72,6 +73,10 @@ export function useSocketState(socket: Socket | null) {
       setHubConfig(data)
     }
 
+    const handleKioskNotification = (data: KioskNotificationData | null) => {
+      setKioskNotification(data)
+    }
+
     socket.on(SocketEvents.SERVER.ERROR, handleError)
     socket.on(SocketEvents.SERVER.TABLE_UPDATE, handleTableUpdate)
     socket.on(SocketEvents.SERVER.TABLE_LIST, handleTableList)
@@ -81,6 +86,7 @@ export function useSocketState(socket: Socket | null) {
     socket.on(SocketEvents.SERVER.MATCH_UPDATE, handleMatchUpdate)
     socket.on(SocketEvents.SERVER.ALL_HISTORY, handleAllHistory)
     socket.on(SocketEvents.SERVER.HUB_CONFIG, handleHubConfig)
+    socket.on(SocketEvents.SERVER.KIOSK_NOTIFICATION, handleKioskNotification)
 
     return () => {
       socket.off(SocketEvents.SERVER.ERROR, handleError)
@@ -92,8 +98,9 @@ export function useSocketState(socket: Socket | null) {
       socket.off(SocketEvents.SERVER.MATCH_UPDATE, handleMatchUpdate)
       socket.off(SocketEvents.SERVER.ALL_HISTORY, handleAllHistory)
       socket.off(SocketEvents.SERVER.HUB_CONFIG, handleHubConfig)
+      socket.off(SocketEvents.SERVER.KIOSK_NOTIFICATION, handleKioskNotification)
     }
   }, [socket])
 
-  return { tables, currentMatch, currentTable, appError, allHistories, hubConfig }
+  return { tables, currentMatch, currentTable, appError, allHistories, hubConfig, kioskNotification }
 }

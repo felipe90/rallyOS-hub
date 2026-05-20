@@ -32,7 +32,7 @@ export function useSocket(options: UseSocketOptions = {}) {
   const { socketRef, connected, connecting, error, errorCode, connect, disconnect } =
     useSocketConnection(serverUrl)
 
-  const { tables, currentMatch, currentTable, appError, allHistories, hubConfig } = useSocketState(socketRef.current)
+  const { tables, currentMatch, currentTable, appError, allHistories, hubConfig, kioskNotification } = useSocketState(socketRef.current)
 
   const actions = useSocketActions(socketRef.current, currentTable)
 
@@ -57,6 +57,7 @@ export function useSocket(options: UseSocketOptions = {}) {
     currentMatch,
     allHistories,
     hubConfig,
+    kioskNotification,
     connect,
     disconnect,
     ...actions,

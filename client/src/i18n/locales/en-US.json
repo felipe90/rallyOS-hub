@@ -113,5 +113,16 @@
   "kioskStatusLive": "LIVE",
   "kioskStatusPaused": "Paused",
   "kioskStatusFinished": "Finished",
-  "scoreboardWifiDomain": "Open {{domain}}"
+  "scoreboardWifiDomain": "Open {{domain}}",
+  "ownerCreateNotification": "Create Notification",
+  "notificationModalTitle": "Send Notification",
+  "notificationTypeLabel": "Type",
+  "notificationTypeInfo": "Info",
+  "notificationTypeWarning": "Warning",
+  "notificationTypeError": "Error",
+  "notificationTypeImportant": "Important",
+  "notificationMessageLabel": "Message",
+  "notificationMessagePlaceholder": "Type your message...",
+  "notificationDurationLabel": "Duration",
+  "notificationSend": "Send"
 }

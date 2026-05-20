@@ -22,6 +22,11 @@ const testExclude = isCoverage
 
 export default defineConfig({
   plugins: [react()],
+  server: {
+    fs: {
+      allow: ['..'], // allow importing from shared/ at the repo root
+    },
+  },
   define: {
     'import.meta.env.VITE_ENCRYPTION_SECRET': JSON.stringify('0123456789abcdef0123456789abcdef'),
   },
@@ -29,7 +34,7 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
-    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx', '../shared/__tests__/*.test.ts'],
     exclude: testExclude,
     poolOptions: {
       forks: {

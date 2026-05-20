@@ -113,5 +113,16 @@
   "kioskStatusLive": "EN VIVO",
   "kioskStatusPaused": "Pausado",
   "kioskStatusFinished": "Finalizado",
-  "scoreboardWifiDomain": "Abrí {{domain}}"
+  "scoreboardWifiDomain": "Abrí {{domain}}",
+  "ownerCreateNotification": "Crear Notificación",
+  "notificationModalTitle": "Enviar Notificación",
+  "notificationTypeLabel": "Tipo",
+  "notificationTypeInfo": "Información",
+  "notificationTypeWarning": "Aviso",
+  "notificationTypeError": "Error",
+  "notificationTypeImportant": "Importante",
+  "notificationMessageLabel": "Mensaje",
+  "notificationMessagePlaceholder": "Escribí tu mensaje...",
+  "notificationDurationLabel": "Duración",
+  "notificationSend": "Enviar"
 }

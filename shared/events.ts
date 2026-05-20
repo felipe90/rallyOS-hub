@@ -35,6 +35,7 @@ export const SocketEvents = {
     REGENERATE_PIN: 'REGENERATE_PIN',
     GET_RATE_LIMIT_STATUS: 'GET_RATE_LIMIT_STATUS',
     GET_ALL_HISTORY: 'GET_ALL_HISTORY',
+    SEND_NOTIFICATION: 'SEND_NOTIFICATION',
   },
   // Emitted by SERVER → received by CLIENT
   SERVER: {
@@ -58,6 +59,7 @@ export const SocketEvents = {
     ERROR: 'ERROR',
     RATE_LIMIT_STATUS: 'RATE_LIMIT_STATUS',
     HUB_CONFIG: 'HUB_CONFIG',
+    KIOSK_NOTIFICATION: 'KIOSK_NOTIFICATION',
   },
 } as const;
 

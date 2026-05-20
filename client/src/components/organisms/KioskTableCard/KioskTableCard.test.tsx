@@ -108,6 +108,34 @@ describe('KioskTableCard', () => {
     expect(container.firstElementChild?.className).toContain('custom-class')
   })
 
+  describe('set scores display', () => {
+    it('renders set scores when currentSets is present with at least one value > 0', () => {
+      const table = makeTable({ currentSets: { a: 2, b: 1 } })
+      render(<KioskTableCard table={table} />)
+      expect(screen.getByText('Sets:')).toBeInTheDocument()
+      expect(screen.getByText('2 - 1')).toBeInTheDocument()
+    })
+
+    it('does not render set scores when currentSets is undefined', () => {
+      const table = makeTable({ currentSets: undefined })
+      render(<KioskTableCard table={table} />)
+      expect(screen.queryByText('Sets:')).not.toBeInTheDocument()
+    })
+
+    it('does not render set scores when both values are zero', () => {
+      const table = makeTable({ currentSets: { a: 0, b: 0 } })
+      render(<KioskTableCard table={table} />)
+      expect(screen.queryByText('Sets:')).not.toBeInTheDocument()
+    })
+
+    it('renders set scores in condensed mode', () => {
+      const table = makeTable({ currentSets: { a: 1, b: 0 } })
+      render(<KioskTableCard table={table} condensed />)
+      expect(screen.getByText('Sets:')).toBeInTheDocument()
+      expect(screen.getByText('1 - 0')).toBeInTheDocument()
+    })
+  })
+
   describe('condensed mode', () => {
     it('renders table name and scores when condensed', () => {
       const table = makeTable()

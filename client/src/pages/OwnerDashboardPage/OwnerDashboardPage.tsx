@@ -157,22 +157,22 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
           {i18nText('ownerCreateTable')}
         </Button>
         <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => navigate(Routes.HISTORY)}
-          animate={false}
-          icon={<FileText size={18} />}
-        >
-          {i18nText('ownerViewHistory')}
-        </Button>
-        <Button
-          variant="secondary"
+          variant="primary"
           size="sm"
           onClick={() => setNotifModalOpen(true)}
           animate={false}
           icon={<Bell size={18} />}
         >
           {i18nText('ownerCreateNotification')}
+        </Button>
+            <Button
+          variant="primary"
+          size="sm"
+          onClick={() => navigate(Routes.HISTORY)}
+          animate={false}
+          icon={<FileText size={18} />}
+        >
+          {i18nText('ownerViewHistory')}
         </Button>
       </>
     ) : (

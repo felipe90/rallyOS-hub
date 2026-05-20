@@ -140,6 +140,12 @@ export class TableManager {
     if (!table) return;
 
     this.matchOrchestrator.configureMatch(table, config);
+
+    // Rewire callback: MatchOrchestrator may replace matchEngine routing to undefined table.onMatchEvent
+    table.matchEngine.setEventCallback((event: any) => {
+      this.onMatchEvent(tableId, event);
+    });
+
     this.notifyUpdate(table);
   }
 
@@ -151,6 +157,13 @@ export class TableManager {
     }
 
     const state = this.matchOrchestrator.startMatch(table, config);
+
+    // Rewire match engine callback — MatchOrchestrator routes to table.onMatchEvent
+    // which is never set. Route directly to tableManager.onMatchEvent instead.
+    table.matchEngine.setEventCallback((event: any) => {
+      this.onMatchEvent(tableId, event);
+    });
+
     this.notifyUpdate(table);
     return state;
   }
@@ -215,6 +228,12 @@ export class TableManager {
     if (!table) return;
 
     this.matchOrchestrator.resetTable(table, config);
+
+    // Rewire callback: MatchOrchestrator creates new matchEngine routing to undefined table.onMatchEvent
+    table.matchEngine.setEventCallback((event: any) => {
+      this.onMatchEvent(tableId, event);
+    });
+
     this.notifyUpdate(table);
   }
 
@@ -265,6 +284,12 @@ export class TableManager {
     this.matchOrchestrator.resetTable(table);
     table.matchEngine.setTableId(table.id, table.name);
     table.matchEngine.setPlayerNames({ a: 'Player A', b: 'Player B' });
+
+    // Rewire callback: MatchOrchestrator creates new matchEngine routing to undefined table.onMatchEvent
+    table.matchEngine.setEventCallback((event: any) => {
+      this.onMatchEvent(tableId, event);
+    });
+
     table.status = 'WAITING';
 
     logger.info({ tableId, tableName: table.name, oldRefereeId: oldReferee || 'none', newPin: table.pin }, 'Table reset with new PIN');

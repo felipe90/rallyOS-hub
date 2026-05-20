@@ -70,7 +70,7 @@ export class SocketHandler {
         this.io.emit(SocketEvents.SERVER.KIOSK_NOTIFICATION, {
           type: 'important',
           duration: 10,
-          message: `Winner: ${winner}!`,
+          message: `¡Ganador: ${winner}!`,
           timestamp: Date.now(),
         });
       }

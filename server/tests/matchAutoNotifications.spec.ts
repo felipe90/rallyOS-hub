@@ -94,7 +94,7 @@ describe('START_MATCH auto-notification', () => {
       expect.objectContaining({
         type: 'info',
         duration: 10,
-        message: 'Match started: Alice vs Bob',
+        message: 'Partido iniciado: Alice vs Bob',
         timestamp: expect.any(Number),
       }),
     );
@@ -125,7 +125,7 @@ describe('MATCH_WON auto-notification', () => {
       expect.objectContaining({
         type: 'important',
         duration: 10,
-        message: 'Winner: Alice!',
+        message: '¡Ganador: Alice!',
         timestamp: expect.any(Number),
       }),
     );
@@ -155,7 +155,7 @@ describe('Fallback names', () => {
       SocketEvents.SERVER.KIOSK_NOTIFICATION,
       expect.objectContaining({
         type: 'info',
-        message: 'Match started: Player A vs Player B',
+        message: 'Partido iniciado: Player A vs Player B',
       }),
     );
   });
@@ -177,7 +177,7 @@ describe('Fallback names', () => {
       SocketEvents.SERVER.KIOSK_NOTIFICATION,
       expect.objectContaining({
         type: 'important',
-        message: 'Winner: Player B!',
+        message: '¡Ganador: Player B!',
       }),
     );
   });

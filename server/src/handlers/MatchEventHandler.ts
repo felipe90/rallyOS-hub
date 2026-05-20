@@ -158,7 +158,7 @@ export class MatchEventHandler extends SocketHandlerBase {
         this.io.emit(SocketEvents.SERVER.KIOSK_NOTIFICATION, {
           type: 'info',
           duration: 10,
-          message: `Match started: ${nameA} vs ${nameB}`,
+          message: `Partido iniciado: ${nameA} vs ${nameB}`,
           timestamp: Date.now(),
         });
       } else {

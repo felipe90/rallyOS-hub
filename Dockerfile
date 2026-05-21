@@ -42,6 +42,10 @@ RUN pnpm --filter server run build
 # Verify build output exists
 RUN test -d server/dist && echo "✓ Server build successful" || (echo "✗ Server build failed" && exit 1)
 
+# pnpm deploy: creates standalone production deployment with real packages (no symlinks)
+# --prod excludes devDependencies (jest, playwright, tsx, etc.) from the output
+RUN pnpm --filter server deploy /prod --prod
+
 # Stage 3: Production runtime - lightweight final image
 FROM node:${NODE_VERSION}
 LABEL maintainer="RallyOS"
@@ -52,18 +56,11 @@ WORKDIR /app
 # Install minimal runtime dependencies
 RUN apk add --no-cache openssl wget curl bash ca-certificates
 
-# Create application structure
-RUN mkdir -p public dist shared ssl
+# Copy deploy output: package.json, node_modules (real files, no symlinks), dist/, shared/
+COPY --from=server-builder --chown=node:node /prod ./
 
-# Copy compiled server
-COPY --from=server-builder /build/server/dist ./dist
-COPY --from=server-builder /build/server/package.json ./
-COPY --from=server-builder /build/server/node_modules ./node_modules
-
-# Copy production client (static files) - Check that dist/index.html exists
-COPY --from=client-builder /build/client/dist ./public/dist
-
-# Note: shared/ will be copied from build context (copied in Stage 3 from host)
+# Copy production client (static files)
+COPY --from=client-builder --chown=node:node /build/client/dist ./public/dist
 
 # Generate self-signed SSL certificates
 RUN openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 \
@@ -72,7 +69,7 @@ RUN openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 \
     chmod 644 key.pem cert.pem
 
 # Create logs directory and set ownership for node user
-RUN mkdir -p /app/logs && chown -R node:node /app/logs /app/public /app/dist
+RUN mkdir -p /app/logs && chown node:node /app/logs
 
 # Environment configuration
 ENV NODE_ENV=production

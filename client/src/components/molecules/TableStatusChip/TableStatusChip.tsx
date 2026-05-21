@@ -86,7 +86,7 @@ export function TableStatusChip({
 
   useEffect(() => {
     if (displayPin && tableId) {
-      buildScoreboardUrl(tableId, displayPin).then(setJoinUrl).catch(() => setJoinUrl(''))
+      setJoinUrl(buildScoreboardUrl(tableId, displayPin))
     } else {
       setJoinUrl('')
     }

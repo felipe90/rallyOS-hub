@@ -12,7 +12,7 @@ describe('Kiosk i18n keys', () => {
   })
 
   it('en-US has kioskStatusLive', () => {
-    expect(enUS.kioskStatusLive).toBe('LIVE')
+    expect(enUS.kioskStatusLive).toBe('In play')
   })
 
   it('en-US has kioskStatusPaused', () => {
@@ -32,7 +32,7 @@ describe('Kiosk i18n keys', () => {
   })
 
   it('es has kioskStatusLive', () => {
-    expect(es.kioskStatusLive).toBe('EN VIVO')
+    expect(es.kioskStatusLive).toBe('En juego')
   })
 
   it('es has kioskStatusPaused', () => {

@@ -225,7 +225,7 @@ main() {
     # Start client
     print_step "Starting client development server on port $CLIENT_PORT..."
     cd "$CLIENT_DIR"
-    VITE_ENCRYPTION_SECRET="$ENCRYPTION_SECRET" VITE_SERVER_URL="$SERVER_URL" pnpm run dev > "$CLIENT_LOG" 2>&1 &
+    VITE_SERVER_URL="$SERVER_URL" pnpm run dev > "$CLIENT_LOG" 2>&1 &
     CLIENT_PID=$!
     print_success "Client started (PID: $CLIENT_PID)"
     

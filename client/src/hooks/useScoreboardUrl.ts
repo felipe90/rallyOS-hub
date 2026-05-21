@@ -1,82 +1,54 @@
 /**
  * Scoreboard URL hook
- * Extracts and decrypts PIN from URL search params (?ePin=...)
+ * Extracts PIN from URL search params (?pin=...)
  *
- * This hook has been refactored:
- * - Pure parsing logic moved to services/permissions/rules/url.ts
- * - This hook only handles React lifecycle (useState, useEffect, URL cleanup)
+ * Side-effect: cleans the URL after extracting the PIN to avoid
+ * leaving sensitive data in the browser address bar.
  *
- * Returns:
- * - tableId: from URL params (passed separately, not from useParams here)
- * - ePin: raw encrypted PIN string from URL
- * - decryptedPin: the decrypted PIN if valid, null otherwise
- * - isValidPin: true if decrypted pin matches /^\d{4}$/
+ * Note: PIN encryption/decryption is handled server-side only.
+ * The ENCRYPTION_SECRET never leaves the server.
  */
 
 import { useSearchParams } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { parseEncryptedPin } from '@/services/permissions/rules/url'
 
 export interface ScoreboardUrlState {
-  ePin: string | null
-  decryptedPin: string | null
+  pin: string | null
   isValidPin: boolean
-  isDecrypting: boolean
 }
 
 /**
- * Hook to parse and decrypt the PIN from URL search params.
- * Also handles the side-effect of cleaning the URL (removing ePin after use).
+ * Hook to parse PIN from URL search params.
+ * Also handles the side-effect of cleaning the URL (removing pin after use).
  */
 export function useScoreboardUrl(tableId: string | undefined): ScoreboardUrlState {
   const [searchParams] = useSearchParams()
-  const [decryptedPin, setDecryptedPin] = useState<string | null>(null)
+  const [pin, setPin] = useState<string | null>(null)
   const [isValidPin, setIsValidPin] = useState(false)
-  const [isDecrypting, setIsDecrypting] = useState(false)
 
-  const ePin = searchParams.get('ePin')
+  const rawPin = searchParams.get('pin')
 
   useEffect(() => {
-    if (!tableId || !ePin) {
-      setDecryptedPin(null)
+    if (!tableId || !rawPin) {
+      setPin(null)
       setIsValidPin(false)
-      setIsDecrypting(false)
       return
     }
 
-    let cancelled = false
-    setIsDecrypting(true)
-
-    // Use pure function from services (async)
-    parseEncryptedPin(ePin, tableId).then((result) => {
-      if (cancelled) return
-
-      if (result.isValid) {
-        setDecryptedPin(result.pin)
-        setIsValidPin(true)
-        // Clean URL — remove ePin param after successful decryption
-        window.history.replaceState({}, '', window.location.pathname)
-      } else {
-        setDecryptedPin(null)
-        setIsValidPin(false)
-      }
-      setIsDecrypting(false)
-    }).catch(() => {
-      if (cancelled) return
-      setDecryptedPin(null)
+    // Validate it's a 4-digit number
+    if (/^\d{4}$/.test(rawPin)) {
+      setPin(rawPin)
+      setIsValidPin(true)
+      // Clean URL — remove pin param after extraction
+      window.history.replaceState({}, '', window.location.pathname)
+    } else {
+      setPin(null)
       setIsValidPin(false)
-      setIsDecrypting(false)
-    })
-
-    return () => {
-      cancelled = true
     }
-  }, [ePin, tableId])
+  }, [rawPin, tableId])
 
   return {
-    ePin,
-    decryptedPin,
+    pin,
     isValidPin,
-    isDecrypting,
   }
 }

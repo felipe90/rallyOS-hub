@@ -11,6 +11,9 @@ jobs:
     name: Client Unit Tests
     runs-on: ubuntu-latest
 
+    env:
+      NODE_OPTIONS: --max-old-space-size=2048
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

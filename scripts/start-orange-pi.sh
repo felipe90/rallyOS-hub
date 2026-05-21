@@ -3,6 +3,9 @@
 # RallyOS Hub - Orange Pi One-Command Startup
 # Uses the same docker-compose.yml as Mac (root-level)
 # Assumes: Orange Pi with Docker and 1.5GB+ RAM
+#
+# Builds inside Docker: Node image enables Corepack and uses pnpm (see Dockerfile).
+# You do not need pnpm or npm installed on the Orange Pi host for this path.
 
 set -e
 

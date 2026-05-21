@@ -72,6 +72,30 @@ section() {
     echo -e "${CYAN}───${NC} ${BLUE}$1${NC} ${CYAN}─────────────────────────────────────────${NC}"
 }
 
+# ── Local dev toolchain (optional; Docker-only Pi can skip) ─
+check_dev_host_tools() {
+    section "Local dev (pnpm / Node on host)"
+
+    if [ ! -f "$REPO_PATH/pnpm-lock.yaml" ]; then
+        _info "No pnpm-lock.yaml — skipping dev-host checks"
+        return
+    fi
+
+    if command -v node &>/dev/null; then
+        _ok "Node.js: $(node -v)"
+    else
+        _warn "Node.js not installed — needed for ./scripts/dev.sh and scripts/start.sh"
+    fi
+
+    if command -v pnpm &>/dev/null; then
+        _ok "pnpm: $(pnpm -v)"
+    elif command -v corepack &>/dev/null; then
+        _warn "pnpm missing but Corepack present — scripts will try: corepack prepare pnpm@…"
+    else
+        _warn "pnpm not found — install for local dev (Corepack or https://pnpm.io/installation)"
+    fi
+}
+
 # ─── helpers ──────────────────────────────────────────────────────
 _ap_iface() {
     grep -q '^interface=' /etc/hostapd/hostapd.conf 2>/dev/null \
@@ -660,6 +684,7 @@ print_summary() {
 main() {
     header
     check_dns
+    check_dev_host_tools
     check_hostapd
     check_dnsmasq
     check_iptables

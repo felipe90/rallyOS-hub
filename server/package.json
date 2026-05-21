@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx src/index.ts",
     "guard:types": "node scripts/guard-shared-types.js",
-    "build": "npm run guard:types && tsc",
+    "build": "pnpm run guard:types && tsc",
     "start": "node dist/index.js",
     "lint": "eslint .",
     "test": "jest --verbose",

@@ -6,11 +6,12 @@
  */
 
 import { useNavigate, useParams } from 'react-router-dom'
-import { useI18n } from '@/i18n'
+import { useI18n, changeLanguage } from '@/i18n'
 import { useSocketContext, useAuthContext } from '@/contexts'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useScoreboardUrl } from '@/hooks/useScoreboardUrl'
 import { useOrientation } from '@/hooks/useOrientation'
+import { useWakeLock } from '@/hooks/useWakeLock'
 import { useScoreboardEvents } from './useScoreboardEvents'
 import { useMatchState, useRefAuth, useRefRevoked } from './'
 import { ScoreboardMain } from '@/components/organisms/ScoreboardMain'
@@ -61,6 +62,7 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
   const { scoreboard: perms } = usePermissions()
   const { canEdit, canConfigure, canViewHistory } = perms
   const { isLandscape, toggle: toggleOrientation } = useOrientation()
+  useWakeLock()
 
   useScoreboardUrl(tableId)
   const { handleScorePoint, handleSubtractPoint, handleUndo, handleSetServer, handleSwapSides, handleStartMatch, handleCancelMatch } =
@@ -84,6 +86,13 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
       sessionStorage.removeItem(key)
     }
   }, [currentMatch?.status, currentMatch?.winner, tableId])
+
+  // Scoreboard page defaults to Spanish unless user explicitly chose a language
+  useEffect(() => {
+    if (!localStorage.getItem('rallyos-lang-explicit')) {
+      changeLanguage('es-AR')
+    }
+  }, [])
 
   if (!tableId) return <div>{i18nText('scoreboardInvalidTableId')}</div>
   if (refRevoked) return <RefRevokedView />
@@ -121,6 +130,7 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
           isLandscape={isLandscape}
           onOrientationToggle={toggleOrientation}
         />
+
       </div>
 
       {/* Match Config Modal */}

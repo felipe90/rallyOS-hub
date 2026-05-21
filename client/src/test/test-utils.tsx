@@ -40,6 +40,7 @@ const defaultMockSocketContext: SocketContextType = {
   startMatch: vi.fn((config?: { pointsPerSet: number; bestOf: number; playerNameA?: string; playerNameB?: string }) => {}),
   setReferee: vi.fn(),
   regeneratePin: vi.fn(),
+  hubConfig: null,
 }
 
 interface WrapperProps {

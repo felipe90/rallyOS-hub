@@ -9,12 +9,21 @@ import type { Socket } from 'socket.io-client'
 import { SocketEvents } from '@shared/events'
 import type { TableInfo, TableInfoWithPin, MatchStateExtended, ScoreChange, AllHistoryEntry } from '@shared/types'
 
+export interface HubConfigData {
+  ssid: string
+  ip: string
+  port: number
+  wifiPassword: string
+  domain: string
+}
+
 export function useSocketState(socket: Socket | null) {
   const [tables, setTables] = useState<TableInfo[]>([])
   const [currentMatch, setCurrentMatch] = useState<MatchStateExtended | null>(null)
   const [currentTable, setCurrentTable] = useState<TableInfo | null>(null)
   const [appError, setAppError] = useState<string | null>(null)
   const [allHistories, setAllHistories] = useState<AllHistoryEntry[] | null>(null)
+  const [hubConfig, setHubConfig] = useState<HubConfigData | null>(null)
 
   useEffect(() => {
     if (!socket) return
@@ -59,6 +68,10 @@ export function useSocketState(socket: Socket | null) {
       setAppError(data.message)
     }
 
+    const handleHubConfig = (data: HubConfigData) => {
+      setHubConfig(data)
+    }
+
     socket.on(SocketEvents.SERVER.ERROR, handleError)
     socket.on(SocketEvents.SERVER.TABLE_UPDATE, handleTableUpdate)
     socket.on(SocketEvents.SERVER.TABLE_LIST, handleTableList)
@@ -67,6 +80,7 @@ export function useSocketState(socket: Socket | null) {
     socket.on(SocketEvents.SERVER.TABLE_CREATED, handleTableCreated)
     socket.on(SocketEvents.SERVER.MATCH_UPDATE, handleMatchUpdate)
     socket.on(SocketEvents.SERVER.ALL_HISTORY, handleAllHistory)
+    socket.on(SocketEvents.SERVER.HUB_CONFIG, handleHubConfig)
 
     return () => {
       socket.off(SocketEvents.SERVER.ERROR, handleError)
@@ -77,8 +91,9 @@ export function useSocketState(socket: Socket | null) {
       socket.off(SocketEvents.SERVER.TABLE_CREATED, handleTableCreated)
       socket.off(SocketEvents.SERVER.MATCH_UPDATE, handleMatchUpdate)
       socket.off(SocketEvents.SERVER.ALL_HISTORY, handleAllHistory)
+      socket.off(SocketEvents.SERVER.HUB_CONFIG, handleHubConfig)
     }
   }, [socket])
 
-  return { tables, currentMatch, currentTable, appError, allHistories }
+  return { tables, currentMatch, currentTable, appError, allHistories, hubConfig }
 }

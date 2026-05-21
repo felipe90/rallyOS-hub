@@ -15,6 +15,7 @@ Last updated: 2026-05-21
 
 ## Contract
 
+<<<<<<< HEAD
 **Delegator use only.** This registry is an index, not a summary. Any agent that launches subagents reads it to select relevant skills, then passes exact `SKILL.md` paths for the subagent to read before work.
 
 `SKILL.md` remains the source of truth. Do not inject generated summaries or compact rules by default; pass paths so subagents load the full runtime contract and preserve author intent.

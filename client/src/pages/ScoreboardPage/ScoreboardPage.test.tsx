@@ -36,11 +36,13 @@ vi.mock('@/i18n', () => ({
         'commonCancel': 'Cancelar',
         'commonPlayerA': 'Player A',
         'commonPlayerB': 'Player B',
+        'scoreboardWifiDomain': `Abrí ${(params as any)?.domain || ''}`,
       }
       return map[key] || key
     },
   }),
   i18nText: (key: string) => key,
+  changeLanguage: vi.fn(),
   default: { language: 'es' },
 }))
 
@@ -130,6 +132,7 @@ describe('ScoreboardPage', () => {
       tables: [],
       connected: true,
       emit: mockEmit,
+      hubConfig: null,
       createTable: vi.fn(),
       joinTable: vi.fn(),
       leaveTable: vi.fn(),
@@ -321,6 +324,7 @@ describe('ScoreboardPage', () => {
       tables: [],
       connected: false,
       emit: mockEmit,
+      hubConfig: null,
       createTable: vi.fn(),
       joinTable: vi.fn(),
       leaveTable: vi.fn(),

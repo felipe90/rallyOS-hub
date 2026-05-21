@@ -3,6 +3,29 @@ import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import App from '../App'
 
+// Mock heavy page components that App.tsx statically imports
+// but are NEVER rendered by these tests. Without these mocks,
+// all page modules and their transitive dependencies (ScoreboardMain,
+// MatchConfigModal, etc.) are loaded, causing OOM on constrained runners.
+vi.mock('@/pages/OwnerDashboardPage', () => ({
+  OwnerDashboardPage: () => <div data-testid="owner-dashboard" />,
+}))
+vi.mock('@/pages/RefereeDashboardPage', () => ({
+  RefereeDashboardPage: () => <div data-testid="referee-dashboard" />,
+}))
+vi.mock('@/pages/SpectatorDashboardPage', () => ({
+  SpectatorDashboardPage: () => <div data-testid="spectator-dashboard" />,
+}))
+vi.mock('@/pages/ScoreboardPage', () => ({
+  ScoreboardPage: () => <div data-testid="scoreboard" />,
+}))
+vi.mock('@/pages/HistoryViewPage', () => ({
+  HistoryViewPage: () => <div data-testid="history" />,
+}))
+vi.mock('@/pages/NotFoundPage', () => ({
+  NotFoundPage: () => <div data-testid="not-found" />,
+}))
+
 // Mock SocketContext — provide minimal context
 vi.mock('@/contexts/SocketContext', () => ({
   useSocketContext: () => ({
@@ -63,6 +86,7 @@ vi.mock('@/i18n', () => ({
     language: 'en-US',
     changeLanguage: vi.fn(),
   }),
+  changeLanguage: vi.fn(),
   SUPPORTED_LANGS: [
     { code: 'es', label: 'ES' },
     { code: 'en-US', label: 'EN' },
@@ -91,5 +115,46 @@ describe('App routing', () => {
 
     // Root should redirect to auth (which renders "Choose your role")
     expect(screen.getByText('authSelectRole')).toBeInTheDocument()
+  })
+})
+
+describe('LanguageSwitcher visibility', () => {
+  it('renders LanguageSwitcher on /auth page', () => {
+    render(
+      <MemoryRouter initialEntries={['/auth']}>
+        <App />
+      </MemoryRouter>
+    )
+
+    // The language toggle buttons ES and EN should be visible
+    expect(screen.getByRole('button', { name: 'es' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'en-US' })).toBeInTheDocument()
+  })
+
+  it('hides LanguageSwitcher on /scoreboard/all/kiosk', () => {
+    render(
+      <MemoryRouter initialEntries={['/scoreboard/all/kiosk']}>
+        <App />
+      </MemoryRouter>
+    )
+
+    // Language toggle should NOT be in the DOM
+    expect(screen.queryByRole('button', { name: 'es' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'en-US' })).not.toBeInTheDocument()
+  })
+
+  it('hides LanguageSwitcher when redirected to /auth from unknown route', () => {
+    // Note: unknown routes inside PrivateRoute redirect to /auth (NotFoundPage → auth),
+    // so the LanguageSwitcher WILL be visible at /auth. This test confirms that
+    // /auth is the ONLY page where the toggle appears.
+    render(
+      <MemoryRouter initialEntries={['/some-unknown-path']}>
+        <App />
+      </MemoryRouter>
+    )
+
+    // Since unauthenticated requests redirect to /auth, the toggle IS visible
+    expect(screen.getByRole('button', { name: 'es' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'en-US' })).toBeInTheDocument()
   })
 })

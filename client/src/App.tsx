@@ -1,6 +1,6 @@
 import { I18nextProvider } from 'react-i18next'
 import i18n from './i18n'
-import { Routes as ReactRoutes, Route, Navigate } from 'react-router-dom'
+import { Routes as ReactRoutes, Route, Navigate, useLocation } from 'react-router-dom'
 import './index.css'
 import { SocketProvider } from './contexts/SocketContext'
 import { AuthProvider } from './contexts/AuthContext'
@@ -55,6 +55,7 @@ function AppRoutes() {
 function App() {
   const { Banner } = useAutoUpdateBanner()
   const { language, changeLanguage } = useI18n()
+  const location = useLocation()
 
   return (
     <I18nextProvider i18n={i18n}>
@@ -62,7 +63,9 @@ function App() {
         <SocketProvider>
           <AppRoutes />
           {Banner}
-          <LanguageSwitcher language={language} onChangeLanguage={changeLanguage} />
+          {location.pathname === '/auth' && (
+            <LanguageSwitcher language={language} onChangeLanguage={changeLanguage} />
+          )}
         </SocketProvider>
       </AuthProvider>
     </I18nextProvider>

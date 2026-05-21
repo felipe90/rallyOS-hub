@@ -118,13 +118,59 @@ _step_start "Environment config"
 
 REPO_PATH="$(cd "$(dirname "$0")/.." && pwd)"
 
+REQUIRED_ORIGINS="localhost:3000,192.168.4.1:3000,rallyos-hub.local:3000"
+CORRECT_ORIGINS="https://localhost:3000,http://localhost:3000,https://${AP_IP}:3000,http://${AP_IP}:3000,https://rallyos-hub.local:3000,http://rallyos-hub.local:3000"
+
 if [ ! -f "${REPO_PATH}/.env" ]; then
-    cp "${REPO_PATH}/.env.example" "${REPO_PATH}/.env" 2>/dev/null || {
-        _step_warn ".env.example not found — manual config needed"
-    }
+    echo "  Creating .env with Orange Pi defaults..."
+
+    ENCRYPTION_SECRET=$(openssl rand -hex 32 2>/dev/null || echo "CHANGE_ME_RANDOM_SECRET_32BYTES_HEX")
+
+    cat > "${REPO_PATH}/.env" << ENVEOF
+NODE_ENV=production
+PORT=3000
+TOURNAMENT_OWNER_PIN=${TOURNAMENT_OWNER_PIN:-12345678}
+HUB_SSID=${AP_SSID}
+HUB_IP=${AP_IP}
+HUB_DOMAIN=rallyos-hub.local
+HUB_ALLOWED_ORIGINS=${CORRECT_ORIGINS}
+NODE_OPTIONS_MEMORY=512
+ENCRYPTION_SECRET=${ENCRYPTION_SECRET}
+ENVEOF
+
+    echo "  ✅ .env created with AP_IP=${AP_IP} and HUB_DOMAIN=rallyos-hub.local"
     _step_ok
 else
-    _step_skip "already exists"
+    echo "  .env already exists — checking for issues..."
+
+    env_fixed=0
+
+    # Check HUB_ALLOWED_ORIGINS
+    current_origins=""
+    current_origins=$(grep '^HUB_ALLOWED_ORIGINS=' "${REPO_PATH}/.env" 2>/dev/null)
+    if [ -z "$current_origins" ]; then
+        echo "  ℹ️  HUB_ALLOWED_ORIGINS: not set — server uses safe defaults (OK)"
+    elif echo "$current_origins" | grep -q "rallyos-hub.local:3000"; then
+        echo "  ✅ HUB_ALLOWED_ORIGINS includes rallyos-hub.local (OK)"
+    else
+        echo "  ⚠️  HUB_ALLOWED_ORIGINS is MISSING rallyos-hub.local — fixing..."
+        sed -i "s|^HUB_ALLOWED_ORIGINS=.*|HUB_ALLOWED_ORIGINS=${CORRECT_ORIGINS}|" "${REPO_PATH}/.env"
+        echo "  ✅ HUB_ALLOWED_ORIGINS fixed to include all required origins"
+        env_fixed=1
+    fi
+
+    # Check NODE_OPTIONS_MEMORY (armbian Orangepi needs 512 max)
+    if ! grep -q '^NODE_OPTIONS_MEMORY=' "${REPO_PATH}/.env" 2>/dev/null; then
+        echo "  ⚠️  NODE_OPTIONS_MEMORY not set — adding for Orange Pi (512MB)..."
+        echo "NODE_OPTIONS_MEMORY=512" >> "${REPO_PATH}/.env"
+        env_fixed=1
+    fi
+
+    if [ $env_fixed -eq 1 ]; then
+        echo "  ℹ️  .env was updated — rebuild Docker to apply: sudo docker compose up -d --build"
+    fi
+
+    _step_ok
 fi
 
 # ==== Step 5: AP interface detection =============================
@@ -231,21 +277,9 @@ ExecStart=
 ExecStart=/lib/systemd/systemd-networkd-wait-online --timeout=30
 WOT_EOF
 
-    echo "  Configuring NAT + iptables..."
+    # Enable IP forwarding (persistent)
     echo 1 > /proc/sys/net/ipv4/ip_forward
     sed -i 's/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/' /etc/sysctl.conf 2>/dev/null || true
-
-    iptables -t nat -F POSTROUTING 2>/dev/null || true
-    iptables -F FORWARD 2>/dev/null || true
-    iptables -t nat -A POSTROUTING -o ${WAN_INTERFACE} -j MASQUERADE
-    iptables -A FORWARD -i ${WAN_INTERFACE} -o ${AP_INTERFACE} -m state --state RELATED,ESTABLISHED -j ACCEPT
-    iptables -A FORWARD -i ${AP_INTERFACE} -o ${WAN_INTERFACE} -j ACCEPT
-    iptables -t nat -A PREROUTING -i ${AP_INTERFACE} -p tcp --dport 80 -j DNAT --to-destination ${AP_IP}:3000
-    # Force Android devices to use dnsmasq — many ignore DHCP DNS and use 8.8.8.8 via DNS-over-HTTPS
-    iptables -t nat -A PREROUTING -i ${AP_INTERFACE} -p udp --dport 53 -j REDIRECT --to-port 53
-    iptables -t nat -A PREROUTING -i ${AP_INTERFACE} -p tcp --dport 53 -j REDIRECT --to-port 53
-
-    netfilter-persistent save 2>/dev/null || echo "  (iptables-persistent NA — rules may not survive reboot)"
 
     # Bring interface up BEFORE starting services (dnsmasq needs the IP to exist)
     echo "  Bringing interface up..."
@@ -266,6 +300,20 @@ WOT_EOF
     # Reload Docker to pick up daemon.json DNS config
     systemctl restart docker 2>/dev/null || true
 
+    # iptables rules MUST come AFTER Docker restart — Docker flushes custom chains
+    echo "  Configuring NAT + iptables (after Docker restart)..."
+    iptables -t nat -F POSTROUTING 2>/dev/null || true
+    iptables -F FORWARD 2>/dev/null || true
+    iptables -t nat -A POSTROUTING -o ${WAN_INTERFACE} -j MASQUERADE 2>/dev/null || true
+    iptables -A FORWARD -i ${WAN_INTERFACE} -o ${AP_INTERFACE} -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || true
+    iptables -A FORWARD -i ${AP_INTERFACE} -o ${WAN_INTERFACE} -j ACCEPT 2>/dev/null || true
+    iptables -t nat -A PREROUTING -i ${AP_INTERFACE} -p tcp --dport 80 -j DNAT --to-destination ${AP_IP}:3000 2>/dev/null || true
+    # Force Android devices to use dnsmasq — many ignore DHCP DNS and use 8.8.8.8 via DNS-over-HTTPS
+    iptables -t nat -A PREROUTING -i ${AP_INTERFACE} -p udp --dport 53 -j REDIRECT --to-port 53 2>/dev/null || true
+    iptables -t nat -A PREROUTING -i ${AP_INTERFACE} -p tcp --dport 53 -j REDIRECT --to-port 53 2>/dev/null || true
+
+    netfilter-persistent save 2>/dev/null || echo "  (iptables-persistent NA — rules may not survive reboot)"
+
     _step_ok
 fi
 
@@ -285,9 +333,16 @@ echo "  Installing systemd service..."
 sed "s|__REPO_PATH__|${REPO_PATH}|g" "${REPO_PATH}/scripts/rallyos-kiosk.service" \
     > /etc/systemd/system/rallyos-kiosk.service
 
-systemctl daemon-reload
+    systemctl daemon-reload
 systemctl enable rallyos-kiosk
 systemctl restart rallyos-kiosk 2>/dev/null || true
+
+echo "  Installing diagnostic service..."
+sed "s|__REPO_PATH__|${REPO_PATH}|g" "${REPO_PATH}/scripts/rallyos-diagnose.service" \
+    > /etc/systemd/system/rallyos-diagnose.service
+systemctl daemon-reload
+systemctl enable rallyos-diagnose 2>/dev/null || true
+echo "  ✅ rallyos-diagnose will run on every boot"
 
 _step_ok
 

@@ -1,16 +1,79 @@
-import { useEffect } from 'react'
-import { useI18n } from '@/i18n'
+import { useEffect, useState } from 'react'
+import { useI18n, changeLanguage } from '@/i18n'
 import { useSocketContext } from '@/contexts/SocketContext'
 import { ConnectionStatus, Typography } from '@/components/atoms'
 import { KioskTableCard } from '@/components/organisms/KioskTableCard'
+import { QRCodeSVG } from 'qrcode.react'
+import logoBig from '@/assets/logo-big.png'
 import type { TableInfo } from '@shared/types'
 
 /** Active table statuses shown on the kiosk */
 const ACTIVE_STATUSES: TableInfo['status'][] = ['LIVE', 'WAITING']
 
+/** Layout constants for page calculation */
+export const HEADER_HEIGHT = 180
+export const CARD_HEIGHT = 200
+export const CARD_GAP = 24
+export const ROTATION_INTERVAL_MS = 10_000
+
+/**
+ * Split tables into pages that each fit the viewport without scrolling.
+ * @param tables  - Active tables to paginate
+ * @param viewportWidth  - window.innerWidth
+ * @param viewportHeight - window.innerHeight
+ * @returns Array of page chunks; always at least `[[]]` for zero tables.
+ */
+export function calculatePages(
+  tables: TableInfo[],
+  viewportWidth: number,
+  viewportHeight: number,
+): TableInfo[][] {
+  const COLUMNS = viewportWidth >= 1280 ? 3 : viewportWidth >= 768 ? 2 : 1
+  const availableHeight = viewportHeight - HEADER_HEIGHT
+  const rowsPerPage = Math.max(1, Math.floor(availableHeight / (CARD_HEIGHT + CARD_GAP)))
+  const cardsPerPage = rowsPerPage * COLUMNS
+
+  if (tables.length === 0) return [[]]
+
+  const pages: TableInfo[][] = []
+  for (let i = 0; i < tables.length; i += cardsPerPage) {
+    pages.push(tables.slice(i, i + cardsPerPage))
+  }
+  return pages
+}
+
+/** QR size responsive to viewport: 5% of width, clamped between 80px and 160px */
+function useResponsiveQrSize() {
+  const [qrSize, setQrSize] = useState(() =>
+    Math.min(Math.max(Math.floor(window.innerWidth * 0.05), 80), 160),
+  )
+
+  useEffect(() => {
+    const update = () =>
+      setQrSize(Math.min(Math.max(Math.floor(window.innerWidth * 0.05), 80), 160))
+    window.addEventListener('resize', update)
+    return () => window.removeEventListener('resize', update)
+  }, [])
+
+  return qrSize
+}
+
 export function KioskAllTablesPage() {
-  const { tables, connected, connecting } = useSocketContext()
+  const { tables, connected, connecting, hubConfig } = useSocketContext()
   const { i18nText } = useI18n()
+  const qrSize = useResponsiveQrSize()
+
+  // Rotation state
+  const [pages, setPages] = useState<TableInfo[][]>([[]])
+  const [currentPage, setCurrentPage] = useState(0)
+  const [fadeState, setFadeState] = useState<'visible' | 'hidden'>('visible')
+  const [isPaused, setIsPaused] = useState(false)
+
+  // Spanish default on TV scoreboard
+  useEffect(() => {
+    const explicit = localStorage.getItem('rallyos-lang-explicit')
+    if (!explicit) changeLanguage('es')
+  }, [])
 
   // Auto-reload when socket permanently disconnects (all retries exhausted)
   useEffect(() => {
@@ -21,6 +84,50 @@ export function KioskAllTablesPage() {
   }, [connected, connecting])
 
   const activeTables = tables.filter((t) => ACTIVE_STATUSES.includes(t.status))
+
+  // Page calculation — recalculate when tables change or window resizes
+  useEffect(() => {
+    const recalculate = () => {
+      const active = tables.filter((t) => ACTIVE_STATUSES.includes(t.status))
+      const newPages = calculatePages(active, window.innerWidth, window.innerHeight)
+      setPages(newPages)
+      setCurrentPage((prev) => (prev >= newPages.length ? Math.max(0, newPages.length - 1) : prev))
+    }
+    recalculate()
+    window.addEventListener('resize', recalculate)
+    return () => window.removeEventListener('resize', recalculate)
+  }, [tables])
+
+  // Rotation timer — advances currentPage when in rotation mode
+  useEffect(() => {
+    if (pages.length <= 1 || isPaused) return
+
+    let fadeTimeout: ReturnType<typeof setTimeout> | null = null
+
+    const interval = setInterval(() => {
+      // Fade out current page
+      setFadeState('hidden')
+      // After fade-out duration, advance page and fade in
+      fadeTimeout = setTimeout(() => {
+        setCurrentPage((prev) => (prev + 1) % pages.length)
+        setFadeState('visible')
+      }, 500)
+    }, ROTATION_INTERVAL_MS)
+
+    return () => {
+      clearInterval(interval)
+      if (fadeTimeout) clearTimeout(fadeTimeout)
+    }
+  }, [pages.length, isPaused])
+
+  // Handle visibility change (TV sleep/wake) — pause rotation when hidden
+  useEffect(() => {
+    const handleVisibility = () => setIsPaused(document.hidden)
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [])
+
+  const isRotating = pages.length > 1
 
   return (
     <div className="min-h-dvh bg-surface flex flex-col">
@@ -34,11 +141,33 @@ export function KioskAllTablesPage() {
         }}
       />
 
-      {/* Header */}
-      <div className="flex items-center justify-between px-8 pt-8 pb-4">
-        <Typography variant="headline" className="text-3xl md:text-4xl">
-          {i18nText('kioskPageTitle')}
-        </Typography>
+      {/* Header — Logo + QR (always visible) */}
+      <div className="flex items-center justify-between px-8 pt-6 pb-4">
+        <img src={logoBig} alt="RallyOS" className="h-10 w-auto" />
+        {hubConfig?.domain && (
+          <div className="flex items-center gap-3">
+            {hubConfig.wifiPassword && (
+              <QRCodeSVG
+                value={`WIFI:T:WPA;S:${hubConfig.ssid};P:${hubConfig.wifiPassword};;`}
+                size={qrSize}
+                bgColor="#ffffff"
+                fgColor="#000000"
+                level="M"
+                includeMargin={true}
+              />
+            )}
+            <div className="flex flex-col items-end gap-1">
+              <Typography variant="label" className="text-text/80 text-sm font-mono">
+                https://{hubConfig.domain}:{hubConfig.port}
+              </Typography>
+              {hubConfig.wifiPassword && (
+                <Typography variant="label" className="text-text/60 text-xs">
+                  {i18nText('scoreboardWifiDomain', { domain: hubConfig.domain })}
+                </Typography>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Content */}
@@ -48,10 +177,38 @@ export function KioskAllTablesPage() {
             {i18nText('kioskNoActiveMatches')}
           </Typography>
         </div>
+      ) : isRotating ? (
+        /* Rotation mode — show one page at a time with fade + indicators */
+        <div className="flex-1 flex flex-col">
+          <div
+            key={currentPage}
+            className={`grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 p-6 flex-1 content-start transition-opacity duration-500 ${
+              fadeState === 'visible' ? 'opacity-100' : 'opacity-0'
+            }`}
+          >
+            {pages[currentPage]?.map((table) => (
+              <KioskTableCard key={table.id} table={table} />
+            ))}
+          </div>
+          {/* Page indicators */}
+          <div className="flex justify-center gap-2 pb-4">
+            {pages.map((_, i) => (
+              <div
+                key={i}
+                data-testid={`page-dot-${i}`}
+                data-active={i === currentPage}
+                className={`w-3 h-3 rounded-full transition-colors duration-300 ${
+                  i === currentPage ? 'bg-primary' : 'bg-primary/30'
+                }`}
+              />
+            ))}
+          </div>
+        </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 p-6 flex-1 content-start">
+        /* Static mode — all cards fit, render with tighter spacing */
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-6 flex-1 content-start">
           {activeTables.map((table) => (
-            <KioskTableCard key={table.id} table={table} />
+            <KioskTableCard key={table.id} table={table} condensed />
           ))}
         </div>
       )}

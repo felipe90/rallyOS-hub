@@ -43,6 +43,11 @@ export type I18nTextFn = typeof i18nText
 /** Change language at runtime — persists to localStorage via detector cache */
 export function changeLanguage(lng: string): void {
   void i18n.changeLanguage(lng)
+  try {
+    localStorage.setItem('rallyos-lang-explicit', 'true')
+  } catch {
+    // localStorage unavailable — silently degrade
+  }
 }
 
 /** Supported languages */

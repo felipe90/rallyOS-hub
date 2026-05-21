@@ -26,3 +26,5 @@ export type { MatchContextProps, SetScoreProps } from './MatchContext'
 
 export { ConfirmDialog } from './ConfirmDialog'
 export type { ConfirmDialogProps, ConfirmDialogSeverity } from './ConfirmDialog'
+
+export { WifiQrCode } from './WifiQrCode'

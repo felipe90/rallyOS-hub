@@ -14,6 +14,7 @@ import { useSocketContext } from '@/contexts/SocketContext'
 import { useAuthContext } from '@/contexts/AuthContext'
 import { useDashboardStats } from '@/hooks/useDashboardStats'
 import { usePinSubmission } from '@/hooks/usePinSubmission'
+import { useRefereeSession } from '@/hooks/useRefereeSession'
 import { useTableManagement } from '@/hooks/useTableManagement'
 import { Button } from '@/components/atoms/Button'
 import { SocketEvents } from '@shared/events'
@@ -36,6 +37,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
   const { logout, ownerPin, setTablePin } = useAuthContext()
   const stats = useDashboardStats(tables)
   const { submitPin, loading: pinLoading, error: pinError, clearError } = usePinSubmission(socket)
+  const { saveSession, findAnyValidSession, clearSession } = useRefereeSession()
 
   const tableMgmt = useTableManagement({ socket, connected })
 
@@ -44,6 +46,25 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
     if (!connected) return
     requestTablesWithPins(ownerPin || '')
   }, [connected, ownerPin, requestTablesWithPins])
+
+  // Auto-restore valid referee session — skip PIN modal if session exists
+  useEffect(() => {
+    if (!connected || tables.length === 0) return
+    const session = findAnyValidSession(tables)
+    if (session) {
+      setTablePin(session.pin)
+      navigate(buildScoreboardRoute(session.tableId, 'referee'))
+    }
+  }, [connected, tables, findAnyValidSession, setTablePin, navigate])
+
+  // Clear sessions for tables that transition to FINISHED
+  useEffect(() => {
+    for (const table of tables) {
+      if (table.status === 'FINISHED') {
+        clearSession(table.id)
+      }
+    }
+  }, [tables, clearSession])
 
   // Listen for QR_DATA and PIN_REGENERATED events
   useEffect(() => {
@@ -81,6 +102,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
     setTablePin(pin)
     const result = await submitPin(pin, selectedTable.id)
     if (result.success) {
+      saveSession(selectedTable.id, pin)
       navigate(buildScoreboardRoute(selectedTable.id, 'referee'))
     }
   }

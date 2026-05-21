@@ -39,10 +39,10 @@ const statusBadge: Record<TableStatus, typeof WaitingBadge> = {
 };
 
 const statusBadgeLabels: Record<TableStatus, string> = {
-  WAITING: 'Waiting',
-  CONFIGURING: 'Configuring',
-  LIVE: 'Live',
-  FINISHED: 'Finished',
+  WAITING: 'Esperando',
+  CONFIGURING: 'Configurando',
+  LIVE: 'En juego',
+  FINISHED: 'Finalizado',
 };
 
 export function TableStatusChip({

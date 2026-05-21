@@ -4,10 +4,10 @@ import { TableStatusChip } from './TableStatusChip';
 
 describe('TableStatusChip', () => {
   const cases = [
-    { status: 'WAITING' as const, text: 'Waiting' },
-    { status: 'CONFIGURING' as const, text: 'Configuring' },
-    { status: 'LIVE' as const, text: 'Live' },
-    { status: 'FINISHED' as const, text: 'Finished' },
+    { status: 'WAITING' as const, text: 'Esperando' },
+    { status: 'CONFIGURING' as const, text: 'Configurando' },
+    { status: 'LIVE' as const, text: 'En juego' },
+    { status: 'FINISHED' as const, text: 'Finalizado' },
   ];
 
   it.each(cases)('renders $status status text correctly', ({ status, text }) => {

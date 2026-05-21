@@ -7,6 +7,7 @@ import { QRCodeImage } from '../QRCodeImage';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { RefreshCw, Trash2 } from 'lucide-react';
 import { buildScoreboardUrl } from '@/services/url';
+import { useI18n } from '@/i18n';
 
 /* TableStatusChip Molecule - Table info card component */
 export interface TableStatusChipProps {
@@ -38,11 +39,11 @@ const statusBadge: Record<TableStatus, typeof WaitingBadge> = {
   FINISHED: FinishedBadge,
 };
 
-const statusBadgeLabels: Record<TableStatus, string> = {
-  WAITING: 'Esperando',
-  CONFIGURING: 'Configurando',
-  LIVE: 'En juego',
-  FINISHED: 'Finalizado',
+const statusBadgeLabelKeys: Record<TableStatus, string> = {
+  WAITING: 'tableStatusWaiting',
+  CONFIGURING: 'tableStatusConfiguring',
+  LIVE: 'tableStatusLive',
+  FINISHED: 'tableStatusFinished',
 };
 
 export function TableStatusChip({
@@ -66,7 +67,9 @@ export function TableStatusChip({
   onDeleteCancel,
   statusLabel,
 }: TableStatusChipProps) {
+  const { i18nText } = useI18n();
   const StatusBadgeComponent = statusBadge[status];
+  const resolvedLabel = statusLabel || i18nText(statusBadgeLabelKeys[status]);
 
   // Keep last known PIN to prevent flicker during updates
   const [lastKnownPin, setLastKnownPin] = useState(pin);
@@ -104,7 +107,7 @@ export function TableStatusChip({
     >
       <div className="flex items-center justify-between">
         <Body className="font-medium text-text-h">Mesa {tableNumber}</Body>
-        <StatusBadgeComponent label={statusLabel || statusBadgeLabels[status]} />
+        <StatusBadgeComponent label={resolvedLabel} />
       </div>
       
       <Body className="text-sm text-text/70">{tableName}</Body>

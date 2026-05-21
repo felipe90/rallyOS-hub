@@ -2,6 +2,23 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { TableStatusChip } from './TableStatusChip';
 
+vi.mock('@/i18n', () => ({
+  useI18n: () => ({
+    i18nText: (key: string) => {
+      const labels: Record<string, string> = {
+        tableStatusWaiting: 'Esperando',
+        tableStatusConfiguring: 'Configurando',
+        tableStatusLive: 'En juego',
+        tableStatusFinished: 'Finalizado',
+      };
+      return labels[key] || key;
+    },
+    changeLanguage: vi.fn(),
+    currentLanguage: 'es',
+    t: (key: string) => key,
+  }),
+}));
+
 describe('TableStatusChip', () => {
   const cases = [
     { status: 'WAITING' as const, text: 'Esperando' },

@@ -10,30 +10,29 @@ jobs:
     name: Release
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch'
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: client/package-lock.json
-      
+          cache: 'pnpm'
+
       - name: Install dependencies
-        run: |
-          cd client
-          npm ci
-      
+        run: pnpm install --frozen-lockfile --filter client...
+
       - name: Build
-        run: |
-          cd client
-          npm run build
-      
+        run: pnpm --filter client run build
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         env:

@@ -4,8 +4,10 @@
 # One script. Runs everything: system update, Docker, WiFi AP, Captive Portal, HDMI Kiosk.
 # Usage: sudo ./scripts/setup-orangepi-ap.sh
 #
-# Safe to re-run — skips what's already installed.
+# Hub runtime is meant to run via Docker (start-orange-pi.sh): the image build uses pnpm
+# inside the container (Corepack). This script does not install Node/pnpm on the host.
 #
+# Safe to re-run — skips what's already installed.
 
 set -e
 

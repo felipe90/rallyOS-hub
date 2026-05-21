@@ -2,6 +2,55 @@
 
 Real-time scoreboard system for rally events with multi-table support, PWA, offline capabilities, and embedded deployment on Orange Pi devices.
 
+## System Architecture
+
+RallyOS Hub is a standalone, real-time scoreboard server optimized for embedded deployment on single-board computers (SBCs) like the Orange Pi Zero 3. It operates as a monorepo containing a React-based PWA frontend, an Express + Socket.IO backend, and a shared module serving as the Single Source of Truth (SSoT).
+
+```
+┌────────────────────────────────────────────────────────┐
+│                    rallyOS-hub                          │
+│                                                         │
+│  ┌──────────┐   Socket.IO    ┌──────────────────────┐  │
+│  │  Client   │ ◄───────────► │       Server          │  │
+│  │  React 19 │   WSS/TLS     │  Express 5 + Socket.IO│  │
+│  │  Vite 8   │               │  Node.js 22           │  │
+│  │  PWA      │               │                       │  │
+│  └─────┬─────┘               │  ┌─────────────────┐  │  │
+│        │                     │  │  TableManager    │  │  │
+│        │   shared/ (SSoT)    │  │  PlayerService   │  │  │
+│        └───────┬─────────────│──│  MatchOrchestrator│  │  │
+│                │             │  │  PinService      │  │  │
+│         ┌──────┴──────┐      │  └─────────────────┘  │  │
+│         │  shared/     │      └──────────┬───────────┘  │
+│         │  types.ts    │                 │               │
+│         │  events.ts   │    ┌────────────┴───────────┐  │
+│         │  validation  │    │  Embedded Network Stack │  │
+│         └─────────────┘    │  hostapd · dnsmasq      │  │
+│                             │  iptables · Chromium    │  │
+│                             └────────────────────────┘  │
+└────────────────────────────────────────────────────────┘
+```
+
+### Component Breakdown
+
+| Component | Role | Key Technologies |
+|-----------|------|-----------------|
+| **Client (Frontend)** | React 19 PWA with atomic design (atoms, molecules, organisms, pages). Offline-first via `vite-plugin-pwa`. | React 19, Vite 8, React Router v7, Tailwind CSS 4 |
+| **Server (Backend)** | Express 5 + Socket.IO 4 real-time engine. Clean, service-oriented: event handlers delegate socket payloads to the `TableManager`, which coordinates sub-services (`PlayerService`, `MatchOrchestrator`, `PinService`). | Node.js 22, Express 5, Socket.IO 4, Pino logger |
+| **Shared Module** | Monorepo package with TypeScript interfaces, validation limits, and event names. Ensures absolute synchronization of data formats between client and server. | TypeScript 6 |
+| **Embedded Network Stack** | Orchestrated by deployment scripts to configure the Orange Pi as a standalone hub: `hostapd` broadcasts Wi-Fi, `dnsmasq` serves DHCP/DNS, `iptables` enforces captive portal, and Chromium drives the HDMI kiosk display. | hostapd, dnsmasq, iptables, Chromium, X11 |
+
+### Embedded Network Stack
+
+The Orange Pi becomes a self-contained tournament hub with no external internet required:
+
+| Service | Role | Configuration |
+|---------|------|---------------|
+| **hostapd** | Broadcasts the RallyOS Wi-Fi SSID (`RallyOS-Table1`) for players to connect | WPA2-PSK, channel 6, 2.4 GHz |
+| **dnsmasq** | DHCP server assigning IPs (192.168.4.100–200) and DNS resolving `rallyos-hub.local` → 192.168.4.1 | bind-dynamic for boot resilience, catch-all redirect for captive portal |
+| **iptables** | NAT masquerading for client internet, port 80 → 3000 redirect (captive portal), DNS redirect for Android devices | Forces all DNS through dnsmasq, captive portal interception |
+| **Chromium Kiosk** | Auto-starts on HDMI display via systemd service, pointing to the scoreboard grid | X11, matchbox-window-manager, unclutter (hidden cursor) |
+
 ## Tech Stack
 
 ### Client
@@ -17,10 +66,10 @@ Real-time scoreboard system for rally events with multi-table support, PWA, offl
 - **Runtime**: Node.js 22 + TypeScript 6
 - **Framework**: Express 5
 - **Real-time**: Socket.IO 4
-- **Security**: Helmet, CORS, AES-256-GCM PIN encryption
+- **Security**: Helmet, CORS, AES-256-GCM PIN encryption (server-side)
 - **Logging**: Pino (structured JSON logger)
 - **QR**: qrcode
-- **SSL**: Self-signed certificates for HTTPS
+- **SSL**: Self-signed certificates for HTTPS (offline mode)
 
 ### Shared (monorepo)
 - **`shared/`**: Single source of truth for Socket.IO event names, TypeScript types, and validation logic — consumed by both client and server.
@@ -53,20 +102,23 @@ Real-time scoreboard system for rally events with multi-table support, PWA, offl
 
 ### Prerequisites
 - Node.js 22+
-- npm
+- [pnpm](https://pnpm.io/) 9+ (`corepack enable` then `corepack prepare pnpm@latest --activate`)
 
 ### Development (local, no Docker)
 
 ```bash
-# One command — installs deps, generates SSL certs, starts both
+# From repo root — install once (workspace: client + server + root hooks)
+pnpm install
+
+# One command — installs deps if needed, generates SSL certs, starts both
 ./scripts/dev.sh
 
 # Or manually:
 # Terminal 1 — Server
-cd server && npm install && npm run dev
+cd server && pnpm run dev
 
 # Terminal 2 — Client
-cd client && npm install && npm run dev
+cd client && pnpm run dev
 ```
 
 The app will be available at:
@@ -76,7 +128,7 @@ The app will be available at:
 ### Production Build
 
 ```bash
-cd client && npm run build
+pnpm --filter client run build
 # Output: client/dist/
 ```
 
@@ -217,7 +269,7 @@ grep "address=" /etc/dnsmasq.conf
 
 - **Table PINs**: Auto-generated 6-digit numeric codes for referee access
 - **Owner PIN**: 8-digit admin code set via `TOURNAMENT_OWNER_PIN` env var
-- **Encryption**: All PINs are encrypted client-side with AES-256-GCM before transmission
+- **Encryption**: PINs for QR-based referee access are encrypted server-side with AES-256-GCM using a derived per-table key (HMAC-SHA256). The encryption secret never leaves the server.
 - **Referee management**: Assign, verify, and revoke referee roles per table
 
 ## Socket Events
@@ -285,19 +337,19 @@ The client is configured as a Progressive Web App:
 ## Testing
 
 ```bash
-# Client unit tests
-cd client && npm test                  # Vitest (watch)
-cd client && npm run test:coverage     # With coverage
+# Client unit tests (from repo root)
+pnpm --filter client run test                  # Vitest (watch)
+pnpm --filter client run test:coverage         # With coverage
 
 # Client E2E
-cd client && npm run test:e2e          # Playwright (headless)
-cd client && npm run test:e2e:ui       # Playwright UI mode
+pnpm --filter client run test:e2e              # Playwright (headless)
+pnpm --filter client run test:e2e:ui          # Playwright UI mode
 
 # Server unit tests
-cd server && npm test                  # Jest
+pnpm --filter server run test                  # Jest
 
-# Everything
-cd client && npm run test:all          # Vitest + Playwright
+# Everything (client)
+pnpm --filter client run test:all              # Vitest + Playwright
 ```
 
 ### CI/CD

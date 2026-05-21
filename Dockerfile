@@ -9,25 +9,18 @@ LABEL stage=client-builder
 
 WORKDIR /build
 
-# Copy shared modules (client may depend on it for types)
-COPY shared/ ./shared/
+RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 
-# Copy client directory
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY shared/ ./shared/
 COPY client/ ./client/
 
-WORKDIR /build/client
+RUN pnpm install --frozen-lockfile --filter client...
 
-# Clear npm cache to ensure fresh dependencies
-RUN npm cache clean --force
-
-# Install dependencies (including dev deps needed for build)
-RUN npm ci --force
-
-# Build for production (fresh build, no cache)
-RUN npm run build
+RUN pnpm --filter client run build
 
 # Verify build output exists
-RUN test -d dist && echo "✓ Client build successful" || (echo "✗ Client build failed" && exit 1)
+RUN test -d client/dist && echo "✓ Client build successful" || (echo "✗ Client build failed" && exit 1)
 
 # Stage 2: Build and compile server TypeScript
 FROM node:${NODE_VERSION} AS server-builder
@@ -35,30 +28,23 @@ LABEL stage=server-builder
 
 WORKDIR /build
 
-# Copy shared modules FIRST (as server might depend on it)
-COPY shared/ ./shared/
+RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 
-# Copy server files
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY shared/ ./shared/
 COPY server/ ./server/
 
-WORKDIR /build/server
+# --ignore-scripts: skip postinstall (esbuild binary, Playwright browsers, etc.)
+RUN pnpm install --frozen-lockfile --filter server... --ignore-scripts
 
-# Copy and install dependencies (including dev for TypeScript compilation)
-COPY server/package*.json ./
-
-# Clear npm cache to ensure fresh dependencies
-RUN npm cache clean --force
-
-# Install dependencies (including dev for TypeScript compilation)
-# --ignore-scripts: skip all postinstall (esbuild binary, Playwright browsers, etc.)
-# We only need tsc for compilation — no runtime scripts needed at build time
-RUN npm ci --force --ignore-scripts
-
-# Compile TypeScript to JavaScript (fresh compilation)
-RUN npm run build
+RUN pnpm --filter server run build
 
 # Verify build output exists
-RUN test -d dist && echo "✓ Server build successful" || (echo "✗ Server build failed" && exit 1)
+RUN test -d server/dist && echo "✓ Server build successful" || (echo "✗ Server build failed" && exit 1)
+
+# pnpm deploy: creates standalone production deployment with real packages (no symlinks)
+# --prod excludes devDependencies (jest, playwright, tsx, etc.) from the output
+RUN pnpm --filter server deploy /prod --prod
 
 # Stage 3: Production runtime - lightweight final image
 FROM node:${NODE_VERSION}
@@ -70,18 +56,11 @@ WORKDIR /app
 # Install minimal runtime dependencies
 RUN apk add --no-cache openssl wget curl bash ca-certificates
 
-# Create application structure
-RUN mkdir -p public dist shared ssl
+# Copy deploy output: package.json, node_modules (real files, no symlinks), dist/, shared/
+COPY --from=server-builder --chown=node:node /prod ./
 
-# Copy compiled server
-COPY --from=server-builder /build/server/dist ./dist
-COPY --from=server-builder /build/server/package*.json ./
-COPY --from=server-builder /build/server/node_modules ./node_modules
-
-# Copy production client (static files) - Check if dist/index.html exists
-COPY --from=client-builder /build/client/dist ./public/dist
-
-# Note: shared/ will be copied from build context (copied in Stage 3 from host)
+# Copy production client (static files)
+COPY --from=client-builder --chown=node:node /build/client/dist ./public/dist
 
 # Generate self-signed SSL certificates
 RUN openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 \
@@ -90,7 +69,7 @@ RUN openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 \
     chmod 644 key.pem cert.pem
 
 # Create logs directory and set ownership for node user
-RUN mkdir -p /app/logs && chown -R node:node /app/logs /app/public /app/dist
+RUN mkdir -p /app/logs && chown node:node /app/logs
 
 # Environment configuration
 ENV NODE_ENV=production

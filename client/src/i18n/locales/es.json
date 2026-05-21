@@ -110,7 +110,7 @@
   "errorAuthValidationError": "Error de validación. Verificá el PIN ingresado.",
   "kioskPageTitle": "Marcador",
   "kioskNoActiveMatches": "No hay partidos activos",
-  "kioskStatusLive": "EN VIVO",
+  "kioskStatusLive": "En juego",
   "kioskStatusPaused": "Pausado",
   "kioskStatusFinished": "Finalizado",
   "scoreboardWifiDomain": "Abrí {{domain}}",

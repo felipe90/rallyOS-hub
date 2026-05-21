@@ -150,6 +150,17 @@ export class MatchEventHandler extends SocketHandlerBase {
       if (state) {
         logger.debug({ tableId: data.tableId }, 'START_MATCH: Emitting MATCH_UPDATE to room');
         this.io.to(data.tableId).emit(SocketEvents.SERVER.MATCH_UPDATE, state);
+
+        // Auto-notify kiosk clients on match start (server-sourced, bypasses rate limit)
+        const names = state.playerNames;
+        const nameA = names?.a || 'Player A';
+        const nameB = names?.b || 'Player B';
+        this.io.emit(SocketEvents.SERVER.KIOSK_NOTIFICATION, {
+          type: 'info',
+          duration: 10,
+          message: `Partido iniciado: ${nameA} vs ${nameB}`,
+          timestamp: Date.now(),
+        });
       } else {
         logger.warn({ tableId: data.tableId }, 'START_MATCH: tableManager.startMatch returned null');
       }

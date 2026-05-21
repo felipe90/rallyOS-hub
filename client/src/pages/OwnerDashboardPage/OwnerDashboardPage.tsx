@@ -10,6 +10,7 @@ import { DashboardGrid } from '@/components/organisms/DashboardGrid'
 import { DashboardHeader } from '@/components/organisms/DashboardGrid'
 import { PageHeader } from '@/components/molecules/PageHeader'
 import { PinModal } from '@/components/molecules/PinModal'
+import { KioskNotificationModal } from '@/components/molecules/KioskNotificationModal'
 import { useSocketContext } from '@/contexts/SocketContext'
 import { useAuthContext } from '@/contexts/AuthContext'
 import { useDashboardStats } from '@/hooks/useDashboardStats'
@@ -19,8 +20,8 @@ import { useTableManagement } from '@/hooks/useTableManagement'
 import { Button } from '@/components/atoms/Button'
 import { SocketEvents } from '@shared/events'
 import { Routes, buildScoreboardRoute } from '@/routes'
-import type { TableInfoWithPin } from '@shared/types'
-import { Plus, FileText, Table2, Swords, Users } from 'lucide-react'
+import type { TableInfoWithPin, KioskNotificationType } from '@shared/types'
+import { Plus, FileText, Table2, Swords, Users, Bell } from 'lucide-react'
 
 
 export interface OwnerDashboardPageProps {
@@ -30,6 +31,7 @@ export interface OwnerDashboardPageProps {
 export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboardPageProps) {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(initialViewMode || 'grid')
   const [pinModalOpen, setPinModalOpen] = useState(false)
+  const [notifModalOpen, setNotifModalOpen] = useState(false)
   const [selectedTable, setSelectedTable] = useState<TableInfoWithPin | null>(null)
   const navigate = useNavigate()
   const { i18nText } = useI18n()
@@ -113,6 +115,22 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
     clearError()
   }
 
+  /** ── Notification Modal ── */
+  const handleNotificationSubmit = ({ type, message, duration }: { type: KioskNotificationType; message: string; duration: number }) => {
+    if (!socket || !ownerPin) return
+    socket.emit(SocketEvents.CLIENT.SEND_NOTIFICATION, {
+      pin: ownerPin,
+      type,
+      message,
+      duration,
+    })
+    setNotifModalOpen(false)
+  }
+
+  const handleNotificationClose = () => {
+    setNotifModalOpen(false)
+  }
+
   /** Translate error codes from usePinSubmission to human-readable messages */
   const translatePinError = (code: string | null): string | null => {
     if (!code) return null
@@ -139,7 +157,16 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
           {i18nText('ownerCreateTable')}
         </Button>
         <Button
-          variant="secondary"
+          variant="primary"
+          size="sm"
+          onClick={() => setNotifModalOpen(true)}
+          animate={false}
+          icon={<Bell size={18} />}
+        >
+          {i18nText('ownerCreateNotification')}
+        </Button>
+            <Button
+          variant="primary"
           size="sm"
           onClick={() => navigate(Routes.HISTORY)}
           animate={false}
@@ -249,6 +276,23 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
         onSubmit={handlePinSubmit}
         isLoading={pinLoading}
         error={translatePinError(pinError)}
+      />
+
+      <KioskNotificationModal
+        isOpen={notifModalOpen}
+        onClose={handleNotificationClose}
+        onSubmit={handleNotificationSubmit}
+        title={i18nText('notificationModalTitle')}
+        typeLabel={i18nText('notificationTypeLabel')}
+        typeInfoLabel={i18nText('notificationTypeInfo')}
+        typeWarningLabel={i18nText('notificationTypeWarning')}
+        typeErrorLabel={i18nText('notificationTypeError')}
+        typeImportantLabel={i18nText('notificationTypeImportant')}
+        messageLabel={i18nText('notificationMessageLabel')}
+        messagePlaceholder={i18nText('notificationMessagePlaceholder')}
+        durationLabel={i18nText('notificationDurationLabel')}
+        cancelLabel={i18nText('commonCancel')}
+        submitLabel={i18nText('notificationSend')}
       />
     </div>
   )

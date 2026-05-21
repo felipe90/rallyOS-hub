@@ -1,4 +1,4 @@
-import type { TableInfo, MatchStateExtended, AllHistoryEntry } from '@shared/types'
+import type { TableInfo, MatchStateExtended, AllHistoryEntry, KioskNotificationData } from '@shared/types'
 import type { Socket } from 'socket.io-client'
 import type { HubConfigData } from '../../hooks/useSocketState'
 
@@ -21,6 +21,7 @@ export interface SocketContextType {
   currentMatch: MatchStateExtended | null
   allHistories: AllHistoryEntry[] | null
   hubConfig: HubConfigData | null
+  kioskNotification: KioskNotificationData | null
   connect: () => void
   disconnect: () => void
   emit: (event: string, data?: unknown) => void

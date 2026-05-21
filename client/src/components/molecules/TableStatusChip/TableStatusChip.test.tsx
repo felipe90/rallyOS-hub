@@ -2,12 +2,29 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { TableStatusChip } from './TableStatusChip';
 
+vi.mock('@/i18n', () => ({
+  useI18n: () => ({
+    i18nText: (key: string) => {
+      const labels: Record<string, string> = {
+        tableStatusWaiting: 'Esperando',
+        tableStatusConfiguring: 'Configurando',
+        tableStatusLive: 'En juego',
+        tableStatusFinished: 'Finalizado',
+      };
+      return labels[key] || key;
+    },
+    changeLanguage: vi.fn(),
+    currentLanguage: 'es',
+    t: (key: string) => key,
+  }),
+}));
+
 describe('TableStatusChip', () => {
   const cases = [
-    { status: 'WAITING' as const, text: 'Waiting' },
-    { status: 'CONFIGURING' as const, text: 'Configuring' },
-    { status: 'LIVE' as const, text: 'Live' },
-    { status: 'FINISHED' as const, text: 'Finished' },
+    { status: 'WAITING' as const, text: 'Esperando' },
+    { status: 'CONFIGURING' as const, text: 'Configurando' },
+    { status: 'LIVE' as const, text: 'En juego' },
+    { status: 'FINISHED' as const, text: 'Finalizado' },
   ];
 
   it.each(cases)('renders $status status text correctly', ({ status, text }) => {

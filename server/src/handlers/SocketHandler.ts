@@ -62,6 +62,17 @@ export class SocketHandler {
         this.io.to(tableId).emit(SocketEvents.SERVER.SET_WON, { tableId, ...event });
       } else if (event.type === 'MATCH_WON') {
         this.io.to(tableId).emit(SocketEvents.SERVER.MATCH_WON, { tableId, ...event });
+
+        // Auto-notify kiosk clients on match won (server-sourced, bypasses rate limit)
+        const ms = this.tableManager.getMatchState(tableId);
+        const names = ms?.playerNames ?? { a: 'Player A', b: 'Player B' };
+        const winner = names[event.winner === 'A' ? 'a' : 'b'];
+        this.io.emit(SocketEvents.SERVER.KIOSK_NOTIFICATION, {
+          type: 'important',
+          duration: 10,
+          message: `¡Ganador: ${winner}!`,
+          timestamp: Date.now(),
+        });
       }
     };
     

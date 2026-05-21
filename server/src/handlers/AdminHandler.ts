@@ -3,6 +3,7 @@
  *
  * Events handled:
  * - REGENERATE_PIN: Regenerate table PIN and revoke previous referee (kill-switch)
+ * - SEND_NOTIFICATION: Send typed notification to all kiosk clients
  * - REQUEST_TABLE_STATE: Get full table state (handled in MatchEventHandler)
  * - GET_RATE_LIMIT_STATUS: Get rate limit status for debugging
  */
@@ -10,8 +11,9 @@
 import { Server, Socket } from 'socket.io';
 import { TableManager } from '../domain/tableManager';
 import { validateSocketPayload } from '../utils/validation';
-import { logger } from '../utils/logger';
+import { logger, maskIp } from '../utils/logger';
 import { SocketEvents } from '../../../shared/events';
+import { sanitizeMessage } from '../../../shared/validation';
 import { SocketHandlerBase } from './SocketHandlerBase';
 
 export class AdminHandler extends SocketHandlerBase {
@@ -81,11 +83,61 @@ export class AdminHandler extends SocketHandlerBase {
       logger.info({ tableId: data.tableId }, 'PIN regenerated for table');
     });
 
+    // SEND_NOTIFICATION: Send typed notification to all kiosk clients
+    socket.on(SocketEvents.CLIENT.SEND_NOTIFICATION, (data: {
+      pin: string;
+      type: 'info' | 'warning' | 'error' | 'important';
+      message: string;
+      duration: number;
+    }) => this.handleSendNotification(socket, data));
+
     // GET_RATE_LIMIT_STATUS: Get rate limit status for debugging
     socket.on(SocketEvents.CLIENT.GET_RATE_LIMIT_STATUS, () => {
       const clientIp = socket.handshake.address;
       const status = this.rateLimiter.getEntriesForIp(clientIp);
       socket.emit(SocketEvents.SERVER.RATE_LIMIT_STATUS, status);
     });
+  }
+
+  /**
+   * Handle SEND_NOTIFICATION: validate PIN, rate-limit, sanitize, broadcast.
+   */
+  private handleSendNotification(socket: Socket, data: {
+    pin: string;
+    type: 'info' | 'warning' | 'error' | 'important';
+    message: string;
+    duration: number;
+  }): void {
+    // Validate PIN (timing-safe comparison)
+    if (!data?.pin || !this.comparePin(data.pin, this.ownerPin)) {
+      return this.emitError(socket, 'UNAUTHORIZED', 'PIN inválido');
+    }
+
+    // Rate-limit per IP (5/min)
+    const clientIp = socket.handshake.address;
+    const rateLimitKey = `NOTIFICATION:${clientIp}`;
+    if (this.isRateLimited(rateLimitKey)) {
+      return this.emitError(socket, 'RATE_LIMITED', 'Demasiadas notificaciones. Esperá un minuto.');
+    }
+
+    // Sanitize HTML and truncate message
+    const sanitizedMessage = sanitizeMessage(data.message || '');
+
+    // Build payload with server-set timestamp
+    const payload = {
+      type: data.type,
+      message: sanitizedMessage,
+      duration: data.duration,
+      timestamp: Date.now(),
+    };
+
+    // Broadcast to all connected clients
+    this.io.emit(SocketEvents.SERVER.KIOSK_NOTIFICATION, payload);
+
+    logger.info({
+      type: data.type,
+      duration: data.duration,
+      ip: maskIp(clientIp),
+    }, 'Kiosk notification broadcast');
   }
 }

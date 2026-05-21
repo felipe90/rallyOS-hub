@@ -126,8 +126,16 @@ app.get('/health', (req, res) => {
 
 // Expose owner PIN for plug-and-play mode (random PIN generation)
 // Only returns the PIN when it was randomly generated (not from env var)
-// This allows the UI to display the PIN on first boot without logging it
+// Restricted to localhost — only the kiosk display on the Orange Pi itself needs this.
 app.get('/api/owner-pin', (req, res) => {
+  // Restrict to localhost: only the kiosk UI on the Orange Pi itself needs the PIN
+  const ip = req.ip || req.socket.remoteAddress || '';
+  const isLocalhost = ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
+  if (!isLocalhost) {
+    logger.warn({ ip }, 'Blocked external access to /api/owner-pin');
+    return res.status(403).json({ error: 'Access denied' });
+  }
+
   const { getOwnerPin, isRandomPin } = require('./config/ownerPin');
   const pin = getOwnerPin();
   const random = isRandomPin();

@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useI18n, changeLanguage } from '@/i18n'
 import { useSocketContext } from '@/contexts/SocketContext'
 import { ConnectionStatus, Typography } from '@/components/atoms'
 import { KioskTableCard } from '@/components/organisms/KioskTableCard'
+import { KioskNotificationToast } from '@/components/organisms/KioskNotificationToast'
 import { QRCodeSVG } from 'qrcode.react'
 import logoBig from '@/assets/logo-big.png'
-import type { TableInfo } from '@shared/types'
+import type { TableInfo, KioskNotificationData } from '@shared/types'
 
 /** Active table statuses shown on the kiosk */
 const ACTIVE_STATUSES: TableInfo['status'][] = ['LIVE', 'WAITING']
@@ -59,7 +60,7 @@ function useResponsiveQrSize() {
 }
 
 export function KioskAllTablesPage() {
-  const { tables, connected, connecting, hubConfig } = useSocketContext()
+  const { tables, connected, connecting, hubConfig, kioskNotification } = useSocketContext()
   const { i18nText } = useI18n()
   const qrSize = useResponsiveQrSize()
 
@@ -68,6 +69,18 @@ export function KioskAllTablesPage() {
   const [currentPage, setCurrentPage] = useState(0)
   const [fadeState, setFadeState] = useState<'visible' | 'hidden'>('visible')
   const [isPaused, setIsPaused] = useState(false)
+
+  // Notification toast visibility
+  const [visibleNotification, setVisibleNotification] = useState<KioskNotificationData | null>(null)
+  const prevTimestampRef = useRef<number | null>(null)
+
+  // Show toast when a new kioskNotification arrives (tracked by timestamp)
+  useEffect(() => {
+    if (kioskNotification && kioskNotification.timestamp !== prevTimestampRef.current) {
+      prevTimestampRef.current = kioskNotification.timestamp
+      setVisibleNotification(kioskNotification)
+    }
+  }, [kioskNotification])
 
   // Spanish default on TV scoreboard
   useEffect(() => {
@@ -211,6 +224,14 @@ export function KioskAllTablesPage() {
             <KioskTableCard key={table.id} table={table} condensed />
           ))}
         </div>
+      )}
+
+      {/* Kiosk Notification Toast */}
+      {visibleNotification && (
+        <KioskNotificationToast
+          notification={visibleNotification}
+          onDismiss={() => setVisibleNotification(null)}
+        />
       )}
     </div>
   )

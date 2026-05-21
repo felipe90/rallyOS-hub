@@ -3,7 +3,14 @@ import { render, screen, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { KioskAllTablesPage, calculatePages } from './KioskAllTablesPage'
 import { useSocketContext } from '@/contexts/SocketContext'
-import type { TableInfo } from '@shared/types'
+import type { TableInfo, KioskNotificationData } from '@shared/types'
+
+// Mock KioskNotificationToast to verify it renders without testing it again
+vi.mock('@/components/organisms/KioskNotificationToast', () => ({
+  KioskNotificationToast: vi.fn(({ notification }: { notification: KioskNotificationData }) => (
+    <div data-testid="kiosk-notification-toast">{notification.message}</div>
+  )),
+}))
 
 // Mock SocketContext
 vi.mock('@/contexts/SocketContext', () => ({
@@ -142,6 +149,87 @@ describe('KioskAllTablesPage', () => {
 
     expect(screen.getByText('Live Table')).toBeInTheDocument()
     expect(screen.getByText('Waiting Table')).toBeInTheDocument()
+  })
+
+  describe('kiosk notification toast', () => {
+    const mockNotification: KioskNotificationData = {
+      type: 'info',
+      message: 'Test notification',
+      duration: 5,
+      timestamp: Date.now(),
+    }
+
+    it('renders KioskNotificationToast when kioskNotification is non-null', () => {
+      mockUseSocketContext.mockReturnValue({
+        tables: [makeTable({ status: 'LIVE' })],
+        connected: true,
+        connecting: false,
+        kioskNotification: mockNotification,
+      })
+
+      render(
+        <MemoryRouter>
+          <KioskAllTablesPage />
+        </MemoryRouter>,
+      )
+
+      expect(screen.getByTestId('kiosk-notification-toast')).toBeInTheDocument()
+      expect(screen.getByText('Test notification')).toBeInTheDocument()
+    })
+
+    it('does NOT render KioskNotificationToast when kioskNotification is null', () => {
+      mockUseSocketContext.mockReturnValue({
+        tables: [makeTable({ status: 'LIVE' })],
+        connected: true,
+        connecting: false,
+        kioskNotification: null,
+      })
+
+      render(
+        <MemoryRouter>
+          <KioskAllTablesPage />
+        </MemoryRouter>,
+      )
+
+      expect(screen.queryByTestId('kiosk-notification-toast')).not.toBeInTheDocument()
+    })
+
+    it('does NOT render KioskNotificationToast when kioskNotification is undefined', () => {
+      mockUseSocketContext.mockReturnValue({
+        tables: [makeTable({ status: 'LIVE' })],
+        connected: true,
+        connecting: false,
+      })
+
+      render(
+        <MemoryRouter>
+          <KioskAllTablesPage />
+        </MemoryRouter>,
+      )
+
+      expect(screen.queryByTestId('kiosk-notification-toast')).not.toBeInTheDocument()
+    })
+
+    it('renders toast with tables still visible (does not obscure scores)', () => {
+      const table1 = makeTable({ id: 't1', name: 'Mesa 1', status: 'LIVE' })
+      mockUseSocketContext.mockReturnValue({
+        tables: [table1],
+        connected: true,
+        connecting: false,
+        kioskNotification: { ...mockNotification, message: 'Break time!' },
+      })
+
+      render(
+        <MemoryRouter>
+          <KioskAllTablesPage />
+        </MemoryRouter>,
+      )
+
+      // Toast is rendered
+      expect(screen.getByText('Break time!')).toBeInTheDocument()
+      // Table card is still visible
+      expect(screen.getByText('Mesa 1')).toBeInTheDocument()
+    })
   })
 })
 

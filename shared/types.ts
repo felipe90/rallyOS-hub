@@ -161,3 +161,14 @@ export interface RefRevokedEvent {
   tableId: string;
   reason: 'Regenerado' | 'Expulsado';
 }
+
+// ── Kiosk Notifications ────────────────────────────────────────────
+
+export type KioskNotificationType = 'info' | 'warning' | 'error' | 'important';
+
+export interface KioskNotificationData {
+  type: KioskNotificationType;
+  message: string;
+  duration: number;
+  timestamp: number;
+}

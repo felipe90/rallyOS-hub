@@ -175,13 +175,11 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
         })}
         severity="success"
         confirmLabel={i18nText('scoreboardWinnerDialogContinue')}
-        cancelLabel=""
         onConfirm={() => {
           setShowWinnerDialog(false)
           sessionStorage.setItem(`winner-shown-${tableId}`, 'true')
           navigate(backRoute)
         }}
-        onCancel={() => {}}
       />
 
       {/* CoachMark for first-time referees */}

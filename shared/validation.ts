@@ -42,6 +42,19 @@ export const TABLE_NAME_RULES = {
 } as const
 
 /**
+ * Kiosk notification validation rules
+ */
+export const NOTIFICATION_RULES = {
+  message: {
+    maxLength: 280,
+    disallowHtml: true,
+  },
+  validTypes: ['info', 'warning', 'error', 'important'] as const,
+  validDurations: [5, 10, 15, 30] as const,
+  defaultDuration: 5,
+} as const
+
+/**
  * Validate a PIN against its rules.
  * Returns true if the PIN is valid.
  */
@@ -57,4 +70,13 @@ export function sanitizePlayerName(name: string): string {
   return name
     .replace(/<[^>]*>/g, '')
     .slice(0, PLAYER_NAME_RULES.maxLength)
+}
+
+/**
+ * Sanitize a kiosk notification message by stripping HTML tags and truncating.
+ */
+export function sanitizeMessage(message: string): string {
+  return message
+    .replace(/<[^>]*>/g, '')
+    .slice(0, NOTIFICATION_RULES.message.maxLength)
 }

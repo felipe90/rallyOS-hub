@@ -60,7 +60,7 @@ describe('DashboardGrid', () => {
   it('displays correct status indicators', () => {
     render(<DashboardGrid tables={mockTables} />);
     expect(screen.getByText('Waiting')).toBeInTheDocument();
-    expect(screen.getByText('Live')).toBeInTheDocument();
+    expect(screen.getByText('In play')).toBeInTheDocument();
     expect(screen.getByText('Finished')).toBeInTheDocument();
   });
 

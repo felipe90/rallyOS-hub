@@ -123,7 +123,7 @@ export function KioskNotificationToast({ notification, onDismiss }: KioskNotific
       animate={{ y: 0, opacity: 1 }}
       exit={{ y: 100, opacity: 0 }}
       transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-      className={`fixed bottom-0 left-0 right-0 z-50 ${colorClass} text-white`}
+      className={`fixed bottom-0 left-0 right-0 z-50 ${colorClass} text-white m-4`}
       role="alert"
     >
       <div className="flex items-center gap-3 px-6 py-4 max-w-4xl mx-auto">

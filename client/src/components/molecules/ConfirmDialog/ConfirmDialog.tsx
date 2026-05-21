@@ -72,16 +72,17 @@ export function ConfirmDialog({
         
         {/* Actions */}
         <div className="flex gap-3">
-          <Button 
-            variant="secondary" 
-            onClick={() => onCancel?.()} 
-            stopPropagation 
-            className="flex-1"
-          >
+          {cancelLabel && (
+            <Button 
+              variant="secondary" 
+              onClick={() => onCancel?.()} 
+              stopPropagation 
+              className="flex-1"
+            >
             {cancelLabel}
-          </Button>
+          </Button>)}
           <Button 
-            variant={config.confirmVariant} 
+            variant="primary" 
             onClick={() => onConfirm()} 
             stopPropagation 
             className="flex-1"

@@ -5,10 +5,14 @@
  * This file only imports and wires modules together.
  */
 
-import { app } from './app';
+import fs from 'fs';
+import { app, spaFallback } from './app';
 import { createSecureServer, gracefulShutdown } from './server';
 import { createSocketServer } from './socket';
 import { TableManager } from './domain/tableManager';
+import { StateStore } from './services/store/StateStore';
+import { createTournamentRouter } from './routes/tournament';
+import { ownerAuthMiddleware } from './middleware/ownerAuth';
 import { logger } from './utils/logger';
 import { initOwnerPin } from './config/ownerPin';
 import { getHubDomain } from './config/allowedOrigins';
@@ -40,9 +44,31 @@ const hubConfig = {
   ownerPin,
 };
 
-// Create TableManager and SocketHandler
-const tableManager = new TableManager(hubConfig);
+// Create StateStore and TableManager with persistence
+const stateStore = new StateStore();
+const tableManager = new TableManager(hubConfig, stateStore);
 createSocketServer(io, tableManager, ownerPin, hubConfig);
+
+// Mount tournament lifecycle routes (before SPA fallback)
+app.use(
+  '/api/tournament',
+  createTournamentRouter(stateStore, tableManager, ownerAuthMiddleware),
+);
+
+// SPA fallback — must be registered LAST (after all API routes)
+app.use(spaFallback);
+
+// Ensure data directory exists for tournament persistence
+const DATA_DIR = 'data';
+const ARCHIVE_DIR = 'data/archive';
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  logger.info('Created data/ directory for tournament persistence');
+}
+if (!fs.existsSync(ARCHIVE_DIR)) {
+  fs.mkdirSync(ARCHIVE_DIR, { recursive: true });
+  logger.info('Created data/archive/ directory');
+}
 
 // Start listening
 httpsServer.listen(PORT, () => {

@@ -160,7 +160,8 @@ app.get('/captive-portal', (req, res) => {
 // SPA fallback — serve index.html for any unmatched route.
 // Express 5 uses path-to-regexp v8 which doesn't support bare '*'.
 // Using middleware instead of a route handler avoids the issue entirely.
-app.use((req, res) => {
+// Exported so index.ts can register it AFTER all API routes are mounted.
+export const spaFallback = (req: express.Request, res: express.Response) => {
   // Let API and Socket.IO paths return 404 (they have their own handlers)
   if (req.path.startsWith('/api/') || req.path.startsWith('/socket.io/')) {
     return res.status(404).json({ error: 'Not found' });
@@ -171,6 +172,6 @@ app.use((req, res) => {
   } else {
     res.status(404).send('Client not found');
   }
-});
+};
 
 export { app };

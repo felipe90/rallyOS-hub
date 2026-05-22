@@ -99,6 +99,9 @@ main() {
     fi
     print_success "Project structure OK"
 
+    # Ensure data directories exist for tournament persistence
+    mkdir -p "$REPO_ROOT/data" "$REPO_ROOT/data/archive"
+
     print_step "Checking Node.js and pnpm..."
     if ! ensure_pnpm "$REPO_ROOT"; then
         print_error "pnpm is required for local dev. Install Node 22+ with Corepack, or see https://pnpm.io/installation"

@@ -61,20 +61,20 @@ Chain strategy: pending
 
 ## Phase 6: Client — Tournament Resume Modal
 
-- [ ] 6.1 Create `client/src/components/molecules/TournamentResumeModal/TournamentResumeModal.tsx` — modal with match count, "Load" and "New" buttons; blocks dismissal
-- [ ] 6.2 Create `client/src/components/molecules/TournamentResumeModal/TournamentResumeModal.test.tsx`
-- [ ] 6.3 Modify `client/src/hooks/useAuthFlow.ts` — store `tournamentToken` from `OWNER_VERIFIED`; after login fetch `GET /api/tournament/status`; if `exists`, block navigation with modal
-- [ ] 6.4 Wire modal into `client/src/pages/AuthPage/AuthPage.tsx` — show when `exists` flag set after owner verification
-- [ ] 6.5 Add i18n keys to `client/src/i18n/locales/es.json` and `en-US.json` — modal title, load button, new button, match count label
+- [x] 6.1 Create `client/src/components/molecules/TournamentResumeModal/TournamentResumeModal.tsx` — modal with match count, "Load" and "New" buttons; blocks dismissal
+- [x] 6.2 Create `client/src/components/molecules/TournamentResumeModal/TournamentResumeModal.test.tsx`
+- [x] 6.3 Modify `client/src/hooks/useAuthFlow.ts` — store `tournamentToken` from `OWNER_VERIFIED`; after login fetch `GET /api/tournament/status`; if `exists`, block navigation with modal
+- [x] 6.4 Wire modal into `client/src/pages/AuthPage/AuthPage.tsx` — show when `exists` flag set after owner verification
+- [x] 6.5 Add i18n keys to `client/src/i18n/locales/es.json` and `en-US.json` — modal title, load button, new button, match count label
 
 ## Phase 7: Client — Dashboard Buttons
 
-- [ ] 7.1 Add "Finalizar Torneo" button (Trophy icon) + ConfirmDialog with "Exportar CSV" checkbox to `OwnerDashboardPage`
-- [ ] 7.2 Add Export CSV button (Download icon) to `OwnerDashboardPage` — `GET /api/export/matches.csv` as blob download
-- [ ] 7.3 Update `client/src/pages/OwnerDashboardPage/OwnerDashboardPage.test.tsx` — new buttons render for owners, hidden for non-owners
+- [x] 7.1 Add "Finalizar Torneo" button (Trophy icon) + ConfirmDialog with "Exportar CSV" checkbox to `OwnerDashboardPage`
+- [x] 7.2 Add Export CSV button (Download icon) to `OwnerDashboardPage` — `GET /api/export/matches.csv` as blob download
+- [x] 7.3 Update `client/src/pages/OwnerDashboardPage/OwnerDashboardPage.test.tsx` — new buttons render for owners, hidden for non-owners
 
 ## Phase 8: Config
 
-- [ ] 8.1 Add `./data:/app/data` volume to `docker-compose.yml` under hub service
-- [ ] 8.2 Add `mkdir -p data/ data/archive/` to `scripts/dev.sh` after "Checking project structure"
-- [ ] 8.3 Add `data/rallyos-state.json` and `data/archive/` to `.gitignore`
+- [x] 8.1 Add `./data:/app/data` volume to `docker-compose.yml` under hub service
+- [x] 8.2 Add `mkdir -p data/ data/archive/` to `scripts/dev.sh` after "Checking project structure"
+- [x] 8.3 Add `data/rallyos-state.json` and `data/archive/` to `.gitignore`

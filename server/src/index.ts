@@ -12,6 +12,7 @@ import { createSocketServer } from './socket';
 import { TableManager } from './domain/tableManager';
 import { StateStore } from './services/store/StateStore';
 import { createTournamentRouter } from './routes/tournament';
+import { createExportRouter } from './routes/export';
 import { ownerAuthMiddleware } from './middleware/ownerAuth';
 import { logger } from './utils/logger';
 import { initOwnerPin } from './config/ownerPin';
@@ -53,6 +54,12 @@ createSocketServer(io, tableManager, ownerPin, hubConfig);
 app.use(
   '/api/tournament',
   createTournamentRouter(stateStore, tableManager, ownerAuthMiddleware),
+);
+
+// Mount CSV export route (before SPA fallback)
+app.use(
+  '/api/export/matches.csv',
+  createExportRouter(stateStore, ownerAuthMiddleware),
 );
 
 // SPA fallback — must be registered LAST (after all API routes)

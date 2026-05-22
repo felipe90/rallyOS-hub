@@ -46,18 +46,18 @@ Chain strategy: pending
 
 ## Phase 4: Tournament Lifecycle Endpoints
 
-- [ ] 4.1 Create `server/src/middleware/ownerAuth.ts` — validates `X-Tournament-Token` against in-memory `Set`
-- [ ] 4.2 Modify `AuthHandler.VERIFY_OWNER` in `server/src/handlers/AuthHandler.ts` — generate `crypto.randomUUID()`, store in `activeTokens`, emit in `OWNER_VERIFIED`
-- [ ] 4.3 Create `server/src/routes/tournament.ts` — Express router with `GET /status`, `POST /load`, `POST /new`, `POST /finish`
-- [ ] 4.4 Wire routes and auth middleware in `server/src/app.ts`
-- [ ] 4.5 Bootstrap `StateStore` in `server/src/index.ts`, pass to `TableManager`, inject into tournament routes
-- [ ] 4.6 Create `server/src/routes/tournament.test.ts` — integration tests for all endpoints; 401 when unauthenticated; load restores PINs/scores; finish archives + clears
+- [x] 4.1 Create `server/src/middleware/ownerAuth.ts` — validates `Authorization: Bearer <token>` against in-memory `Set`
+- [x] 4.2 Modify `AuthHandler.VERIFY_OWNER` in `server/src/handlers/AuthHandler.ts` — generate `crypto.randomUUID()`, store in `activeTokens`, emit in `OWNER_VERIFIED`
+- [x] 4.3 Create `server/src/routes/tournament.ts` — Express router with `GET /status`, `POST /load`, `POST /new`, `POST /finish`
+- [x] 4.4 Wire routes and auth middleware in `server/src/app.ts`
+- [x] 4.5 Bootstrap `StateStore` in `server/src/index.ts`, pass to `TableManager`, inject into tournament routes
+- [x] 4.6 Create `server/src/routes/tournament.test.ts` — integration tests for all endpoints; 401 when unauthenticated; load restores PINs/scores; finish archives + clears
 
 ## Phase 5: CSV Export
 
-- [ ] 5.1 Create `server/src/services/store/CsvExporter.ts` — export FINISHED tables as CSV with columns: table_number, table_name, player_a, player_b, sets_won_a, sets_won_b, set_scores, winner
-- [ ] 5.2 Create `server/src/services/store/CsvExporter.test.ts` — verify row structure, empty player names, only FINISHED tables
-- [ ] 5.3 Add `GET /api/export/matches.csv` to tournament routes — `Content-Type: text/csv`, `Content-Disposition: attachment`, owner-auth protected
+- [x] 5.1 Create `server/src/services/store/CsvExporter.ts` — export FINISHED tables as CSV with columns: table_number, table_name, player_a, player_b, sets_won_a, sets_won_b, set_scores, winner
+- [x] 5.2 Create `server/src/services/store/CsvExporter.test.ts` — verify row structure, empty player names, only FINISHED tables
+- [x] 5.3 Add `GET /api/export/matches.csv` to tournament routes — `Content-Type: text/csv`, `Content-Disposition: attachment`, owner-auth protected
 
 ## Phase 6: Client — Tournament Resume Modal
 

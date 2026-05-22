@@ -3,7 +3,7 @@
  * Full admin dashboard with table creation, PIN management, and QR codes
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useI18n } from '@/i18n'
 import { DashboardGrid } from '@/components/organisms/DashboardGrid'
@@ -18,10 +18,11 @@ import { usePinSubmission } from '@/hooks/usePinSubmission'
 import { useRefereeSession } from '@/hooks/useRefereeSession'
 import { useTableManagement } from '@/hooks/useTableManagement'
 import { Button } from '@/components/atoms/Button'
+import { Body } from '@/components/atoms/Typography'
 import { SocketEvents } from '@shared/events'
 import { Routes, buildScoreboardRoute } from '@/routes'
 import type { TableInfoWithPin, KioskNotificationType } from '@shared/types'
-import { Plus, FileText, Table2, Swords, Users, Bell } from 'lucide-react'
+import { Plus, FileText, Table2, Swords, Users, Bell, Flag, Download } from 'lucide-react'
 
 
 export interface OwnerDashboardPageProps {
@@ -32,16 +33,22 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(initialViewMode || 'grid')
   const [pinModalOpen, setPinModalOpen] = useState(false)
   const [notifModalOpen, setNotifModalOpen] = useState(false)
+  const [finishDialogOpen, setFinishDialogOpen] = useState(false)
+  const [exportCsvChecked, setExportCsvChecked] = useState(true)
   const [selectedTable, setSelectedTable] = useState<TableInfoWithPin | null>(null)
   const navigate = useNavigate()
   const { i18nText } = useI18n()
   const { tables, connected, socket, requestTablesWithPins, appError } = useSocketContext()
-  const { logout, ownerPin, setTablePin } = useAuthContext()
+  const { logout, ownerPin, setTablePin, isOwner, tournamentToken } = useAuthContext()
   const stats = useDashboardStats(tables)
   const { submitPin, loading: pinLoading, error: pinError, clearError } = usePinSubmission(socket)
   const { saveSession, findAnyValidSession, clearSession } = useRefereeSession()
 
   const tableMgmt = useTableManagement({ socket, connected })
+
+  // Derived: check if any FINISHED tables exist
+  const hasFinishedTables = tables.some(t => t.status === 'FINISHED')
+  const hasTables = tables.length > 0
 
   // Owner always gets tables with PINs
   useEffect(() => {
@@ -131,6 +138,39 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
     setNotifModalOpen(false)
   }
 
+  /** ── Export CSV ── */
+  const handleExportCsv = useCallback(() => {
+    window.open('/api/export/matches.csv', '_blank')
+  }, [])
+
+  /** ── Finish Tournament ── */
+  const handleFinishConfirm = useCallback(async () => {
+    setFinishDialogOpen(false)
+
+    // If CSV export is checked, download CSV first
+    if (exportCsvChecked) {
+      window.open('/api/export/matches.csv', '_blank')
+    }
+
+    // Call the finish endpoint
+    const token = tournamentToken
+    if (token) {
+      try {
+        await fetch('/api/tournament/finish', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+      } catch {
+        // Server may be slow — proceed anyway
+      }
+    }
+
+    // Reset CSV checkbox for next time
+    setExportCsvChecked(true)
+  }, [exportCsvChecked, tournamentToken])
+
   /** Translate error codes from usePinSubmission to human-readable messages */
   const translatePinError = (code: string | null): string | null => {
     if (!code) return null
@@ -174,6 +214,30 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
         >
           {i18nText('ownerViewHistory')}
         </Button>
+        {/* End Tournament button — only for owners when tables exist */}
+        {isOwner && hasTables && (
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={() => setFinishDialogOpen(true)}
+            animate={false}
+            icon={<Flag size={18} />}
+          >
+            {i18nText('finishTournament')}
+          </Button>
+        )}
+        {/* Export CSV button — only for owners when FINISHED tables exist */}
+        {isOwner && hasFinishedTables && (
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={handleExportCsv}
+            animate={false}
+            icon={<Download size={18} />}
+          >
+            {i18nText('exportCsv')}
+          </Button>
+        )}
       </>
     ) : (
       <div className="flex flex-col gap-1">
@@ -294,6 +358,56 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
         cancelLabel={i18nText('commonCancel')}
         submitLabel={i18nText('notificationSend')}
       />
+
+      {/* Finish Tournament Confirmation Dialog */}
+      {finishDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setFinishDialogOpen(false)}
+          />
+          <div className="relative bg-surface rounded-lg shadow-xl p-6 w-full max-w-sm">
+            <div className="flex justify-center mb-4">
+              <div className="bg-red-100 text-red-600 p-3 rounded-full">
+                <Flag size={32} />
+              </div>
+            </div>
+            <Body className="text-xl font-heading text-center mb-2">
+              {i18nText('finishTournament')}
+            </Body>
+            <Body className="text-center text-text/70 mb-6">
+              {i18nText('finishTournamentConfirm')}
+            </Body>
+            <div className="mb-6">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={exportCsvChecked}
+                  onChange={(e) => setExportCsvChecked(e.target.checked)}
+                  className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+                />
+                <Body>{i18nText('finishTournamentExportCsv')}</Body>
+              </label>
+            </div>
+            <div className="flex gap-3">
+              <Button
+                variant="secondary"
+                onClick={() => setFinishDialogOpen(false)}
+                className="flex-1"
+              >
+                {i18nText('commonCancel')}
+              </Button>
+              <Button
+                variant="danger"
+                onClick={handleFinishConfirm}
+                className="flex-1"
+              >
+                {i18nText('finishTournament')}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

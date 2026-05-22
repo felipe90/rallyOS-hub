@@ -34,15 +34,15 @@ Chain strategy: pending
 
 ## Phase 2: MatchEngine Restoration
 
-- [ ] 2.1 Add `MatchEngine.fromState(state: PersistedMatchState)` static factory to `server/src/domain/matchEngine.ts`
-- [ ] 2.2 Add unit test to `server/src/domain/matchEngine.test.ts` — round-trip `getState()` → `fromState()` → `getState()` produces identical JSON
+- [x] 2.1 Add `MatchEngine.fromState(state: PersistedMatchState)` static factory to `server/src/domain/matchEngine.ts`
+- [x] 2.2 Add unit test to `server/src/domain/matchEngine.test.ts` — round-trip `getState()` → `fromState()` → `getState()` produces identical JSON
 
 ## Phase 3: TableManager Integration
 
-- [ ] 3.1 Refactor `TableManager` constructor to accept optional `StateStore` param in `server/src/domain/tableManager.ts`
-- [ ] 3.2 Call `stateStore?.save()` in `notifyUpdate()` after each mutation
-- [ ] 3.3 Add `loadTournament()` → `stateStore.load()` → `MatchEngine.fromState()` per table → rewire callbacks
-- [ ] 3.4 Add TableManager integration tests — load restores PINs/scores/undo history; callbacks fire after restore
+- [x] 3.1 Refactor `TableManager` constructor to accept optional `StateStore` param in `server/src/domain/tableManager.ts`
+- [x] 3.2 Call `stateStore?.save()` in `notifyUpdate()` after each mutation
+- [x] 3.3 Add `loadTournament()` → `stateStore.load()` → `MatchEngine.fromState()` per table → rewire callbacks
+- [x] 3.4 Add TableManager integration tests — load restores PINs/scores/undo history; callbacks fire after restore
 
 ## Phase 4: Tournament Lifecycle Endpoints
 

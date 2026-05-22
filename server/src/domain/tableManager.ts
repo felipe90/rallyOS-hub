@@ -22,6 +22,8 @@ import { MatchOrchestrator } from '../services/table/MatchOrchestrator';
 import { TableFormatter } from '../services/table/TableFormatter';
 import { PinService } from '../services/security/PinService';
 import { QRService } from '../services/qr/QRService';
+import { StateStore } from '../services/store/StateStore';
+import { PersistedTable } from '../services/store/types';
 
 export class TableManager {
   private repository: TableRepository;
@@ -30,17 +32,19 @@ export class TableManager {
   private formatter: TableFormatter;
   private pinService: PinService;
   private qrService: QRService;
+  private stateStore?: StateStore;
 
   public onTableUpdate: (table: TableInfo) => void = () => {};
   public onMatchEvent: (tableId: string, event: any) => void = () => {};
 
-  constructor(hubConfig: HubConfig) {
+  constructor(hubConfig: HubConfig, stateStore?: StateStore) {
     this.repository = new TableRepository();
     this.pinService = new PinService();
     this.playerService = new PlayerService(this.pinService);
     this.matchOrchestrator = new MatchOrchestrator();
     this.formatter = new TableFormatter();
     this.qrService = new QRService(hubConfig);
+    this.stateStore = stateStore;
   }
 
   // Table CRUD
@@ -325,5 +329,144 @@ export class TableManager {
     if (this.onTableUpdate) {
       this.onTableUpdate(this.formatter.toPublicInfo(table));
     }
+
+    // Auto-save to state store (fire-and-forget — errors logged but don't crash)
+    if (this.stateStore) {
+      this.autoSave();
+    }
+  }
+
+  /**
+   * Persist all LIVE and FINISHED tables to the state store.
+   * Errors are caught and logged — the caller is never affected.
+   */
+  private autoSave(): void {
+    try {
+      const allTables = this.repository.getAll();
+      const persisted: PersistedTable[] = allTables
+        .filter((t) => t.status === 'LIVE' || t.status === 'FINISHED')
+        .map((t) => this.toPersistedTable(t));
+      this.stateStore!.save(persisted);
+    } catch (err) {
+      logger.error({ err }, 'StateStore: auto-save failed');
+    }
+  }
+
+  /**
+   * Convert a runtime Table into a serializable PersistedTable.
+   * Excludes runtime-only fields: MatchEngine instance, PlayerConnection.socketId,
+   * and Socket.io callback references.
+   */
+  private toPersistedTable(table: Table): PersistedTable {
+    const state = table.matchEngine.getState();
+    return {
+      id: table.id,
+      number: table.number,
+      name: table.name,
+      status: table.status,
+      pin: table.pin,
+      playerNames: { ...table.playerNames },
+      createdAt: table.createdAt,
+      matchState: {
+        config: { ...state.config },
+        score: JSON.parse(JSON.stringify(state.score)),
+        swappedSides: state.swappedSides,
+        midSetSwapped: state.midSetSwapped,
+        setHistory: state.setHistory.map((s) => ({ ...s })),
+        status: state.status,
+        winner: state.winner,
+        history: (state.history || []).map((h) => ({
+          ...h,
+          pointsBefore: { ...h.pointsBefore },
+          pointsAfter: { ...h.pointsAfter },
+        })),
+      },
+    };
+  }
+
+  /**
+   * Load tournament state from disk and reconstruct tables.
+   *
+   * Reads persisted state via StateStore.load(), reconstructs Table objects
+   * and MatchEngine instances via MatchEngine.fromState(), and rewires
+   * Socket.io callbacks.
+   *
+   * Only tables with LIVE or FINISHED status are restored.
+   * Corrupted entries are skipped with a warning.
+   *
+   * @returns true if at least one table was restored, false otherwise.
+   */
+  public loadTournament(): boolean {
+    if (!this.stateStore) {
+      logger.warn('TableManager.loadTournament: no StateStore configured');
+      return false;
+    }
+
+    const persisted = this.stateStore.load();
+    if (!persisted || !persisted.tables || persisted.tables.length === 0) {
+      return false;
+    }
+
+    let restored = 0;
+
+    for (const pt of persisted.tables) {
+      // Only restore LIVE or FINISHED tables
+      if (pt.status !== 'LIVE' && pt.status !== 'FINISHED') {
+        continue;
+      }
+
+      try {
+        const engine = MatchEngine.fromState({
+          ...pt.matchState,
+          tableId: pt.id,
+          tableName: pt.name,
+          playerNames: pt.playerNames,
+          history: pt.matchState.history || [],
+          undoAvailable: (pt.matchState.history || []).length > 0,
+        });
+
+        engine.setTableId(pt.id, pt.name);
+
+        const table: Table = {
+          id: pt.id,
+          number: pt.number,
+          name: pt.name,
+          status: pt.status,
+          pin: pt.pin,
+          matchEngine: engine,
+          playerNames: { ...pt.playerNames },
+          history: [],
+          players: [],
+          createdAt: pt.createdAt,
+        };
+
+        // Wire callbacks so Socket.io events work after restoration
+        engine.setEventCallback((event: any) => {
+          this.onMatchEvent(pt.id, event);
+        });
+
+        this.repository.create(table);
+        restored++;
+
+        logger.info(
+          { tableId: pt.id, tableName: pt.name, status: pt.status },
+          'TableManager: restored table from state',
+        );
+      } catch (err) {
+        logger.warn(
+          { err, tableId: pt.id },
+          'TableManager.loadTournament: failed to restore table, skipping',
+        );
+      }
+    }
+
+    if (restored > 0) {
+      // Notify listeners about each restored table
+      for (const table of this.repository.getAll()) {
+        this.notifyUpdate(table);
+      }
+    }
+
+    return restored > 0;
   }
 }

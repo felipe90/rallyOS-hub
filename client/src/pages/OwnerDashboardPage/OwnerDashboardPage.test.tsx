@@ -337,9 +337,11 @@ describe('OwnerDashboardPage — Export CSV Button', () => {
   })
 
   it('opens export URL in new tab when Export CSV is clicked', () => {
-    const openSpy = vi.fn()
-    const originalOpen = window.open
-    window.open = openSpy
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      blob: () => Promise.resolve(new Blob(['test,csv,data'], { type: 'text/csv' })),
+    })
+    globalThis.fetch = fetchSpy as any
 
     renderPage({
       customSocket: {
@@ -349,8 +351,8 @@ describe('OwnerDashboardPage — Export CSV Button', () => {
 
     fireEvent.click(screen.getByText('Export CSV'))
 
-    expect(openSpy).toHaveBeenCalledWith('/api/export/matches.csv', '_blank')
-
-    window.open = originalOpen
+    expect(fetchSpy).toHaveBeenCalledWith('/api/export/matches.csv', {
+      headers: { Authorization: 'Bearer test-token-uuid' },
+    })
   })
 })

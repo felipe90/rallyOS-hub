@@ -26,8 +26,9 @@ client/dev-dist/
 shared/*.js
 
 # Tournament persistence data
-data/rallyos-state.json
-data/archive/
+# Persistence data (auto-generated, never commit)
+data/
+server/data/
 
 # Editor directories and files
 .vscode/*

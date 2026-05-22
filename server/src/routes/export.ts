@@ -34,7 +34,7 @@ export function handleExport(
   res.setHeader('Content-Type', 'text/csv');
   res.setHeader(
     'Content-Disposition',
-    'attachment; filename=rallyos-matches.csv',
+    'attachment; filename="rallyos-matches.csv"',
   );
   res.send(csv);
 }

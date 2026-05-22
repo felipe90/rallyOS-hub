@@ -138,10 +138,27 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
     setNotifModalOpen(false)
   }
 
-  /** ── Export CSV ── */
-  const handleExportCsv = useCallback(() => {
-    window.open('/api/export/matches.csv', '_blank')
-  }, [])
+  /** ── Export CSV (authenticated fetch + blob download) ── */
+  const downloadCsv = useCallback(async () => {
+    const token = tournamentToken
+    if (!token) return
+
+    try {
+      const res = await fetch('/api/export/matches.csv', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) return
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'rallyos-matches.csv'
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      // Silently fail — CSV is optional
+    }
+  }, [tournamentToken])
 
   /** ── Finish Tournament ── */
   const handleFinishConfirm = useCallback(async () => {
@@ -149,7 +166,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
 
     // If CSV export is checked, download CSV first
     if (exportCsvChecked) {
-      window.open('/api/export/matches.csv', '_blank')
+      await downloadCsv()
     }
 
     // Call the finish endpoint
@@ -169,7 +186,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
 
     // Reset CSV checkbox for next time
     setExportCsvChecked(true)
-  }, [exportCsvChecked, tournamentToken])
+  }, [exportCsvChecked, tournamentToken, downloadCsv])
 
   /** Translate error codes from usePinSubmission to human-readable messages */
   const translatePinError = (code: string | null): string | null => {
@@ -231,7 +248,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
           <Button
             variant="primary"
             size="sm"
-            onClick={handleExportCsv}
+            onClick={downloadCsv}
             animate={false}
             icon={<Download size={18} />}
           >

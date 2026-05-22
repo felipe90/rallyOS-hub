@@ -128,7 +128,7 @@ describe('handleExport', () => {
     expect(setHeader).toHaveBeenCalledWith('Content-Type', 'text/csv');
     expect(setHeader).toHaveBeenCalledWith(
       'Content-Disposition',
-      'attachment; filename=rallyos-matches.csv',
+      'attachment; filename="rallyos-matches.csv"',
     );
     expect(send).toHaveBeenCalledWith(expect.stringContaining('table_number,table_name'));
     expect(send).toHaveBeenCalledWith(expect.stringContaining('Mesa 1'));

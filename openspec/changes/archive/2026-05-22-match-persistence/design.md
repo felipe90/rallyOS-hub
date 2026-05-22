@@ -55,7 +55,7 @@ FINISH:   Client shows ConfirmDialog (Exportar CSV checkbox)
 
 ## New HTTP Endpoints
 
-All require `X-Tournament-Token` header (validated by ownerAuth middleware).
+All require `Authorization: Bearer <token>` header (validated by ownerAuth middleware).
 
 | Endpoint | Method | Response |
 |----------|--------|----------|
@@ -73,7 +73,7 @@ AuthHandler.VERIFY_OWNER success:
   2. Emit { token: 'owner-session', tournamentToken: '<uuid>' }
 
 ownerAuthMiddleware:
-  - Reads X-Tournament-Token header
+  - Reads `Authorization: Bearer <token>` header
   - activeTokens.has(token) → next()
   - Otherwise → 401
 

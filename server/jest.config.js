@@ -7,6 +7,12 @@ module.exports = {
     }],
   },
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
-  testMatch: ['**/tests/**/*.spec.ts', '!**/tests/**/security.spec.ts', '!**/tests/**/match-logic.spec.ts', '!**/tests/**/multi-table.spec.ts'],
+  testMatch: [
+    '**/tests/**/*.spec.ts',
+    '**/src/**/*.test.ts',
+    '!**/tests/**/security.spec.ts',
+    '!**/tests/**/match-logic.spec.ts',
+    '!**/tests/**/multi-table.spec.ts',
+  ],
   rootDir: '.',
 };

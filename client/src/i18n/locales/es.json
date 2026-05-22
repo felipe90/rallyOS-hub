@@ -128,5 +128,16 @@
   "notificationMessageLabel": "Mensaje",
   "notificationMessagePlaceholder": "Escribí tu mensaje...",
   "notificationDurationLabel": "Duración",
-  "notificationSend": "Enviar"
+  "notificationSend": "Enviar",
+  "tournamentResumeTitle": "Torneo anterior encontrado",
+  "tournamentResumeDescription": "¿Deseás cargar el torneo anterior o iniciar uno nuevo?",
+  "tournamentResumeMatches": "Partidos guardados",
+  "tournamentResumeLastSaved": "Último guardado",
+  "tournamentResumeLoad": "Cargar",
+  "tournamentResumeNew": "Nuevo",
+  "finishTournament": "Finalizar Torneo",
+  "finishTournamentConfirm": "¿Finalizar torneo? Se archivará y ya no se podrá editar.",
+  "finishTournamentExportCsv": "Exportar CSV antes de finalizar",
+  "exportCsv": "Exportar CSV",
+  "tournamentFinishSuccess": "Torneo finalizado y archivado"
 }

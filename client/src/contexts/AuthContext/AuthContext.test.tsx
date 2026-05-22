@@ -3,7 +3,7 @@ import { render, screen, act } from '@testing-library/react'
 import { AuthProvider, useAuthContext } from './AuthContext'
 
 const TestConsumer = () => {
-  const { role, isReferee, isViewer, login, logout, tableId, isAuthenticated } = useAuthContext()
+  const { role, isReferee, isViewer, login, logout, tableId, isAuthenticated, tournamentToken, setTournamentToken } = useAuthContext()
   return (
     <div>
       <span data-testid="role">{role ?? 'null'}</span>
@@ -11,9 +11,11 @@ const TestConsumer = () => {
       <span data-testid="isViewer">{String(isViewer)}</span>
       <span data-testid="tableId">{tableId ?? 'null'}</span>
       <span data-testid="isAuthenticated">{String(isAuthenticated)}</span>
+      <span data-testid="tournamentToken">{tournamentToken ?? 'null'}</span>
       <button data-testid="login-referee" onClick={() => login('referee', 'table-1')}>Login Referee</button>
       <button data-testid="login-viewer" onClick={() => login('viewer', 'table-2')}>Login Viewer</button>
       <button data-testid="logout" onClick={() => logout()}>Logout</button>
+      <button data-testid="set-token" onClick={() => setTournamentToken('test-uuid-token')}>Set Token</button>
     </div>
   )
 }
@@ -177,5 +179,49 @@ describe('AuthContext', () => {
     // React state cleared
     expect(screen.getByTestId('role')).toHaveTextContent('null')
     expect(screen.getByTestId('isAuthenticated')).toHaveTextContent('false')
+  })
+
+  // ── Tournament Token ───────────────────────────────────────────────
+
+  it('tournamentToken is null initially', () => {
+    render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>
+    )
+    expect(screen.getByTestId('tournamentToken')).toHaveTextContent('null')
+  })
+
+  it('setTournamentToken stores the token', () => {
+    render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>
+    )
+
+    act(() => {
+      screen.getByTestId('set-token').click()
+    })
+
+    expect(screen.getByTestId('tournamentToken')).toHaveTextContent('test-uuid-token')
+  })
+
+  it('logout clears tournamentToken', () => {
+    render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>
+    )
+
+    act(() => {
+      screen.getByTestId('set-token').click()
+    })
+    expect(screen.getByTestId('tournamentToken')).toHaveTextContent('test-uuid-token')
+
+    act(() => {
+      screen.getByTestId('logout').click()
+    })
+
+    expect(screen.getByTestId('tournamentToken')).toHaveTextContent('null')
   })
 })

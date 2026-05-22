@@ -128,5 +128,16 @@
   "notificationMessageLabel": "Message",
   "notificationMessagePlaceholder": "Type your message...",
   "notificationDurationLabel": "Duration",
-  "notificationSend": "Send"
+  "notificationSend": "Send",
+  "tournamentResumeTitle": "Previous Tournament Found",
+  "tournamentResumeDescription": "Load previous tournament or start a new one?",
+  "tournamentResumeMatches": "Saved matches",
+  "tournamentResumeLastSaved": "Last saved",
+  "tournamentResumeLoad": "Load",
+  "tournamentResumeNew": "New",
+  "finishTournament": "End Tournament",
+  "finishTournamentConfirm": "End tournament? It will be archived and can no longer be edited.",
+  "finishTournamentExportCsv": "Export CSV before finishing",
+  "exportCsv": "Export CSV",
+  "tournamentFinishSuccess": "Tournament finished and archived"
 }

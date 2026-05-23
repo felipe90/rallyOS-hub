@@ -90,7 +90,7 @@ export function HistoryDrawer({
                     return (
                       <EventWrapper
                         key={event.id}
-                        className={`relative p-4 ${isEven ? 'bg-surface' : 'bg-surface-low'} transition-colors group`}
+                        className={`relative p-4 ${isEven ? 'bg-surface' : 'bg-surface-low'} transition-colors`}
                         {...eventMotionProps}
                       >
                         <div className="flex items-start justify-between">
@@ -113,7 +113,7 @@ export function HistoryDrawer({
                             
                             {index === 0 && (
                               <motion.button
-                                className="p-2 rounded-full hover:bg-amber/20 text-amber opacity-0 group-hover:opacity-100 transition-opacity"
+                                className="p-2 rounded-full bg-amber/10 hover:bg-amber/20 text-amber transition-colors focus-visible:ring-2 focus-visible:ring-amber/50"
                                 onClick={() => onUndo(event.id)}
                                 whileHover={shouldReduceMotion ? undefined : { scale: 1.1 }}
                                 whileTap={shouldReduceMotion ? undefined : { scale: 0.9 }}

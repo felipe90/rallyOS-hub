@@ -3,7 +3,7 @@
  * Full admin dashboard with table creation, PIN management, and QR codes
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useI18n } from '@/i18n'
 import { DashboardGrid } from '@/components/organisms/DashboardGrid'
@@ -17,6 +17,7 @@ import { useDashboardStats } from '@/hooks/useDashboardStats'
 import { usePinSubmission } from '@/hooks/usePinSubmission'
 import { useRefereeSession } from '@/hooks/useRefereeSession'
 import { useTableManagement } from '@/hooks/useTableManagement'
+import { useToast } from '@/components/molecules/Toast'
 import { Button } from '@/components/atoms/Button'
 import { Body } from '@/components/atoms/Typography'
 import { SocketEvents } from '@shared/events'
@@ -45,6 +46,25 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
   const { saveSession, findAnyValidSession, clearSession } = useRefereeSession()
 
   const tableMgmt = useTableManagement({ socket, connected })
+  const { addToast } = useToast()
+
+  // Track previous creating state to detect table creation completion
+  const wasCreatingRef = useRef(tableMgmt.isCreating)
+  useEffect(() => {
+    const wasCreating = wasCreatingRef.current;
+    wasCreatingRef.current = tableMgmt.isCreating;
+    // Transition: was creating → now not creating = table created successfully
+    if (wasCreating && !tableMgmt.isCreating && !appError) {
+      addToast('success', i18nText('toastTableCreated'));
+    }
+  }, [tableMgmt.isCreating, appError, addToast, i18nText]);
+
+  // Toast on PIN error
+  useEffect(() => {
+    if (pinError) {
+      addToast('error', i18nText('toastPinError'));
+    }
+  }, [pinError, addToast, i18nText]);
 
   // Derived: check if any FINISHED tables exist
   const hasFinishedTables = tables.some(t => t.status === 'FINISHED')
@@ -179,6 +199,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
             Authorization: `Bearer ${token}`,
           },
         })
+        addToast('success', i18nText('tournamentFinishSuccess'))
       } catch {
         // Server may be slow — proceed anyway
       }
@@ -186,7 +207,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
 
     // Reset CSV checkbox for next time
     setExportCsvChecked(true)
-  }, [exportCsvChecked, tournamentToken, downloadCsv])
+  }, [exportCsvChecked, tournamentToken, downloadCsv, addToast, i18nText])
 
   /** Translate error codes from usePinSubmission to human-readable messages */
   const translatePinError = (code: string | null): string | null => {
@@ -264,7 +285,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
             placeholder={i18nText('ownerTableNamePlaceholder')}
             value={tableMgmt.tableName}
             onChange={(e) => tableMgmt.setTableName(e.target.value)}
-            onKeyPress={(e) => {
+            onKeyDown={(e) => {
               if (e.key === 'Enter' && !tableMgmt.isCreating) tableMgmt.createTable()
             }}
             className="px-3 py-2 rounded border border-border bg-background text-text focus:outline-none focus:ring-2 focus:ring-primary"
@@ -340,11 +361,17 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
             showQr={true}
             onCleanTable={tableMgmt.requestClean}
             cleanTableId={tableMgmt.cleanConfirmTableId}
-            onCleanTableConfirm={tableMgmt.confirmClean}
+            onCleanTableConfirm={() => {
+              tableMgmt.confirmClean();
+              addToast('success', i18nText('toastTableCleaned'));
+            }}
             onCleanTableCancel={tableMgmt.cancelClean}
             onDeleteTable={tableMgmt.requestDelete}
             showDeleteConfirm={tableMgmt.deleteConfirmTableId}
-            onDeleteTableConfirm={tableMgmt.confirmDelete}
+            onDeleteTableConfirm={() => {
+              tableMgmt.confirmDelete();
+              addToast('success', i18nText('toastTableDeleted'));
+            }}
             onDeleteTableCancel={tableMgmt.cancelDelete}
           />
         </div>

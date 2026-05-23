@@ -4,6 +4,7 @@ import { WaitingBadge, ConfiguringBadge, LiveBadge, FinishedBadge } from '../../
 import { Body } from '../../atoms/Typography';
 import { Button } from '../../atoms/Button';
 import { QRCodeImage } from '../QRCodeImage';
+import { QrExpandModal } from '../QrExpandModal';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { RefreshCw, Trash2 } from 'lucide-react';
 import { buildScoreboardUrl } from '@/services/url';
@@ -74,6 +75,7 @@ export function TableStatusChip({
   // Keep last known PIN to prevent flicker during updates
   const [lastKnownPin, setLastKnownPin] = useState(pin);
   const [joinUrl, setJoinUrl] = useState('');
+  const [showQrModal, setShowQrModal] = useState(false);
 
   useEffect(() => {
     if (pin) {
@@ -93,6 +95,10 @@ export function TableStatusChip({
   }, [displayPin, tableId])
 
   const hasPin = !!(pin || lastKnownPin);
+
+  const handleQrExpand = () => {
+    setShowQrModal(true);
+  };
 
   return (
     <div
@@ -140,7 +146,10 @@ export function TableStatusChip({
             <Body className="text-sm font-mono font-bold text-primary">{displayPin}</Body>
           </div>
           {joinUrl && (
-            <div className="ml-auto">
+            <div
+              className="ml-auto cursor-pointer"
+              onClick={(e) => { e.stopPropagation(); handleQrExpand(); }}
+            >
               <QRCodeImage joinUrl={joinUrl} size={48} />
             </div>
           )}
@@ -198,6 +207,12 @@ export function TableStatusChip({
         cancelLabel="Cancelar"
         onConfirm={() => onCleanConfirm?.()}
         onCancel={() => onCleanCancel?.()}
+      />
+
+      {/* QR Fullscreen Modal */}
+      <QrExpandModal
+        joinUrl={showQrModal ? joinUrl : ''}
+        onClose={() => setShowQrModal(false)}
       />
 
     </div>

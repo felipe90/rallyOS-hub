@@ -6,7 +6,7 @@ Real-time scoreboard system for rally events with multi-table support, PWA, offl
 
 RallyOS Hub is a standalone, real-time scoreboard server optimized for embedded deployment on single-board computers (SBCs) like the Orange Pi Zero 3. It operates as a monorepo containing a React-based PWA frontend, an Express + Socket.IO backend, and a shared module serving as the Single Source of Truth (SSoT).
 
-![Alt text](rallyos-hub_diagram.png)
+![Alt text](rallyos-hub_diagram_v1.0.png)
 
 ### Component Breakdown
 

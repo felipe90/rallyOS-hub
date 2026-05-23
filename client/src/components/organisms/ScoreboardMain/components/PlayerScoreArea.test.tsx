@@ -89,4 +89,60 @@ describe('PlayerScoreArea', () => {
     const indicators = document.querySelectorAll('.rounded-full');
     expect(indicators.length).toBeGreaterThan(0);
   });
+
+  // ── Task 3.1: Haptic feedback ──
+  it('triggers haptic feedback on tap via navigator.vibrate', () => {
+    const vibrateSpy = vi.fn();
+    vi.stubGlobal('navigator', { vibrate: vibrateSpy });
+    render(<PlayerScoreArea {...defaultProps} onScorePoint={vi.fn()} />);
+
+    const section = screen.getByLabelText(/Área de Juan/);
+    fireEvent.click(section);
+
+    expect(vibrateSpy).toHaveBeenCalledWith(10);
+  });
+
+  it('triggers haptic feedback on undo via navigator.vibrate', () => {
+    const vibrateSpy = vi.fn();
+    vi.stubGlobal('navigator', { vibrate: vibrateSpy });
+    render(<PlayerScoreArea {...defaultProps} onSubtractPoint={vi.fn()} />);
+
+    const undoButton = screen.getByLabelText(/Undo/);
+    fireEvent.click(undoButton);
+
+    expect(vibrateSpy).toHaveBeenCalledWith(10);
+  });
+
+  it('does not throw when navigator.vibrate is undefined (Safari)', () => {
+    vi.stubGlobal('navigator', {});
+    render(<PlayerScoreArea {...defaultProps} onScorePoint={vi.fn()} />);
+
+    const section = screen.getByLabelText(/Área de Juan/);
+    expect(() => fireEvent.click(section)).not.toThrow();
+  });
+
+  // ── Task 3.1: Undo button outside tap area ──
+  it('renders undo button outside the tappable motion.section', () => {
+    const { container } = render(<PlayerScoreArea {...defaultProps} />);
+
+    const section = screen.getByLabelText(/Área de Juan/);
+    const undoButton = screen.getByLabelText(/Undo/);
+
+    // The undo button must NOT be a descendant of the tappable section
+    expect(section.contains(undoButton)).toBe(false);
+  });
+
+  it('undo button has increased touch target size (size-16 / 64px)', () => {
+    render(<PlayerScoreArea {...defaultProps} />);
+
+    const undoButton = screen.getByLabelText(/Undo/);
+    expect(undoButton.className).toContain('size-16');
+  });
+
+  it('undo button has icon padding class', () => {
+    render(<PlayerScoreArea {...defaultProps} />);
+
+    const undoButton = screen.getByLabelText(/Undo/);
+    expect(undoButton.className).toContain('p-3');
+  });
 });

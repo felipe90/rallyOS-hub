@@ -44,6 +44,7 @@ export function PlayerScoreArea({
 
   const handleTap = () => {
     if (isReferee) {
+      try { navigator.vibrate?.(10); } catch { /* Safari — silently ignore */ }
       onScorePoint?.(side);
     }
   };
@@ -51,6 +52,7 @@ export function PlayerScoreArea({
   const handleUndo = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (isReferee) {
+      try { navigator.vibrate?.(10); } catch { /* Safari — silently ignore */ }
       onSubtractPoint?.(side);
     }
   };
@@ -70,93 +72,95 @@ export function PlayerScoreArea({
   const tapBgColor = isLeft ? 'bg-[var(--color-scoreboard-bg)]' : 'bg-[var(--color-scoreboard-bg-alt)]';
 
   return (
-    <motion.section
-      className={`
-        flex-1 flex flex-col relative overflow-hidden
-        ${tapBgColor}
-        cursor-pointer select-none
-      `}
-      onClick={handleTap}
-      whileTap={isReferee ? { scale: 0.98, opacity: 0.9 } : undefined}
-      aria-label={`Área de ${playerName || `Player ${side}`}`}
-    >
-      {/* Serving Indicator - Floating badge outside score flow */}
-      {isServing && (
-        <ServingIndicator side={side} />
-      )}
-
-      {/* Score Overlay */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
-        <div className="text-center mb-2">
-          <span className="text-sm text-[var(--color-score-muted)] font-medium tracking-tight">
-            {playerName || `Player ${side}`}
-          </span>
-          {isReferee && handicap !== undefined && handicap !== 0 && (
-            <span className={`
-              inline-block px-3 py-0.5 rounded-full text-xs font-bold uppercase mt-1 ml-2
-              ${handicap > 0 ? 'bg-white/10 text-[var(--color-score-positive)]' : 'bg-white/10 text-[var(--color-score-negative)]'}
-            `}>
-              {handicap > 0 ? `+${handicap}` : handicap} HCP
-            </span>
-          )}
-        </div>
-
-        {/* Responsive score font with clamp - bright crisp white */}
-        <div className="font-heading font-bold text-[clamp(8rem,20vw,18rem)] leading-none text-white tracking-tighter">
-          {shouldReduceMotion ? (
-            score
-          ) : (
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={displayScore}
-                variants={scoreVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                transition={transition}
-                className="inline-block"
-              >
-                {displayScore}
-              </motion.div>
-            </AnimatePresence>
-          )}
-        </div>
-
-        {/* Sets Won Indicators */}
-        {isReferee && (
-          <div className="flex gap-2 mt-2">
-            {Array.from({ length: totalSets }).map((_, i) => (
-              <div
-                key={i}
-                className={`
-                  w-3 h-3 rounded-full
-                  ${i < setsWon ? 'bg-amber' : 'bg-white/30'}
-                `}
-              />
-            ))}
-          </div>
+    <div className="flex-1 flex flex-col">
+      <motion.section
+        className={`
+          flex-1 flex flex-col relative overflow-hidden
+          ${tapBgColor}
+          cursor-pointer select-none
+        `}
+        onClick={handleTap}
+        whileTap={isReferee ? { scale: 0.98, opacity: 0.9 } : undefined}
+        aria-label={`Área de ${playerName || `Player ${side}`}`}
+      >
+        {/* Serving Indicator - Floating badge outside score flow */}
+        {isServing && (
+          <ServingIndicator side={side} />
         )}
-      </div>
 
-      {/* Undo Button - bottom inner-corner */}
+        {/* Score Overlay */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
+          <div className="text-center mb-2">
+            <span className="text-sm text-[var(--color-score-muted)] font-medium tracking-tight">
+              {playerName || `Player ${side}`}
+            </span>
+            {isReferee && handicap !== undefined && handicap !== 0 && (
+              <span className={`
+                inline-block px-3 py-0.5 rounded-full text-xs font-bold uppercase mt-1 ml-2
+                ${handicap > 0 ? 'bg-white/10 text-[var(--color-score-positive)]' : 'bg-white/10 text-[var(--color-score-negative)]'}
+              `}>
+                {handicap > 0 ? `+${handicap}` : handicap} HCP
+              </span>
+            )}
+          </div>
+
+          {/* Responsive score font with clamp - bright crisp white */}
+          <div className="font-heading font-bold text-[clamp(8rem,20vw,18rem)] leading-none text-white tracking-tighter">
+            {shouldReduceMotion ? (
+              score
+            ) : (
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={displayScore}
+                  variants={scoreVariants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  transition={transition}
+                  className="inline-block"
+                >
+                  {displayScore}
+                </motion.div>
+              </AnimatePresence>
+            )}
+          </div>
+
+          {/* Sets Won Indicators */}
+          {isReferee && (
+            <div className="flex gap-2 mt-2">
+              {Array.from({ length: totalSets }).map((_, i) => (
+                <div
+                  key={i}
+                  className={`
+                    w-3 h-3 rounded-full
+                    ${i < setsWon ? 'bg-amber' : 'bg-white/30'}
+                  `}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </motion.section>
+
+      {/* Undo Button — outside the tappable scoring area, centered below */}
       {isReferee && (
-        <button
-          onClick={handleUndo}
-          className={`
-            absolute bottom-6 z-20
-            w-12 h-12 rounded-full
-            flex items-center justify-center
-            bg-white/5 hover:bg-white/10
-            text-white/40 hover:text-white
-            transition-colors duration-200
-            pointer-events-auto
-            ${isLeft ? 'right-6' : 'left-6'}
-          `}
-          aria-label={`Undo point for Player ${side}`}
-        >
-          <Undo2 size={20} />
-        </button>
+        <div className={`flex ${isLeft ? 'justify-end' : 'justify-start'} px-6 py-4`}>
+          <button
+            onClick={handleUndo}
+            className={`
+              size-16 rounded-full
+              flex items-center justify-center
+              bg-white/5 hover:bg-white/10
+              text-white/40 hover:text-white
+              transition-colors duration-200
+              p-3
+            `}
+            aria-label={`Undo point for Player ${side}`}
+          >
+            <Undo2 size={24} />
+          </button>
+        </div>
       )}
-    </motion.section>
+    </div>
   );
 }

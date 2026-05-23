@@ -7,6 +7,7 @@ import './index.css'
 import './i18n'
 
 import App from './App.tsx'
+import { ToastProvider, ToastContainer } from '@/components/molecules/Toast'
 
 // Detect PWA standalone mode and add class for fullscreen experience
 if (window.matchMedia('(display-mode: standalone)').matches ||
@@ -17,7 +18,10 @@ if (window.matchMedia('(display-mode: standalone)').matches ||
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
-      <App />
+      <ToastProvider>
+        <App />
+        <ToastContainer />
+      </ToastProvider>
     </BrowserRouter>
   </StrictMode>,
 )

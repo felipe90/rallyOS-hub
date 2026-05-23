@@ -142,5 +142,14 @@
   "tournamentFinishSuccess": "Torneo finalizado y archivado",
   "commonClose": "Cerrar",
   "historyUndo": "Deshacer última acción",
-  "scoreboardSettings": "Configuración"
+  "scoreboardSettings": "Configuración",
+  "toastTableCreated": "Mesa creada",
+  "toastTableCleaned": "Mesa limpiada",
+  "toastTableDeleted": "Mesa eliminada",
+  "toastPinError": "PIN inválido",
+  "toastMatchFinished": "Partido finalizado",
+  "toastMatchStarted": "Partido iniciado",
+  "toastWinnerAnnounced": "Ganador anunciado",
+  "toastConnectionError": "Error de conexión",
+  "toastPinVerificationFailed": "Verificación de PIN fallida"
 }

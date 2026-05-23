@@ -142,5 +142,14 @@
   "tournamentFinishSuccess": "Tournament finished and archived",
   "commonClose": "Close",
   "historyUndo": "Undo last action",
-  "scoreboardSettings": "Settings"
+  "scoreboardSettings": "Settings",
+  "toastTableCreated": "Table created",
+  "toastTableCleaned": "Table cleaned",
+  "toastTableDeleted": "Table deleted",
+  "toastPinError": "Invalid PIN",
+  "toastMatchFinished": "Match finished",
+  "toastMatchStarted": "Match started",
+  "toastWinnerAnnounced": "Winner announced",
+  "toastConnectionError": "Connection error",
+  "toastPinVerificationFailed": "PIN verification failed"
 }

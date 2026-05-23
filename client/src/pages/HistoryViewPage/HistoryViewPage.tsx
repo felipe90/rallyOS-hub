@@ -71,7 +71,7 @@ export function HistoryViewPage() {
             <Button variant="ghost" size="sm" onClick={requestHistory} disabled={!connected}>
               <RefreshCw className="w-4 h-4" />
             </Button>
-            <Button variant="ghost" onClick={() => navigate(-1)} size="sm">
+            <Button variant="ghost" onClick={() => navigate(Routes.DASHBOARD_OWNER)} size="sm">
               {i18nText('commonBack')}
             </Button>
           </div>

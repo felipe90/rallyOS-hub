@@ -56,25 +56,25 @@ Chain strategy: stacked-to-main
 
 ## Phase 3: Component Fixes
 
-- [ ] 3.1 PlayerScoreArea: move undo button outside `motion.section` tap area; increase size 48→64px; add `navigator.vibrate?.(10)` in `handleTap` and `handleUndo`
-- [ ] 3.2 TableStatusChip: wrap QR in separate div with `onClick={(e) => e.stopPropagation()}`; clicking QR opens fullscreen QR modal (≥250px) with backdrop dismiss
-- [ ] 3.3 Create QR fullscreen modal component (or reuse modal pattern) for kiosk table cards
-- [ ] 3.4 HistoryDrawer: remove `opacity-0 group-hover:opacity-100` from undo button; make permanently visible with `focus-visible` ring + `aria-label` via i18n
-- [ ] 3.5 OwnerDashboardPage: replace `onKeyPress` with `onKeyDown` on table name input (line ~267)
-- [ ] 3.6 HistoryViewPage: replace `navigate(-1)` with `navigate(Routes.DASHBOARD_OWNER)` (line ~74)
+- [x] 3.1 PlayerScoreArea: move undo button outside `motion.section` tap area; increase size 48→64px; add `navigator.vibrate?.(10)` in `handleTap` and `handleUndo`
+- [x] 3.2 TableStatusChip: wrap QR in separate div with `onClick={(e) => e.stopPropagation()}`; clicking QR opens fullscreen QR modal (≥250px) with backdrop dismiss
+- [x] 3.3 Create QR fullscreen modal component (or reuse modal pattern) for kiosk table cards
+- [x] 3.4 HistoryDrawer: remove `opacity-0 group-hover:opacity-100` from undo button; make permanently visible with `focus-visible` ring + `aria-label` via i18n
+- [x] 3.5 OwnerDashboardPage: replace `onKeyPress` with `onKeyDown` on table name input (line ~267)
+- [x] 3.6 HistoryViewPage: replace `navigate(-1)` with `navigate(Routes.DASHBOARD_OWNER)` (line ~74)
 
 ## Phase 4: Feedback System
 
-- [ ] 4.1 Create `Toast.types.ts` with `ToastVariant`, `ToastItem`, `ToastContextValue` interfaces
-- [ ] 4.2 Create `ToastProvider.tsx` context + `addToast(variant, message, duration?)` method; wrap app in `main.tsx`
-- [ ] 4.3 Create `Toast.tsx` single toast component with 4 variants (success/error/warning/info) using Framer Motion
-- [ ] 4.4 Create `ToastContainer.tsx` with queue (max 3, FIFO auto-dismiss via setTimeout), rendered via `createPortal` to `#toast-root`
-- [ ] 4.5 Add `<div id="toast-root" />` after `#root` in `index.html` + portal target
-- [ ] 4.6 Toast respects `prefers-reduced-motion`: disable AnimatePresence transitions when reduce is active
-- [ ] 4.7 Integrate success/error toasts in OwnerDashboardPage: table create, clean, delete, PIN error
-- [ ] 4.8 Integrate info toasts in ScoreboardPage: match started, ended, winner dialog
-- [ ] 4.9 Integrate error toasts in AuthPage: connection errors, PIN failures
-- [ ] 4.10 Create barrel export `components/molecules/Toast/index.ts`
+- [x] 4.1 Create `Toast.types.ts` with `ToastVariant`, `ToastItem`, `ToastContextValue` interfaces
+- [x] 4.2 Create `ToastProvider.tsx` context + `addToast(variant, message, duration?)` method; wrap app in `main.tsx`
+- [x] 4.3 Create `Toast.tsx` single toast component with 4 variants (success/error/warning/info) using Framer Motion
+- [x] 4.4 Create `ToastContainer.tsx` with queue (max 3, FIFO auto-dismiss via setTimeout), rendered via `createPortal` to `#toast-root`
+- [x] 4.5 Add `<div id="toast-root" />` after `#root` in `index.html` + portal target
+- [x] 4.6 Toast respects `prefers-reduced-motion`: disable AnimatePresence transitions when reduce is active
+- [x] 4.7 Integrate success/error toasts in OwnerDashboardPage: table create, clean, delete, PIN error
+- [x] 4.8 Integrate info toasts in ScoreboardPage: match started, ended, winner dialog
+- [x] 4.9 Integrate error toasts in AuthPage: connection errors, PIN failures
+- [x] 4.10 Create barrel export `components/molecules/Toast/index.ts`
 
 ## Phase 5: Navigation & Polish
 

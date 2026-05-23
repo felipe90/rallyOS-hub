@@ -3,7 +3,7 @@
  * Simplified dashboard for referees - can join tables with PIN but cannot create them
  */
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useI18n } from '@/i18n'
 import { DashboardGrid } from '@/components/organisms/DashboardGrid'
@@ -42,16 +42,20 @@ export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashb
     requestTables()
   }, [connected, requestTables])
 
-  // Auto-restore valid referee session — skip PIN modal if session exists
-  // Only runs once per mount to prevent re-navigating after back button
-  const hasRestored = useRef(false)
+  // Auto-restore valid referee session on first visit only
+  // Uses sessionStorage to prevent re-triggering when navigating back from scoreboard
   useEffect(() => {
-    if (!connected || tables.length === 0 || hasRestored.current) return
+    if (!connected || tables.length === 0) return
+    const alreadyRestored = sessionStorage.getItem('rallyos-ref-restored')
+    if (alreadyRestored) return
     const session = findAnyValidSession(tables)
     if (session) {
-      hasRestored.current = true
+      sessionStorage.setItem('rallyos-ref-restored', '1')
       setTablePin(session.pin)
       navigate(buildScoreboardRoute(session.tableId, 'referee'))
+    } else {
+      // No valid session — clear flag so auto-restore works next time
+      sessionStorage.removeItem('rallyos-ref-restored')
     }
   }, [connected, tables, findAnyValidSession, setTablePin, navigate])
 
@@ -65,6 +69,7 @@ export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashb
   }, [tables, clearSession])
 
   const handleLogout = () => {
+    sessionStorage.removeItem('rallyos-ref-restored')
     logout()
     navigate(Routes.AUTH)
   }

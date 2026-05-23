@@ -77,13 +77,18 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
     requestTablesWithPins(ownerPin || '')
   }, [connected, ownerPin, requestTablesWithPins])
 
-  // Auto-restore valid referee session — skip PIN modal if session exists
+  // Auto-restore valid referee session on first visit only
   useEffect(() => {
     if (!connected || tables.length === 0) return
+    const alreadyRestored = sessionStorage.getItem('rallyos-owner-restored')
+    if (alreadyRestored) return
     const session = findAnyValidSession(tables)
     if (session) {
+      sessionStorage.setItem('rallyos-owner-restored', '1')
       setTablePin(session.pin)
       navigate(buildScoreboardRoute(session.tableId, 'referee'))
+    } else {
+      sessionStorage.removeItem('rallyos-owner-restored')
     }
   }, [connected, tables, findAnyValidSession, setTablePin, navigate])
 
@@ -329,7 +334,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
           disconnected: i18nText('connectionDisconnected'),
         }}
         actions={
-          <Button variant="ghost" onClick={() => { logout(); navigate(Routes.AUTH) }} size="sm" animate={false}>
+          <Button variant="ghost" onClick={() => { sessionStorage.removeItem('rallyos-owner-restored'); logout(); navigate(Routes.AUTH) }} size="sm" animate={false}>
             {i18nText('commonBack')}
           </Button>
         }

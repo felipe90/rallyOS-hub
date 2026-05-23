@@ -57,7 +57,7 @@ export function SpectatorDashboardPage(_props: SpectatorDashboardPageProps) {
       />
 
       {/* Tables Grid */}
-      <div className="flex-1 overflow-auto p-4 bg-primary/10">
+      <main id="main-content" className="flex-1 overflow-auto p-4 bg-primary/10">
         {availableTables.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full">
             <Typography variant="title">{i18nText('spectatorNoTables')}</Typography>
@@ -70,7 +70,7 @@ export function SpectatorDashboardPage(_props: SpectatorDashboardPageProps) {
             {availableTables.map((table) => (
               <div
                 key={table.id}
-                className="p-4 bg-surface-secondary rounded-lg border border-border cursor-pointer hover:border-primary transition-colors"
+                className="card p-4 bg-surface-secondary rounded-lg border border-border cursor-pointer hover:border-primary transition-colors"
                 onClick={() => handleJoinTable(table.id)}
               >
                 <h3 className="font-heading font-bold text-lg mb-2">{table.name}</h3>
@@ -82,7 +82,7 @@ export function SpectatorDashboardPage(_props: SpectatorDashboardPageProps) {
             ))}
           </div>
         )}
-      </div>
+      </main>
     </div>
   )
 }

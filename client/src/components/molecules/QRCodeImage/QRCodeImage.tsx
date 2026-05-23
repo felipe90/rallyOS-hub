@@ -13,7 +13,6 @@ export function QRCodeImage({ joinUrl }: QRCodeImageProps) {
         value={joinUrl}
         level="M"
         includeMargin={false}
-        className="!rounded-none"
       />
     </div>
   );

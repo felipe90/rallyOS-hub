@@ -7,6 +7,7 @@ vi.mock('framer-motion', () => ({
   motion: {
     button: ({ children, ...props }: any) => <button {...props}>{children}</button>,
   },
+  useReducedMotion: () => false,
 }));
 
 describe('ToggleButton', () => {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { useSocketContext } from '../../../contexts/SocketContext'
 import { Wifi, WifiOff, Loader2 } from 'lucide-react'
 
@@ -20,6 +20,7 @@ export function ConnectionStatus({ labels = {} }: ConnectionStatusProps) {
   const { connected, connecting, error } = useSocketContext()
   const [isVisible, setIsVisible] = useState(true)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const shouldReduceMotion = useReducedMotion()
 
   const status = error ? 'error' : connecting ? 'connecting' : connected ? 'connected' : 'disconnected'
 
@@ -76,6 +77,30 @@ export function ConnectionStatus({ labels = {} }: ConnectionStatusProps) {
 
   const config = statusConfig[status]
 
+  if (shouldReduceMotion) {
+    return (
+      <div
+        className="fixed top-4 left-1/2 -translate-x-1/2 z-50"
+        style={{ display: isVisible ? 'block' : 'none' }}
+      >
+        <div
+          role="status"
+          aria-live="polite"
+          className={`
+          flex items-center gap-2 px-3 py-1.5 rounded-full
+          backdrop-blur-sm
+          ${config.bg}
+          border border-white/10
+        `}>
+          {config.icon}
+          <span className={`text-xs font-medium ${config.textClass}`}>
+            {config.label}
+          </span>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <AnimatePresence>
       <motion.div
@@ -83,7 +108,10 @@ export function ConnectionStatus({ labels = {} }: ConnectionStatusProps) {
         animate={{ y: isVisible ? 0 : -100, opacity: isVisible ? 1 : 0 }}
         transition={{ duration: 0.3, ease: 'easeInOut' }}
       >
-        <div className={`
+        <div
+          role="status"
+          aria-live="polite"
+          className={`
           flex items-center gap-2 px-3 py-1.5 rounded-full
           backdrop-blur-sm
           ${config.bg}

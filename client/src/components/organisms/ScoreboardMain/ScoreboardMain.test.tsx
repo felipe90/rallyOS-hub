@@ -133,7 +133,10 @@ describe('ScoreboardMain', () => {
       
       render(<ScoreboardMain match={mockMatch} onScorePoint={() => {}} isReferee />);
       
-      expect(screen.getByText('2 - 1')).toBeInTheDocument();
+      // Los 3 sets completados se muestran en el ScoreboardBar
+      expect(screen.getByText('#1')).toBeInTheDocument();
+      expect(screen.getByText('#2')).toBeInTheDocument();
+      expect(screen.getByText('#3')).toBeInTheDocument();
     });
   });
 
@@ -187,20 +190,6 @@ describe('ScoreboardMain', () => {
       }
     });
 
-    it('llama onHistoryClick cuando se hace click en history button', () => {
-      const onHistoryClick = vi.fn();
-      const mockMatch = createMockMatch({
-        history: [{ id: '1', action: 'POINT', pointsBefore: { a: 0, b: 0 }, pointsAfter: { a: 1, b: 0 }, timestamp: Date.now() }],
-        undoAvailable: true,
-      });
-      
-      render(<ScoreboardMain match={mockMatch} onScorePoint={() => {}} onHistoryClick={onHistoryClick} isReferee />);
-      
-      const historyButtons = screen.getAllByLabelText('History');
-      fireEvent.click(historyButtons[0]);
-      expect(onHistoryClick).toHaveBeenCalled();
-    });
-
     it('llama onUndo cuando se provee y hay historial', () => {
       const onUndo = vi.fn();
       const mockMatch = createMockMatch({
@@ -244,7 +233,9 @@ describe('ScoreboardMain', () => {
       
       render(<ScoreboardMain match={mockMatch} onScorePoint={() => {}} isReferee />);
       
-      expect(screen.getByText('2 - 0')).toBeInTheDocument();
+      // Player A ganó 2 sets — se muestran en el ScoreboardBar
+      expect(screen.getByText('#1')).toBeInTheDocument();
+      expect(screen.getByText('#2')).toBeInTheDocument();
     });
 
     it('swap de lados cuando swappedSides es true', () => {

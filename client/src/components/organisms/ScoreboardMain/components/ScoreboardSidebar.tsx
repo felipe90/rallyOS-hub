@@ -1,17 +1,11 @@
-import { Wifi, WifiOff } from 'lucide-react';
-import { Body } from '../../../atoms/Typography';
 import { SetScore } from '../../../molecules/MatchContext';
-import { ScoreboardActions } from './ScoreboardActions';
 
 export interface ScoreboardSidebarProps {
   tableName: string;
   isConnected: boolean;
   status: string;
-  score: any; // MatchStateExtended['score']
-  setHistory: any[]; // MatchStateExtended['setHistory']
-  hasHistory: boolean;
-  onHistoryClick?: () => void;
-  onSettingsClick?: () => void;
+  score: any;
+  setHistory: any[];
 }
 
 export function ScoreboardSidebar({

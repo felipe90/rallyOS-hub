@@ -1,9 +1,10 @@
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { OwnerDashboardPage } from './OwnerDashboardPage'
 import { useSocketContext } from '@/contexts/SocketContext'
 import { useAuthContext } from '@/contexts/AuthContext'
+import { useTableManagement } from '@/hooks/useTableManagement'
 
 // Mock SocketContext
 vi.mock('@/contexts/SocketContext', () => ({
@@ -42,7 +43,7 @@ vi.mock('@/hooks/useRefereeSession', () => ({
 }))
 
 vi.mock('@/hooks/useTableManagement', () => ({
-  useTableManagement: () => ({
+  useTableManagement: vi.fn(() => ({
     isCreatingTable: false,
     tableName: '',
     setTableName: vi.fn(),
@@ -57,7 +58,7 @@ vi.mock('@/hooks/useTableManagement', () => ({
     deleteConfirmTableId: null,
     confirmDelete: vi.fn(),
     cancelDelete: vi.fn(),
-  }),
+  })),
 }))
 
 // Mock i18n
@@ -84,6 +85,11 @@ vi.mock('@/i18n', () => ({
         'connectionNoConnection': 'No Connection',
         'connectionDisconnected': 'Disconnected',
         'ownerCreateNotification': 'Create Notification',
+        'finishTournament': 'End Tournament',
+        'finishTournamentConfirm': 'End tournament? It will be archived and can no longer be edited.',
+        'finishTournamentExportCsv': 'Export CSV before finishing',
+        'exportCsv': 'Export CSV',
+        'tournamentFinishSuccess': 'Tournament finished and archived',
       }
       return map[key] || key
     },
@@ -120,7 +126,21 @@ vi.mock('@/components/molecules/KioskNotificationModal', () => ({
 const mockUseSocketContext = useSocketContext as ReturnType<typeof vi.fn>
 const mockUseAuthContext = useAuthContext as ReturnType<typeof vi.fn>
 
-function renderPage(customSocket?: Partial<ReturnType<typeof useSocketContext>>) {
+function createTable(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'table-1',
+    number: 1,
+    name: 'Mesa 1',
+    status: 'WAITING',
+    playerCount: 0,
+    ...overrides,
+  }
+}
+
+function renderPage(options?: {
+  customSocket?: Partial<ReturnType<typeof useSocketContext>>
+  customAuth?: Partial<ReturnType<typeof useAuthContext>>
+}) {
   const defaultSocket = {
     socket: { on: vi.fn(), off: vi.fn(), emit: vi.fn() },
     requestTablesWithPins: vi.fn(),
@@ -132,11 +152,12 @@ function renderPage(customSocket?: Partial<ReturnType<typeof useSocketContext>>)
     connected: true,
     connecting: false,
     ...defaultSocket,
-    ...customSocket,
+    ...options?.customSocket,
   })
 
   mockUseAuthContext.mockReturnValue({
     ownerPin: '12345678',
+    tournamentToken: 'test-token-uuid',
     isOwner: true,
     isReferee: false,
     isViewer: false,
@@ -148,6 +169,8 @@ function renderPage(customSocket?: Partial<ReturnType<typeof useSocketContext>>)
     logout: vi.fn(),
     setOwner: vi.fn(),
     setTablePin: vi.fn(),
+    setTournamentToken: vi.fn(),
+    ...options?.customAuth,
   })
 
   return render(
@@ -165,42 +188,35 @@ describe('OwnerDashboardPage — Notification Button', () => {
 
   it('opens the KioskNotificationModal when Create Notification is clicked', () => {
     renderPage()
-    // Modal should not be visible initially
     expect(screen.queryByTestId('kiosk-notification-modal')).not.toBeInTheDocument()
 
-    // Click the notification button
     fireEvent.click(screen.getByText('Create Notification'))
 
-    // Modal should now be visible
     expect(screen.getByTestId('kiosk-notification-modal')).toBeInTheDocument()
   })
 
   it('closes the KioskNotificationModal when onClose is called', () => {
     renderPage()
 
-    // Open the modal
     fireEvent.click(screen.getByText('Create Notification'))
     expect(screen.getByTestId('kiosk-notification-modal')).toBeInTheDocument()
 
-    // Close it via the mocked close button
     fireEvent.click(screen.getByTestId('modal-close'))
 
-    // Modal should be gone
     expect(screen.queryByTestId('kiosk-notification-modal')).not.toBeInTheDocument()
   })
 
   it('emits SEND_NOTIFICATION with correct payload when modal submits', () => {
     const mockEmit = vi.fn()
     renderPage({
-      socket: { on: vi.fn(), off: vi.fn(), emit: mockEmit },
+      customSocket: {
+        socket: { on: vi.fn(), off: vi.fn(), emit: mockEmit },
+      },
     })
 
-    // Open the modal
     fireEvent.click(screen.getByText('Create Notification'))
-    // Submit via the mocked submit button
     fireEvent.click(screen.getByTestId('modal-submit'))
 
-    // Verify emit was called with correct event and payload
     expect(mockEmit).toHaveBeenCalledTimes(1)
     expect(mockEmit).toHaveBeenCalledWith('SEND_NOTIFICATION', {
       pin: '12345678',
@@ -209,7 +225,173 @@ describe('OwnerDashboardPage — Notification Button', () => {
       duration: 5,
     })
 
-    // Modal should close after submit
     expect(screen.queryByTestId('kiosk-notification-modal')).not.toBeInTheDocument()
+  })
+})
+
+describe('OwnerDashboardPage — End Tournament Button', () => {
+  it('renders End Tournament button when tables exist', () => {
+    renderPage({
+      customSocket: {
+        tables: [createTable({ status: 'LIVE' })],
+      },
+    })
+    expect(screen.getByText('End Tournament')).toBeInTheDocument()
+  })
+
+  it('does NOT render End Tournament button when no tables exist', () => {
+    renderPage({
+      customSocket: {
+        tables: [],
+      },
+    })
+    expect(screen.queryByText('End Tournament')).not.toBeInTheDocument()
+  })
+
+  it('does NOT render End Tournament button for non-owners', () => {
+    renderPage({
+      customSocket: {
+        tables: [createTable({ status: 'LIVE' })],
+      },
+      customAuth: {
+        isOwner: false,
+        isReferee: true,
+        role: 'REFEREE',
+      },
+    })
+    expect(screen.queryByText('End Tournament')).not.toBeInTheDocument()
+  })
+
+  it('shows confirmation dialog when End Tournament is clicked', () => {
+    renderPage({
+      customSocket: {
+        tables: [createTable({ status: 'LIVE' })],
+      },
+    })
+
+    fireEvent.click(screen.getByText('End Tournament'))
+
+    // Confirm dialog should appear with the finish message and checkbox
+    expect(screen.getByText('End tournament? It will be archived and can no longer be edited.')).toBeInTheDocument()
+    expect(screen.getByText('Export CSV before finishing')).toBeInTheDocument()
+  })
+
+  it('shows Export CSV checkbox in confirmation dialog, default checked', () => {
+    renderPage({
+      customSocket: {
+        tables: [createTable({ status: 'LIVE' })],
+      },
+    })
+
+    fireEvent.click(screen.getByText('End Tournament'))
+
+    const checkbox = screen.getByRole('checkbox')
+    expect(checkbox).toBeChecked()
+  })
+
+  it('closes confirmation dialog when Cancel is clicked', () => {
+    renderPage({
+      customSocket: {
+        tables: [createTable({ status: 'LIVE' })],
+      },
+    })
+
+    fireEvent.click(screen.getByText('End Tournament'))
+    expect(screen.getByText('End tournament? It will be archived and can no longer be edited.')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('Cancel'))
+    expect(screen.queryByText('End tournament? It will be archived and can no longer be edited.')).not.toBeInTheDocument()
+  })
+})
+
+describe('OwnerDashboardPage — Export CSV Button', () => {
+  it('renders Export CSV button when FINISHED tables exist', () => {
+    renderPage({
+      customSocket: {
+        tables: [createTable({ status: 'FINISHED' })],
+      },
+    })
+    expect(screen.getByText('Export CSV')).toBeInTheDocument()
+  })
+
+  it('does NOT render Export CSV button when no FINISHED tables exist', () => {
+    renderPage({
+      customSocket: {
+        tables: [createTable({ status: 'LIVE' })],
+      },
+    })
+    expect(screen.queryByText('Export CSV')).not.toBeInTheDocument()
+  })
+
+  it('does NOT render Export CSV button for non-owners', () => {
+    renderPage({
+      customSocket: {
+        tables: [createTable({ status: 'FINISHED' })],
+      },
+      customAuth: {
+        isOwner: false,
+        isReferee: true,
+        role: 'REFEREE',
+      },
+    })
+    expect(screen.queryByText('Export CSV')).not.toBeInTheDocument()
+  })
+
+  it('opens export URL in new tab when Export CSV is clicked', () => {
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      blob: () => Promise.resolve(new Blob(['test,csv,data'], { type: 'text/csv' })),
+    })
+    globalThis.fetch = fetchSpy as any
+
+    renderPage({
+      customSocket: {
+        tables: [createTable({ status: 'FINISHED' })],
+      },
+    })
+
+    fireEvent.click(screen.getByText('Export CSV'))
+
+    expect(fetchSpy).toHaveBeenCalledWith('/api/export/matches.csv', {
+      headers: { Authorization: 'Bearer test-token-uuid' },
+    })
+  })
+})
+
+describe('OwnerDashboardPage – appError display', () => {
+  it('shows appError with role="alert" and AlertTriangle icon when creating table', () => {
+    // Override useTableManagement to show creation mode
+    vi.mocked(useTableManagement).mockReturnValue({
+      isCreatingTable: true,
+      tableName: 'Test Table',
+      setTableName: vi.fn(),
+      createTable: vi.fn(),
+      cancelCreating: vi.fn(),
+      startCreating: vi.fn(),
+      isCreating: false,
+      requestClean: vi.fn(),
+      cleanConfirmTableId: null,
+      confirmClean: vi.fn(),
+      cancelClean: vi.fn(),
+      requestDelete: vi.fn(),
+      deleteConfirmTableId: null,
+      confirmDelete: vi.fn(),
+      cancelDelete: vi.fn(),
+    })
+
+    renderPage({
+      customSocket: {
+        tables: [createTable()],
+        appError: 'Table creation failed',
+      },
+    })
+
+    const alert = screen.getByRole('alert')
+    expect(alert).toBeInTheDocument()
+    expect(alert).toHaveTextContent('Table creation failed')
+
+    // AlertTriangle icon should be rendered as SVG inside the alert
+    const alertIcon = alert.querySelector('svg')
+    expect(alertIcon).toBeInTheDocument()
   })
 })

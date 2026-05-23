@@ -3,7 +3,7 @@
  * Full admin dashboard with table creation, PIN management, and QR codes
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useI18n } from '@/i18n'
 import { DashboardGrid } from '@/components/organisms/DashboardGrid'
@@ -11,17 +11,20 @@ import { DashboardHeader } from '@/components/organisms/DashboardGrid'
 import { PageHeader } from '@/components/molecules/PageHeader'
 import { PinModal } from '@/components/molecules/PinModal'
 import { KioskNotificationModal } from '@/components/molecules/KioskNotificationModal'
+import { ConfirmDialog } from '@/components/molecules/ConfirmDialog'
 import { useSocketContext } from '@/contexts/SocketContext'
 import { useAuthContext } from '@/contexts/AuthContext'
 import { useDashboardStats } from '@/hooks/useDashboardStats'
 import { usePinSubmission } from '@/hooks/usePinSubmission'
 import { useRefereeSession } from '@/hooks/useRefereeSession'
 import { useTableManagement } from '@/hooks/useTableManagement'
+import { useToast } from '@/components/molecules/Toast'
 import { Button } from '@/components/atoms/Button'
+import { Body } from '@/components/atoms/Typography'
 import { SocketEvents } from '@shared/events'
 import { Routes, buildScoreboardRoute } from '@/routes'
 import type { TableInfoWithPin, KioskNotificationType } from '@shared/types'
-import { Plus, FileText, Table2, Swords, Users, Bell } from 'lucide-react'
+import { Plus, FileText, Table2, Swords, Users, Bell, Flag, Download, AlertTriangle } from 'lucide-react'
 
 
 export interface OwnerDashboardPageProps {
@@ -32,16 +35,41 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(initialViewMode || 'grid')
   const [pinModalOpen, setPinModalOpen] = useState(false)
   const [notifModalOpen, setNotifModalOpen] = useState(false)
+  const [finishDialogOpen, setFinishDialogOpen] = useState(false)
+  const [exportCsvChecked, setExportCsvChecked] = useState(true)
   const [selectedTable, setSelectedTable] = useState<TableInfoWithPin | null>(null)
   const navigate = useNavigate()
   const { i18nText } = useI18n()
   const { tables, connected, socket, requestTablesWithPins, appError } = useSocketContext()
-  const { logout, ownerPin, setTablePin } = useAuthContext()
+  const { logout, ownerPin, setTablePin, isOwner, tournamentToken } = useAuthContext()
   const stats = useDashboardStats(tables)
   const { submitPin, loading: pinLoading, error: pinError, clearError } = usePinSubmission(socket)
   const { saveSession, findAnyValidSession, clearSession } = useRefereeSession()
 
   const tableMgmt = useTableManagement({ socket, connected })
+  const { addToast } = useToast()
+
+  // Track previous creating state to detect table creation completion
+  const wasCreatingRef = useRef(tableMgmt.isCreating)
+  useEffect(() => {
+    const wasCreating = wasCreatingRef.current;
+    wasCreatingRef.current = tableMgmt.isCreating;
+    // Transition: was creating → now not creating = table created successfully
+    if (wasCreating && !tableMgmt.isCreating && !appError) {
+      addToast('success', i18nText('toastTableCreated'));
+    }
+  }, [tableMgmt.isCreating, appError, addToast, i18nText]);
+
+  // Toast on PIN error
+  useEffect(() => {
+    if (pinError) {
+      addToast('error', i18nText('toastPinError'));
+    }
+  }, [pinError, addToast, i18nText]);
+
+  // Derived: check if any FINISHED tables exist
+  const hasFinishedTables = tables.some(t => t.status === 'FINISHED')
+  const hasTables = tables.length > 0
 
   // Owner always gets tables with PINs
   useEffect(() => {
@@ -49,13 +77,18 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
     requestTablesWithPins(ownerPin || '')
   }, [connected, ownerPin, requestTablesWithPins])
 
-  // Auto-restore valid referee session — skip PIN modal if session exists
+  // Auto-restore valid referee session on first visit only
   useEffect(() => {
     if (!connected || tables.length === 0) return
+    const alreadyRestored = sessionStorage.getItem('rallyos-owner-restored')
+    if (alreadyRestored) return
     const session = findAnyValidSession(tables)
     if (session) {
+      sessionStorage.setItem('rallyos-owner-restored', '1')
       setTablePin(session.pin)
       navigate(buildScoreboardRoute(session.tableId, 'referee'))
+    } else {
+      sessionStorage.removeItem('rallyos-owner-restored')
     }
   }, [connected, tables, findAnyValidSession, setTablePin, navigate])
 
@@ -131,6 +164,57 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
     setNotifModalOpen(false)
   }
 
+  /** ── Export CSV (authenticated fetch + blob download) ── */
+  const downloadCsv = useCallback(async () => {
+    const token = tournamentToken
+    if (!token) return
+
+    try {
+      const res = await fetch('/api/export/matches.csv', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) return
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'rallyos-matches.csv'
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      // Silently fail — CSV is optional
+    }
+  }, [tournamentToken])
+
+  /** ── Finish Tournament ── */
+  const handleFinishConfirm = useCallback(async () => {
+    setFinishDialogOpen(false)
+
+    // If CSV export is checked, download CSV first
+    if (exportCsvChecked) {
+      await downloadCsv()
+    }
+
+    // Call the finish endpoint
+    const token = tournamentToken
+    if (token) {
+      try {
+        await fetch('/api/tournament/finish', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+        addToast('success', i18nText('tournamentFinishSuccess'))
+      } catch {
+        // Server may be slow — proceed anyway
+      }
+    }
+
+    // Reset CSV checkbox for next time
+    setExportCsvChecked(true)
+  }, [exportCsvChecked, tournamentToken, downloadCsv, addToast, i18nText])
+
   /** Translate error codes from usePinSubmission to human-readable messages */
   const translatePinError = (code: string | null): string | null => {
     if (!code) return null
@@ -174,6 +258,30 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
         >
           {i18nText('ownerViewHistory')}
         </Button>
+        {/* Export CSV button — only for owners when FINISHED tables exist */}
+        {isOwner && hasFinishedTables && (
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={downloadCsv}
+            animate={false}
+            icon={<Download size={18} />}
+          >
+            {i18nText('exportCsv')}
+          </Button>
+        )}
+        {/* End Tournament button — only for owners when tables exist */}
+        {isOwner && hasTables && (
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={() => setFinishDialogOpen(true)}
+            animate={false}
+            icon={<Flag size={18} />}
+          >
+            {i18nText('finishTournament')}
+          </Button>
+        )}
       </>
     ) : (
       <div className="flex flex-col gap-1">
@@ -183,7 +291,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
             placeholder={i18nText('ownerTableNamePlaceholder')}
             value={tableMgmt.tableName}
             onChange={(e) => tableMgmt.setTableName(e.target.value)}
-            onKeyPress={(e) => {
+            onKeyDown={(e) => {
               if (e.key === 'Enter' && !tableMgmt.isCreating) tableMgmt.createTable()
             }}
             className="px-3 py-2 rounded border border-border bg-background text-text focus:outline-none focus:ring-2 focus:ring-primary"
@@ -204,7 +312,10 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
           )}
         </div>
         {appError && (
-          <p className="text-red-500 text-sm">{appError}</p>
+          <div role="alert" className="flex items-center gap-2">
+            <AlertTriangle size={16} className="text-red-500 shrink-0" />
+            <p className="text-red-500 text-sm">{appError}</p>
+          </div>
         )}
       </div>
     )}
@@ -223,13 +334,13 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
           disconnected: i18nText('connectionDisconnected'),
         }}
         actions={
-          <Button variant="ghost" onClick={() => { logout(); navigate(Routes.AUTH) }} size="sm" animate={false}>
+          <Button variant="ghost" onClick={() => { sessionStorage.removeItem('rallyos-owner-restored'); logout(); navigate(Routes.AUTH) }} size="sm" animate={false}>
             {i18nText('commonBack')}
           </Button>
         }
       />
 
-      <div className="flex-1 overflow-auto bg-primary/10">
+      <main id="main-content" className="flex-1 overflow-auto bg-primary/10">
         <div className="p-4 ">
           <DashboardHeader
             totalTables={stats.totalTables}
@@ -259,15 +370,21 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
             showQr={true}
             onCleanTable={tableMgmt.requestClean}
             cleanTableId={tableMgmt.cleanConfirmTableId}
-            onCleanTableConfirm={tableMgmt.confirmClean}
+            onCleanTableConfirm={() => {
+              tableMgmt.confirmClean();
+              addToast('success', i18nText('toastTableCleaned'));
+            }}
             onCleanTableCancel={tableMgmt.cancelClean}
             onDeleteTable={tableMgmt.requestDelete}
             showDeleteConfirm={tableMgmt.deleteConfirmTableId}
-            onDeleteTableConfirm={tableMgmt.confirmDelete}
+            onDeleteTableConfirm={() => {
+              tableMgmt.confirmDelete();
+              addToast('success', i18nText('toastTableDeleted'));
+            }}
             onDeleteTableCancel={tableMgmt.cancelDelete}
           />
         </div>
-      </div>
+      </main>
 
       <PinModal
         isOpen={pinModalOpen}
@@ -294,6 +411,28 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
         cancelLabel={i18nText('commonCancel')}
         submitLabel={i18nText('notificationSend')}
       />
+
+      {/* Finish Tournament Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={finishDialogOpen}
+        title={i18nText('finishTournament')}
+        message={i18nText('finishTournamentConfirm')}
+        severity="error"
+        confirmLabel={i18nText('finishTournament')}
+        cancelLabel={i18nText('commonCancel')}
+        onConfirm={handleFinishConfirm}
+        onCancel={() => setFinishDialogOpen(false)}
+      >
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={exportCsvChecked}
+            onChange={(e) => setExportCsvChecked(e.target.checked)}
+            className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+          />
+          <Body>{i18nText('finishTournamentExportCsv')}</Body>
+        </label>
+      </ConfirmDialog>
     </div>
   )
 }

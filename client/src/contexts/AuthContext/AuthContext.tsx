@@ -9,6 +9,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [tableId, setTableId] = useState<string | null>(null)
   const [ownerPin, setOwnerPin] = useState<string | null>(null)
   const [tablePin, setTablePinState] = useState<string | null>(null)
+  const [tournamentToken, setTournamentTokenState] = useState<string | null>(null)
 
   const login = useCallback((newRole: UserRole, tId?: string, pin?: string) => {
     if (newRole) {
@@ -27,6 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setTableId(null)
     setOwnerPin(null)
     setTablePinState(null)
+    setTournamentTokenState(null)
   }, [])
 
   const setOwner = useCallback((isOwner: boolean, pin?: string) => {
@@ -43,11 +45,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setTablePinState(pin)
   }, [])
 
+  const setTournamentToken = useCallback((token: string) => {
+    setTournamentTokenState(token)
+  }, [])
+
   const value = useMemo<AuthContextValue>(() => ({
     role,
     tableId,
     ownerPin,
     tablePin,
+    tournamentToken,
     isOwner: role === UserRoles.OWNER,
     isReferee: role === UserRoles.REFEREE,
     isViewer: role === UserRoles.VIEWER,
@@ -56,7 +63,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     logout,
     setOwner,
     setTablePin,
-  }), [role, tableId, ownerPin, tablePin, login, logout, setOwner, setTablePin])
+    setTournamentToken,
+  }), [role, tableId, ownerPin, tablePin, tournamentToken, login, logout, setOwner, setTablePin, setTournamentToken])
 
   return (
     <AuthContext.Provider value={value}>

@@ -13,6 +13,7 @@ import { logger } from '../utils/logger';
 import { SocketEvents } from '../../../shared/events';
 import { PIN_RULES } from '../../../shared/validation';
 import { SocketHandlerBase } from './SocketHandlerBase';
+import { generateToken } from '../middleware/ownerAuth';
 import type { SocketData } from '../domain/types';
 
 export class AuthHandler extends SocketHandlerBase {
@@ -105,7 +106,8 @@ export class AuthHandler extends SocketHandlerBase {
       if (this.comparePin(data.pin, this.ownerPin)) {
         const socketData = socket.data as SocketData;
         socket.data = { ...socketData, isOwner: true, isAuthenticated: true };
-        socket.emit(SocketEvents.SERVER.OWNER_VERIFIED, { token: 'owner-session' });
+        const tournamentToken = generateToken();
+        socket.emit(SocketEvents.SERVER.OWNER_VERIFIED, { token: 'owner-session', tournamentToken });
         logger.info({ socketId: socket.id }, 'Owner verified successfully');
       } else {
         this.emitError(socket, 'INVALID_OWNER_PIN', 'PIN de organizador incorrecto');

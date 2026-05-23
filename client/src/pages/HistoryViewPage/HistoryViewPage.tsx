@@ -71,14 +71,14 @@ export function HistoryViewPage() {
             <Button variant="ghost" size="sm" onClick={requestHistory} disabled={!connected}>
               <RefreshCw className="w-4 h-4" />
             </Button>
-            <Button variant="ghost" onClick={() => navigate(-1)} size="sm">
+            <Button variant="ghost" onClick={() => navigate(Routes.DASHBOARD_OWNER)} size="sm">
               {i18nText('commonBack')}
             </Button>
           </div>
         }
       />
 
-      <div className="flex-1 overflow-auto p-4 bg-primary/10">
+      <main id="main-content" className="flex-1 overflow-auto p-4 bg-primary/10">
         {isLoading ? (
           <div className="text-center text-text-muted py-12">
             <Typography variant="body">{i18nText('historyLoading')}</Typography>
@@ -90,7 +90,7 @@ export function HistoryViewPage() {
             <Typography variant="body">{i18nText('historyNoEvents')}</Typography>
           </div>
         )}
-      </div>
+      </main>
     </div>
   )
 }

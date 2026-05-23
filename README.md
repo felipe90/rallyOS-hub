@@ -6,30 +6,7 @@ Real-time scoreboard system for rally events with multi-table support, PWA, offl
 
 RallyOS Hub is a standalone, real-time scoreboard server optimized for embedded deployment on single-board computers (SBCs) like the Orange Pi Zero 3. It operates as a monorepo containing a React-based PWA frontend, an Express + Socket.IO backend, and a shared module serving as the Single Source of Truth (SSoT).
 
-```
-┌────────────────────────────────────────────────────────┐
-│                    rallyOS-hub                          │
-│                                                         │
-│  ┌──────────┐   Socket.IO    ┌──────────────────────┐  │
-│  │  Client   │ ◄───────────► │       Server          │  │
-│  │  React 19 │   WSS/TLS     │  Express 5 + Socket.IO│  │
-│  │  Vite 8   │               │  Node.js 22           │  │
-│  │  PWA      │               │                       │  │
-│  └─────┬─────┘               │  ┌─────────────────┐  │  │
-│        │                     │  │  TableManager    │  │  │
-│        │   shared/ (SSoT)    │  │  PlayerService   │  │  │
-│        └───────┬─────────────│──│  MatchOrchestrator│  │  │
-│                │             │  │  PinService      │  │  │
-│         ┌──────┴──────┐      │  └─────────────────┘  │  │
-│         │  shared/     │      └──────────┬───────────┘  │
-│         │  types.ts    │                 │               │
-│         │  events.ts   │    ┌────────────┴───────────┐  │
-│         │  validation  │    │  Embedded Network Stack │  │
-│         └─────────────┘    │  hostapd · dnsmasq      │  │
-│                             │  iptables · Chromium    │  │
-│                             └────────────────────────┘  │
-└────────────────────────────────────────────────────────┘
-```
+![Alt text](rallyos-hub_diagram_v1.0.png)
 
 ### Component Breakdown
 
@@ -97,6 +74,68 @@ The Orange Pi becomes a self-contained tournament hub with no external internet 
 - **Rate limiting** per table and per client
 - **Docker** deployment for production (ARM-compatible)
 - **Orange Pi** embedded deployment with access point mode
+
+## Navigation Map
+
+```mermaid
+flowchart TD
+    %% Entry point
+    ROOT["/"] -->|redirect| AUTH
+
+    %% Public routes
+    AUTH["/auth<br/>AuthPage"] -->|owner PIN| OWNER
+    AUTH -->|referee PIN + table| SCOREBOARD_R
+    AUTH -->|spectator access| SPECTATOR
+    AUTH -.->|public, no auth| KIOSK
+
+    %% Protected dashboards
+    OWNER["/dashboard/owner<br/>OwnerDashboardPage"]
+    SPECTATOR["/dashboard/spectator<br/>SpectatorDashboardPage"]
+
+    %% Scoreboard (two modes, same component)
+    SCOREBOARD_R["/scoreboard/:tableId/referee<br/>ScoreboardPage"]
+    SCOREBOARD_V["/scoreboard/:tableId/view<br/>ScoreboardPage"]
+
+    %% Kiosk
+    KIOSK["/scoreboard/all/kiosk<br/>KioskAllTablesPage"]
+
+    %% History
+    HISTORY["/history<br/>HistoryViewPage"]
+
+    %% Not found
+    NOT_FOUND["/*<br/>NotFoundPage"]
+
+    %% Cross-navigation
+    OWNER -->|open referee view| SCOREBOARD_R
+    OWNER -->|open view mode| SCOREBOARD_V
+    OWNER -->|view history| HISTORY
+    HISTORY -->|back| OWNER
+
+    OWNER -->|broadcast| KIOSK
+
+    SPECTATOR -->|select table| SCOREBOARD_V
+
+    SCOREBOARD_R -->|back| OWNER
+    SCOREBOARD_V -->|back| SPECTATOR
+
+    %% Styling
+    classDef public fill:#006b5f,stroke:#004d40,color:#fff
+    classDef protected fill:#f7f9fb,stroke:#855300,color:#08060d
+    classDef kiosk fill:#00897b,stroke:#004d40,color:#fff
+
+    class AUTH,KIOSK public
+    class OWNER,SCOREBOARD_R,SCOREBOARD_V,SPECTATOR,HISTORY,NOT_FOUND protected
+    class KIOSK kiosk
+```
+
+### Role-Based Access
+
+| Role | Access | Primary Flow |
+|------|--------|-------------|
+| **Owner** | Dashboard, all scoreboards, history, kiosk broadcast | Auth → OwnerDashboard → open any table |
+| **Referee** | Scoreboard (referee mode with scoring controls) | Auth → select table → ScoreboardPage |
+| **Spectator** | Dashboard, scoreboard (view-only mode) | Auth → SpectatorDashboard → watch matches |
+| **Kiosk / TV** | Public scoreboard grid (auto-rotating pages) | Direct URL — no auth required |
 
 ## Quick Start
 

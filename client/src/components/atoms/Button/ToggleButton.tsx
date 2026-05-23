@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 
 export interface ToggleButtonProps {
   icon: ReactNode;
@@ -41,6 +41,7 @@ export function ToggleButton({
   size = 'md',
   className = '',
 }: ToggleButtonProps) {
+  const shouldReduceMotion = useReducedMotion()
   const activeStyles = active ? 'ring-2 ring-primary/30' : '';
 
   return (
@@ -52,7 +53,7 @@ export function ToggleButton({
         ${activeStyles}
         ${className}
       `.trim().replace(/\s+/g, ' ')}
-      whileTap={{ scale: 0.95 }}
+      whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
       onClick={onClick}
       aria-label="Toggle orientation"
     >

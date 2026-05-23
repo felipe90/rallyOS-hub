@@ -11,14 +11,14 @@
 /* Font imports - Must be outside @theme */
 @font-face {
   font-family: 'Space Grotesk';
-  src: url('https://fonts.gstatic.com/s/spacegrotesk/v16/V8mQoQDjQSkFtoMM3T6r8E7mF71QmgOaFHqBlY.woff2') format('woff2');
+  src: url('/fonts/space-grotesk.woff2') format('woff2');
   font-weight: 300 700;
   font-display: swap;
 }
 
 @font-face {
   font-family: 'Manrope';
-  src: url('https://fonts.gstatic.com/s/manrope/v14/xn7gYHOI3qkf4d1h9YqX3gPsVWEJJZAB.woff2') format('woff2');
+  src: url('/fonts/manrope.woff2') format('woff2');
   font-weight: 200 800;
   font-display: swap;
 }
@@ -40,6 +40,7 @@
   --color-surface-high: #e8eaed;
   
   --color-text: #6b6375;
+  --color-text-muted: #858093;
   --color-text-h: #08060d;
   --color-border: #e5e4e7;
   
@@ -64,39 +65,6 @@
 /* Base styles layer */
 @layer base {
   :root {
-    /* Define CSS variables for use in base styles */
-    --color-primary: #006b5f;
-    --color-primary-light: #00897b;
-    --color-primary-dark: #004d40;
-    --color-tertiary: #855300;
-    --color-tertiary-light: #b27500;
-    --color-tertiary-dark: #5e3800;
-    --color-amber: #da8a00;
-    --color-amber-light: #ffaa00;
-    
-    --color-background: #f7f9fb;
-    --color-surface-low: #f2f4f6;
-    --color-surface: #ffffff;
-    --color-surface-high: #e8eaed;
-    
-    --color-text: #6b6375;
-    --color-text-h: #08060d;
-    --color-border: #e5e4e7;
-    
-    --shadow-sm: 0 2px 8px rgba(25, 28, 30, 0.04);
-    --shadow-md: 0 8px 24px rgba(25, 28, 30, 0.06);
-    --shadow-lg: 0 20px 40px rgba(25, 28, 30, 0.06);
-    --shadow-xl: 0 32px 64px rgba(25, 28, 30, 0.08);
-    
-    --radius-sm: 0.5rem;
-    --radius-md: 1rem;
-    --radius-lg: 2rem;
-    --radius-xl: 3rem;
-    --radius-full: 9999px;
-    
-    --font-heading: 'Space Grotesk', system-ui, sans-serif;
-    --font-body: 'Manrope', system-ui, sans-serif;
-
     /* Scoreboard Dark Mode Tokens - Real World Scoreboard Aesthetic */
     --color-scoreboard-bg: #006b5f;
     --color-scoreboard-bg-alt: #3d6b63;
@@ -132,6 +100,12 @@
     margin: 0;
     padding: 0;
   }
+
+  /* Prevent pull-to-refresh / overscroll on kiosk and scoreboard pages */
+  body.kiosk-page,
+  body.scoreboard-page {
+    overscroll-behavior: none;
+  }
   
   h1 {
     font-size: 56px;
@@ -164,11 +138,6 @@
     font-family: var(--font-body);
   }
   
-  /* No-Line Rule: hide default borders, use tonal shifts instead */
-  *:not([style*="border"]) {
-    border-radius: var(--radius-md);
-  }
-  
   /* Interactive states via background shift, not border */
   button:hover {
     filter: brightness(0.95);
@@ -181,6 +150,11 @@
 
 /* Custom component classes for typography variants */
 @layer components {
+  /* Card utility — explicit border-radius for card-bearing elements */
+  .card {
+    border-radius: var(--radius-md);
+  }
+
   /* Headline variant - 56px */
   .headline,
   .text-headline {

@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Button } from '../../atoms/Button'
 import { Body, Title, Label } from '../../atoms/Typography'
+import { useFocusTrap } from '../../../hooks/useFocusTrap'
+import { AlertTriangle } from 'lucide-react'
 
 export interface MatchConfigModalProps {
   isOpen: boolean
@@ -62,6 +64,9 @@ export function MatchConfigModal({
   const [handicapA, setHandicapA] = useState(initialHandicapA)
   const [handicapB, setHandicapB] = useState(initialHandicapB)
 
+  const modalRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(modalRef, isOpen, onClose)
+
   // Reset state when modal opens
   useEffect(() => {
     if (isOpen) {
@@ -103,8 +108,14 @@ export function MatchConfigModal({
       />
 
       {/* Modal content */}
-      <div className="relative bg-surface rounded-lg shadow-xl p-6 w-full max-w-sm max-h-[90vh] overflow-y-auto">
-        <Title className="text-center mb-2">{title}</Title>
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="match-config-modal-title"
+        className="card relative bg-surface rounded-lg shadow-xl p-6 w-full max-w-sm max-h-[90vh] overflow-y-auto"
+      >
+        <Title id="match-config-modal-title" className="text-center mb-2">{title}</Title>
 
         <Body className="text-center text-text/70 mb-6">
           {forTableLabel.replace('{{tableName}}', tableName)}
@@ -114,14 +125,18 @@ export function MatchConfigModal({
         <div className="mb-4">
           <Label className="mb-2">{playersLabel}</Label>
           <div className="grid grid-cols-2 gap-3">
+            <label htmlFor="player-a-name" className="sr-only">{playerAPlaceholder}</label>
             <input
+              id="player-a-name"
               type="text"
               placeholder={playerAPlaceholder}
               value={playerNameA}
               onChange={(e) => setPlayerNameA(e.target.value)}
               className="px-3 py-2 rounded-md border border-border bg-surface text-text placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary"
             />
+            <label htmlFor="player-b-name" className="sr-only">{playerBPlaceholder}</label>
             <input
+              id="player-b-name"
               type="text"
               placeholder={playerBPlaceholder}
               value={playerNameB}
@@ -211,9 +226,12 @@ export function MatchConfigModal({
 
         {/* Error display */}
         {error && (
-          <Body className="text-center text-red-500 mb-4 text-sm">
-            {error}
-          </Body>
+          <div role="alert" className="flex items-center gap-2 mb-4">
+            <AlertTriangle size={16} className="text-red-500 shrink-0" />
+            <Body className="text-red-500 text-sm">
+              {error}
+            </Body>
+          </div>
         )}
 
         {/* Actions */}

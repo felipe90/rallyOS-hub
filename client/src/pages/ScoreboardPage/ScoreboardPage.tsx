@@ -20,7 +20,8 @@ import { HistoryDrawer } from '@/components/organisms/HistoryDrawer'
 import { PageHeader } from '@/components/molecules/PageHeader'
 import { ConfirmDialog } from '@/components/molecules/ConfirmDialog'
 import { ConnectionStatus, Button, Typography, CoachMark } from '@/components/atoms'
-import { useState, useEffect } from 'react'
+import { useToast } from '@/components/molecules/Toast'
+import { useState, useEffect, useRef } from 'react'
 import { Routes } from '@/routes'
 
 export interface ScoreboardPageProps {}
@@ -73,6 +74,29 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
   const refRevoked = useRefRevoked({ socket, tableId: tableId ?? '', navigate })
   const [historyOpen, setHistoryOpen] = useState(false)
   const [showWinnerDialog, setShowWinnerDialog] = useState(false)
+  const { addToast } = useToast()
+
+  // Track previous match status for toast triggers
+  const prevStatusRef = useRef(currentMatch?.status)
+
+  // Toast when match starts (status transitions to LIVE)
+  useEffect(() => {
+    const prevStatus = prevStatusRef.current;
+    prevStatusRef.current = currentMatch?.status;
+    if (prevStatus !== 'LIVE' && currentMatch?.status === 'LIVE') {
+      addToast('info', i18nText('toastMatchStarted'));
+    }
+  }, [currentMatch?.status, addToast, i18nText]);
+
+  // Toast when winner dialog is shown (match finished with winner)
+  useEffect(() => {
+    if (showWinnerDialog) {
+      const winnerName = currentMatch?.winner === 'A'
+        ? (currentMatch?.playerNames?.a || i18nText('commonPlayerA'))
+        : (currentMatch?.playerNames?.b || i18nText('commonPlayerB'));
+      addToast('info', i18nText('toastWinnerAnnounced', { name: winnerName }));
+    }
+  }, [showWinnerDialog, addToast, i18nText, currentMatch?.winner, currentMatch?.playerNames]);
 
   // Detect when match finishes to show winner dialog
   // Uses sessionStorage to avoid re-showing on page reload/re-entry
@@ -92,6 +116,12 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
     if (!localStorage.getItem('rallyos-lang-explicit')) {
       changeLanguage('es-AR')
     }
+  }, [])
+
+  // Prevent overscroll on scoreboard page
+  useEffect(() => {
+    document.body.classList.add('scoreboard-page')
+    return () => { document.body.classList.remove('scoreboard-page') }
   }, [])
 
   if (!tableId) return <div>{i18nText('scoreboardInvalidTableId')}</div>
@@ -116,22 +146,19 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
           <Button variant="ghost" size="sm" onClick={() => navigate(backRoute)}>{i18nText('scoreboardBack')}</Button>
         </>}
       />
-      <div className="flex-1 overflow-auto bg-primary">
+      <main id="main-content" className="flex-1 overflow-auto bg-primary">
         <ScoreboardMain
           match={currentMatch}
           onScorePoint={handleScorePoint}
           onSubtractPoint={handleSubtractPoint}
           onUndo={handleUndo}
-          onSettingsClick={() => handleSetServer('A')}
           onSwapSides={handleSwapSides}
-          onHistoryClick={() => setHistoryOpen(true)}
-          onBackClick={() => navigate(backRoute)}
           isReferee={canEdit}
           isLandscape={isLandscape}
           onOrientationToggle={toggleOrientation}
         />
 
-      </div>
+      </main>
 
       {/* Match Config Modal */}
       <MatchConfigModal

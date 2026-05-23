@@ -99,15 +99,46 @@ describe('HistoryDrawer', () => {
 
   it('calls onUndo when undo button is clicked', () => {
     const handleUndo = vi.fn();
-    const { container } = render(
+    render(
       <HistoryDrawer isOpen={true} onClose={() => {}} events={mockEvents} onUndo={handleUndo} />
     );
     
-    const undoButton = container.querySelector('.group-hover\\:opacity-100');
-    if (undoButton) {
-      fireEvent.click(undoButton);
-      expect(handleUndo).toHaveBeenCalledWith('event-1');
-    }
+    // Undo button is now permanently visible with aria-label
+    const undoButton = screen.getByLabelText('historyUndo');
+    expect(undoButton).toBeInTheDocument();
+    fireEvent.click(undoButton);
+    expect(handleUndo).toHaveBeenCalledWith('event-1');
+  });
+
+  it('undo button is permanently visible (no opacity-0/group-hover reliance)', () => {
+    const { container } = render(
+      <HistoryDrawer isOpen={true} onClose={() => {}} events={mockEvents} onUndo={() => {}} />
+    );
+
+    const undoButton = screen.getByLabelText('historyUndo');
+    // Must NOT have opacity-0 or group-hover:opacity-100 classes
+    expect(undoButton.className).not.toContain('opacity-0');
+    expect(undoButton.className).not.toContain('group-hover');
+  });
+
+  it('undo button has visible background styling', () => {
+    render(
+      <HistoryDrawer isOpen={true} onClose={() => {}} events={mockEvents} onUndo={() => {}} />
+    );
+
+    const undoButton = screen.getByLabelText('historyUndo');
+    expect(undoButton.className).toContain('bg-amber/10');
+    expect(undoButton.className).toContain('hover:bg-amber/20');
+  });
+
+  it('undo button has focus-visible ring for keyboard accessibility', () => {
+    render(
+      <HistoryDrawer isOpen={true} onClose={() => {}} events={mockEvents} onUndo={() => {}} />
+    );
+
+    const undoButton = screen.getByLabelText('historyUndo');
+    expect(undoButton.className).toContain('focus-visible:ring-2');
+    expect(undoButton.className).toContain('focus-visible:ring-amber/50');
   });
 
   it('renders scrollable content area', () => {

@@ -59,4 +59,20 @@ describe('ConfirmDialog', () => {
     // Dialog renders for all severities - styling is internal
     expect(screen.getByText('Test Dialog')).toBeInTheDocument();
   });
+
+  it('renders children between message and buttons', () => {
+    render(
+      <ConfirmDialog {...defaultProps}>
+        <div data-testid="extra-content">Extra content here</div>
+      </ConfirmDialog>
+    );
+    expect(screen.getByTestId('extra-content')).toBeInTheDocument();
+    expect(screen.getByText('Extra content here')).toBeInTheDocument();
+  });
+
+  it('renders correctly without children', () => {
+    render(<ConfirmDialog {...defaultProps} />);
+    expect(screen.getByText('Test Dialog')).toBeInTheDocument();
+    expect(screen.getByText('This is a test message')).toBeInTheDocument();
+  });
 });

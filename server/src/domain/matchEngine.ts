@@ -273,4 +273,43 @@ export class MatchEngine {
   public getConfig(): MatchConfig {
     return { ...this.state.config };
   }
+
+  /**
+   * Static factory: reconstruct a MatchEngine from a previously saved state.
+   *
+   * Creates a new MatchEngine instance and restores all internal state from
+   * the provided MatchStateExtended. The engine is fully operational after
+   * restoration — recordPoint, undo, etc. will work as expected.
+   *
+   * @param state  Serialized state (from getState() or PersistedMatchState).
+   *               history[] defaults to empty array if absent.
+   *               undoAvailable is recalculated from history length.
+   * @returns A new MatchEngine instance with restored state.
+   */
+  public static fromState(state: MatchStateExtended): MatchEngine {
+    const engine = new MatchEngine(state.config);
+
+    engine.state = {
+      config: { ...state.config },
+      score: JSON.parse(JSON.stringify(state.score)),
+      swappedSides: state.swappedSides,
+      midSetSwapped: state.midSetSwapped,
+      setHistory: state.setHistory.map((s) => ({ ...s })),
+      status: state.status,
+      winner: state.winner,
+      tableId: state.tableId || '',
+      tableName: state.tableName || '',
+      playerNames: state.playerNames
+        ? { ...state.playerNames }
+        : { a: 'Player A', b: 'Player B' },
+      history: (state.history || []).map((h) => ({
+        ...h,
+        pointsBefore: { ...h.pointsBefore },
+        pointsAfter: { ...h.pointsAfter },
+      })),
+      undoAvailable: (state.history || []).length > 0,
+    };
+
+    return engine;
+  }
 }

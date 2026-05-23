@@ -42,13 +42,20 @@ export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashb
     requestTables()
   }, [connected, requestTables])
 
-  // Auto-restore valid referee session — skip PIN modal if session exists
+  // Auto-restore valid referee session on first visit only
+  // Uses sessionStorage to prevent re-triggering when navigating back from scoreboard
   useEffect(() => {
     if (!connected || tables.length === 0) return
+    const alreadyRestored = sessionStorage.getItem('rallyos-ref-restored')
+    if (alreadyRestored) return
     const session = findAnyValidSession(tables)
     if (session) {
+      sessionStorage.setItem('rallyos-ref-restored', '1')
       setTablePin(session.pin)
       navigate(buildScoreboardRoute(session.tableId, 'referee'))
+    } else {
+      // No valid session — clear flag so auto-restore works next time
+      sessionStorage.removeItem('rallyos-ref-restored')
     }
   }, [connected, tables, findAnyValidSession, setTablePin, navigate])
 
@@ -62,6 +69,7 @@ export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashb
   }, [tables, clearSession])
 
   const handleLogout = () => {
+    sessionStorage.removeItem('rallyos-ref-restored')
     logout()
     navigate(Routes.AUTH)
   }
@@ -123,7 +131,7 @@ export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashb
         }
       />
 
-      <div className="flex-1 overflow-auto bg-primary/10">
+      <main id="main-content" className="flex-1 overflow-auto bg-primary/10">
         <div className="p-4">
           <DashboardHeader
             totalTables={stats.totalTables}
@@ -152,7 +160,7 @@ export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashb
             showQr={false}
           />
         </div>
-      </div>
+      </main>
 
       <PinModal
         isOpen={pinModalOpen}

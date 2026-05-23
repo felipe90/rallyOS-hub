@@ -5,10 +5,11 @@ export interface ScoreboardMainProps {
   onScorePoint: (player: Player) => void;
   onSubtractPoint?: (player: Player) => void;
   onUndo?: () => void;
-  onHistoryClick?: () => void;
-  onSettingsClick?: () => void;
+  onSwapSides?: () => void;
   isReferee?: boolean;
   isConnected?: boolean;
+  isLandscape?: boolean;
+  onOrientationToggle?: () => void;
   className?: string;
 }
 

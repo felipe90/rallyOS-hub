@@ -16,25 +16,16 @@ export interface ParsedPin {
 }
 
 /**
- * Get the encryption secret from environment.
+ * DEPRECATED — client-side crypto removed for security.
+ * Encryption is now server-side only. ENCRYPTION_SECRET never leaves the server.
+ * This module is retained for reference but not imported by any production code.
+ * Remove after migration to server-side-only encryption is complete.
  */
-function getEncryptionSecret(): string {
-  const secret = import.meta.env.VITE_ENCRYPTION_SECRET
-  if (!secret) {
-    throw new Error('VITE_ENCRYPTION_SECRET is required for PIN decryption')
-  }
-  return secret
-}
 
 /**
- * Parse and validate encrypted PIN from URL parameter.
- *
- * The ePin param is base64url-encoded AES-256-GCM encrypted data
- * in format: iv:ciphertext:authTag:timestamp
- *
- * @param ePin - The raw ePin parameter from URL search params
- * @param tableId - The table ID used for key derivation
- * @returns ParsedPin object with pin, isValid, and hasPin flags
+ * @deprecated Use server-side decryption via POST /api/tournament/load instead.
+ * This function is no longer called by production code and exists only for
+ * backward-compatible test coverage.
  */
 export async function parseEncryptedPin(
   ePin: string | null,
@@ -45,21 +36,13 @@ export async function parseEncryptedPin(
     return { pin: null, isValid: false, hasPin: false }
   }
 
-  try {
-    const secret = getEncryptionSecret()
-    const decrypted = await decryptPin(ePin, tableId, secret)
-
-    if (decrypted) {
-      // Valid PIN is exactly 4 digits
-      const isValid = /^\d{4}$/.test(decrypted)
-      if (isValid) {
-        return { pin: decrypted, isValid: true, hasPin: true }
-      }
-    }
-  } catch {
-    // Decryption failed - silently ignore
-  }
-
-  // Invalid or malformed PIN
+  // Client-side decryption is deprecated — encryption is now server-side only.
+  // This code path is never reached in production.
   return { pin: null, isValid: false, hasPin: true }
+}
+
+export interface ParsedPin {
+  pin: string | null
+  isValid: boolean
+  hasPin: boolean
 }

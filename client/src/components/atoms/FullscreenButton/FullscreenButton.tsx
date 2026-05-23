@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useI18n } from '@/i18n'
 
 export function FullscreenButton() {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [dismissed, setDismissed] = useState(false)
+  const { i18nText } = useI18n()
 
   useEffect(() => {
     const handler = () => setIsFullscreen(!!document.fullscreenElement)
@@ -27,8 +29,8 @@ export function FullscreenButton() {
     <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2">
       <button
         onClick={dismiss}
-        className="w-7 h-7 flex items-center justify-center rounded-full bg-surface/80 text-text/50 text-xs"
-        aria-label="Cerrar"
+        className="w-7 h-7 flex items-center justify-center rounded-full bg-surface/80 text-text-muted text-xs"
+        aria-label={i18nText('commonClose')}
       >
         ✕
       </button>

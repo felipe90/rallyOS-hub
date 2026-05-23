@@ -3,7 +3,8 @@
   "private": true,
   "packageManager": "pnpm@9.15.9",
   "scripts": {
-    "prepare": "husky install"
+    "prepare": "husky install",
+    "setup": "pnpm install && pnpm run prepare"
   },
   "devDependencies": {
     "husky": "^8.0.3",

@@ -1,6 +1,6 @@
 import type { ReactNode as _ReactNode, MouseEvent } from 'react';
 // Note: ButtonHTMLAttributes and MouseEvent not currently used but may be needed for future expanded props
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import type { HTMLMotionProps } from 'framer-motion';
 import type { ButtonVariant, ButtonSize, ButtonProps } from './Button.types';
 
@@ -39,6 +39,7 @@ export function Button({
   onClick,
   ...props
 }: ButtonProps) {
+  const shouldReduceMotion = useReducedMotion()
   const baseStyles = `
     inline-flex items-center justify-center gap-2 font-heading font-medium
     transition-all duration-200 ease-out
@@ -63,8 +64,8 @@ export function Button({
     return (
       <motion.button
         className={baseStyles}
-        whileHover={{ scale: disabled ? 1 : 1.02 }}
-        whileTap={{ scale: disabled ? 1 : 0.98 }}
+        whileHover={shouldReduceMotion ? undefined : { scale: disabled ? 1 : 1.02 }}
+        whileTap={shouldReduceMotion ? undefined : { scale: disabled ? 1 : 0.98 }}
         disabled={disabled || loading}
         onClick={handleClick}
         {...(props as HTMLMotionProps<'button'>)}
@@ -103,6 +104,7 @@ export function ScoreButton({
   disabled?: boolean;
   className?: string;
 }) {
+  const shouldReduceMotion = useReducedMotion()
   // Player A: bg-surface-low text-primary
   // Player B: bg-primary text-surface
   const buttonColorClass = side === 'A'
@@ -123,8 +125,8 @@ export function ScoreButton({
           active:scale-95 transition-transform
           disabled:opacity-50 disabled:pointer-events-none
         `}
-        whileHover={{ scale: disabled ? 1 : 1.02 }}
-        whileTap={{ scale: disabled ? 1 : 0.95 }}
+        whileHover={shouldReduceMotion ? undefined : { scale: disabled ? 1 : 1.02 }}
+        whileTap={shouldReduceMotion ? undefined : { scale: disabled ? 1 : 0.95 }}
         onClick={onAdd}
         disabled={disabled}
       >
@@ -143,8 +145,8 @@ export function ScoreButton({
           active:scale-95 transition-transform
           disabled:opacity-50 disabled:pointer-events-none
         `}
-        whileHover={{ scale: disabled ? 1 : 1.02 }}
-        whileTap={{ scale: disabled ? 1 : 0.95 }}
+        whileHover={shouldReduceMotion ? undefined : { scale: disabled ? 1 : 1.02 }}
+        whileTap={shouldReduceMotion ? undefined : { scale: disabled ? 1 : 0.95 }}
         onClick={onSubtract}
         disabled={disabled}
       >

@@ -99,7 +99,7 @@ main() {
     # Wait for service to be ready
     print_step "Waiting for RallyOS Hub to start (up to 60 seconds)..."
     READY=0
-    for i in {1..60}; do
+    for _ in {1..60}; do
         # Check if container is running
         if docker ps --filter "name=rallyo-hub" --filter "status=running" | grep -q rallyo-hub; then
             # Then check health endpoint

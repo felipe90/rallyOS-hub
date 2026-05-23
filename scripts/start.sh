@@ -113,7 +113,7 @@ for i in {1..30}; do
     fi
     echo -n "."
     sleep 1
-    if [ $i -eq 30 ]; then
+    if [ "$i" -eq 30 ]; then
         echo -e "\n${RED}⚠️  Service did not become healthy in time.${NC}"
         echo -e "${YELLOW}📋 Container logs:${NC}"
         docker-compose logs --tail=50 hub 2>&1 || true

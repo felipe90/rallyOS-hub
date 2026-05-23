@@ -4,6 +4,7 @@ import { WaitingBadge, ConfiguringBadge, LiveBadge, FinishedBadge } from '../../
 import { Body } from '../../atoms/Typography';
 import { Button } from '../../atoms/Button';
 import { QRCodeImage } from '../QRCodeImage';
+import { QrExpandModal } from '../QrExpandModal';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { RefreshCw, Trash2 } from 'lucide-react';
 import { buildScoreboardUrl } from '@/services/url';
@@ -74,6 +75,7 @@ export function TableStatusChip({
   // Keep last known PIN to prevent flicker during updates
   const [lastKnownPin, setLastKnownPin] = useState(pin);
   const [joinUrl, setJoinUrl] = useState('');
+  const [showQrModal, setShowQrModal] = useState(false);
 
   useEffect(() => {
     if (pin) {
@@ -94,11 +96,15 @@ export function TableStatusChip({
 
   const hasPin = !!(pin || lastKnownPin);
 
+  const handleQrExpand = () => {
+    setShowQrModal(true);
+  };
+
   return (
     <div
       onClick={onClick}
       className={`
-        flex flex-col gap-2 p-4 rounded-[--radius-md]
+        card flex flex-col gap-2 p-4 rounded-[--radius-md]
         bg-surface shadow-sm hover:shadow-md
         transition-shadow duration-200
         cursor-pointer
@@ -113,7 +119,7 @@ export function TableStatusChip({
       <Body className="text-sm text-text/70">{tableName}</Body>
       
       {playerNames && (playerNames.a || playerNames.b) && (
-        <div className="flex gap-2 text-sm text-text/50">
+        <div className="flex gap-2 text-sm text-text-muted">
           <span>{playerNames.a || '-'}</span>
           <span>vs</span>
           <span>{playerNames.b || '-'}</span>
@@ -123,10 +129,10 @@ export function TableStatusChip({
       {/* Sets score for live matches */}
       {currentSets && (currentSets.a > 0 || currentSets.b > 0) && (
         <div className="flex items-center gap-2 mt-1">
-          <Body className="text-xs text-text/50">Sets:</Body>
+          <Body className="text-xs text-text-muted">Sets:</Body>
           <div className="flex gap-1">
             <span className="text-sm font-bold text-text-h">{currentSets.a}</span>
-            <span className="text-text/30">-</span>
+            <span className="text-text-muted">-</span>
             <span className="text-sm font-bold text-text-h">{currentSets.b}</span>
           </div>
         </div>
@@ -136,11 +142,14 @@ export function TableStatusChip({
       {hasPin && (
         <div className="flex items-center gap-2 mt-1 pt-2 border-t border-border/30">
           <div className="flex items-center gap-1">
-            <Body className="text-xs text-text/50">PIN:</Body>
+            <Body className="text-xs text-text-muted">PIN:</Body>
             <Body className="text-sm font-mono font-bold text-primary">{displayPin}</Body>
           </div>
           {joinUrl && (
-            <div className="ml-auto">
+            <div
+              className="ml-auto cursor-pointer"
+              onClick={(e) => { e.stopPropagation(); handleQrExpand(); }}
+            >
               <QRCodeImage joinUrl={joinUrl} size={48} />
             </div>
           )}
@@ -198,6 +207,12 @@ export function TableStatusChip({
         cancelLabel="Cancelar"
         onConfirm={() => onCleanConfirm?.()}
         onCancel={() => onCleanCancel?.()}
+      />
+
+      {/* QR Fullscreen Modal */}
+      <QrExpandModal
+        joinUrl={showQrModal ? joinUrl : ''}
+        onClose={() => setShowQrModal(false)}
       />
 
     </div>

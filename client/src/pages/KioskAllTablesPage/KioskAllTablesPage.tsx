@@ -4,6 +4,7 @@ import { useSocketContext } from '@/contexts/SocketContext'
 import { ConnectionStatus, Typography } from '@/components/atoms'
 import { KioskTableCard } from '@/components/organisms/KioskTableCard'
 import { KioskNotificationToast } from '@/components/organisms/KioskNotificationToast'
+import { useResponsiveQrSize } from '@/hooks'
 import { QRCodeSVG } from 'qrcode.react'
 import logoBig from '@/assets/logo-big.png'
 import type { TableInfo, KioskNotificationData } from '@shared/types'
@@ -43,22 +44,6 @@ export function calculatePages(
   return pages
 }
 
-/** QR size responsive to viewport: 5% of width, clamped between 80px and 160px */
-function useResponsiveQrSize() {
-  const [qrSize, setQrSize] = useState(() =>
-    Math.min(Math.max(Math.floor(window.innerWidth * 0.05), 80), 160),
-  )
-
-  useEffect(() => {
-    const update = () =>
-      setQrSize(Math.min(Math.max(Math.floor(window.innerWidth * 0.05), 80), 160))
-    window.addEventListener('resize', update)
-    return () => window.removeEventListener('resize', update)
-  }, [])
-
-  return qrSize
-}
-
 export function KioskAllTablesPage() {
   const { tables, connected, connecting, hubConfig, kioskNotification } = useSocketContext()
   const { i18nText } = useI18n()
@@ -86,6 +71,12 @@ export function KioskAllTablesPage() {
   useEffect(() => {
     const explicit = localStorage.getItem('rallyos-lang-explicit')
     if (!explicit) changeLanguage('es')
+  }, [])
+
+  // Prevent overscroll on kiosk page
+  useEffect(() => {
+    document.body.classList.add('kiosk-page')
+    return () => { document.body.classList.remove('kiosk-page') }
   }, [])
 
   // Auto-reload when socket permanently disconnects (all retries exhausted)
@@ -156,7 +147,7 @@ export function KioskAllTablesPage() {
 
       {/* Header — Logo + QR (always visible) */}
       <div className="flex items-center justify-between px-8 pt-6 pb-4">
-        <img src={logoBig} alt="RallyOS" className="h-10 w-auto" />
+        <img src={logoBig} alt="RallyOS" style={{ height: qrSize }} className="w-auto rounded-[--radius-md]" />
         {hubConfig?.domain && (
           <div className="flex items-center gap-3">
             {hubConfig.wifiPassword && (
@@ -174,7 +165,7 @@ export function KioskAllTablesPage() {
                 https://{hubConfig.domain}:{hubConfig.port}
               </Typography>
               {hubConfig.wifiPassword && (
-                <Typography variant="label" className="text-text/60 text-xs">
+                <Typography variant="label" className="text-text-muted text-xs">
                   {i18nText('scoreboardWifiDomain', { domain: hubConfig.domain })}
                 </Typography>
               )}
@@ -184,9 +175,10 @@ export function KioskAllTablesPage() {
       </div>
 
       {/* Content */}
+      <main id="main-content" className="flex-1 flex flex-col">
       {activeTables.length === 0 ? (
         <div className="flex-1 flex items-center justify-center">
-          <Typography variant="title" className="text-2xl text-text/60 text-center px-4">
+          <Typography variant="title" className="text-2xl text-text-muted text-center px-4">
             {i18nText('kioskNoActiveMatches')}
           </Typography>
         </div>
@@ -225,6 +217,7 @@ export function KioskAllTablesPage() {
           ))}
         </div>
       )}
+      </main>
 
       {/* Kiosk Notification Toast */}
       {visibleNotification && (

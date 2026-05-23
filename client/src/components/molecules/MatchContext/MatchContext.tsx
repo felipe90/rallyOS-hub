@@ -47,7 +47,7 @@ export function MatchContext({
       </div>
       
       {matchNumber && totalMatches && (
-        <Body className="text-sm text-text/50">
+        <Body className="text-sm text-text-muted">
           Partido {matchNumber} de {totalMatches}
         </Body>
       )}
@@ -89,11 +89,11 @@ export function SetScore({
       ${isCurrentSet ? 'bg-surface-high ring-1 ring-primary/30' : 'bg-surface'}
       ${isComplete ? 'opacity-70' : ''}
     `}>
-      <span className="text-xs text-text/50 font-heading w-6">#{setNumber}</span>
+      <span className="text-xs text-text-muted font-heading w-6">#{setNumber}</span>
       <span className={`font-heading text-lg ${scoreA > scoreB ? 'text-primary font-bold' : 'text-text'}`}>
         {scoreA}
       </span>
-      <span className="text-text/30">-</span>
+      <span className="text-text-muted">-</span>
       <span className={`font-heading text-lg ${scoreB > scoreA ? 'text-primary font-bold' : 'text-text'}`}>
         {scoreB}
       </span>

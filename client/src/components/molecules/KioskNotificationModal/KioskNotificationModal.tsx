@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Button } from '../../atoms/Button'
 import { Body, Title, Label } from '../../atoms/Typography'
 import { Info, AlertTriangle, AlertCircle, Bell } from 'lucide-react'
+import { useFocusTrap } from '../../../hooks/useFocusTrap'
 import type { KioskNotificationType } from '@shared/types'
 
 export interface KioskNotificationModalProps {
@@ -68,6 +69,9 @@ export function KioskNotificationModal({
   const [message, setMessage] = useState('')
   const [duration, setDuration] = useState(5)
 
+  const modalRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(modalRef, isOpen, onClose)
+
   // Reset state when modal opens
   useEffect(() => {
     if (isOpen) {
@@ -108,8 +112,14 @@ export function KioskNotificationModal({
       />
 
       {/* Modal content */}
-      <div className="relative bg-surface rounded-lg shadow-xl p-6 w-full max-w-sm max-h-[90vh] overflow-y-auto">
-        <Title className="text-center mb-2">{title}</Title>
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="kiosk-notif-modal-title"
+        className="card relative bg-surface rounded-lg shadow-xl p-6 w-full max-w-sm max-h-[90vh] overflow-y-auto"
+      >
+        <Title id="kiosk-notif-modal-title" className="text-center mb-2">{title}</Title>
 
         {/* Notification Type Selector */}
         <div className="mb-4">
@@ -131,6 +141,8 @@ export function KioskNotificationModal({
                   type="button"
                   onClick={() => setSelectedType(type)}
                   disabled={isLoading}
+                  aria-label={typeLabels[type]}
+                  aria-pressed={isSelected}
                   className={`
                     flex items-center gap-2 px-3 py-2.5 rounded-md border-2 font-heading text-sm font-medium
                     transition-all duration-150
@@ -163,7 +175,7 @@ export function KioskNotificationModal({
             disabled={isLoading}
             className="w-full px-3 py-2 rounded-md border border-border bg-surface text-text placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary resize-none"
           />
-          <Body className="text-right text-xs text-text/60 mt-1">
+          <Body className="text-right text-xs text-text-muted mt-1">
             {message.length}/{MAX_MESSAGE_LENGTH}
           </Body>
         </div>

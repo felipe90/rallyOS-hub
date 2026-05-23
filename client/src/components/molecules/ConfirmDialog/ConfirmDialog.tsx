@@ -44,6 +44,7 @@ export function ConfirmDialog({
   cancelLabel = 'Cancelar',
   onConfirm,
   onCancel,
+  children,
 }: ConfirmDialogProps) {
   if (!isOpen) return null;
 
@@ -56,7 +57,12 @@ export function ConfirmDialog({
       <div className="absolute inset-0 bg-black/50" onClick={onCancel} />
       
       {/* Dialog */}
-      <div className="relative bg-surface rounded-lg shadow-xl p-6 w-full max-w-sm">
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="confirm-dialog-title"
+        className="card relative bg-surface rounded-lg shadow-xl p-6 w-full max-w-sm"
+      >
         {/* Icon */}
         <div className="flex justify-center mb-4">
           <div className={`${config.iconBg} ${config.iconColor} p-3 rounded-full`}>
@@ -65,10 +71,13 @@ export function ConfirmDialog({
         </div>
 
         {/* Title */}
-        <Body className="text-xl font-heading text-center mb-2">{title}</Body>
+        <Body id="confirm-dialog-title" className="text-xl font-heading text-center mb-2">{title}</Body>
         
         {/* Message */}
         <Body className="text-center text-text/70 mb-6">{message}</Body>
+        
+        {/* Extra content (e.g. checkboxes, additional options) */}
+        {children && <div className="mb-6">{children}</div>}
         
         {/* Actions */}
         <div className="flex gap-3">

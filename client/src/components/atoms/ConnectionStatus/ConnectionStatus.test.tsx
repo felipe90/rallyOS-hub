@@ -44,4 +44,20 @@ describe('ConnectionStatus', () => {
     // The wifi icon is rendered via lucide-react SVG
     expect(document.querySelector('svg')).toBeInTheDocument();
   });
+
+  it('has role="status" and aria-live="polite" on the floating pill for connected state', () => {
+    mockUseSocketContext.mockReturnValue({ connected: true, connecting: false, error: null });
+    render(<ConnectionStatus labels={{ connected: 'Connected' }} />);
+    const pill = screen.getByRole('status');
+    expect(pill).toBeInTheDocument();
+    expect(pill).toHaveAttribute('aria-live', 'polite');
+  });
+
+  it('has role="status" and aria-live="polite" on the floating pill for error state', () => {
+    mockUseSocketContext.mockReturnValue({ connected: false, connecting: false, error: new Error('fail') });
+    render(<ConnectionStatus labels={{ error: 'No Connection' }} />);
+    const pill = screen.getByRole('status');
+    expect(pill).toBeInTheDocument();
+    expect(pill).toHaveAttribute('aria-live', 'polite');
+  });
 });

@@ -118,7 +118,6 @@ _step_start "Environment config"
 
 REPO_PATH="$(cd "$(dirname "$0")/.." && pwd)"
 
-REQUIRED_ORIGINS="localhost:3000,192.168.4.1:3000,rallyos-hub.local:3000"
 CORRECT_ORIGINS="https://localhost:3000,http://localhost:3000,https://${AP_IP}:3000,http://${AP_IP}:3000,https://rallyos-hub.local:3000,http://rallyos-hub.local:3000"
 
 if [ ! -f "${REPO_PATH}/.env" ]; then
@@ -283,8 +282,8 @@ WOT_EOF
 
     # Bring interface up BEFORE starting services (dnsmasq needs the IP to exist)
     echo "  Bringing interface up..."
-    ip addr add ${AP_IP}/24 dev ${AP_INTERFACE} 2>/dev/null || true
-    ip link set ${AP_INTERFACE} up
+    ip addr add ${AP_IP}/24 dev "${AP_INTERFACE}" 2>/dev/null || true
+    ip link set "${AP_INTERFACE}" up
     sleep 1
 
     echo "  Starting AP services..."
@@ -304,13 +303,13 @@ WOT_EOF
     echo "  Configuring NAT + iptables (after Docker restart)..."
     iptables -t nat -F POSTROUTING 2>/dev/null || true
     iptables -F FORWARD 2>/dev/null || true
-    iptables -t nat -A POSTROUTING -o ${WAN_INTERFACE} -j MASQUERADE 2>/dev/null || true
-    iptables -A FORWARD -i ${WAN_INTERFACE} -o ${AP_INTERFACE} -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || true
-    iptables -A FORWARD -i ${AP_INTERFACE} -o ${WAN_INTERFACE} -j ACCEPT 2>/dev/null || true
-    iptables -t nat -A PREROUTING -i ${AP_INTERFACE} -p tcp --dport 80 -j DNAT --to-destination ${AP_IP}:3000 2>/dev/null || true
+    iptables -t nat -A POSTROUTING -o "${WAN_INTERFACE}" -j MASQUERADE 2>/dev/null || true
+    iptables -A FORWARD -i "${WAN_INTERFACE}" -o "${AP_INTERFACE}" -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || true
+    iptables -A FORWARD -i "${AP_INTERFACE}" -o "${WAN_INTERFACE}" -j ACCEPT 2>/dev/null || true
+    iptables -t nat -A PREROUTING -i "${AP_INTERFACE}" -p tcp --dport 80 -j DNAT --to-destination ${AP_IP}:3000 2>/dev/null || true
     # Force Android devices to use dnsmasq — many ignore DHCP DNS and use 8.8.8.8 via DNS-over-HTTPS
-    iptables -t nat -A PREROUTING -i ${AP_INTERFACE} -p udp --dport 53 -j REDIRECT --to-port 53 2>/dev/null || true
-    iptables -t nat -A PREROUTING -i ${AP_INTERFACE} -p tcp --dport 53 -j REDIRECT --to-port 53 2>/dev/null || true
+    iptables -t nat -A PREROUTING -i "${AP_INTERFACE}" -p udp --dport 53 -j REDIRECT --to-port 53 2>/dev/null || true
+    iptables -t nat -A PREROUTING -i "${AP_INTERFACE}" -p tcp --dport 53 -j REDIRECT --to-port 53 2>/dev/null || true
 
     netfilter-persistent save 2>/dev/null || echo "  (iptables-persistent NA — rules may not survive reboot)"
 

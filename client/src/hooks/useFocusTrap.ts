@@ -64,13 +64,13 @@ export function useFocusTrap(
 
       if (e.shiftKey) {
         // Shift+Tab: if focus is on first element (or outside), wrap to last
-        if (activeElement === firstFocusable || !container.contains(activeElement)) {
+        if (activeElement === firstFocusable || !container!.contains(activeElement)) {
           e.preventDefault()
           lastFocusable.focus()
         }
       } else {
         // Tab: if focus is on last element (or outside), wrap to first
-        if (activeElement === lastFocusable || !container.contains(activeElement)) {
+        if (activeElement === lastFocusable || !container!.contains(activeElement)) {
           e.preventDefault()
           firstFocusable.focus()
         }

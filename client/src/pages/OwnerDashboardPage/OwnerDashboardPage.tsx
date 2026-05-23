@@ -11,6 +11,7 @@ import { DashboardHeader } from '@/components/organisms/DashboardGrid'
 import { PageHeader } from '@/components/molecules/PageHeader'
 import { PinModal } from '@/components/molecules/PinModal'
 import { KioskNotificationModal } from '@/components/molecules/KioskNotificationModal'
+import { ConfirmDialog } from '@/components/molecules/ConfirmDialog'
 import { useSocketContext } from '@/contexts/SocketContext'
 import { useAuthContext } from '@/contexts/AuthContext'
 import { useDashboardStats } from '@/hooks/useDashboardStats'
@@ -23,7 +24,7 @@ import { Body } from '@/components/atoms/Typography'
 import { SocketEvents } from '@shared/events'
 import { Routes, buildScoreboardRoute } from '@/routes'
 import type { TableInfoWithPin, KioskNotificationType } from '@shared/types'
-import { Plus, FileText, Table2, Swords, Users, Bell, Flag, Download } from 'lucide-react'
+import { Plus, FileText, Table2, Swords, Users, Bell, Flag, Download, AlertTriangle } from 'lucide-react'
 
 
 export interface OwnerDashboardPageProps {
@@ -306,7 +307,10 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
           )}
         </div>
         {appError && (
-          <p className="text-red-500 text-sm">{appError}</p>
+          <div role="alert" className="flex items-center gap-2">
+            <AlertTriangle size={16} className="text-red-500 shrink-0" />
+            <p className="text-red-500 text-sm">{appError}</p>
+          </div>
         )}
       </div>
     )}
@@ -404,54 +408,26 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
       />
 
       {/* Finish Tournament Confirmation Dialog */}
-      {finishDialogOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/50"
-            onClick={() => setFinishDialogOpen(false)}
+      <ConfirmDialog
+        isOpen={finishDialogOpen}
+        title={i18nText('finishTournament')}
+        message={i18nText('finishTournamentConfirm')}
+        severity="error"
+        confirmLabel={i18nText('finishTournament')}
+        cancelLabel={i18nText('commonCancel')}
+        onConfirm={handleFinishConfirm}
+        onCancel={() => setFinishDialogOpen(false)}
+      >
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={exportCsvChecked}
+            onChange={(e) => setExportCsvChecked(e.target.checked)}
+            className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
           />
-          <div className="card relative bg-surface rounded-lg shadow-xl p-6 w-full max-w-sm">
-            <div className="flex justify-center mb-4">
-              <div className="bg-red-100 text-red-600 p-3 rounded-full">
-                <Flag size={32} />
-              </div>
-            </div>
-            <Body className="text-xl font-heading text-center mb-2">
-              {i18nText('finishTournament')}
-            </Body>
-            <Body className="text-center text-text/70 mb-6">
-              {i18nText('finishTournamentConfirm')}
-            </Body>
-            <div className="mb-6">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={exportCsvChecked}
-                  onChange={(e) => setExportCsvChecked(e.target.checked)}
-                  className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
-                />
-                <Body>{i18nText('finishTournamentExportCsv')}</Body>
-              </label>
-            </div>
-            <div className="flex gap-3">
-              <Button
-                variant="secondary"
-                onClick={() => setFinishDialogOpen(false)}
-                className="flex-1"
-              >
-                {i18nText('commonCancel')}
-              </Button>
-              <Button
-                variant="danger"
-                onClick={handleFinishConfirm}
-                className="flex-1"
-              >
-                {i18nText('finishTournament')}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+          <Body>{i18nText('finishTournamentExportCsv')}</Body>
+        </label>
+      </ConfirmDialog>
     </div>
   )
 }

@@ -48,7 +48,7 @@ export function CoachMark({
     <AnimatePresence>
       {isVisible && (
         shouldReduceMotion ? (
-          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pb-[env(safe-area-inset-bottom)]">
             <div className="flex items-center gap-3 px-4 py-3 rounded-full bg-[var(--color-scoreboard-bg-alt)]/90 backdrop-blur-md border border-white/10 shadow-xl">
               <Hand size={18} className="text-amber shrink-0" />
               <span className="text-sm text-white font-medium whitespace-nowrap">
@@ -69,7 +69,7 @@ export function CoachMark({
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 50, opacity: 0 }}
             transition={{ duration: 0.3, ease: 'easeOut' }}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50"
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pb-[env(safe-area-inset-bottom)]"
           >
             <div className="flex items-center gap-3 px-4 py-3 rounded-full bg-[var(--color-scoreboard-bg-alt)]/90 backdrop-blur-md border border-white/10 shadow-xl">
               <Hand size={18} className="text-amber shrink-0" />

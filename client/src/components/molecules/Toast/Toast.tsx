@@ -33,7 +33,7 @@ export function Toast({ toast, onDismiss }: ToastProps) {
       className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg min-w-[300px] max-w-[420px] ${variantStyle}`}
       role="alert"
     >
-      <Icon size={20} className="shrink-0" />
+      <span className="shrink-0"><Icon size={20} /></span>
       <span className="flex-1 text-sm font-medium">{toast.message}</span>
       <button
         onClick={() => onDismiss(toast.id)}

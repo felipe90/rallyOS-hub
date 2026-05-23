@@ -9,4 +9,5 @@ export interface ConfirmDialogProps {
   cancelLabel?: string;
   onConfirm: () => void;
   onCancel?: () => void;
+  children?: React.ReactNode;
 }

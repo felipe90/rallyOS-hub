@@ -57,7 +57,7 @@ export function SpectatorDashboardPage(_props: SpectatorDashboardPageProps) {
       />
 
       {/* Tables Grid */}
-      <div className="flex-1 overflow-auto p-4 bg-primary/10">
+      <main id="main-content" className="flex-1 overflow-auto p-4 bg-primary/10">
         {availableTables.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full">
             <Typography variant="title">{i18nText('spectatorNoTables')}</Typography>
@@ -82,7 +82,7 @@ export function SpectatorDashboardPage(_props: SpectatorDashboardPageProps) {
             ))}
           </div>
         )}
-      </div>
+      </main>
     </div>
   )
 }

@@ -83,7 +83,10 @@ export function ConnectionStatus({ labels = {} }: ConnectionStatusProps) {
         className="fixed top-4 left-1/2 -translate-x-1/2 z-50"
         style={{ display: isVisible ? 'block' : 'none' }}
       >
-        <div className={`
+        <div
+          role="status"
+          aria-live="polite"
+          className={`
           flex items-center gap-2 px-3 py-1.5 rounded-full
           backdrop-blur-sm
           ${config.bg}
@@ -105,7 +108,10 @@ export function ConnectionStatus({ labels = {} }: ConnectionStatusProps) {
         animate={{ y: isVisible ? 0 : -100, opacity: isVisible ? 1 : 0 }}
         transition={{ duration: 0.3, ease: 'easeInOut' }}
       >
-        <div className={`
+        <div
+          role="status"
+          aria-live="polite"
+          className={`
           flex items-center gap-2 px-3 py-1.5 rounded-full
           backdrop-blur-sm
           ${config.bg}

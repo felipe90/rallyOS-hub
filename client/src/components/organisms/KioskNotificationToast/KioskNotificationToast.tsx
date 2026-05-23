@@ -125,7 +125,7 @@ export function KioskNotificationToast({ notification, onDismiss }: KioskNotific
         initial: { y: 100, opacity: 0 },
         animate: { y: 0, opacity: 1 },
         exit: { y: 100, opacity: 0 },
-        transition: { type: 'spring', stiffness: 500, damping: 30 },
+        transition: { type: 'spring' as const, stiffness: 500, damping: 30 },
       }
 
   return (

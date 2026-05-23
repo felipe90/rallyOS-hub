@@ -44,6 +44,7 @@ export function ConfirmDialog({
   cancelLabel = 'Cancelar',
   onConfirm,
   onCancel,
+  children,
 }: ConfirmDialogProps) {
   if (!isOpen) return null;
 
@@ -74,6 +75,9 @@ export function ConfirmDialog({
         
         {/* Message */}
         <Body className="text-center text-text/70 mb-6">{message}</Body>
+        
+        {/* Extra content (e.g. checkboxes, additional options) */}
+        {children && <div className="mb-6">{children}</div>}
         
         {/* Actions */}
         <div className="flex gap-3">

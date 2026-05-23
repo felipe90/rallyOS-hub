@@ -118,6 +118,16 @@ describe('MatchConfigModal', () => {
     expect(screen.getByText('Error de conexión')).toBeInTheDocument()
   })
 
+  it('renders error with role="alert" and AlertTriangle icon', () => {
+    render(<MatchConfigModal {...defaultProps} error="Error de conexión" />)
+    const alert = screen.getByRole('alert')
+    expect(alert).toBeInTheDocument()
+    expect(alert).toHaveTextContent('Error de conexión')
+    // AlertTriangle icon should be rendered as SVG inside the alert
+    const alertIcon = alert.querySelector('svg')
+    expect(alertIcon).toBeInTheDocument()
+  })
+
   it('handicap decrement goes below 0 (allows negative)', () => {
     render(<MatchConfigModal {...defaultProps} initialHandicapA={0} />)
     // Handicap A starts at 0 — decrement button is enabled and goes to -1

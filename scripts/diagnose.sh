@@ -11,7 +11,7 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_PATH="$(cd "$SCRIPT_DIR/.." && pwd)"
-cd "$REPO_PATH"
+cd "$REPO_PATH" || exit
 
 # ── Flags ────────────────────────────────────────────────────────
 LOG_MODE=false
@@ -290,8 +290,6 @@ check_iptables() {
     local masq_rule
     masq_rule=$(iptables -t nat -L POSTROUTING 2>/dev/null | grep "MASQUERADE" | head -1)
     if [ -n "$masq_rule" ]; then
-        local masq_iface
-        masq_iface=$(echo "$masq_rule" | grep -oP 'to:\S+' || echo "$(echo "$masq_rule" | awk '{print $NF}')")
         _ok "NAT MASQUERADE active"
     else
         _warn "No MASQUERADE — AP clients won't reach internet"

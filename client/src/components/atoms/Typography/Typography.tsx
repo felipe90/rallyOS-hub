@@ -34,28 +34,29 @@ export function Typography({
   children, 
   className = '',
   as: Component = 'p',
-}: TypographyProps) {
+  ...props
+}: TypographyProps & { id?: string }) {
   const baseStyles = `text-text-h ${variantStyles[variant]} ${weightStyles[weight]} ${className}`;
   
-  return <Component className={baseStyles}>{children}</Component>;
+  return <Component className={baseStyles} {...props}>{children}</Component>;
 }
 
-export function Headline({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <Typography variant="headline" weight={500} as="h1" className={className}>{children}</Typography>;
+export function Headline({ children, className = '', ...props }: { children: ReactNode; className?: string; id?: string }) {
+  return <Typography variant="headline" weight={500} as="h1" className={className} {...props}>{children}</Typography>;
 }
 
-export function Title({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <Typography variant="title" weight={500} as="h2" className={className}>{children}</Typography>;
+export function Title({ children, className = '', ...props }: { children: ReactNode; className?: string; id?: string }) {
+  return <Typography variant="title" weight={500} as="h2" className={className} {...props}>{children}</Typography>;
 }
 
-export function Body({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <Typography variant="body" weight={400} className={className}>{children}</Typography>;
+export function Body({ children, className = '', ...props }: { children: ReactNode; className?: string; id?: string }) {
+  return <Typography variant="body" weight={400} className={className} {...props}>{children}</Typography>;
 }
 
-export function Label({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <Typography variant="label" weight={500} className={className}>{children}</Typography>;
+export function Label({ children, className = '', ...props }: { children: ReactNode; className?: string; id?: string }) {
+  return <Typography variant="label" weight={500} className={className} {...props}>{children}</Typography>;
 }
 
-export function Caption({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <Typography variant="caption" weight={400} className={className}>{children}</Typography>;
+export function Caption({ children, className = '', ...props }: { children: ReactNode; className?: string; id?: string }) {
+  return <Typography variant="caption" weight={400} className={className} {...props}>{children}</Typography>;
 }

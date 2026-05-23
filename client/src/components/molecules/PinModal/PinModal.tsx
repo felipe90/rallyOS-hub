@@ -3,6 +3,7 @@ import { PinInput } from '../../atoms/PinInput'
 import { Button } from '../../atoms/Button'
 import { Body, Title } from '../../atoms/Typography'
 import { useFocusTrap } from '../../../hooks/useFocusTrap'
+import { AlertTriangle } from 'lucide-react'
 
 export interface PinModalProps {
   isOpen: boolean
@@ -95,9 +96,12 @@ export function PinModal({
           />
           
           {error && (
-            <Body className="text-center text-red-500 mt-2 text-sm">
-              {error}
-            </Body>
+            <div role="alert" className="flex items-center gap-2 mt-2">
+              <AlertTriangle size={16} className="text-red-500 shrink-0" />
+              <Body className="text-red-500 text-sm">
+                {error}
+              </Body>
+            </div>
           )}
         </div>
 

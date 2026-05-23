@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { OwnerDashboardPage } from './OwnerDashboardPage'
 import { useSocketContext } from '@/contexts/SocketContext'
 import { useAuthContext } from '@/contexts/AuthContext'
+import { useTableManagement } from '@/hooks/useTableManagement'
 
 // Mock SocketContext
 vi.mock('@/contexts/SocketContext', () => ({
@@ -42,7 +43,7 @@ vi.mock('@/hooks/useRefereeSession', () => ({
 }))
 
 vi.mock('@/hooks/useTableManagement', () => ({
-  useTableManagement: () => ({
+  useTableManagement: vi.fn(() => ({
     isCreatingTable: false,
     tableName: '',
     setTableName: vi.fn(),
@@ -57,7 +58,7 @@ vi.mock('@/hooks/useTableManagement', () => ({
     deleteConfirmTableId: null,
     confirmDelete: vi.fn(),
     cancelDelete: vi.fn(),
-  }),
+  })),
 }))
 
 // Mock i18n
@@ -354,5 +355,43 @@ describe('OwnerDashboardPage — Export CSV Button', () => {
     expect(fetchSpy).toHaveBeenCalledWith('/api/export/matches.csv', {
       headers: { Authorization: 'Bearer test-token-uuid' },
     })
+  })
+})
+
+describe('OwnerDashboardPage – appError display', () => {
+  it('shows appError with role="alert" and AlertTriangle icon when creating table', () => {
+    // Override useTableManagement to show creation mode
+    vi.mocked(useTableManagement).mockReturnValue({
+      isCreatingTable: true,
+      tableName: 'Test Table',
+      setTableName: vi.fn(),
+      createTable: vi.fn(),
+      cancelCreating: vi.fn(),
+      startCreating: vi.fn(),
+      isCreating: false,
+      requestClean: vi.fn(),
+      cleanConfirmTableId: null,
+      confirmClean: vi.fn(),
+      cancelClean: vi.fn(),
+      requestDelete: vi.fn(),
+      deleteConfirmTableId: null,
+      confirmDelete: vi.fn(),
+      cancelDelete: vi.fn(),
+    })
+
+    renderPage({
+      customSocket: {
+        tables: [createTable()],
+        appError: 'Table creation failed',
+      },
+    })
+
+    const alert = screen.getByRole('alert')
+    expect(alert).toBeInTheDocument()
+    expect(alert).toHaveTextContent('Table creation failed')
+
+    // AlertTriangle icon should be rendered as SVG inside the alert
+    const alertIcon = alert.querySelector('svg')
+    expect(alertIcon).toBeInTheDocument()
   })
 })

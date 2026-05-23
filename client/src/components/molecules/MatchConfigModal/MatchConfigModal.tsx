@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Button } from '../../atoms/Button'
 import { Body, Title, Label } from '../../atoms/Typography'
 import { useFocusTrap } from '../../../hooks/useFocusTrap'
+import { AlertTriangle } from 'lucide-react'
 
 export interface MatchConfigModalProps {
   isOpen: boolean
@@ -225,9 +226,12 @@ export function MatchConfigModal({
 
         {/* Error display */}
         {error && (
-          <Body className="text-center text-red-500 mb-4 text-sm">
-            {error}
-          </Body>
+          <div role="alert" className="flex items-center gap-2 mb-4">
+            <AlertTriangle size={16} className="text-red-500 shrink-0" />
+            <Body className="text-red-500 text-sm">
+              {error}
+            </Body>
+          </div>
         )}
 
         {/* Actions */}

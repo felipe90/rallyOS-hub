@@ -17,7 +17,6 @@ GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
-MAGENTA='\033[0;35m'
 NC='\033[0m' # No Color
 
 # Configuration
@@ -214,7 +213,7 @@ main() {
             break
         fi
         sleep 0.5
-        if [ $i -eq 30 ]; then
+        if [ "$i" -eq 30 ]; then
             print_error "Server failed to start"
             kill $SERVER_PID 2>/dev/null || true
             rm -f "$SERVER_LOG" "$CLIENT_LOG"

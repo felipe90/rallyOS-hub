@@ -310,7 +310,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
         }
       />
 
-      <div className="flex-1 overflow-auto bg-primary/10">
+      <main id="main-content" className="flex-1 overflow-auto bg-primary/10">
         <div className="p-4 ">
           <DashboardHeader
             totalTables={stats.totalTables}
@@ -348,7 +348,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
             onDeleteTableCancel={tableMgmt.cancelDelete}
           />
         </div>
-      </div>
+      </main>
 
       <PinModal
         isOpen={pinModalOpen}

@@ -1,5 +1,6 @@
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { History, Settings } from 'lucide-react';
+import { useI18n } from '@/i18n';
 
 export interface ScoreboardActionsProps {
   onHistoryClick?: () => void;
@@ -9,6 +10,8 @@ export interface ScoreboardActionsProps {
 }
 
 export function ScoreboardActions({ onHistoryClick, onSettingsClick, hasHistory, isLandscape }: ScoreboardActionsProps) {
+  const { i18nText } = useI18n()
+  const shouldReduceMotion = useReducedMotion()
   const btnClass = isLandscape 
     ? "p-2 rounded-[--radius-md] bg-surface hover:bg-surface-high transition-colors"
     : "p-1 rounded-[--radius-md] bg-surface-high hover:bg-surface transition-colors";
@@ -21,9 +24,9 @@ export function ScoreboardActions({ onHistoryClick, onSettingsClick, hasHistory,
         <motion.button
           className={btnClass}
           onClick={onHistoryClick}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          aria-label="History"
+          whileHover={shouldReduceMotion ? undefined : { scale: 1.05 }}
+          whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
+          aria-label={i18nText('scoreboardHistory')}
         >
           <History size={iconSize} />
         </motion.button>
@@ -32,9 +35,9 @@ export function ScoreboardActions({ onHistoryClick, onSettingsClick, hasHistory,
         <motion.button
           className={btnClass}
           onClick={onSettingsClick}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          aria-label="Settings"
+          whileHover={shouldReduceMotion ? undefined : { scale: 1.05 }}
+          whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
+          aria-label={i18nText('scoreboardSettings')}
         >
           <Settings size={iconSize} />
         </motion.button>

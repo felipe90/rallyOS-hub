@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import type { TableInfo, TableInfoWithPin } from '@shared/types';
 import { TableStatusChip } from '../../molecules/TableStatusChip';
 import { StatCard } from '../../molecules/StatCard';
@@ -47,6 +47,8 @@ export function DashboardGrid({
   onDeleteTableConfirm,
   onDeleteTableCancel,
 }: DashboardGridProps) {
+  const shouldReduceMotion = useReducedMotion()
+
   // Helper for QR code display
   const getQrDisplay = (tableId: string) => {
     if (!showQr) return undefined;
@@ -54,14 +56,15 @@ export function DashboardGrid({
   };
 
   if (viewMode === 'list') {
+    const ListWrapper = shouldReduceMotion ? 'div' : motion.div
     return (
       <div className={`flex flex-col gap-3 ${className}`}>
         {tables.map((table) => (
-          <motion.div
+          <ListWrapper
             key={table.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
+            initial={shouldReduceMotion ? undefined : { opacity: 0, y: 20 }}
+            animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+            transition={shouldReduceMotion ? undefined : { duration: 0.3 }}
             className="relative"
           >
             <TableStatusChip
@@ -84,11 +87,13 @@ export function DashboardGrid({
               onDeleteConfirm={onDeleteTableConfirm}
               onDeleteCancel={onDeleteTableCancel}
             />
-          </motion.div>
+          </ListWrapper>
         ))}
       </div>
     );
   }
+
+  const GridWrapper = shouldReduceMotion ? 'div' : motion.div
 
   return (
     <div className={`grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 ${className}`}>
@@ -97,11 +102,11 @@ export function DashboardGrid({
         // This prevents the overflow/alignment issues with spans
         
         return (
-          <motion.div
+          <GridWrapper
             key={table.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: index * 0.1 }}
+            initial={shouldReduceMotion ? undefined : { opacity: 0, y: 20 }}
+            animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
+            transition={shouldReduceMotion ? undefined : { duration: 0.3, delay: index * 0.1 }}
             className="relative"
           >
             <TableStatusChip
@@ -124,7 +129,7 @@ export function DashboardGrid({
               onDeleteConfirm={onDeleteTableConfirm}
               onDeleteCancel={onDeleteTableCancel}
             />
-          </motion.div>
+          </GridWrapper>
         );
       })}
     </div>

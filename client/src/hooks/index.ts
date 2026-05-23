@@ -26,3 +26,4 @@ export { useWakeLock } from './useWakeLock'
 export type { WakeLockState } from './useWakeLock'
 
 export { useResponsiveQrSize } from './useResponsiveQrSize'
+export { useFocusTrap } from './useFocusTrap'

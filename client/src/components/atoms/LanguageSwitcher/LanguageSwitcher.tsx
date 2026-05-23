@@ -25,7 +25,7 @@ export function LanguageSwitcher({ language, onChangeLanguage }: LanguageSwitche
               px-3 py-1.5 text-xs font-heading font-medium transition-colors duration-150
               ${isActive
                 ? 'bg-primary text-white'
-                : 'text-text/60 hover:text-text hover:bg-surface-high'
+                : 'text-text-muted hover:text-text hover:bg-surface-high'
               }
             `}
             aria-label={lang.code}

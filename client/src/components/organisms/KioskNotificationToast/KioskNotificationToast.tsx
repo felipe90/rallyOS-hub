@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import { Info, AlertTriangle, AlertCircle, Bell } from 'lucide-react'
 import type { KioskNotificationData } from '@shared/types'
 
@@ -96,6 +96,7 @@ export interface KioskNotificationToastProps {
 export function KioskNotificationToast({ notification, onDismiss }: KioskNotificationToastProps) {
   const Icon = ICON_MAP[notification.type]
   const colorClass = COLOR_MAP[notification.type]
+  const shouldReduceMotion = useReducedMotion()
 
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -117,12 +118,19 @@ export function KioskNotificationToast({ notification, onDismiss }: KioskNotific
     }
   }, [notification.duration, onDismiss])
 
+  const ToastWrapper = shouldReduceMotion ? 'div' : motion.div
+  const toastMotionProps = shouldReduceMotion
+    ? {}
+    : {
+        initial: { y: 100, opacity: 0 },
+        animate: { y: 0, opacity: 1 },
+        exit: { y: 100, opacity: 0 },
+        transition: { type: 'spring', stiffness: 500, damping: 30 },
+      }
+
   return (
-    <motion.div
-      initial={{ y: 100, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      exit={{ y: 100, opacity: 0 }}
-      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+    <ToastWrapper
+      {...toastMotionProps}
       className={`fixed bottom-0 left-0 right-0 z-50 ${colorClass} text-white m-4`}
       role="alert"
     >
@@ -130,6 +138,6 @@ export function KioskNotificationToast({ notification, onDismiss }: KioskNotific
         <Icon className="w-6 h-6 flex-shrink-0" data-testid={`toast-icon-${notification.type}`} />
         <span className="text-lg font-semibold flex-1">{notification.message}</span>
       </div>
-    </motion.div>
+    </ToastWrapper>
   )
 }

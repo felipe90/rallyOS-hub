@@ -113,7 +113,7 @@ export function TableStatusChip({
       <Body className="text-sm text-text/70">{tableName}</Body>
       
       {playerNames && (playerNames.a || playerNames.b) && (
-        <div className="flex gap-2 text-sm text-text/50">
+        <div className="flex gap-2 text-sm text-text-muted">
           <span>{playerNames.a || '-'}</span>
           <span>vs</span>
           <span>{playerNames.b || '-'}</span>
@@ -123,10 +123,10 @@ export function TableStatusChip({
       {/* Sets score for live matches */}
       {currentSets && (currentSets.a > 0 || currentSets.b > 0) && (
         <div className="flex items-center gap-2 mt-1">
-          <Body className="text-xs text-text/50">Sets:</Body>
+          <Body className="text-xs text-text-muted">Sets:</Body>
           <div className="flex gap-1">
             <span className="text-sm font-bold text-text-h">{currentSets.a}</span>
-            <span className="text-text/30">-</span>
+            <span className="text-text-muted">-</span>
             <span className="text-sm font-bold text-text-h">{currentSets.b}</span>
           </div>
         </div>
@@ -136,7 +136,7 @@ export function TableStatusChip({
       {hasPin && (
         <div className="flex items-center gap-2 mt-1 pt-2 border-t border-border/30">
           <div className="flex items-center gap-1">
-            <Body className="text-xs text-text/50">PIN:</Body>
+            <Body className="text-xs text-text-muted">PIN:</Body>
             <Body className="text-sm font-mono font-bold text-primary">{displayPin}</Body>
           </div>
           {joinUrl && (

@@ -23,7 +23,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             w-full px-4 py-3 rounded-[--radius-md]
             font-body text-base
             bg-surface-low text-text-h
-            placeholder:text-text/50
+            placeholder:text-text-muted
             transition-all duration-200
             hover:bg-surface-high
             focus:outline-none focus:ring-2 focus:ring-primary/30 focus:bg-surface

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X, Hand } from 'lucide-react';
 import { preferencesStorage } from '@/services/storage';
+import { useI18n } from '@/i18n';
 
 export interface CoachMarkProps {
   id: string;
@@ -19,6 +20,8 @@ export function CoachMark({
   onDismiss,
 }: CoachMarkProps) {
   const [isVisible, setIsVisible] = useState(false);
+  const shouldReduceMotion = useReducedMotion();
+  const { i18nText } = useI18n();
 
   useEffect(() => {
     if (!show) return;
@@ -44,27 +47,45 @@ export function CoachMark({
   return (
     <AnimatePresence>
       {isVisible && (
-        <motion.div
-          initial={{ y: 50, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: 50, opacity: 0 }}
-          transition={{ duration: 0.3, ease: 'easeOut' }}
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50"
-        >
-          <div className="flex items-center gap-3 px-4 py-3 rounded-full bg-[var(--color-scoreboard-bg-alt)]/90 backdrop-blur-md border border-white/10 shadow-xl">
-            <Hand size={18} className="text-amber shrink-0" />
-            <span className="text-sm text-white font-medium whitespace-nowrap">
-              {message}
-            </span>
-            <button
-              onClick={handleDismiss}
-              className="ml-1 p-1 rounded-full hover:bg-white/10 transition-colors"
-              aria-label="Entendido"
-            >
-              <X size={14} className="text-white/60" />
-            </button>
+        shouldReduceMotion ? (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+            <div className="flex items-center gap-3 px-4 py-3 rounded-full bg-[var(--color-scoreboard-bg-alt)]/90 backdrop-blur-md border border-white/10 shadow-xl">
+              <Hand size={18} className="text-amber shrink-0" />
+              <span className="text-sm text-white font-medium whitespace-nowrap">
+                {message}
+              </span>
+              <button
+                onClick={handleDismiss}
+                className="ml-1 p-1 rounded-full hover:bg-white/10 transition-colors"
+                aria-label={i18nText('commonClose')}
+              >
+                <X size={14} className="text-white/60" />
+              </button>
+            </div>
           </div>
-        </motion.div>
+        ) : (
+          <motion.div
+            initial={{ y: 50, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 50, opacity: 0 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50"
+          >
+            <div className="flex items-center gap-3 px-4 py-3 rounded-full bg-[var(--color-scoreboard-bg-alt)]/90 backdrop-blur-md border border-white/10 shadow-xl">
+              <Hand size={18} className="text-amber shrink-0" />
+              <span className="text-sm text-white font-medium whitespace-nowrap">
+                {message}
+              </span>
+              <button
+                onClick={handleDismiss}
+                className="ml-1 p-1 rounded-full hover:bg-white/10 transition-colors"
+                aria-label={i18nText('commonClose')}
+              >
+                <X size={14} className="text-white/60" />
+              </button>
+            </div>
+          </motion.div>
+        )
       )}
     </AnimatePresence>
   );

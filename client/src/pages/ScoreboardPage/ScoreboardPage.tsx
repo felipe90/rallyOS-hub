@@ -122,7 +122,7 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
           <Button variant="ghost" size="sm" onClick={() => navigate(backRoute)}>{i18nText('scoreboardBack')}</Button>
         </>}
       />
-      <div className="flex-1 overflow-auto bg-primary">
+      <main id="main-content" className="flex-1 overflow-auto bg-primary">
         <ScoreboardMain
           match={currentMatch}
           onScorePoint={handleScorePoint}
@@ -137,7 +137,7 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
           onOrientationToggle={toggleOrientation}
         />
 
-      </div>
+      </main>
 
       {/* Match Config Modal */}
       <MatchConfigModal

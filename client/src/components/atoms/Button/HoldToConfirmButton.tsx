@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback, ReactNode } from 'react';
-import { motion, useAnimation } from 'framer-motion';
+import { motion, useAnimation, useReducedMotion } from 'framer-motion';
 import { Trash2, ArrowLeftRight } from 'lucide-react';
 
 export interface HoldToConfirmButtonProps {
@@ -17,6 +17,7 @@ export function HoldToConfirmButton({
   ariaLabel = 'Hold to confirm',
   variant = 'danger',
 }: HoldToConfirmButtonProps) {
+  const shouldReduceMotion = useReducedMotion()
   const [progress, setProgress] = useState(0);
   const [isHolding, setIsHolding] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -30,14 +31,18 @@ export function HoldToConfirmButton({
     }
     setProgress(0);
     setIsHolding(false);
-    controls.start({ scale: 1 });
-  }, [controls]);
+    if (!shouldReduceMotion) {
+      controls.start({ scale: 1 });
+    }
+  }, [controls, shouldReduceMotion]);
 
   const handlePointerDown = useCallback(() => {
     setIsHolding(true);
     startTimeRef.current = Date.now();
 
-    controls.start({ scale: 0.95 });
+    if (!shouldReduceMotion) {
+      controls.start({ scale: 0.95 });
+    }
 
     timerRef.current = setInterval(() => {
       const elapsed = Date.now() - startTimeRef.current;
@@ -52,7 +57,9 @@ export function HoldToConfirmButton({
         }
         setProgress(0);
         setIsHolding(false);
-        controls.start({ scale: 1 });
+        if (!shouldReduceMotion) {
+          controls.start({ scale: 1 });
+        }
         onConfirm();
       }
     }, 16); // ~60fps updates

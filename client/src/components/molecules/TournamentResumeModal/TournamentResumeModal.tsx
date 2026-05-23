@@ -1,6 +1,8 @@
+import { useRef, useEffect } from 'react'
 import { useI18n } from '@/i18n'
 import { Button } from '@/components/atoms/Button'
 import { Title, Body } from '@/components/atoms/Typography'
+import { useFocusTrap } from '@/hooks/useFocusTrap'
 
 export interface TournamentResumeModalProps {
   isOpen: boolean
@@ -39,6 +41,10 @@ export function TournamentResumeModal({
   onNew,
 }: TournamentResumeModalProps) {
   const { i18nText } = useI18n()
+  const modalRef = useRef<HTMLDivElement>(null)
+
+  // Focus trap + Escape dismiss (Escape dismisses by starting fresh)
+  useFocusTrap(modalRef, isOpen, onNew)
 
   if (!isOpen) return null
 
@@ -48,8 +54,14 @@ export function TournamentResumeModal({
       <div className="absolute inset-0 bg-black/50" />
 
       {/* Modal content */}
-      <div className="card relative bg-surface rounded-lg shadow-xl p-6 w-full max-w-sm">
-        <Title className="text-center mb-2">
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="tournament-resume-modal-title"
+        className="card relative bg-surface rounded-lg shadow-xl p-6 w-full max-w-sm"
+      >
+        <Title id="tournament-resume-modal-title" className="text-center mb-2">
           {i18nText('tournamentResumeTitle')}
         </Title>
 

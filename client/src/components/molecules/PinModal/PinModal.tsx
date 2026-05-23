@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { PinInput } from '../../atoms/PinInput'
 import { Button } from '../../atoms/Button'
 import { Body, Title } from '../../atoms/Typography'
+import { useFocusTrap } from '../../../hooks/useFocusTrap'
 
 export interface PinModalProps {
   isOpen: boolean
@@ -31,6 +32,9 @@ export function PinModal({
   submitLoadingLabel = 'Verificando...',
 }: PinModalProps) {
   const [pin, setPin] = useState('')
+
+  const modalRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(modalRef, isOpen, onClose)
 
   // Reset PIN when modal opens
   useEffect(() => {
@@ -68,8 +72,14 @@ export function PinModal({
       />
       
       {/* Modal content */}
-      <div className="card relative bg-surface rounded-lg shadow-xl p-6 w-full max-w-sm">
-        <Title className="text-center mb-2">{title}</Title>
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="pin-modal-title"
+        className="card relative bg-surface rounded-lg shadow-xl p-6 w-full max-w-sm"
+      >
+        <Title id="pin-modal-title" className="text-center mb-2">{title}</Title>
         
         <Body className="text-center text-text/70 mb-6">
           {forTableLabel.replace('{{tableName}}', tableName)}

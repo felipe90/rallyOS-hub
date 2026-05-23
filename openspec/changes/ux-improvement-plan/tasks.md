@@ -42,17 +42,17 @@ Chain strategy: stacked-to-main
 
 ## Phase 2: Accessibility Core
 
-- [ ] 2.1 Create `--color-text-muted` token in `@theme` with ≥4.5:1 contrast; replace `text-text/30`, `text-text/50`, `text-text/60` across all component files
-- [ ] 2.2 Create `useFocusTrap(containerRef, isActive)` hook in `hooks/useFocusTrap.ts`
-- [ ] 2.3 Add `role="dialog" aria-modal="true"` + `useFocusTrap` to MatchConfigModal, PinModal, KioskNotificationModal, TournamentResumeModal
-- [ ] 2.4 Add Escape-key dismiss to TournamentResumeModal
-- [ ] 2.5 Add `role="alertdialog"` to ConfirmDialog
-- [ ] 2.6 Add `<main id="main-content">` wrapper to KioskAllTablesPage, ScoreboardPage, OwnerDashboardPage, RefereeDashboardPage, HistoryViewPage
-- [ ] 2.7 Add skip-to-main-content link as first focusable element in `index.html`
-- [ ] 2.8 Add `useReducedMotion()` guard to 10 animated components: ConnectionStatus, CoachMark, HistoryDrawer, KioskNotificationToast, Button, ToggleButton, DashboardGrid, StatCard, ScoreDisplay, HoldToConfirmButton
-- [ ] 2.9 Change `<meta name="viewport">` `maximum-scale=1.0` → `maximum-scale=5.0` in `index.html`
-- [ ] 2.10 Add `aria-label` via i18n to all icon-only buttons: undo, close, settings, history
-- [ ] 2.11 Add `<label htmlFor>` to MatchConfigModal player name inputs (wrap existing inputs)
+- [x] 2.1 Create `--color-text-muted` token in `@theme` with ≥4.5:1 contrast; replace `text-text/30`, `text-text/50`, `text-text/60` across all component files
+- [x] 2.2 Create `useFocusTrap(containerRef, isActive)` hook in `hooks/useFocusTrap.ts`
+- [x] 2.3 Add `role="dialog" aria-modal="true"` + `useFocusTrap` to MatchConfigModal, PinModal, KioskNotificationModal, TournamentResumeModal
+- [x] 2.4 Add Escape-key dismiss to TournamentResumeModal
+- [x] 2.5 Add `role="alertdialog"` to ConfirmDialog
+- [x] 2.6 Add `<main id="main-content">` wrapper to KioskAllTablesPage, ScoreboardPage, OwnerDashboardPage, RefereeDashboardPage, HistoryViewPage
+- [x] 2.7 Add skip-to-main-content link as first focusable element in `index.html`
+- [x] 2.8 Add `useReducedMotion()` guard to 10 animated components: ConnectionStatus, CoachMark, HistoryDrawer, KioskNotificationToast, Button, ToggleButton, DashboardGrid, StatCard, ScoreDisplay, HoldToConfirmButton
+- [x] 2.9 Change `<meta name="viewport">` `maximum-scale=1.0` → `maximum-scale=5.0` in `index.html`
+- [x] 2.10 Add `aria-label` via i18n to all icon-only buttons: undo, close, settings, history
+- [x] 2.11 Add `<label htmlFor>` to MatchConfigModal player name inputs (wrap existing inputs)
 
 ## Phase 3: Component Fixes
 

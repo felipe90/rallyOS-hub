@@ -78,7 +78,7 @@ export function HistoryViewPage() {
         }
       />
 
-      <div className="flex-1 overflow-auto p-4 bg-primary/10">
+      <main id="main-content" className="flex-1 overflow-auto p-4 bg-primary/10">
         {isLoading ? (
           <div className="text-center text-text-muted py-12">
             <Typography variant="body">{i18nText('historyLoading')}</Typography>
@@ -90,7 +90,7 @@ export function HistoryViewPage() {
             <Typography variant="body">{i18nText('historyNoEvents')}</Typography>
           </div>
         )}
-      </div>
+      </main>
     </div>
   )
 }

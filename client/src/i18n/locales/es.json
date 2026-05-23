@@ -139,5 +139,8 @@
   "finishTournamentConfirm": "¿Finalizar torneo? Se archivará y ya no se podrá editar.",
   "finishTournamentExportCsv": "Exportar CSV antes de finalizar",
   "exportCsv": "Exportar CSV",
-  "tournamentFinishSuccess": "Torneo finalizado y archivado"
+  "tournamentFinishSuccess": "Torneo finalizado y archivado",
+  "commonClose": "Cerrar",
+  "historyUndo": "Deshacer última acción",
+  "scoreboardSettings": "Configuración"
 }

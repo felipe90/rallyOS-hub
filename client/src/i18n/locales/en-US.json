@@ -139,5 +139,8 @@
   "finishTournamentConfirm": "End tournament? It will be archived and can no longer be edited.",
   "finishTournamentExportCsv": "Export CSV before finishing",
   "exportCsv": "Export CSV",
-  "tournamentFinishSuccess": "Tournament finished and archived"
+  "tournamentFinishSuccess": "Tournament finished and archived",
+  "commonClose": "Close",
+  "historyUndo": "Undo last action",
+  "scoreboardSettings": "Settings"
 }

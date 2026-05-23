@@ -123,7 +123,7 @@ export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashb
         }
       />
 
-      <div className="flex-1 overflow-auto bg-primary/10">
+      <main id="main-content" className="flex-1 overflow-auto bg-primary/10">
         <div className="p-4">
           <DashboardHeader
             totalTables={stats.totalTables}
@@ -152,7 +152,7 @@ export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashb
             showQr={false}
           />
         </div>
-      </div>
+      </main>
 
       <PinModal
         isOpen={pinModalOpen}

@@ -165,7 +165,7 @@ export function KioskAllTablesPage() {
                 https://{hubConfig.domain}:{hubConfig.port}
               </Typography>
               {hubConfig.wifiPassword && (
-                <Typography variant="label" className="text-text/60 text-xs">
+                <Typography variant="label" className="text-text-muted text-xs">
                   {i18nText('scoreboardWifiDomain', { domain: hubConfig.domain })}
                 </Typography>
               )}
@@ -175,9 +175,10 @@ export function KioskAllTablesPage() {
       </div>
 
       {/* Content */}
+      <main id="main-content" className="flex-1 flex flex-col">
       {activeTables.length === 0 ? (
         <div className="flex-1 flex items-center justify-center">
-          <Typography variant="title" className="text-2xl text-text/60 text-center px-4">
+          <Typography variant="title" className="text-2xl text-text-muted text-center px-4">
             {i18nText('kioskNoActiveMatches')}
           </Typography>
         </div>
@@ -216,6 +217,7 @@ export function KioskAllTablesPage() {
           ))}
         </div>
       )}
+      </main>
 
       {/* Kiosk Notification Toast */}
       {visibleNotification && (

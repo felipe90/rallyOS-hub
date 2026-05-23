@@ -84,7 +84,7 @@ export function KioskTableCard({ table, className = '', condensed = false }: Kio
       {/* Set scores */}
       {currentSets && (currentSets.a > 0 || currentSets.b > 0) && (
         <div className="flex items-center justify-center gap-2 mt-2">
-          <Typography variant="label" className={`text-text/50 normal-case ${condensed ? 'text-base md:text-lg' : 'text-lg md:text-xl'}`}>
+          <Typography variant="label" className={`text-text-muted normal-case ${condensed ? 'text-base md:text-lg' : 'text-lg md:text-xl'}`}>
             Sets:
           </Typography>
           <span className={`font-heading font-bold leading-none text-text-h ${condensed ? 'text-xl md:text-2xl' : 'text-2xl md:text-3xl'}`}>

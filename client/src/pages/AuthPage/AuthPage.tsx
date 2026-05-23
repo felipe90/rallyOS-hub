@@ -136,7 +136,7 @@ export function AuthPage() {
               <Typography variant="body" className="text-center text-muted-foreground">
                 {i18nText('authOwnerPinDescription')}
               </Typography>
-              <div className="flex flex-col items-center gap-2 p-4 bg-surface-low rounded-lg border border-outline/20">
+              <div className="card flex flex-col items-center gap-2 p-4 bg-surface-low rounded-lg border border-outline/20">
                 <Typography variant="label" className="text-muted-foreground">
                   {i18nText('authOwnerPinYourPinIs')}
                 </Typography>

@@ -231,18 +231,6 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
         >
           {i18nText('ownerViewHistory')}
         </Button>
-        {/* End Tournament button — only for owners when tables exist */}
-        {isOwner && hasTables && (
-          <Button
-            variant="danger"
-            size="sm"
-            onClick={() => setFinishDialogOpen(true)}
-            animate={false}
-            icon={<Flag size={18} />}
-          >
-            {i18nText('finishTournament')}
-          </Button>
-        )}
         {/* Export CSV button — only for owners when FINISHED tables exist */}
         {isOwner && hasFinishedTables && (
           <Button
@@ -253,6 +241,18 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
             icon={<Download size={18} />}
           >
             {i18nText('exportCsv')}
+          </Button>
+        )}
+        {/* End Tournament button — only for owners when tables exist */}
+        {isOwner && hasTables && (
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={() => setFinishDialogOpen(true)}
+            animate={false}
+            icon={<Flag size={18} />}
+          >
+            {i18nText('finishTournament')}
           </Button>
         )}
       </>
@@ -383,7 +383,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
             className="absolute inset-0 bg-black/50"
             onClick={() => setFinishDialogOpen(false)}
           />
-          <div className="relative bg-surface rounded-lg shadow-xl p-6 w-full max-w-sm">
+          <div className="card relative bg-surface rounded-lg shadow-xl p-6 w-full max-w-sm">
             <div className="flex justify-center mb-4">
               <div className="bg-red-100 text-red-600 p-3 rounded-full">
                 <Flag size={32} />

@@ -29,11 +29,11 @@ export function useAutoUpdateBanner({ onUpdateAvailable }: AutoUpdateBannerProps
 
   // Banner component for lazy rendering
   const Banner = isUpdating ? (
-    <div className="fixed bottom-4 left-4 right-4 bg-primary text-white px-4 py-3 rounded-lg shadow-lg flex items-center justify-center z-50">
+    <div className="card fixed bottom-4 left-4 right-4 bg-primary text-white px-4 py-3 rounded-lg shadow-lg flex items-center justify-center z-50">
       <span className="text-sm font-medium">Actualizando...</span>
     </div>
   ) : showBanner ? (
-    <div className="fixed bottom-4 left-4 right-4 bg-surface px-4 py-3 rounded-lg shadow-lg flex items-center justify-between z-50">
+    <div className="card fixed bottom-4 left-4 right-4 bg-surface px-4 py-3 rounded-lg shadow-lg flex items-center justify-between z-50">
       <span className="text-sm text-text">Nueva versión disponible</span>
       <div className="flex gap-2">
         <button

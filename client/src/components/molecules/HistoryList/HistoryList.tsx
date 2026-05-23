@@ -79,7 +79,7 @@ export function HistoryList({
         return (
           <div
             key={event.id ?? idx}
-            className="p-3 bg-surface-secondary rounded-lg border border-border hover:border-primary/50 transition-colors"
+            className="card p-3 bg-surface-secondary rounded-lg border border-border hover:border-primary/50 transition-colors"
           >
             <div className="flex items-center justify-between mb-1">
               <Typography variant="body" className="font-semibold">

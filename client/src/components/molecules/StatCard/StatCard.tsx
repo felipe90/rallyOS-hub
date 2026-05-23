@@ -39,7 +39,7 @@ export function StatCard({
   return (
     <motion.div
       className={`
-        flex flex-col gap-3 p-5 rounded-[--radius-lg]
+        card flex flex-col gap-3 p-5 rounded-[--radius-lg]
         bg-surface shadow-sm
         transition-all duration-200
         hover:shadow-md
@@ -80,7 +80,7 @@ interface MiniStatCardProps {
 
 export function MiniStatCard({ label, value, icon }: MiniStatCardProps) {
   return (
-    <div className="flex items-center gap-3 p-3 rounded-[--radius-md] bg-surface-low">
+    <div className="card flex items-center gap-3 p-3 rounded-[--radius-md] bg-surface-low">
       {icon && <span className="text-text/50">{icon}</span>}
       <div className="flex flex-col">
         <Caption className="text-text/50">{label}</Caption>

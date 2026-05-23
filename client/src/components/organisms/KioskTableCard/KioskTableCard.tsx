@@ -39,7 +39,7 @@ export function KioskTableCard({ table, className = '', condensed = false }: Kio
     <div
       data-condensed={condensed ? 'true' : 'false'}
       className={`
-        bg-surface shadow-lg rounded-3xl
+        card bg-surface shadow-lg rounded-3xl
         ${condensed ? 'p-4 md:p-5' : 'p-6 md:p-8'}
         flex flex-col gap-4
         ${className}

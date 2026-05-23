@@ -98,7 +98,7 @@ export function TableStatusChip({
     <div
       onClick={onClick}
       className={`
-        flex flex-col gap-2 p-4 rounded-[--radius-md]
+        card flex flex-col gap-2 p-4 rounded-[--radius-md]
         bg-surface shadow-sm hover:shadow-md
         transition-shadow duration-200
         cursor-pointer

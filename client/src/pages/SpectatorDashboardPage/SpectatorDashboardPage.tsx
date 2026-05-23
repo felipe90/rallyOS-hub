@@ -70,7 +70,7 @@ export function SpectatorDashboardPage(_props: SpectatorDashboardPageProps) {
             {availableTables.map((table) => (
               <div
                 key={table.id}
-                className="p-4 bg-surface-secondary rounded-lg border border-border cursor-pointer hover:border-primary transition-colors"
+                className="card p-4 bg-surface-secondary rounded-lg border border-border cursor-pointer hover:border-primary transition-colors"
                 onClick={() => handleJoinTable(table.id)}
               >
                 <h3 className="font-heading font-bold text-lg mb-2">{table.name}</h3>

@@ -48,7 +48,7 @@ export function TournamentResumeModal({
       <div className="absolute inset-0 bg-black/50" />
 
       {/* Modal content */}
-      <div className="relative bg-surface rounded-lg shadow-xl p-6 w-full max-w-sm">
+      <div className="card relative bg-surface rounded-lg shadow-xl p-6 w-full max-w-sm">
         <Title className="text-center mb-2">
           {i18nText('tournamentResumeTitle')}
         </Title>

@@ -68,7 +68,7 @@ export function PinModal({
       />
       
       {/* Modal content */}
-      <div className="relative bg-surface rounded-lg shadow-xl p-6 w-full max-w-sm">
+      <div className="card relative bg-surface rounded-lg shadow-xl p-6 w-full max-w-sm">
         <Title className="text-center mb-2">{title}</Title>
         
         <Body className="text-center text-text/70 mb-6">

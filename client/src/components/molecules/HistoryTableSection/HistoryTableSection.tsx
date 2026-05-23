@@ -42,7 +42,7 @@ export function HistoryTableSection({
   }, [handicap, playerNames])
 
   return (
-    <div className="border border-border rounded-lg bg-surface overflow-hidden">
+    <div className="card border border-border rounded-lg bg-surface overflow-hidden">
       <button
         onClick={() => setIsExpanded(!isExpanded)}
         className="w-full flex items-center justify-between px-3 py-2 hover:bg-surface-hover transition-colors text-left"

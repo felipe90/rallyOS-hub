@@ -94,6 +94,12 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
     }
   }, [])
 
+  // Prevent overscroll on scoreboard page
+  useEffect(() => {
+    document.body.classList.add('scoreboard-page')
+    return () => { document.body.classList.remove('scoreboard-page') }
+  }, [])
+
   if (!tableId) return <div>{i18nText('scoreboardInvalidTableId')}</div>
   if (refRevoked) return <RefRevokedView />
   if (!currentMatch) return <LoadingView />

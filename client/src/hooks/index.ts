@@ -24,3 +24,5 @@ export { useAuthFlow } from './useAuthFlow'
 export { useTableManagement } from './useTableManagement'
 export { useWakeLock } from './useWakeLock'
 export type { WakeLockState } from './useWakeLock'
+
+export { useResponsiveQrSize } from './useResponsiveQrSize'

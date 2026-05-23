@@ -56,7 +56,7 @@ export function ConfirmDialog({
       <div className="absolute inset-0 bg-black/50" onClick={onCancel} />
       
       {/* Dialog */}
-      <div className="relative bg-surface rounded-lg shadow-xl p-6 w-full max-w-sm">
+      <div className="card relative bg-surface rounded-lg shadow-xl p-6 w-full max-w-sm">
         {/* Icon */}
         <div className="flex justify-center mb-4">
           <div className={`${config.iconBg} ${config.iconColor} p-3 rounded-full`}>

@@ -23,7 +23,7 @@ export function ScoreDisplay({
   return (
     <motion.div
       className={`
-        flex flex-col items-center gap-2 p-6 rounded-[--radius-lg]
+        card flex flex-col items-center gap-2 p-6 rounded-[--radius-lg]
         ${serving ? 'bg-surface-high' : 'bg-surface'}
         ${winner ? 'ring-2 ring-amber' : 'shadow-md'}
         transition-all duration-300

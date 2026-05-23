@@ -147,7 +147,7 @@ export function KioskAllTablesPage() {
 
       {/* Header — Logo + QR (always visible) */}
       <div className="flex items-center justify-between px-8 pt-6 pb-4">
-        <img src={logoBig} alt="RallyOS" style={{ height: qrSize }} className="w-auto" />
+        <img src={logoBig} alt="RallyOS" style={{ height: qrSize }} className="w-auto rounded-[--radius-md]" />
         {hubConfig?.domain && (
           <div className="flex items-center gap-3">
             {hubConfig.wifiPassword && (

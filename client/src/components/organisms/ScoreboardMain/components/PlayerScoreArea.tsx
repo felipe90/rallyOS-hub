@@ -72,10 +72,10 @@ export function PlayerScoreArea({
   const tapBgColor = isLeft ? 'bg-[var(--color-scoreboard-bg)]' : 'bg-[var(--color-scoreboard-bg-alt)]';
 
   return (
-    <div className="flex-1 flex flex-col">
+    <div className="flex-1 relative">
       <motion.section
         className={`
-          flex-1 flex flex-col relative overflow-hidden
+          absolute inset-0 flex flex-col overflow-hidden
           ${tapBgColor}
           cursor-pointer select-none
         `}
@@ -90,13 +90,13 @@ export function PlayerScoreArea({
 
         {/* Score Overlay */}
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
-          <div className="text-center mb-2">
-            <span className="text-sm text-[var(--color-score-muted)] font-medium tracking-tight">
+          <div className="text-center mb-4">
+            <span className="text-3xl text-[var(--color-score-muted)] font-bold tracking-tight">
               {playerName || `Player ${side}`}
             </span>
             {isReferee && handicap !== undefined && handicap !== 0 && (
               <span className={`
-                inline-block px-3 py-0.5 rounded-full text-xs font-bold uppercase mt-1 ml-2
+                inline-block px-4 py-1 rounded-full text-sm font-bold uppercase mt-2 ml-3
                 ${handicap > 0 ? 'bg-white/10 text-[var(--color-score-positive)]' : 'bg-white/10 text-[var(--color-score-negative)]'}
               `}>
                 {handicap > 0 ? `+${handicap}` : handicap} HCP
@@ -105,7 +105,7 @@ export function PlayerScoreArea({
           </div>
 
           {/* Responsive score font with clamp - bright crisp white */}
-          <div className="font-heading font-bold text-[clamp(8rem,20vw,18rem)] leading-none text-white tracking-tighter">
+          <div className="font-heading font-bold text-[clamp(14rem,30vw,26rem)] leading-none text-white tracking-tighter">
             {shouldReduceMotion ? (
               score
             ) : (
@@ -127,12 +127,12 @@ export function PlayerScoreArea({
 
           {/* Sets Won Indicators */}
           {isReferee && (
-            <div className="flex gap-2 mt-2">
+            <div className="flex gap-3 mt-4">
               {Array.from({ length: totalSets }).map((_, i) => (
                 <div
                   key={i}
                   className={`
-                    w-3 h-3 rounded-full
+                    w-5 h-5 rounded-full
                     ${i < setsWon ? 'bg-amber' : 'bg-white/30'}
                   `}
                 />
@@ -142,22 +142,22 @@ export function PlayerScoreArea({
         </div>
       </motion.section>
 
-      {/* Undo Button — outside the tappable scoring area, centered below */}
+      {/* Undo Button — floating below the score area, doesn't consume space */}
       {isReferee && (
-        <div className={`flex ${isLeft ? 'justify-end' : 'justify-start'} px-6 py-4`}>
+        <div className={`absolute bottom-6 z-20 ${isLeft ? 'right-6' : 'left-6'}`}>
           <button
             onClick={handleUndo}
             className={`
-              size-16 rounded-full
+              size-20 rounded-full
               flex items-center justify-center
               bg-white/5 hover:bg-white/10
               text-white/40 hover:text-white
               transition-colors duration-200
-              p-3
+              p-4
             `}
             aria-label={`Undo point for Player ${side}`}
           >
-            <Undo2 size={24} />
+            <Undo2 size={32} />
           </button>
         </div>
       )}

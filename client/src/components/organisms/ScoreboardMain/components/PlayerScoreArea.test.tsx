@@ -132,17 +132,17 @@ describe('PlayerScoreArea', () => {
     expect(section.contains(undoButton)).toBe(false);
   });
 
-  it('undo button has increased touch target size (size-16 / 64px)', () => {
+  it('undo button has increased touch target size (size-20 / 80px)', () => {
     render(<PlayerScoreArea {...defaultProps} />);
 
     const undoButton = screen.getByLabelText(/Undo/);
-    expect(undoButton.className).toContain('size-16');
+    expect(undoButton.className).toContain('size-20');
   });
 
   it('undo button has icon padding class', () => {
     render(<PlayerScoreArea {...defaultProps} />);
 
     const undoButton = screen.getByLabelText(/Undo/);
-    expect(undoButton.className).toContain('p-3');
+    expect(undoButton.className).toContain('p-4');
   });
 });

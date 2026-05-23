@@ -6,13 +6,13 @@ import type { KioskNotificationData } from '@shared/types'
 // ── Color mapping per type ───────────────────────────────────────────
 
 const COLOR_MAP: Record<KioskNotificationData['type'], string> = {
-  info: 'bg-green-500/90',
-  warning: 'bg-yellow-500/90',
-  error: 'bg-red-500/90',
-  important: 'bg-blue-500/90',
+  info: 'bg-green-600',
+  warning: 'bg-amber-500',
+  error: 'bg-red-600',
+  important: 'bg-primary',
 }
 
-const ICON_MAP: Record<KioskNotificationData['type'], React.ComponentType<{ className?: string }>> = {
+const ICON_MAP: Record<KioskNotificationData['type'], React.ComponentType<{ size?: number }>> = {
   info: Info,
   warning: AlertTriangle,
   error: AlertCircle,
@@ -131,12 +131,12 @@ export function KioskNotificationToast({ notification, onDismiss }: KioskNotific
   return (
     <ToastWrapper
       {...toastMotionProps}
-      className={`fixed bottom-0 left-0 right-0 z-50 ${colorClass} text-white m-4`}
+      className={`fixed bottom-0 left-0 right-0 z-50 ${colorClass} text-white m-4 rounded-lg shadow-lg`}
       role="alert"
     >
-      <div className="flex items-center gap-3 px-6 py-4 max-w-4xl mx-auto">
-        <Icon className="w-6 h-6 flex-shrink-0" data-testid={`toast-icon-${notification.type}`} />
-        <span className="text-lg font-semibold flex-1">{notification.message}</span>
+      <div className="flex items-center justify-center gap-6 px-8 py-6 max-w-6xl mx-auto">
+        <span className="shrink-0" data-testid={`toast-icon-${notification.type}`}><Icon size={40} /></span>
+        <span className="text-lg font-semibold">{notification.message}</span>
       </div>
     </ToastWrapper>
   )

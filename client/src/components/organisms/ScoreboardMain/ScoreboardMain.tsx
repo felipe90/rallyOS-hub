@@ -1,7 +1,6 @@
 import { useMatchDisplay } from '../../../hooks/useMatchDisplay';
 import type { MatchStateExtended } from '@shared/types';
 import { ScoreboardBar } from './components/ScoreboardBar';
-import { ScoreboardHeader } from './components/ScoreboardHeader';
 import { PlayerScoreArea } from './components/PlayerScoreArea';
 import { VSDivider, BackgroundDecor } from './components/ScoreDecorations';
 import { ToggleButton } from '../../atoms/Button/ToggleButton';
@@ -14,10 +13,7 @@ export interface ScoreboardMainProps {
   onScorePoint: (player: 'A' | 'B') => void;
   onSubtractPoint?: (player: 'A' | 'B') => void;
   onUndo?: () => void;
-  onHistoryClick?: () => void;
-  onSettingsClick?: () => void;
   onSwapSides?: () => void;
-  onBackClick?: () => void;
   isReferee?: boolean;
   isConnected?: boolean;
   isLandscape?: boolean;
@@ -30,10 +26,7 @@ export function ScoreboardMain({
   onScorePoint,
   onSubtractPoint,
   onUndo,
-  onHistoryClick,
-  onSettingsClick,
   onSwapSides,
-  onBackClick,
   isReferee = false,
   isConnected = true,
   isLandscape = false,
@@ -42,7 +35,7 @@ export function ScoreboardMain({
 }: ScoreboardMainProps) {
   const { i18nText } = useI18n();
   const { status, history } = match;
-  
+
   const {
     setsA,
     setsB,
@@ -61,8 +54,6 @@ export function ScoreboardMain({
     rightServing,
   } = useMatchDisplay(match);
 
-  const hasHistory = Boolean(history && history.length > 0);
-
   return (
     <div className={`
       flex flex-col h-full relative
@@ -76,9 +67,6 @@ export function ScoreboardMain({
         status={status}
         score={match.score}
         setHistory={match.setHistory}
-        hasHistory={hasHistory}
-        onHistoryClick={onHistoryClick}
-        onSettingsClick={onSettingsClick}
         isLandscape={isLandscape}
       />
 
@@ -87,19 +75,6 @@ export function ScoreboardMain({
         flex-1 flex flex-col relative
         ${isLandscape ? 'min-h-dvh' : ''}
       `}>
-        {/* Header - hidden in landscape mode */}
-        {!isLandscape && (
-          <ScoreboardHeader 
-            isConnected={isConnected}
-            setsA={setsA}
-            setsB={setsB}
-            hasHistory={hasHistory}
-            onHistoryClick={onHistoryClick}
-            onSettingsClick={onSettingsClick}
-            onBackClick={onBackClick}
-          />
-        )}
-
         {/* Orientation Toggle Button - visible for all roles */}
         {onOrientationToggle && (
           <ToggleButton

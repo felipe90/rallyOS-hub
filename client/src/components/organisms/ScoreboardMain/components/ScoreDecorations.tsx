@@ -9,13 +9,13 @@ interface VSDividerProps {
 export function VSDivider({ onSwapSides }: VSDividerProps) {
   return (
     <div className="w-px bg-white/10 relative z-30 flex flex-col items-center justify-center">
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 bg-white/5 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/10">
-        <span className="font-heading font-bold text-xs text-white/40 italic">VS</span>
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-white/5 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/10">
+        <span className="font-heading font-bold text-base text-white/40 italic">VS</span>
       </div>
       
-      {/* Swap sides button for referee */}
+      {/* Swap sides button for referee — right below VS */}
       {onSwapSides && (
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 translate-y-[44px]">
           <HoldToConfirmButton
             onConfirm={onSwapSides}
             holdDuration={1500}
@@ -41,11 +41,11 @@ export function BackgroundDecor() {
 export function ServingIndicator({ side }: { side: 'A' | 'B' }) {
   return (
     <div 
-      className="absolute top-4 z-20 flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber/10 border border-amber/20 backdrop-blur-sm"
-      style={{ [side === 'A' ? 'left' : 'right']: '1rem' }}
+      className="absolute top-6 z-20 flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber/10 border border-amber/20 backdrop-blur-sm"
+      style={{ [side === 'A' ? 'left' : 'right']: '1.5rem' }}
     >
-      <div className="w-2 h-2 bg-amber rounded-full animate-pulse" />
-      <span className="text-amber text-xs font-bold uppercase tracking-wider">Saque</span>
+      <div className="w-3 h-3 bg-amber rounded-full animate-pulse" />
+      <span className="text-amber text-sm font-bold uppercase tracking-wider">Saque</span>
     </div>
   );
 }

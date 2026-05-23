@@ -103,7 +103,7 @@ export function AuthPage() {
   return (
     <div className="flex flex-col items-center justify-center min-h-dvh bg-surface gap-8 p-4">
       <div className="flex flex-col items-center gap-4">
-        <img src={logoBig} alt="RallyOS" className="w-32 h-auto mb-2" />
+        <img src={logoBig} alt="RallyOS" className="w-32 h-auto mb-2 rounded-[--radius-md]" />
         <Typography variant="title">
           {mode === 'select' ? i18nText('authSelectRole') : i18nText('authEnterOwnerPin')}
         </Typography>

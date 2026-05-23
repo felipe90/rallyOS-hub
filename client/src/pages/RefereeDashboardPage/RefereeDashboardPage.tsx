@@ -3,7 +3,7 @@
  * Simplified dashboard for referees - can join tables with PIN but cannot create them
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useI18n } from '@/i18n'
 import { DashboardGrid } from '@/components/organisms/DashboardGrid'
@@ -43,10 +43,13 @@ export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashb
   }, [connected, requestTables])
 
   // Auto-restore valid referee session — skip PIN modal if session exists
+  // Only runs once per mount to prevent re-navigating after back button
+  const hasRestored = useRef(false)
   useEffect(() => {
-    if (!connected || tables.length === 0) return
+    if (!connected || tables.length === 0 || hasRestored.current) return
     const session = findAnyValidSession(tables)
     if (session) {
+      hasRestored.current = true
       setTablePin(session.pin)
       navigate(buildScoreboardRoute(session.tableId, 'referee'))
     }

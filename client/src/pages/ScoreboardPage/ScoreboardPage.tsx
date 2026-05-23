@@ -152,10 +152,7 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
           onScorePoint={handleScorePoint}
           onSubtractPoint={handleSubtractPoint}
           onUndo={handleUndo}
-          onSettingsClick={() => handleSetServer('A')}
           onSwapSides={handleSwapSides}
-          onHistoryClick={() => setHistoryOpen(true)}
-          onBackClick={() => navigate(backRoute)}
           isReferee={canEdit}
           isLandscape={isLandscape}
           onOrientationToggle={toggleOrientation}

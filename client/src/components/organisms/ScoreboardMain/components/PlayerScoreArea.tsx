@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Undo2 } from 'lucide-react';
+import { useI18n } from '@/i18n';
 import { ServingIndicator } from './ScoreDecorations';
 
 export interface PlayerScoreAreaProps {
@@ -31,6 +32,7 @@ export function PlayerScoreArea({
   isLeft,
 }: PlayerScoreAreaProps) {
   const shouldReduceMotion = useReducedMotion();
+  const { i18nText } = useI18n();
   const [displayScore, setDisplayScore] = useState(score);
   const prevScoreRef = useRef(score);
 
@@ -99,7 +101,7 @@ export function PlayerScoreArea({
                 inline-block px-4 py-1 rounded-full text-sm font-bold uppercase mt-2 ml-3
                 ${handicap > 0 ? 'bg-white/10 text-[var(--color-score-positive)]' : 'bg-white/10 text-[var(--color-score-negative)]'}
               `}>
-                {handicap > 0 ? `+${handicap}` : handicap} HCP
+                {handicap > 0 ? `+${handicap}` : handicap} {i18nText('matchConfigHandicap')}
               </span>
             )}
           </div>
@@ -127,7 +129,7 @@ export function PlayerScoreArea({
 
           {/* Sets Won Indicators */}
           {isReferee && (
-            <div className="flex gap-3 mt-4">
+            <div className="flex gap-3 mt-4 landscape:absolute landscape:bottom-24 landscape:left-0 landscape:right-0 landscape:justify-center landscape:z-20">
               {Array.from({ length: totalSets }).map((_, i) => (
                 <div
                   key={i}

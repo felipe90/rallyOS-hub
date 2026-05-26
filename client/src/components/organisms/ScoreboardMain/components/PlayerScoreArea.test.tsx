@@ -2,6 +2,17 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { PlayerScoreArea } from './PlayerScoreArea';
 
+vi.mock('@/i18n', () => ({
+  useI18n: () => ({
+    i18nText: (key: string) => {
+      const map: Record<string, string> = {
+        matchConfigHandicap: 'Desventaja',
+      }
+      return map[key] || key
+    },
+  }),
+}));
+
 describe('PlayerScoreArea', () => {
   const defaultProps = {
     isReferee: true,
@@ -76,12 +87,12 @@ describe('PlayerScoreArea', () => {
 
   it('renders handicap when provided', () => {
     render(<PlayerScoreArea {...defaultProps} handicap={2} />);
-    expect(screen.getByText('+2 HCP')).toBeInTheDocument();
+    expect(screen.getByText('+2 Desventaja')).toBeInTheDocument();
   });
 
   it('renders negative handicap', () => {
     render(<PlayerScoreArea {...defaultProps} handicap={-1} />);
-    expect(screen.getByText('-1 HCP')).toBeInTheDocument();
+    expect(screen.getByText('-1 Desventaja')).toBeInTheDocument();
   });
 
   it('renders set indicators', () => {

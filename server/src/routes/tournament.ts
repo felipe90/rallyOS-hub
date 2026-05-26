@@ -84,6 +84,7 @@ export function handleNew(
  */
 export function handleFinish(
   stateStore: StateStore,
+  tableManager: TableManager,
   _req: Request,
   res: Response,
 ): void {
@@ -96,7 +97,7 @@ export function handleFinish(
   }
 
   const archivePath = stateStore.archive();
-  stateStore.clear();
+  tableManager.finishTournament();
 
   res.json({ success: true, archivePath });
 }
@@ -130,7 +131,7 @@ export function createTournamentRouter(
   });
 
   router.post('/finish', authMiddleware, (req: Request, res: Response) => {
-    handleFinish(stateStore, req, res);
+    handleFinish(stateStore, tableManager, req, res);
   });
 
   return router;

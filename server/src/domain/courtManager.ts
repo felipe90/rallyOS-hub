@@ -36,6 +36,7 @@ export class TableManager {
   private stateStore?: StateStore;
 
   public onTableUpdate: (table: TableInfo) => void = () => {};
+  public onTournamentFinish: () => void = () => {};
   public onMatchEvent: (tableId: string, event: any) => void = () => {};
 
   constructor(hubConfig: HubConfig, stateStore?: StateStore) {
@@ -93,8 +94,21 @@ export class TableManager {
     const deleted = this.repository.delete(tableId);
     if (deleted) {
       logger.info({ tableId }, 'Table deleted');
+      if (this.stateStore) {
+        this.autoSave();
+      }
     }
     return deleted;
+  }
+
+  finishTournament(): void {
+    const count = this.repository.getAll().length;
+    this.repository.clear();
+    if (this.stateStore) {
+      this.stateStore.clear();
+    }
+    this.onTournamentFinish();
+    logger.info({ deletedCount: count }, 'Tournament finished — all tables cleared');
   }
 
   // Player management
@@ -301,7 +315,12 @@ export class TableManager {
     table.status = 'WAITING';
 
     logger.info({ tableId, tableName: table.name, oldRefereeId: oldReferee || 'none', newPin: table.pin }, 'Table reset with new PIN');
-    this.notifyUpdate(table);
+    // Only autoSave — skip notifyUpdate (which broadcasts TABLE_LIST without PINs).
+    // The client gets the new PIN via PIN_REGENERATED + TABLE_LIST_WITH_PINS,
+    // avoiding a race where TABLE_LIST overwrites TABLE_LIST_WITH_PINS state.
+    if (this.stateStore) {
+      this.autoSave();
+    }
 
     return table.pin;
   }

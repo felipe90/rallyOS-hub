@@ -182,6 +182,16 @@ export class TableEventHandler extends SocketHandlerBase {
         return this.emitError(socket, 'UNAUTHORIZED', 'No autorizado');
       }
 
+      // Kick current referee before deleting
+      const refSocketId = this.tableManager.getRefereeSocketId(data.tableId);
+      if (refSocketId) {
+        this.io.to(refSocketId).emit(SocketEvents.SERVER.REF_REVOKED, {
+          tableId: data.tableId,
+          reason: 'Eliminada'
+        });
+        this.io.in(refSocketId).socketsLeave(data.tableId);
+      }
+
       // Notify room and delete
       this.io.to(data.tableId).emit(SocketEvents.SERVER.TABLE_DELETED, { tableId: data.tableId });
       this.io.in(data.tableId).socketsLeave(data.tableId);

@@ -233,21 +233,9 @@ describe('TableTennisDisplayAdapter', () => {
   })
 
   describe('getConfigFields', () => {
-    it('returns pointsPerSet field for TT config', () => {
+    it('returns no sport-specific config fields (TT has no adjustable params)', () => {
       const fields = adapter.getConfigFields()
-      expect(fields.length).toBe(1)
-
-      const names = fields.map(f => f.name)
-      expect(names).toContain('pointsPerSet')
-      // bestOf and handicap are in the common modal UI, not here
-      expect(names).not.toContain('handicapA')
-    })
-
-    it('pointsPerSet is a number field with min/max', () => {
-      const field = adapter.getConfigFields().find(f => f.name === 'pointsPerSet')!
-      expect(field.type).toBe('number')
-      expect(field.min).toBe(1)
-      expect(field.max).toBe(99)
+      expect(fields.length).toBe(0)
     })
   })
 

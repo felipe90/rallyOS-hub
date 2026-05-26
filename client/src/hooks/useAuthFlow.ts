@@ -30,9 +30,11 @@ export interface AuthFlowConfig {
   setOwner: (isOwner: boolean, pin?: string) => void
   login: (role: 'owner', tableId?: string, pin?: string) => void
   setTournamentToken: (token: string) => void
+  /** Called after owner is verified and tournament status is resolved */
+  onOwnerResolved?: () => void
 }
 
-export function useAuthFlow({ socket, connected, setOwner, login, setTournamentToken }: AuthFlowConfig) {
+export function useAuthFlow({ socket, connected, setOwner, login, setTournamentToken, onOwnerResolved }: AuthFlowConfig) {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [tournamentStatus, setTournamentStatus] = useState<TournamentStatus>({
@@ -78,20 +80,20 @@ export function useAuthFlow({ socket, connected, setOwner, login, setTournamentT
             matchCount: status.matchCount ?? 0,
             lastSaved: status.lastSaved ?? null,
           })
-          // If no tournament exists, go straight to dashboard
+          // If no tournament exists, proceed to sport selection
           if (!status.exists) {
-            navigate(Routes.DASHBOARD_OWNER)
+            onOwnerResolved?.()
           }
         })
         .catch(() => {
-          // If status check fails, proceed to dashboard
+          // If status check fails, proceed to sport selection
           setTournamentStatus({
             checking: false,
             exists: false,
             matchCount: 0,
             lastSaved: null,
           })
-          navigate(Routes.DASHBOARD_OWNER)
+          onOwnerResolved?.()
         })
     }
 
@@ -114,7 +116,7 @@ export function useAuthFlow({ socket, connected, setOwner, login, setTournamentT
     async (action: 'load' | 'new') => {
       const token = tokenRef.current
       if (!token) {
-        navigate(Routes.DASHBOARD_OWNER)
+      onOwnerResolved?.()
         return
       }
 

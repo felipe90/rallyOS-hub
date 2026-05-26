@@ -144,7 +144,7 @@ export interface DashboardHeaderProps {
   onViewModeChange: (mode: 'grid' | 'list') => void;
   actions?: ReactNode;
   statIcons?: {
-    mesas?: ReactNode;
+    canchas?: ReactNode;
     partidos?: ReactNode;
     jugadores?: ReactNode;
   };
@@ -222,7 +222,7 @@ export function DashboardHeader({
       </div>
       
       <div className="grid grid-cols-3 gap-4">
-        <StatCard title={statLabels.tables || ''} value={totalTables ?? 0} icon={statIcons?.mesas} />
+        <StatCard title={statLabels.tables || ''} value={totalTables ?? 0} icon={statIcons?.canchas} />
         <StatCard title={statLabels.matches || ''} value={liveMatches ?? 0} icon={statIcons?.partidos} />
         <StatCard title={statLabels.players || ''} value={activePlayers ?? 0} icon={statIcons?.jugadores} />
       </div>

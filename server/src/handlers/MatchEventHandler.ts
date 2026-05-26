@@ -321,7 +321,7 @@ export class MatchEventHandler extends SocketHandlerBase {
       if (state) {
         socket.emit(SocketEvents.SERVER.MATCH_UPDATE, state);
       } else {
-        this.emitError(socket, 'TABLE_NOT_FOUND', 'Mesa no encontrada');
+        this.emitError(socket, 'TABLE_NOT_FOUND', 'Cancha no encontrada');
       }
     });
 

@@ -16,6 +16,8 @@ import { useScoreboardEvents } from './useScoreboardEvents'
 import { useMatchState, useRefAuth, useRefRevoked } from './'
 import { ScoreboardMain } from '@/components/organisms/ScoreboardMain'
 import { MatchConfigModal } from '@/components/molecules/MatchConfigModal'
+import { SPORT } from '@shared/types'
+import type { Sport } from '@shared/types'
 import { HistoryDrawer } from '@/components/organisms/HistoryDrawer'
 import { PageHeader } from '@/components/molecules/PageHeader'
 import { ConfirmDialog } from '@/components/molecules/ConfirmDialog'
@@ -166,8 +168,9 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
         tableId={tableId}
         tableName={currentMatch.tableName || ''}
         initialBestOf={(currentMatch.config?.bestOf as 1 | 3 | 5) || 3}
-        initialHandicapA={currentMatch.config?.handicapA || 0}
-        initialHandicapB={currentMatch.config?.handicapB || 0}
+        initialHandicapA={((currentMatch.config) as any)?.handicapA || 0}
+        initialHandicapB={((currentMatch.config) as any)?.handicapB || 0}
+        initialSport={(localStorage.getItem('rallyos-sport') as Sport) || SPORT.TABLE_TENNIS}
         onSubmit={(config) => handleStartMatch({ ...config, pointsPerSet: 11 })}
         onClose={handleCancelMatch}
         title={i18nText('matchConfigTitle')}

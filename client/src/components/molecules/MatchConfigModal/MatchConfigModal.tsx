@@ -124,12 +124,24 @@ export function MatchConfigModal({
       sport,
     }
 
-    // Include sport-specific config fields
+    // Include sport-specific config fields (user-configured)
     for (const field of configFields) {
-      (payload as Record<string, unknown>)[field.name] = sportConfig[field.name]
+      (payload as unknown as Record<string, unknown>)[field.name] = sportConfig[field.name]
+    }
+
+    // Include adapter defaults for fields not shown in UI (e.g., pointsPerSet for TT)
+    const defaults = adapter.getConfigDefaults()
+    for (const key of Object.keys(defaults) as Array<keyof typeof defaults>) {
+      if (!(key in payload)) {
+        (payload as unknown as Record<string, unknown>)[key] = defaults[key]
+      }
     }
 
     onSubmit(payload)
+  }
+
+  const updateSportField = (name: string, value: unknown) => {
+    setSportConfig(prev => ({ ...prev, [name]: value }))
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

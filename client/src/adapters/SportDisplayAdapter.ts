@@ -29,8 +29,11 @@ export interface SportDisplayAdapter {
    */
   computeDisplayData(state: MatchStateExtended, swapped?: boolean): SportDisplayScore
 
-  /** The React component that renders this sport's score visual */
-  readonly DisplayComponent: React.ComponentType<SportDisplayProps>
+  /** The React component that renders this sport's score visual.
+   *  Type is loose (any props) because each sport component has its own
+   *  narrowed SportDisplayScore subtype. The adapter contract guarantees
+   *  the correct component is paired with the correct data at runtime. */
+  readonly DisplayComponent: React.ComponentType<any>
 
   /**
    * Extract the "current scoring unit" values.

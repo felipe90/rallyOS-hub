@@ -96,7 +96,7 @@ export abstract class SocketHandlerBase {
     }
     const table = this.tableManager.getTable(tableId);
     if (!table) {
-      this.emitError(socket, 'TABLE_NOT_FOUND', 'Mesa no encontrada');
+      this.emitError(socket, 'TABLE_NOT_FOUND', 'Cancha no encontrada');
       return false;
     }
     return true;

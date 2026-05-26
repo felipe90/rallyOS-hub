@@ -88,9 +88,7 @@ export class TableTennisDisplayAdapter implements SportDisplayAdapter {
   }
 
   getConfigFields(): ConfigField[] {
-    return [
-      { name: 'pointsPerSet', type: 'number', label: 'Puntos por set', min: 1, max: 99 },
-    ]
+    return []
   }
 
   formatSetHistory(setHistory: Score[]): FormattedSet[] {

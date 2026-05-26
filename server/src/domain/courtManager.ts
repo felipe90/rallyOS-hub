@@ -52,7 +52,7 @@ export class TableManager {
   // Table CRUD
   createTable(name?: string): Court {
     const tableNumber = this.repository.getNextTableNumber();
-    const tableName = name ? sanitizeInput(name, 256) : `Mesa ${tableNumber}`;
+    const tableName = name ? sanitizeInput(name, 256) : `Cancha ${tableNumber}`;
     const pin = this.pinService.generatePin();
     const id = crypto.randomUUID();
 

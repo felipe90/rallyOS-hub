@@ -140,7 +140,7 @@ export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashb
             viewMode={viewMode}
             onViewModeChange={setViewMode}
             statIcons={{
-              mesas: <Table2 className="text-blue-500" size={28} />,
+              canchas: <Table2 className="text-blue-500" size={28} />,
               partidos: <Swords className="text-amber-500" size={28} />,
               jugadores: <Users className="text-emerald-500" size={28} />,
             }}

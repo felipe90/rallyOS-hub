@@ -154,6 +154,8 @@
   "toastPinVerificationFailed": "PIN verification failed",
   "sportTableTennis": "Table Tennis",
   "sportPadel": "Padel",
+  "configSportLabel": "Sport",
+  "authSelectSportDescription": "Choose the sport for all tournament courts:",
   "deuce": "Deuce",
   "advantage": "Advantage",
   "tiebreak": "Tie-break",

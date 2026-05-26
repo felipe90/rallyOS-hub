@@ -40,7 +40,7 @@ export class AdminHandler extends SocketHandlerBase {
 
       const table = this.tableManager.getTable(data.tableId);
       if (!table) {
-        return this.emitError(socket, 'TABLE_NOT_FOUND', 'Mesa no encontrada');
+        return this.emitError(socket, 'TABLE_NOT_FOUND', 'Cancha no encontrada');
       }
 
       // Verify the requester is the owner (timing-safe comparison)

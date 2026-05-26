@@ -22,7 +22,7 @@ export function PageHeader({
       {showStatus && <div className={`${landscape ? 'landscape:hidden' : ''}`}>
         <ConnectionStatus labels={connectionLabels} />
       </div>}
-      <header className={`p-4 m-2 border-b border-border flex justify-between items-center ${landscape ? 'landscape:hidden' : ''}`}>
+      <header className={`p-4 border-b border-border flex justify-between items-center ${landscape ? 'landscape:hidden' : ''}`}>
         <div className="flex-1">
           <h1 className="text-2xl font-heading font-bold">{title}</h1>
           {subtitle && <p className="text-sm text-text-muted">{subtitle}</p>}

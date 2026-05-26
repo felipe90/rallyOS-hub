@@ -12,11 +12,7 @@ export function ScoreboardSidebar({
   status, score, setHistory
 }: ScoreboardSidebarProps) {
   return (
-    <div className="
-      flex flex-col gap-2 p-4 bg-surface-low
-      landscape:hidden landscape:w-0 landscape:overflow-hidden
-    ">
-
+    <>
       {/* Sets History - Compact */}
       {setHistory && setHistory.length > 0 && (
         <div className="px-2 py-1 bg-surface rounded-lg overflow-x-auto">
@@ -42,6 +38,6 @@ export function ScoreboardSidebar({
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

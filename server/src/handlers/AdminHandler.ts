@@ -9,7 +9,7 @@
  */
 
 import { Server, Socket } from 'socket.io';
-import { TableManager } from '../domain/tableManager';
+import { TableManager } from '../domain/courtManager';
 import { validateSocketPayload } from '../utils/validation';
 import { logger, maskIp } from '../utils/logger';
 import { SocketEvents } from '../../../shared/events';

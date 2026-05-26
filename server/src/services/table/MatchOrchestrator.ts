@@ -4,7 +4,7 @@
  * Responsibility: Configure, start, score, and reset matches.
  */
 
-import { Court, MatchEvent } from '../../domain/types';
+import { Court, MatchEvent, SPORT } from '../../domain/types';
 import { MatchEngine, Player, MatchConfig, MatchStateExtended } from '../../domain/matchEngine';
 import { logger } from '../../utils/logger';
 
@@ -45,13 +45,25 @@ export class MatchOrchestrator {
       const tblId = table.id;
       const tblName = table.name;
 
-      table.sportRules = new MatchEngine({
-        pointsPerSet: config.pointsPerSet || 11,
-        bestOf: config.bestOf || 3,
-        minDifference: 2,
-        handicapA: config.handicapA || 0,
-        handicapB: config.handicapB || 0,
-      });
+      // Default to table tennis config for backward compat
+      const engineConfig = config.sport === SPORT.TABLE_TENNIS || !config.sport
+        ? {
+            sport: SPORT.TABLE_TENNIS,
+            pointsPerSet: (config as any).pointsPerSet || 11,
+            bestOf: config.bestOf || 3,
+            minDifference: (config as any).minDifference ?? 2,
+            handicapA: (config as any).handicapA || 0,
+            handicapB: (config as any).handicapB || 0,
+          }
+        : {
+            sport: SPORT.PADEL,
+            bestOf: config.bestOf || 3,
+            tiebreakPoints: (config as any).tiebreakPoints ?? 7,
+            gamesPerSet: (config as any).gamesPerSet ?? 6,
+            goldenPoint: (config as any).goldenPoint ?? false,
+          };
+
+      table.sportRules = new MatchEngine(engineConfig);
 
       table.sportRules.setTableId(tblId, tblName);
       table.sportRules.setPlayerNames(playerNames);

@@ -1,3 +1,4 @@
+import { SPORT } from '../../../../shared/types';
 /**
  * Migration tests: v1 → v2 state transformation.
  *
@@ -6,7 +7,7 @@
  * - v2 state passes through unchanged (idempotency)
  * - Corrupt table handling (skip + warn)
  * - Edge cases: missing matchState, empty tables, all tables corrupt
- * - Sport field defaults to 'tableTennis'
+ * - Sport field defaults to SPORT.TABLE_TENNIS
  */
 
 import { migrateV1toV2 } from './migration';
@@ -79,7 +80,7 @@ describe('migrateV1toV2', () => {
       expect(result.version).toBe(2);
       expect(result.savedAt).toBe(1700000000000);
       expect(result.tables).toHaveLength(1);
-      expect(result.tables[0].matchState.sport).toBe('tableTennis');
+      expect(result.tables[0].matchState.sport).toBe(SPORT.TABLE_TENNIS);
     });
 
     it('should skip migration and return state unchanged when already v2', () => {
@@ -95,14 +96,14 @@ describe('migrateV1toV2', () => {
           playerNames: { a: 'Alice', b: 'Bob' },
           createdAt: 1700000000000,
           matchState: {
-            config: { pointsPerSet: 11, bestOf: 3, minDifference: 2 },
+            config: { sport: SPORT.TABLE_TENNIS, pointsPerSet: 11, bestOf: 3, minDifference: 2 },
             score: { sets: { a: 1, b: 0 }, currentSet: { a: 11, b: 9 }, serving: 'A' },
             swappedSides: false,
             midSetSwapped: false,
             setHistory: [{ a: 11, b: 9 }],
             status: 'FINISHED',
             winner: 'A',
-            sport: 'tableTennis',
+            sport: SPORT.TABLE_TENNIS,
             history: [],
           },
         }],
@@ -124,8 +125,8 @@ describe('migrateV1toV2', () => {
 
       expect(twice).toEqual(once);
       expect(twice.version).toBe(2);
-      expect(twice.tables[0].matchState.sport).toBe('tableTennis');
-      expect(twice.tables[1].matchState.sport).toBe('tableTennis');
+      expect(twice.tables[0].matchState.sport).toBe(SPORT.TABLE_TENNIS);
+      expect(twice.tables[1].matchState.sport).toBe(SPORT.TABLE_TENNIS);
     });
   });
 
@@ -134,7 +135,7 @@ describe('migrateV1toV2', () => {
       const state = makeV1State();
       const result = migrateV1toV2(state);
 
-      expect(result.tables[0].matchState.sport).toBe('tableTennis');
+      expect(result.tables[0].matchState.sport).toBe(SPORT.TABLE_TENNIS);
     });
 
     it('should preserve existing v2 sport fields when passed through', () => {
@@ -150,21 +151,21 @@ describe('migrateV1toV2', () => {
           playerNames: { a: 'Alice', b: 'Bob' },
           createdAt: 1700000000000,
           matchState: {
-            config: { sport: 'tableTennis', pointsPerSet: 11, bestOf: 3, minDifference: 2 },
+            config: { sport: SPORT.TABLE_TENNIS, pointsPerSet: 11, bestOf: 3, minDifference: 2 },
             score: { sets: { a: 0, b: 0 }, currentSet: { a: 0, b: 0 }, serving: 'A' },
             swappedSides: false,
             midSetSwapped: false,
             setHistory: [],
             status: 'WAITING',
             winner: null,
-            sport: 'tableTennis',
+            sport: SPORT.TABLE_TENNIS,
             history: [],
           },
         }],
       };
 
       const result = migrateV1toV2(v2State);
-      expect(result.tables[0].matchState.sport).toBe('tableTennis');
+      expect(result.tables[0].matchState.sport).toBe(SPORT.TABLE_TENNIS);
     });
 
     it('should not mutate the input state object', () => {
@@ -214,7 +215,7 @@ describe('migrateV1toV2', () => {
       expect(result.tables[0].matchState.setHistory).toHaveLength(3);
       expect(result.tables[0].matchState.status).toBe('LIVE');
       // sport was added
-      expect(result.tables[0].matchState.sport).toBe('tableTennis');
+      expect(result.tables[0].matchState.sport).toBe(SPORT.TABLE_TENNIS);
       // history preserved
       expect(result.tables[0].matchState.history).toHaveLength(1);
     });
@@ -240,7 +241,7 @@ describe('migrateV1toV2', () => {
       // Should still have 2 tables — the bad one is kept but not crash
       expect(result.tables).toHaveLength(2);
       // Good table migrated
-      expect(result.tables[0].matchState.sport).toBe('tableTennis');
+      expect(result.tables[0].matchState.sport).toBe(SPORT.TABLE_TENNIS);
       // Bad table should be skipped (matchState unchanged or absent)
       expect(result.tables[1].matchState).toBeNull();
     });
@@ -260,8 +261,8 @@ describe('migrateV1toV2', () => {
       const t1 = result.tables.find(t => t.id === 't1')!;
       const t3 = result.tables.find(t => t.id === 't3')!;
       const t2 = result.tables.find(t => t.id === 't2')!;
-      expect(t1.matchState.sport).toBe('tableTennis');
-      expect(t3.matchState.sport).toBe('tableTennis');
+      expect(t1.matchState.sport).toBe(SPORT.TABLE_TENNIS);
+      expect(t3.matchState.sport).toBe(SPORT.TABLE_TENNIS);
       // t2's matchState is not guaranteed to have sport since it's corrupt
     });
 
@@ -288,7 +289,7 @@ describe('migrateV1toV2', () => {
 
       const result = migrateV1toV2(state);
 
-      expect(result.tables[0].matchState.sport).toBe('tableTennis');
+      expect(result.tables[0].matchState.sport).toBe(SPORT.TABLE_TENNIS);
       expect(result.tables[0].matchState.status).toBe('FINISHED');
       expect(result.tables[0].matchState.winner).toBe('A');
       expect(result.tables[0].status).toBe('FINISHED');
@@ -317,7 +318,7 @@ describe('migrateV1toV2', () => {
 
       const result = migrateV1toV2(state);
 
-      expect(result.tables[0].matchState.sport).toBe('tableTennis');
+      expect(result.tables[0].matchState.sport).toBe(SPORT.TABLE_TENNIS);
       expect(result.tables[0].matchState.status).toBe('WAITING');
     });
   });

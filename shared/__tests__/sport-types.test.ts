@@ -11,25 +11,34 @@ import {
   SportConfig,
   TableTennisConfig,
   PadelConfig,
+  TableTennisMatchConfig,
+  PadelMatchConfig,
   SportDisplayScore,
   TTPointDisplay,
   PadelPointDisplay,
   MatchConfig,
   Score,
   MatchState,
+  TableTennisMatchState,
+  PadelMatchState,
+  isTableTennisConfig,
+  isPadelConfig,
+  isTableTennisState,
+  isPadelState,
+  SPORT,
 } from '../types';
 
 // ── Sport ────────────────────────────────────────────────────────────
 
 describe('Sport (literal union)', () => {
-  test('accepts "tableTennis"', () => {
-    const s: Sport = 'tableTennis';
-    expect(s).toBe('tableTennis');
+  test('accepts SPORT.TABLE_TENNIS', () => {
+    const s: Sport = SPORT.TABLE_TENNIS;
+    expect(s).toBe(SPORT.TABLE_TENNIS);
   });
 
-  test('accepts "padel"', () => {
-    const s: Sport = 'padel';
-    expect(s).toBe('padel');
+  test('accepts SPORT.PADEL', () => {
+    const s: Sport = SPORT.PADEL;
+    expect(s).toBe(SPORT.PADEL);
   });
 });
 
@@ -67,12 +76,12 @@ describe('PadelPoint (union literal)', () => {
 describe('SportConfig (discriminated union)', () => {
   test('TableTennisConfig has required fields', () => {
     const config: TableTennisConfig = {
-      sport: 'tableTennis',
+      sport: SPORT.TABLE_TENNIS,
       pointsPerSet: 11,
       bestOf: 3,
       minDifference: 2,
     };
-    expect(config.sport).toBe('tableTennis');
+    expect(config.sport).toBe(SPORT.TABLE_TENNIS);
     expect(config.pointsPerSet).toBe(11);
     expect(config.bestOf).toBe(3);
     expect(config.minDifference).toBe(2);
@@ -80,7 +89,7 @@ describe('SportConfig (discriminated union)', () => {
 
   test('TableTennisConfig accepts optional handicap', () => {
     const config: TableTennisConfig = {
-      sport: 'tableTennis',
+      sport: SPORT.TABLE_TENNIS,
       pointsPerSet: 11,
       bestOf: 5,
       minDifference: 2,
@@ -93,12 +102,12 @@ describe('SportConfig (discriminated union)', () => {
 
   test('PadelConfig has required fields', () => {
     const config: PadelConfig = {
-      sport: 'padel',
+      sport: SPORT.PADEL,
       bestOf: 3,
       tiebreakPoints: 7,
       gamesPerSet: 6,
     };
-    expect(config.sport).toBe('padel');
+    expect(config.sport).toBe(SPORT.PADEL);
     expect(config.bestOf).toBe(3);
     expect(config.tiebreakPoints).toBe(7);
     expect(config.gamesPerSet).toBe(6);
@@ -106,7 +115,7 @@ describe('SportConfig (discriminated union)', () => {
 
   test('PadelConfig accepts optional goldenPoint', () => {
     const config: PadelConfig = {
-      sport: 'padel',
+      sport: SPORT.PADEL,
       bestOf: 3,
       tiebreakPoints: 10,
       gamesPerSet: 6,
@@ -117,24 +126,24 @@ describe('SportConfig (discriminated union)', () => {
 
   test('SportConfig discriminates TableTennisConfig', () => {
     const config: SportConfig = {
-      sport: 'tableTennis',
+      sport: SPORT.TABLE_TENNIS,
       pointsPerSet: 11,
       bestOf: 3,
       minDifference: 2,
     };
-    if (config.sport === 'tableTennis') {
+    if (config.sport === SPORT.TABLE_TENNIS) {
       expect(config.pointsPerSet).toBe(11);
     }
   });
 
   test('SportConfig discriminates PadelConfig', () => {
     const config: SportConfig = {
-      sport: 'padel',
+      sport: SPORT.PADEL,
       bestOf: 3,
       tiebreakPoints: 7,
       gamesPerSet: 6,
     };
-    if (config.sport === 'padel') {
+    if (config.sport === SPORT.PADEL) {
       expect(config.gamesPerSet).toBe(6);
     }
   });
@@ -145,13 +154,13 @@ describe('SportConfig (discriminated union)', () => {
 describe('SportDisplayScore (discriminated union)', () => {
   test('TTPointDisplay has correct shape', () => {
     const display: TTPointDisplay = {
-      type: 'tableTennis',
+      type: SPORT.TABLE_TENNIS,
       leftScore: 11,
       rightScore: 8,
       leftSets: 1,
       rightSets: 0,
     };
-    expect(display.type).toBe('tableTennis');
+    expect(display.type).toBe(SPORT.TABLE_TENNIS);
     expect(display.leftScore).toBe(11);
     expect(display.rightScore).toBe(8);
     expect(display.leftSets).toBe(1);
@@ -160,7 +169,7 @@ describe('SportDisplayScore (discriminated union)', () => {
 
   test('PadelPointDisplay has correct shape', () => {
     const display: PadelPointDisplay = {
-      type: 'padel',
+      type: SPORT.PADEL,
       leftPoint: '30',
       rightPoint: '40',
       leftGames: 3,
@@ -168,7 +177,7 @@ describe('SportDisplayScore (discriminated union)', () => {
       leftSets: 0,
       rightSets: 1,
     };
-    expect(display.type).toBe('padel');
+    expect(display.type).toBe(SPORT.PADEL);
     expect(display.leftPoint).toBe('30');
     expect(display.rightPoint).toBe('40');
     expect(display.leftGames).toBe(3);
@@ -179,20 +188,20 @@ describe('SportDisplayScore (discriminated union)', () => {
 
   test('SportDisplayScore discriminates TTPointDisplay', () => {
     const display: SportDisplayScore = {
-      type: 'tableTennis',
+      type: SPORT.TABLE_TENNIS,
       leftScore: 11,
       rightScore: 8,
       leftSets: 0,
       rightSets: 0,
     };
-    if (display.type === 'tableTennis') {
+    if (display.type === SPORT.TABLE_TENNIS) {
       expect(display.leftScore).toBe(11);
     }
   });
 
   test('SportDisplayScore discriminates PadelPointDisplay', () => {
     const display: SportDisplayScore = {
-      type: 'padel',
+      type: SPORT.PADEL,
       leftPoint: '15',
       rightPoint: '0',
       leftGames: 1,
@@ -200,32 +209,71 @@ describe('SportDisplayScore (discriminated union)', () => {
       leftSets: 0,
       rightSets: 0,
     };
-    if (display.type === 'padel') {
+    if (display.type === SPORT.PADEL) {
       expect(display.leftPoint).toBe('15');
     }
   });
 });
 
-// ── MatchConfig extended ─────────────────────────────────────────────
+// ── MatchConfig (Discriminated Union) ─────────────────────────────────
 
-describe('MatchConfig.sport (optional)', () => {
-  test('MatchConfig accepts sport field', () => {
-    const config: MatchConfig = {
+describe('MatchConfig (discriminated union)', () => {
+  test('TableTennisMatchConfig has sport=SPORT.TABLE_TENNIS', () => {
+    const config: TableTennisMatchConfig = {
+      sport: SPORT.TABLE_TENNIS,
       pointsPerSet: 11,
       bestOf: 3,
       minDifference: 2,
-      sport: 'padel',
     };
-    expect(config.sport).toBe('padel');
+    expect(config.sport).toBe(SPORT.TABLE_TENNIS);
+    expect(config.pointsPerSet).toBe(11);
   });
 
-  test('MatchConfig without sport defaults to undefined', () => {
+  test('PadelMatchConfig has sport=SPORT.PADEL', () => {
+    const config: PadelMatchConfig = {
+      sport: SPORT.PADEL,
+      bestOf: 3,
+      tiebreakPoints: 7,
+      gamesPerSet: 6,
+    };
+    expect(config.sport).toBe(SPORT.PADEL);
+    expect(config.tiebreakPoints).toBe(7);
+  });
+
+  test('MatchConfig discriminates to TT after narrow', () => {
     const config: MatchConfig = {
+      sport: SPORT.TABLE_TENNIS,
       pointsPerSet: 11,
       bestOf: 3,
       minDifference: 2,
     };
-    expect(config.sport).toBeUndefined();
+    if (isTableTennisConfig(config)) {
+      expect(config.pointsPerSet).toBe(11);
+    }
+  });
+
+  test('MatchConfig discriminates to padel after narrow', () => {
+    const config: MatchConfig = {
+      sport: SPORT.PADEL,
+      bestOf: 3,
+      tiebreakPoints: 7,
+      gamesPerSet: 6,
+    };
+    if (isPadelConfig(config)) {
+      expect(config.tiebreakPoints).toBe(7);
+    }
+  });
+
+  test('isTableTennisConfig defaults to true when sport absent', () => {
+    const config = { pointsPerSet: 11, bestOf: 3, minDifference: 2 };
+    expect(isTableTennisConfig(config)).toBe(true);
+  });
+
+  test('isPadelConfig returns true only when sport is padel', () => {
+    const config: MatchConfig = { sport: SPORT.PADEL, bestOf: 3, tiebreakPoints: 7, gamesPerSet: 6 };
+    expect(isPadelConfig(config)).toBe(true);
+    const ttConfig: MatchConfig = { sport: SPORT.TABLE_TENNIS, pointsPerSet: 11, bestOf: 3, minDifference: 2 };
+    expect(isPadelConfig(ttConfig)).toBe(false);
   });
 });
 
@@ -237,7 +285,7 @@ describe('Score.detailScore', () => {
       a: 0,
       b: 0,
       detailScore: {
-        type: 'padel',
+        type: SPORT.PADEL,
         leftPoint: '0',
         rightPoint: '0',
         leftGames: 0,
@@ -249,7 +297,7 @@ describe('Score.detailScore', () => {
     expect(score.a).toBe(0);
     expect(score.b).toBe(0);
     expect(score.detailScore).toBeDefined();
-    if (score.detailScore?.type === 'padel') {
+    if (score.detailScore?.type === SPORT.PADEL) {
       expect(score.detailScore.leftPoint).toBe('0');
     }
   });
@@ -262,30 +310,116 @@ describe('Score.detailScore', () => {
   });
 });
 
-// ── MatchState.sport ─────────────────────────────────────────────────
+// ── MatchState (Discriminated Union) ─────────────────────────────────
 
-describe('MatchState.sport', () => {
-  const baseConfig: MatchConfig = {
+describe('MatchState (discriminated union)', () => {
+  const ttConfig: TableTennisMatchConfig = {
+    sport: SPORT.TABLE_TENNIS,
     pointsPerSet: 11,
     bestOf: 3,
     minDifference: 2,
   };
 
-  test('MatchState with sport field', () => {
-    const state: MatchState = {
-      config: baseConfig,
-      score: {
-        sets: { a: 0, b: 0 },
-        currentSet: { a: 0, b: 0 },
-        serving: 'A',
-      },
+  test('TableTennisMatchState has correct shape', () => {
+    const state: TableTennisMatchState = {
+      config: ttConfig,
+      score: { sets: { a: 0, b: 0 }, currentSet: { a: 0, b: 0 }, serving: 'A' },
       swappedSides: false,
       midSetSwapped: false,
       setHistory: [],
       status: 'LIVE',
       winner: null,
-      sport: 'tableTennis',
+      sport: SPORT.TABLE_TENNIS,
     };
-    expect(state.sport).toBe('tableTennis');
+    expect(state.sport).toBe(SPORT.TABLE_TENNIS);
+    expect(state.score.currentSet.a).toBe(0);
+  });
+
+  test('PadelMatchState has correct shape', () => {
+    const pConfig: PadelMatchConfig = {
+      sport: SPORT.PADEL,
+      bestOf: 3,
+      tiebreakPoints: 7,
+      gamesPerSet: 6,
+    };
+    const state: PadelMatchState = {
+      config: pConfig,
+      padelPoints: { a: 0, b: 0 },
+      games: { a: 0, b: 0 },
+      sets: { a: 0, b: 0 },
+      isTiebreak: false,
+      tiebreakPoints: { a: 0, b: 0 },
+      tiebreakTarget: 7,
+      goldenPoint: false,
+      serving: 'A',
+      setHistory: [],
+      swappedSides: false,
+      midSetSwapped: false,
+      status: 'LIVE',
+      winner: null,
+      sport: SPORT.PADEL,
+    };
+    expect(state.sport).toBe(SPORT.PADEL);
+    expect(state.padelPoints.a).toBe(0);
+  });
+
+  test('MatchState discriminates via type guard', () => {
+    const state: MatchState = {
+      config: ttConfig,
+      score: { sets: { a: 0, b: 0 }, currentSet: { a: 11, b: 5 }, serving: 'A' },
+      swappedSides: false,
+      midSetSwapped: false,
+      setHistory: [],
+      status: 'LIVE',
+      winner: null,
+      sport: SPORT.TABLE_TENNIS,
+    };
+    if (isTableTennisState(state)) {
+      expect(state.score.currentSet.a).toBe(11);
+    }
+    expect(isPadelState(state)).toBe(false);
+  });
+
+  test('isTableTennisState returns true for TT state', () => {
+    const state: MatchState = {
+      config: ttConfig,
+      score: { sets: { a: 0, b: 0 }, currentSet: { a: 0, b: 0 }, serving: 'A' },
+      swappedSides: false,
+      midSetSwapped: false,
+      setHistory: [],
+      status: 'LIVE',
+      winner: null,
+      sport: SPORT.TABLE_TENNIS,
+    };
+    expect(isTableTennisState(state)).toBe(true);
+    expect(isPadelState(state)).toBe(false);
+  });
+
+  test('isPadelState returns true for padel state', () => {
+    const pConfig: PadelMatchConfig = {
+      sport: SPORT.PADEL,
+      bestOf: 3,
+      tiebreakPoints: 7,
+      gamesPerSet: 6,
+    };
+    const state: PadelMatchState = {
+      config: pConfig,
+      padelPoints: { a: 0, b: 0 },
+      games: { a: 0, b: 0 },
+      sets: { a: 0, b: 0 },
+      isTiebreak: false,
+      tiebreakPoints: { a: 0, b: 0 },
+      tiebreakTarget: 7,
+      goldenPoint: false,
+      serving: 'A',
+      setHistory: [],
+      swappedSides: false,
+      midSetSwapped: false,
+      status: 'LIVE',
+      winner: null,
+      sport: SPORT.PADEL,
+    };
+    expect(isPadelState(state)).toBe(true);
+    expect(isTableTennisState(state)).toBe(false);
   });
 });

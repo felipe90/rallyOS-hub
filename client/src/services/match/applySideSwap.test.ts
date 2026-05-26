@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
+import { SPORT } from '@shared/types';
 import { applySideSwap } from './applySideSwap'
-import type { MatchStateExtended } from '@shared/types'
+import { MatchStateExtended } from '@shared/types'
 
 const createMatch = (overrides: Partial<MatchStateExtended> = {}): MatchStateExtended => ({
   tableId: 'table-1',
@@ -9,17 +10,19 @@ const createMatch = (overrides: Partial<MatchStateExtended> = {}): MatchStateExt
   history: [],
   undoAvailable: false,
   config: {
+    sport: SPORT.TABLE_TENNIS,
     pointsPerSet: 11,
     bestOf: 3,
     minDifference: 2,
     handicapA: 2,
     handicapB: 1,
-  },
+  } as any,
   score: {
     sets: { a: 1, b: 0 },
     currentSet: { a: 5, b: 3 },
     serving: 'A',
   },
+  sport: SPORT.TABLE_TENNIS,
   swappedSides: false,
   midSetSwapped: false,
   setHistory: [],

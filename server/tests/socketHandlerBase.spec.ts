@@ -3,7 +3,7 @@
  */
 
 import { Server } from 'socket.io';
-import { TableManager } from '../src/domain/tableManager';
+import { TableManager } from '../src/domain/courtManager';
 import { SocketHandlerBase } from '../src/handlers/SocketHandlerBase';
 
 // Concrete subclass to access protected methods

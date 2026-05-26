@@ -66,7 +66,7 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
   useWakeLock()
 
   useScoreboardUrl(tableId)
-  const { handleScorePoint, handleSubtractPoint, handleUndo, handleSetServer, handleSwapSides, handleStartMatch, handleCancelMatch } =
+  const { handleScorePoint, handleSubtractPoint, handleUndo, handleSwapSides, handleStartMatch, handleCancelMatch } =
     useScoreboardEvents({ emit, tableId: tableId ?? '', canEdit, connected })
 
   useMatchState(emit, tableId, connected)

@@ -1,3 +1,4 @@
+import { SPORT } from '../../../../shared/types';
 import { StateStore } from './StateStore';
 import { FileSystem, PersistedTable } from './types';
 
@@ -60,7 +61,7 @@ function makeTable(overrides: Partial<PersistedTable> = {}): PersistedTable {
     playerNames: { a: 'Alice', b: 'Bob' },
     createdAt: 1700000000000,
     matchState: {
-      config: { pointsPerSet: 11, bestOf: 3, minDifference: 2 },
+      config: { sport: SPORT.TABLE_TENNIS, pointsPerSet: 11, bestOf: 3, minDifference: 2 },
       score: {
         sets: { a: 0, b: 0 },
         currentSet: { a: 5, b: 3 },
@@ -71,7 +72,7 @@ function makeTable(overrides: Partial<PersistedTable> = {}): PersistedTable {
       setHistory: [],
       status: 'LIVE',
       winner: null,
-      sport: 'tableTennis',
+      sport: SPORT.TABLE_TENNIS,
       history: [],
     },
     ...overrides,
@@ -173,7 +174,7 @@ describe('StateStore', () => {
       expect(result!.tables).toHaveLength(1);
       expect(result!.tables[0].id).toBe('table-1');
       // sport field added by migration
-      expect(result!.tables[0].matchState.sport).toBe('tableTennis');
+      expect(result!.tables[0].matchState.sport).toBe(SPORT.TABLE_TENNIS);
     });
 
     it('should return null when file does not exist', () => {

@@ -6,12 +6,12 @@
  * (singleton per sport) so factory functions are called only once.
  *
  * Default registrations:
- * - 'tableTennis' → TableTennisRules (always available)
+ * - SPORT.TABLE_TENNIS → TableTennisRules (always available)
  *
  * Usage:
  *   const registry = new SportRegistry();
- *   const rules = registry.getRules('tableTennis');
- *   registry.registerRules('padel', () => new PadelRules());
+ *   const rules = registry.getRules(SPORT.TABLE_TENNIS);
+ *   registry.registerRules(SPORT.PADEL, () => new PadelRules());
  *
  * Phase 3: Basic registry with TT default.
  * Phase 4: Register PadelRules.
@@ -19,8 +19,9 @@
  */
 
 import { TableTennisRules } from './tableTennis.rules';
+import { PadelRules } from './padel.rules';
 import type { SportRules } from './types';
-import type { Sport } from '../../../../shared/types';
+import { Sport, SPORT } from '../../../../shared/types';
 
 export class SportRegistry {
   /** Internal map: sport → cached SportRules instance */
@@ -30,7 +31,9 @@ export class SportRegistry {
 
   constructor() {
     // Register table tennis by default
-    this.registerRules('tableTennis', () => new TableTennisRules());
+    this.registerRules(SPORT.TABLE_TENNIS, () => new TableTennisRules());
+    // Register padel
+    this.registerRules(SPORT.PADEL, () => new PadelRules());
   }
 
   /**

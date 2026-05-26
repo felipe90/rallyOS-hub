@@ -13,7 +13,7 @@
  */
 
 import { Server, Socket } from 'socket.io';
-import { TableManager } from '../domain/tableManager';
+import { TableManager } from '../domain/courtManager';
 import { validateSocketPayload, sanitizeInput } from '../utils/validation';
 import { logger } from '../utils/logger';
 import { SocketEvents } from '../../../shared/events';
@@ -72,11 +72,12 @@ export class MatchEventHandler extends SocketHandlerBase {
 
       if (!this.validateReferee(socket, data.tableId)) return;
 
-      const matchConfig: any = {};
-      if (data.format) matchConfig.bestOf = data.format;
-      if (data.ptsPerSet) matchConfig.pointsPerSet = data.ptsPerSet;
+      // Build MatchConfig union — defaults to table tennis for backward compat
+      const matchConfigPartial: Record<string, any> = {};
+      if (data.format) matchConfigPartial.bestOf = data.format;
+      if (data.ptsPerSet) matchConfigPartial.pointsPerSet = data.ptsPerSet;
       if (data.handicap) {
-        matchConfig.initialScore = { a: data.handicap.a, b: data.handicap.b };
+        matchConfigPartial.initialScore = { a: data.handicap.a, b: data.handicap.b };
       }
 
       // Sanitize player names to prevent XSS and log injection
@@ -87,7 +88,7 @@ export class MatchEventHandler extends SocketHandlerBase {
 
       this.tableManager.configureMatch(data.tableId, {
         playerNames: sanitizedNames,
-        matchConfig: matchConfig
+        matchConfig: matchConfigPartial as MatchConfig
       });
 
       // Emit TABLE_UPDATE for dashboard

@@ -74,7 +74,7 @@ export class StateStore {
         return null;
       }
 
-      // Auto-migrate v1→v2 (adds sport: 'tableTennis' to matchState)
+      // Auto-migrate v1→v2 (adds sport: SPORT.TABLE_TENNIS to matchState)
       const migrated = migrateV1toV2(parsed as PersistedState);
 
       return migrated;

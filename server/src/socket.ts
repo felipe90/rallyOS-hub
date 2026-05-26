@@ -7,7 +7,7 @@
 
 import { Server as IOServer } from 'socket.io';
 import { SocketHandler } from './handlers/SocketHandler';
-import { TableManager } from './domain/tableManager';
+import { TableManager } from './domain/courtManager';
 import { HubConfig } from './domain/types';
 import { logger } from './utils/logger';
 

@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
+import { SPORT } from '@shared/types';
 import { renderHook, waitFor } from '@testing-library/react'
 import { useMatchDisplay } from './useMatchDisplay'
-import type { MatchStateExtended } from '@shared/types'
+import { MatchStateExtended } from '@shared/types'
 
 const createMockMatch = (overrides: Partial<MatchStateExtended> = {}): MatchStateExtended => ({
   tableId: 'table-1',
@@ -10,15 +11,17 @@ const createMockMatch = (overrides: Partial<MatchStateExtended> = {}): MatchStat
   history: [],
   undoAvailable: false,
   config: {
+    sport: SPORT.TABLE_TENNIS,
     pointsPerSet: 11,
     bestOf: 3,
     minDifference: 2,
-  },
+  } as any,
   score: {
     sets: { a: 0, b: 0 },
     currentSet: { a: 0, b: 0 },
     serving: 'A',
   },
+  sport: SPORT.TABLE_TENNIS,
   swappedSides: false,
   midSetSwapped: false,
   setHistory: [],

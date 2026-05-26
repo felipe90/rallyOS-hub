@@ -4,8 +4,12 @@
  * Defines the SportRules interface that all sport implementations must
  * satisfy. Uses Strategy pattern to isolate sport-specific scoring logic.
  *
- * Phase 2: SportRules interface + GameState alias for MatchState.
- * Phase 3: GameState becomes a true discriminated union.
+ * InternalGameState is a flat superset interface used internally by
+ * SportRules. It is decoupled from the discriminated-union MatchState
+ * (shared wire type) to keep rule implementations simple.
+ *
+ * MatchEngine converts between InternalGameState (for rules) and
+ * MatchState / MatchStateExtended (for wire format).
  */
 
 import {
@@ -13,19 +17,51 @@ import {
   Player,
   SportConfig,
   SportDisplayScore,
-  MatchState,
   MatchEvent,
   Score,
   TableStatus,
+  MatchConfig,
+  PadelPoint,
+  MatchState,
+  MatchStateExtended,
+  TableTennisMatchConfig,
+  PadelMatchConfig,
+  SPORT,
 } from '../../../../shared/types';
 
 /**
- * The sport-specific portion of match state.
+ * Internal game state — flat superset interface used by SportRules.
  *
- * Phase 2: Alias for MatchState to keep extraction backward-compatible.
- * Phase 3: Becomes `TableTennisGameState | PadelGameState` discriminated union.
+ * Contains ALL fields for all sports as optionals. This is intentional:
+ * the SportRules implementations (TableTennisRules, PadelRules) are
+ * stateless pure functions that operate on this flat state. The
+ * discriminated union MatchState is created at the MatchEngine boundary
+ * when sending state to the client.
  */
-export type GameState = MatchState;
+export interface InternalGameState {
+  config: MatchConfig;
+  score: {
+    sets: Score;
+    currentSet: Score;
+    serving: Player;
+  };
+  swappedSides: boolean;
+  midSetSwapped: boolean;
+  setHistory: Score[];
+  status: TableStatus;
+  winner: Player | null;
+  sport: Sport;
+  /** Padel-specific: current point values (0, 15, 30, 40, AD) */
+  padelPoints?: { a: PadelPoint; b: PadelPoint };
+  /** Padel-specific: whether current game is a tiebreak */
+  isTiebreak?: boolean;
+  /** Padel-specific: current tiebreak point counts */
+  tiebreakPoints?: { a: number; b: number };
+  /** Padel-specific: golden point / sudden death enabled */
+  goldenPoint?: boolean;
+}
+
+export type GameState = InternalGameState;
 
 /**
  * The result of calling recordScore.
@@ -112,4 +148,20 @@ export interface SportRules {
 /**
  * Score-related type re-exports for convenience.
  */
-export type { Sport, Player, SportConfig, SportDisplayScore, MatchState, MatchEvent, Score, TableStatus };
+export type {
+  Sport,
+  Player,
+  SportConfig,
+  SportDisplayScore,
+  MatchState,
+  MatchStateExtended,
+  MatchEvent,
+  Score,
+  TableStatus,
+  MatchConfig,
+  PadelPoint,
+  TableTennisMatchConfig,
+  PadelMatchConfig,
+};
+
+export { SPORT };

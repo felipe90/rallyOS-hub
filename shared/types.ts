@@ -14,8 +14,14 @@ export type Player = 'A' | 'B';
 
 // ── Sport ────────────────────────────────────────────────────────────
 
-/** Supported sports */
-export type Sport = 'tableTennis' | 'padel';
+/** Sport identifier const — use instead of magic strings */
+export const SPORT = {
+  TABLE_TENNIS: 'tableTennis',
+  PADEL: 'padel',
+} as const;
+
+/** Supported sports — derived from SPORT const */
+export type Sport = (typeof SPORT)[keyof typeof SPORT];
 
 // ── Padel Point ──────────────────────────────────────────────────────
 
@@ -24,24 +30,12 @@ export type PadelPoint = 0 | 15 | 30 | 40 | 'AD';
 
 // ── Sport Config ─────────────────────────────────────────────────────
 
-export type SportConfig = TableTennisConfig | PadelConfig;
-
-export interface TableTennisConfig {
-  sport: 'tableTennis';
-  pointsPerSet: number;
-  bestOf: number;
-  minDifference: number;
-  handicapA?: number;
-  handicapB?: number;
-}
-
-export interface PadelConfig {
-  sport: 'padel';
-  bestOf: number;
-  tiebreakPoints: 7 | 10;
-  gamesPerSet: number;
-  goldenPoint?: boolean;
-}
+/** @deprecated Use TableTennisMatchConfig or PadelMatchConfig. Kept for type compat. */
+export type SportConfig = TableTennisMatchConfig | PadelMatchConfig;
+/** @deprecated Use TableTennisMatchConfig instead. */
+export type TableTennisConfig = TableTennisMatchConfig;
+/** @deprecated Use PadelMatchConfig instead. */
+export type PadelConfig = PadelMatchConfig;
 
 // ── Sport Display Score ──────────────────────────────────────────────
 
@@ -49,7 +43,7 @@ export interface PadelConfig {
 export type SportDisplayScore = TTPointDisplay | PadelPointDisplay;
 
 export interface TTPointDisplay {
-  type: 'tableTennis';
+  type: typeof SPORT.TABLE_TENNIS;
   leftScore: number;
   rightScore: number;
   leftSets: number;
@@ -57,7 +51,7 @@ export interface TTPointDisplay {
 }
 
 export interface PadelPointDisplay {
-  type: 'padel';
+  type: typeof SPORT.PADEL;
   leftPoint: string;
   rightPoint: string;
   leftGames: number;
@@ -93,7 +87,7 @@ export interface ScoreChange {
 
 // ── Match Events ────────────────────────────────────────────────────
 
-export type MatchEventType = 'SET_WON' | 'MATCH_WON';
+export type MatchEventType = 'SET_WON' | 'MATCH_WON' | 'GAME_WON' | 'DEUCE' | 'TIEBREAK_START';
 
 export interface SetWonEvent {
   type: 'SET_WON';
@@ -109,51 +103,106 @@ export interface MatchWonEvent {
   sets: Score;
 }
 
-export type MatchEvent = SetWonEvent | MatchWonEvent;
+export interface GameWonEvent {
+  type: 'GAME_WON';
+  winner: Player;
+  score: { a: PadelPoint; b: PadelPoint };
+  gameNumber: number;
+}
 
-// ── Match Config ────────────────────────────────────────────────────
+export interface DeuceEvent {
+  type: 'DEUCE';
+}
 
-export interface MatchConfig {
-  pointsPerSet: number;
+export interface TiebreakStartEvent {
+  type: 'TIEBREAK_START';
+  targetPoints: number;
+}
+
+export type MatchEvent = SetWonEvent | MatchWonEvent | GameWonEvent | DeuceEvent | TiebreakStartEvent;
+
+// ── Match Config (Discriminated Union) ───────────────────────────────
+
+/** Base config fields common to ALL sports */
+export interface MatchConfigBase {
   bestOf: number;
+  initialScore?: Score;
+  initialServer?: Player;
+}
+
+export interface TableTennisMatchConfig extends MatchConfigBase {
+  sport: typeof SPORT.TABLE_TENNIS;
+  pointsPerSet: number;
   minDifference: number;
   handicapA?: number;
   handicapB?: number;
-  initialScore?: Score;
-  initialServer?: Player;
-  /** Sport type — defaults to 'tableTennis' when omitted */
-  sport?: Sport;
 }
 
-export interface MatchConfigExtended extends MatchConfig {
+export interface PadelMatchConfig extends MatchConfigBase {
+  sport: typeof SPORT.PADEL;
+  tiebreakPoints: 7 | 10;
+  gamesPerSet: number;
+  goldenPoint?: boolean;
+}
+
+export type MatchConfig = TableTennisMatchConfig | PadelMatchConfig;
+
+export type MatchConfigExtended = MatchConfig & {
   playerNames?: { a: string; b: string };
+};
+
+// ── Match State (Discriminated Union) ────────────────────────────────
+
+/** Base state fields common to ALL sports */
+export interface MatchStateBase {
+  config: MatchConfig;
+  status: TableStatus;
+  winner: Player | null;
+  swappedSides: boolean;
+  midSetSwapped: boolean;
 }
 
-// ── Match State ─────────────────────────────────────────────────────
-
-export interface MatchState {
-  config: MatchConfig;
+export interface TableTennisMatchState extends MatchStateBase {
+  sport: typeof SPORT.TABLE_TENNIS;
   score: {
     sets: Score;
     currentSet: Score;
     serving: Player;
   };
-  swappedSides: boolean;
-  midSetSwapped: boolean;
   setHistory: Score[];
-  status: TableStatus;
-  winner: Player | null;
-  /** Discriminator for sport-specific display and logic */
-  sport: Sport;
 }
 
-export interface MatchStateExtended extends MatchState {
+export interface PadelMatchState extends MatchStateBase {
+  sport: typeof SPORT.PADEL;
+  /** Current point values (0, 15, 30, 40, AD) */
+  padelPoints: { a: PadelPoint; b: PadelPoint };
+  /** Games count (current set) */
+  games: { a: number; b: number };
+  /** Sets count */
+  sets: { a: number; b: number };
+  /** Whether the current game is a tiebreak */
+  isTiebreak: boolean;
+  /** Current tiebreak point counts */
+  tiebreakPoints: { a: number; b: number };
+  /** Tiebreak target points (7 or 10) */
+  tiebreakTarget: 7 | 10;
+  /** Golden point / sudden death at deuce */
+  goldenPoint: boolean;
+  /** Current server */
+  serving: Player;
+  /** Completed set scores */
+  setHistory: Score[];
+}
+
+export type MatchState = TableTennisMatchState | PadelMatchState;
+
+export type MatchStateExtended = MatchState & {
   tableId: string;
   tableName: string;
   playerNames: { a: string; b: string };
   history: ScoreChange[];
   undoAvailable: boolean;
-}
+};
 
 // ── Aggregated History (ALL_HISTORY event) ────────────────────────
 
@@ -237,4 +286,36 @@ export interface KioskNotificationData {
   message: string;
   duration: number;
   timestamp: number;
+}
+
+// ── Type Guard Helpers ────────────────────────────────────────────────
+
+/** Narrow a MatchConfig to TableTennisMatchConfig. Defaults to TT when sport is absent. */
+export function isTableTennisConfig(config: MatchConfig | Partial<MatchConfig>): config is TableTennisMatchConfig {
+  return !config || !('sport' in config) || config.sport === SPORT.TABLE_TENNIS || config.sport === undefined;
+}
+
+/** Narrow a MatchConfig to PadelMatchConfig. */
+export function isPadelConfig(config: MatchConfig | Partial<MatchConfig>): config is PadelMatchConfig {
+  return 'sport' in config && config.sport === SPORT.PADEL;
+}
+
+/** Narrow a MatchState to TableTennisMatchState. */
+export function isTableTennisState(state: MatchState): state is TableTennisMatchState {
+  return state.sport === SPORT.TABLE_TENNIS;
+}
+
+/** Narrow a MatchState to PadelMatchState. */
+export function isPadelState(state: MatchState): state is PadelMatchState {
+  return state.sport === SPORT.PADEL;
+}
+
+/** Narrow a MatchStateExtended to the table tennis variant. */
+export function isTableTennisStateExtended(state: MatchStateExtended): state is MatchStateExtended & TableTennisMatchState {
+  return state.sport === SPORT.TABLE_TENNIS;
+}
+
+/** Narrow a MatchStateExtended to the padel variant. */
+export function isPadelStateExtended(state: MatchStateExtended): state is MatchStateExtended & PadelMatchState {
+  return state.sport === SPORT.PADEL;
 }

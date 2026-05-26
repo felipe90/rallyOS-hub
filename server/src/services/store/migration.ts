@@ -7,7 +7,7 @@
  * Migration strategy:
  * - In-memory only (disk file is NOT rewritten on load).
  * - If state is already v2, return unchanged.
- * - Iterate all tables, detect missing `sport` → default to 'tableTennis'.
+ * - Iterate all tables, detect missing `sport` → default to SPORT.TABLE_TENNIS.
  * - Per-table error handling: if a table's matchState is corrupt/malformed,
  *   skip it with a warning and continue with remaining tables.
  * - Full state object is cloned to avoid mutating the input.
@@ -18,6 +18,7 @@
 
 import type { PersistedState, PersistedTable } from './types';
 import { PERSISTENCE_VERSION } from './types';
+import { SPORT } from '../../../../shared/types';
 import { logger } from '../../utils/logger';
 
 export function migrateV1toV2(state: PersistedState): PersistedState {
@@ -41,7 +42,7 @@ export function migrateV1toV2(state: PersistedState): PersistedState {
 
       // If sport is already present (e.g. partial migration), keep it
       if (!(table.matchState as any).sport) {
-        (table.matchState as any).sport = 'tableTennis';
+        (table.matchState as any).sport = SPORT.TABLE_TENNIS;
       }
 
       migratedTables.push(table);

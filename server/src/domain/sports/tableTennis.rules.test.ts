@@ -1,5 +1,5 @@
 import { TableTennisRules } from './tableTennis.rules';
-import type { GameState, ScoreResult } from './types';
+import { GameState, ScoreResult, SPORT } from './types';
 import type { Player, SportConfig } from '../../../../shared/types';
 
 describe('TableTennisRules (implementing SportRules)', () => {
@@ -11,15 +11,15 @@ describe('TableTennisRules (implementing SportRules)', () => {
 
   describe('sport property', () => {
     it('should return tableTennis', () => {
-      expect(rules.sport).toBe('tableTennis');
+      expect(rules.sport).toBe(SPORT.TABLE_TENNIS);
     });
   });
 
   describe('getDefaultConfig', () => {
     it('should return default TT config', () => {
       const config = rules.getDefaultConfig();
-      expect(config.sport).toBe('tableTennis');
-      if (config.sport === 'tableTennis') {
+      expect(config.sport).toBe(SPORT.TABLE_TENNIS);
+      if (config.sport === SPORT.TABLE_TENNIS) {
         expect(config.pointsPerSet).toBe(11);
         expect(config.bestOf).toBe(3);
         expect(config.minDifference).toBe(2);
@@ -36,7 +36,7 @@ describe('TableTennisRules (implementing SportRules)', () => {
   describe('validateConfig', () => {
     it('should accept valid TT config', () => {
       const config: SportConfig = {
-        sport: 'tableTennis',
+        sport: SPORT.TABLE_TENNIS,
         pointsPerSet: 11,
         bestOf: 3,
         minDifference: 2,
@@ -202,7 +202,7 @@ describe('TableTennisRules (implementing SportRules)', () => {
     it('should require side swap when in final set and score >= 5', () => {
       // bestOf=3, so final set is when sets=1-1
       const state = makeInitialState({
-        config: { sport: 'tableTennis', pointsPerSet: 11, bestOf: 3, minDifference: 2 },
+        config: { sport: SPORT.TABLE_TENNIS, pointsPerSet: 11, bestOf: 3, minDifference: 2 },
         score: {
           sets: { a: 1, b: 1 },
           currentSet: { a: 5, b: 0 },
@@ -214,7 +214,7 @@ describe('TableTennisRules (implementing SportRules)', () => {
 
     it('should not require side swap before 5 points in final set', () => {
       const state = makeInitialState({
-        config: { sport: 'tableTennis', pointsPerSet: 11, bestOf: 3, minDifference: 2 },
+        config: { sport: SPORT.TABLE_TENNIS, pointsPerSet: 11, bestOf: 3, minDifference: 2 },
         score: {
           sets: { a: 1, b: 1 },
           currentSet: { a: 4, b: 0 },
@@ -235,7 +235,7 @@ describe('TableTennisRules (implementing SportRules)', () => {
         },
       });
       const display = rules.formatDisplayScore(state);
-      expect(display.type).toBe('tableTennis');
+      expect(display.type).toBe(SPORT.TABLE_TENNIS);
       expect(display.leftScore).toBe(7);
       expect(display.rightScore).toBe(5);
       expect(display.leftSets).toBe(2);
@@ -247,7 +247,7 @@ describe('TableTennisRules (implementing SportRules)', () => {
 
   function makeInitialState(overrides: Partial<GameState> = {}): GameState {
     return {
-      config: { pointsPerSet: 11, bestOf: 3, minDifference: 2 },
+      config: { sport: SPORT.TABLE_TENNIS, pointsPerSet: 11, bestOf: 3, minDifference: 2 },
       score: {
         sets: { a: 0, b: 0 },
         currentSet: { a: 0, b: 0 },
@@ -258,7 +258,7 @@ describe('TableTennisRules (implementing SportRules)', () => {
       setHistory: [],
       status: 'LIVE',
       winner: null,
-      sport: 'tableTennis',
+      sport: SPORT.TABLE_TENNIS,
       ...overrides,
     };
   }

@@ -11,7 +11,7 @@
  */
 
 import { Server, Socket } from 'socket.io';
-import { TableManager } from '../domain/tableManager';
+import { TableManager } from '../domain/courtManager';
 import { TableInfo, HubConfig } from '../domain/types';
 import { logger } from '../utils/logger';
 import { RateLimiter } from '../services/security/RateLimiter';

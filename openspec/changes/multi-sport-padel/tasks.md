@@ -34,10 +34,10 @@ Chain strategy: feature-branch-chain
 
 ## Phase 4: PadelRules Implementation
 
-- [ ] 4.1 Create `padel.rules.ts`: 15-30-40-AD, deuce/advantage, golden-point, games/sets/tiebreak, serve/swap
-- [ ] 4.2 `subtractScore`: 40→30, AD→Deuce, Deuce→pre-deuce; undo snapshots
-- [ ] 4.3 Create `padel.rules.test.ts`: progression, deuce cycles, tiebreaks, side swap, undo edge cases
-- [ ] 4.4 Padel tests pass; TT tests unaffected
+- [x] 4.1 Create `padel.rules.ts`: 15-30-40-AD, deuce/advantage, golden-point, games/sets/tiebreak, serve/swap
+- [x] 4.2 `subtractScore`: 40→30, AD→Deuce, Deuce→pre-deuce; undo snapshots
+- [x] 4.3 Create `padel.rules.test.ts`: progression, deuce cycles, tiebreaks, side swap, undo edge cases
+- [x] 4.4 Padel tests pass; TT tests unaffected
 
 ## Phase 5: Server Wiring + Socket Events
 

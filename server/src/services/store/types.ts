@@ -1,13 +1,28 @@
-import { MatchState, ScoreChange, TableStatus } from '../../domain/types';
+import { ScoreChange, TableStatus, Score, PadelPoint } from '../../domain/types';
+import type { MatchConfig } from '../../domain/types';
 
 /**
  * Serializable match state for persistence.
- * Extends MatchState with undo history — excludes runtime fields
- * (tableId, tableName, playerNames, undoAvailable) which live on the
- * PersistedTable level.
+ * Flat interface (not the discriminated union MatchState) to handle
+ * migration from v1 (no sport field) and to keep serialization simple.
+ * Excludes runtime fields (tableId, tableName, playerNames, undoAvailable)
+ * which live on the PersistedTable level.
  */
-export interface PersistedMatchState extends MatchState {
+export interface PersistedMatchState {
+  config: MatchConfig;
+  score: { sets: Score; currentSet: Score; serving: string };
+  swappedSides: boolean;
+  midSetSwapped: boolean;
+  setHistory: Score[];
+  status: TableStatus;
+  winner: string | null;
+  sport: string;
   history: ScoreChange[];
+  /** Padel-specific fields (optional, for backward compat with v2) */
+  padelPoints?: { a: PadelPoint; b: PadelPoint };
+  isTiebreak?: boolean;
+  tiebreakPoints?: { a: number; b: number };
+  goldenPoint?: boolean;
 }
 
 /**

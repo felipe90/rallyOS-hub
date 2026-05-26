@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { SPORT } from '@shared/types';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ScoreboardMain } from './ScoreboardMain';
-import type { MatchStateExtended, Score } from '@shared/types';
+import { MatchStateExtended, Score } from '@shared/types';
 import React from 'react';
 
 vi.mock('framer-motion', () => ({
@@ -66,17 +67,19 @@ const createMockMatch = (overrides: Partial<MatchStateExtended> = {}): MatchStat
   history: [],
   undoAvailable: false,
   config: {
+    sport: SPORT.TABLE_TENNIS,
     pointsPerSet: 11,
     bestOf: 3,
     minDifference: 2,
     handicapA: 0,
     handicapB: 0,
-  },
+  } as any,
   score: {
     sets: { a: 0, b: 0 },
     currentSet: { a: 0, b: 0 },
     serving: 'A',
   },
+  sport: SPORT.TABLE_TENNIS,
   swappedSides: false,
   midSetSwapped: false,
   setHistory: [],

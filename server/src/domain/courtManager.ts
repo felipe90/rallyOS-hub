@@ -12,7 +12,7 @@
 
 import crypto from 'crypto';
 import { MatchEngine } from './matchEngine';
-import { Court, TableInfo, TableInfoWithPin, Player, MatchConfig, MatchStateExtended, QRData, HubConfig } from './types';
+import { Court, TableInfo, TableInfoWithPin, Player, MatchConfig, MatchStateExtended, QRData, HubConfig, Sport, SPORT } from './types';
 import { AllHistoryEntry } from '../../../shared/types';
 import { logger } from '../utils/logger';
 import { sanitizeInput } from '../utils/validation';
@@ -255,12 +255,14 @@ export class TableManager {
       const history = state?.history ?? [];
       const playerNames = table.playerNames ?? { a: 'Player A', b: 'Player B' };
 
-      // Extract handicap from table config if present
-      const config = table.sportRules?.getConfig?.();
-      const handicap = config?.handicapA !== undefined || config?.handicapB !== undefined
+      // Extract handicap from table config if present (TT only)
+      const cfg = table.sportRules?.getConfig?.();
+      const cfgAny = cfg as any;
+      const hasHandicap = cfg && cfg.sport === SPORT.TABLE_TENNIS && (cfgAny.handicapA !== undefined || cfgAny.handicapB !== undefined);
+      const handicap = hasHandicap
         ? {
-            ...(config?.handicapA !== undefined && { a: config.handicapA }),
-            ...(config?.handicapB !== undefined && { b: config.handicapB }),
+            ...(cfgAny.handicapA !== undefined && { a: cfgAny.handicapA }),
+            ...(cfgAny.handicapB !== undefined && { b: cfgAny.handicapB }),
           }
         : undefined;
 
@@ -359,6 +361,9 @@ export class TableManager {
    */
   private toPersistedTable(table: Court): PersistedTable {
     const state = table.sportRules.getState();
+    const isPadel = state.sport === SPORT.PADEL;
+    const s = state as any;
+
     return {
       id: table.id,
       number: table.number,
@@ -369,18 +374,26 @@ export class TableManager {
       createdAt: table.createdAt,
       matchState: {
         config: { ...state.config },
-        score: JSON.parse(JSON.stringify(state.score)),
+        score: isPadel
+          ? { sets: s.sets ?? { a: 0, b: 0 }, currentSet: s.games ?? { a: 0, b: 0 }, serving: s.serving ?? 'A' }
+          : JSON.parse(JSON.stringify(s.score ?? { sets: { a: 0, b: 0 }, currentSet: { a: 0, b: 0 }, serving: 'A' })),
         swappedSides: state.swappedSides,
         midSetSwapped: state.midSetSwapped,
-        setHistory: state.setHistory.map((s) => ({ ...s })),
+        setHistory: (s.setHistory || []).map((s: any) => ({ ...s })),
         status: state.status,
         winner: state.winner,
-        sport: state.sport || 'tableTennis',
-        history: (state.history || []).map((h) => ({
+        sport: state.sport || SPORT.TABLE_TENNIS,
+        history: (s.history || []).map((h: any) => ({
           ...h,
           pointsBefore: { ...h.pointsBefore },
           pointsAfter: { ...h.pointsAfter },
         })),
+        ...(isPadel ? {
+          padelPoints: s.padelPoints ?? { a: 0, b: 0 },
+          isTiebreak: s.isTiebreak ?? false,
+          tiebreakPoints: s.tiebreakPoints ?? { a: 0, b: 0 },
+          goldenPoint: s.goldenPoint ?? false,
+        } : {}),
       },
     };
   }
@@ -418,13 +431,13 @@ export class TableManager {
 
       try {
         const engine = MatchEngine.fromState({
-          ...pt.matchState,
+          ...pt.matchState as any,
           tableId: pt.id,
           tableName: pt.name,
           playerNames: pt.playerNames,
           history: pt.matchState.history || [],
           undoAvailable: (pt.matchState.history || []).length > 0,
-        });
+        } as MatchStateExtended);
 
         engine.setTableId(pt.id, pt.name);
 

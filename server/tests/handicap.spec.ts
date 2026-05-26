@@ -5,7 +5,7 @@
  * from the match configuration when handicap is set.
  */
 
-import { TableManager } from '../src/domain/tableManager';
+import { TableManager } from '../src/domain/courtManager';
 import type { Table } from '../src/domain/types';
 
 describe('getAllHistories — handicap', () => {

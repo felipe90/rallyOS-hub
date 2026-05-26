@@ -1,3 +1,4 @@
+import { SPORT } from '../../../shared/types';
 /**
  * Export route handler tests.
  *
@@ -86,7 +87,7 @@ function makeFinishedTable(overrides: Partial<PersistedTable> = {}): PersistedTa
     playerNames: { a: 'Jorge', b: 'Carlos' },
     createdAt: 1700000000000,
     matchState: {
-      config: { pointsPerSet: 11, bestOf: 3, minDifference: 2 },
+      config: { sport: SPORT.TABLE_TENNIS, pointsPerSet: 11, bestOf: 3, minDifference: 2 },
       score: { sets: { a: 3, b: 1 }, currentSet: { a: 11, b: 7 }, serving: 'A' },
       swappedSides: false,
       midSetSwapped: false,
@@ -98,7 +99,7 @@ function makeFinishedTable(overrides: Partial<PersistedTable> = {}): PersistedTa
       ],
       status: 'FINISHED',
       winner: 'A',
-      sport: 'tableTennis',
+      sport: SPORT.TABLE_TENNIS,
       history: [],
     },
     ...overrides,

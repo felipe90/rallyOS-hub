@@ -14,13 +14,13 @@
  */
 
 import crypto from 'crypto';
-import { Player, MatchConfig, MatchEvent, SetWonEvent, MatchWonEvent, Score, SportConfig } from '../../../../shared/types';
+import { Player, MatchEvent, SetWonEvent, MatchWonEvent, Score, SportConfig, TableTennisMatchConfig, SPORT } from '../../../../shared/types';
 import type { GameState, SportRules, ScoreResult } from './types';
 import { logger } from '../../utils/logger';
 
 /** Default table tennis configuration */
 const DEFAULT_CONFIG: SportConfig = {
-  sport: 'tableTennis',
+  sport: SPORT.TABLE_TENNIS,
   pointsPerSet: 11,
   bestOf: 3,
   minDifference: 2,
@@ -35,7 +35,7 @@ function deepClone<T>(obj: T): T {
 }
 
 export class TableTennisRules implements SportRules {
-  readonly sport = 'tableTennis' as const;
+  readonly sport = SPORT.TABLE_TENNIS;
 
   getDefaultConfig(): SportConfig {
     return { ...DEFAULT_CONFIG };
@@ -46,7 +46,7 @@ export class TableTennisRules implements SportRules {
   }
 
   validateConfig(config: SportConfig): boolean {
-    if (config.sport !== 'tableTennis') return false;
+    if (config.sport !== SPORT.TABLE_TENNIS) return false;
     if (typeof config.pointsPerSet !== 'number' || config.pointsPerSet < 1) return false;
     if (typeof config.bestOf !== 'number' || config.bestOf < 1 || config.bestOf % 2 !== 1) return false;
     if (typeof config.minDifference !== 'number' || config.minDifference < 1) return false;
@@ -84,9 +84,14 @@ export class TableTennisRules implements SportRules {
     return newState;
   }
 
+  /** Cast config to TT-specific type (safe — this rules instance is only called with TT config) */
+  private ttConfig(config: import('../../../../shared/types').MatchConfig): TableTennisMatchConfig {
+    return config as TableTennisMatchConfig;
+  }
+
   isSetComplete(state: GameState): boolean {
     const { a, b } = state.score.currentSet;
-    const { pointsPerSet, minDifference } = state.config;
+    const { pointsPerSet, minDifference } = this.ttConfig(state.config);
 
     const hasReachedLimit = a >= pointsPerSet || b >= pointsPerSet;
     const hasDifference = Math.abs(a - b) >= minDifference;
@@ -96,7 +101,7 @@ export class TableTennisRules implements SportRules {
 
   isMatchComplete(state: GameState): boolean {
     const { a, b } = state.score.sets;
-    const setsNeeded = Math.ceil(state.config.bestOf / 2);
+    const setsNeeded = Math.ceil(this.ttConfig(state.config).bestOf / 2);
     return a >= setsNeeded || b >= setsNeeded;
   }
 
@@ -113,7 +118,7 @@ export class TableTennisRules implements SportRules {
 
   checkSideSwap(state: GameState): boolean {
     const { a, b } = state.score.sets;
-    const isFinalSet = (a + b) === (state.config.bestOf - 1);
+    const isFinalSet = (a + b) === (this.ttConfig(state.config).bestOf - 1);
 
     if (isFinalSet && !state.midSetSwapped) {
       const { a: scoreA, b: scoreB } = state.score.currentSet;
@@ -124,7 +129,7 @@ export class TableTennisRules implements SportRules {
 
   formatDisplayScore(state: GameState): import('../../../../shared/types').TTPointDisplay {
     return {
-      type: 'tableTennis',
+      type: SPORT.TABLE_TENNIS,
       leftScore: state.score.currentSet.a,
       rightScore: state.score.currentSet.b,
       leftSets: state.score.sets.a,
@@ -140,7 +145,8 @@ export class TableTennisRules implements SportRules {
    */
   private applySetWinCheck(newState: GameState, events: MatchEvent[]): void {
     const { a, b } = newState.score.currentSet;
-    const { pointsPerSet, minDifference } = newState.config;
+    const cfg = this.ttConfig(newState.config);
+    const { pointsPerSet, minDifference } = cfg;
 
     const hasReachedLimit = a >= pointsPerSet || b >= pointsPerSet;
     const hasDifference = Math.abs(a - b) >= minDifference;
@@ -163,7 +169,7 @@ export class TableTennisRules implements SportRules {
     });
 
     // Check match win
-    const setsNeeded = Math.ceil(newState.config.bestOf / 2);
+    const setsNeeded = Math.ceil(cfg.bestOf / 2);
     if (newState.score.sets.a >= setsNeeded) {
       newState.status = 'FINISHED';
       newState.winner = 'A';
@@ -184,8 +190,8 @@ export class TableTennisRules implements SportRules {
 
     // If match continues, reset current set with handicap and swap sides
     if (newState.status !== 'FINISHED') {
-      const handicapA = newState.config.handicapA || 0;
-      const handicapB = newState.config.handicapB || 0;
+      const handicapA = cfg.handicapA || 0;
+      const handicapB = cfg.handicapB || 0;
       newState.score.currentSet = { a: handicapA, b: handicapB };
       newState.swappedSides = !newState.swappedSides;
       newState.midSetSwapped = false;

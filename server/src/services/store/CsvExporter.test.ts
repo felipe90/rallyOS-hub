@@ -1,3 +1,4 @@
+import { SPORT } from '../../../../shared/types';
 /**
  * CsvExporter unit tests.
  *
@@ -20,7 +21,7 @@ function makeFinishedTable(overrides: Partial<PersistedTable> = {}): PersistedTa
     playerNames: { a: 'Jorge', b: 'Carlos' },
     createdAt: 1700000000000,
     matchState: {
-      config: { pointsPerSet: 11, bestOf: 3, minDifference: 2 },
+      config: { sport: SPORT.TABLE_TENNIS, pointsPerSet: 11, bestOf: 3, minDifference: 2 },
       score: { sets: { a: 3, b: 1 }, currentSet: { a: 11, b: 7 }, serving: 'A' },
       swappedSides: false,
       midSetSwapped: false,
@@ -32,7 +33,7 @@ function makeFinishedTable(overrides: Partial<PersistedTable> = {}): PersistedTa
       ],
       status: 'FINISHED',
       winner: 'A',
-      sport: 'tableTennis',
+      sport: SPORT.TABLE_TENNIS,
       history: [],
     },
     ...overrides,
@@ -49,14 +50,14 @@ function makeLiveTable(overrides: Partial<PersistedTable> = {}): PersistedTable 
     playerNames: { a: 'Alice', b: 'Bob' },
     createdAt: 1700000000000,
     matchState: {
-      config: { pointsPerSet: 11, bestOf: 3, minDifference: 2 },
+      config: { sport: SPORT.TABLE_TENNIS, pointsPerSet: 11, bestOf: 3, minDifference: 2 },
       score: { sets: { a: 0, b: 0 }, currentSet: { a: 5, b: 3 }, serving: 'B' },
       swappedSides: false,
       midSetSwapped: false,
       setHistory: [],
       status: 'LIVE',
       winner: null,
-      sport: 'tableTennis',
+      sport: SPORT.TABLE_TENNIS,
       history: [],
     },
     ...overrides,

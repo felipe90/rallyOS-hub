@@ -27,6 +27,11 @@ import {
   QRData,
   ErrorResponse,
   ValidationError,
+  TableTennisMatchConfig,
+  PadelMatchConfig,
+  PadelPoint,
+  Sport,
+  SPORT,
 } from '../../../shared/types';
 import type { MatchEngine } from './matchEngine';
 
@@ -49,6 +54,11 @@ export {
   QRData,
   ErrorResponse,
   ValidationError,
+  TableTennisMatchConfig,
+  PadelMatchConfig,
+  PadelPoint,
+  Sport,
+  SPORT,
 };
 
 /**

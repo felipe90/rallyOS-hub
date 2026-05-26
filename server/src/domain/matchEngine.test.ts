@@ -1,5 +1,5 @@
 import { MatchEngine } from './matchEngine';
-import type { MatchStateExtended } from './types';
+import { MatchStateExtended, SPORT } from './types';
 import { ScoreChange } from './types';
 import type { SportRules } from './sports/types';
 import type { GameState, ScoreResult } from './sports/types';
@@ -9,18 +9,18 @@ import type { Player, MatchEvent, SportConfig } from '../../../shared/types';
 
 function createMockRules(): jest.Mocked<SportRules> {
   const baseState: GameState = {
-    config: { sport: 'tableTennis', pointsPerSet: 11, bestOf: 3, minDifference: 2 },
+    config: { sport: SPORT.TABLE_TENNIS, pointsPerSet: 11, bestOf: 3, minDifference: 2 },
     score: { sets: { a: 0, b: 0 }, currentSet: { a: 0, b: 0 }, serving: 'A' },
     swappedSides: false,
     midSetSwapped: false,
     setHistory: [],
     status: 'LIVE',
     winner: null,
-    sport: 'tableTennis',
+    sport: SPORT.TABLE_TENNIS,
   };
 
   return {
-    sport: 'tableTennis' as const,
+    sport: SPORT.TABLE_TENNIS,
     validateConfig: jest.fn().mockReturnValue(true),
     recordScore: jest.fn().mockImplementation((_state: GameState, player: Player): ScoreResult => {
       const newState = JSON.parse(JSON.stringify(_state));
@@ -39,14 +39,14 @@ function createMockRules(): jest.Mocked<SportRules> {
     updateServing: jest.fn().mockReturnValue('B' as Player),
     checkSideSwap: jest.fn().mockReturnValue(false),
     formatDisplayScore: jest.fn().mockReturnValue({
-      type: 'tableTennis' as const,
+      type: SPORT.TABLE_TENNIS,
       leftScore: 0,
       rightScore: 0,
       leftSets: 0,
       rightSets: 0,
     }),
     getDefaultConfig: jest.fn().mockReturnValue({
-      sport: 'tableTennis' as const,
+    sport: SPORT.TABLE_TENNIS,
       pointsPerSet: 11,
       bestOf: 3,
       minDifference: 2,
@@ -66,7 +66,7 @@ describe('MatchEngine delegation', () => {
 
     expect(mockRules.recordScore).toHaveBeenCalledTimes(1);
     expect(mockRules.recordScore).toHaveBeenCalledWith(
-      expect.objectContaining({ sport: 'tableTennis' }),
+      expect.objectContaining({ sport: SPORT.TABLE_TENNIS }),
       'A',
     );
   });
@@ -79,19 +79,19 @@ describe('MatchEngine delegation', () => {
 
     expect(mockRules.subtractScore).toHaveBeenCalledTimes(1);
     expect(mockRules.subtractScore).toHaveBeenCalledWith(
-      expect.objectContaining({ sport: 'tableTennis' }),
+      expect.objectContaining({ sport: SPORT.TABLE_TENNIS }),
       'A',
     );
   });
 
-  it('should keep history tracking in MatchEngine (not delegated)', () => {
+    it('should keep history tracking in MatchEngine (not delegated)', () => {
     const rules = new (require('./sports/tableTennis.rules').TableTennisRules)();
     const engine = new MatchEngine({}, rules);
     engine.startMatch();
     engine.recordPoint('B');
     engine.recordPoint('A');
 
-    const state = engine.getState();
+    const state = engine.getState() as any;
     expect(state.history).toHaveLength(2);
     expect(state.history[0].action).toBe('POINT');
     expect(state.history[0].player).toBe('B');
@@ -110,15 +110,15 @@ describe('MatchEngine delegation', () => {
     const event: MatchEvent = { type: 'SET_WON', winner: 'A', score: { a: 11, b: 0 }, setNumber: 1 };
     mockRules.recordScore.mockReturnValueOnce({
       state: {
-        config: { sport: 'tableTennis', pointsPerSet: 11, bestOf: 3, minDifference: 2 },
+        config: { sport: SPORT.TABLE_TENNIS, pointsPerSet: 11, bestOf: 3, minDifference: 2 } as any,
         score: { sets: { a: 1, b: 0 }, currentSet: { a: 0, b: 0 }, serving: 'B' },
         swappedSides: true,
         midSetSwapped: false,
         setHistory: [{ a: 11, b: 0 }],
         status: 'LIVE',
         winner: null,
-        sport: 'tableTennis',
-      },
+        sport: SPORT.TABLE_TENNIS,
+      } as any,
       events: [event],
     });
 
@@ -131,9 +131,9 @@ describe('MatchEngine delegation', () => {
 describe('MatchEngine.fromState', () => {
   // ── Helpers ──────────────────────────────────────────────────────────
 
-  function makeBasicState(overrides: Partial<MatchStateExtended> = {}): MatchStateExtended {
+  function makeBasicState(overrides: Partial<MatchStateExtended> = {}): any {
     return {
-      config: { pointsPerSet: 11, bestOf: 3, minDifference: 2 },
+      config: { sport: SPORT.TABLE_TENNIS, pointsPerSet: 11, bestOf: 3, minDifference: 2 },
       score: {
         sets: { a: 0, b: 0 },
         currentSet: { a: 0, b: 0 },
@@ -144,7 +144,7 @@ describe('MatchEngine.fromState', () => {
       setHistory: [],
       status: 'WAITING',
       winner: null,
-      sport: 'tableTennis',
+      sport: SPORT.TABLE_TENNIS,
       tableId: '',
       tableName: '',
       playerNames: { a: 'Player A', b: 'Player B' },
@@ -159,9 +159,9 @@ describe('MatchEngine.fromState', () => {
   describe('round-trip', () => {
     it('should produce identical getState() after fromState() for clean state', () => {
       const engine = new MatchEngine();
-      const original = engine.getState();
+      const original = engine.getState() as any;
       const restored = MatchEngine.fromState(original);
-      const result = restored.getState();
+      const result = restored.getState() as any;
 
       expect(result.config).toEqual(original.config);
       expect(result.score).toEqual(original.score);
@@ -181,9 +181,9 @@ describe('MatchEngine.fromState', () => {
       engine.recordPoint('B');
       engine.recordPoint('A');
 
-      const original = engine.getState();
+      const original = engine.getState() as any;
       const restored = MatchEngine.fromState(original);
-      const result = restored.getState();
+      const result = restored.getState() as any;
 
       expect(result.config).toEqual(original.config);
       expect(result.score).toEqual(original.score);
@@ -201,7 +201,7 @@ describe('MatchEngine.fromState', () => {
 
     it('should produce identical getState() for FINISHED state with winner', () => {
       const finishedState = makeBasicState({
-        config: { pointsPerSet: 11, bestOf: 3, minDifference: 2 },
+        config: { sport: SPORT.TABLE_TENNIS, pointsPerSet: 11, bestOf: 3, minDifference: 2 },
         score: {
           sets: { a: 2, b: 0 },
           currentSet: { a: 11, b: 3 },
@@ -231,7 +231,7 @@ describe('MatchEngine.fromState', () => {
       });
 
       const restored = MatchEngine.fromState(finishedState);
-      const result = restored.getState();
+      const result = restored.getState() as any;
 
       expect(result.status).toBe('FINISHED');
       expect(result.winner).toBe('A');
@@ -265,7 +265,7 @@ describe('MatchEngine.fromState', () => {
 
       // Restored engine should be LIVE and accept points
       restored.recordPoint('B');
-      const newState = restored.getState();
+      const newState = restored.getState() as any;
 
       expect(newState.score.currentSet.a).toBe(1);
       expect(newState.score.currentSet.b).toBe(1);
@@ -284,7 +284,7 @@ describe('MatchEngine.fromState', () => {
 
       expect(restored.canUndo()).toBe(true);
 
-      const undone = restored.undoLast();
+      const undone = restored.undoLast() as any;
       expect(undone.score.currentSet.a).toBe(1);
       expect(undone.score.currentSet.b).toBe(1);
       expect(undone.history.length).toBe(2);
@@ -292,9 +292,10 @@ describe('MatchEngine.fromState', () => {
       // Should still be able to undo again
       expect(restored.canUndo()).toBe(true);
       restored.undoLast();
-      expect(restored.getState().score.currentSet.a).toBe(1);
-      expect(restored.getState().score.currentSet.b).toBe(0);
-      expect(restored.getState().history.length).toBe(1);
+      const s = restored.getState() as any;
+      expect(s.score.currentSet.a).toBe(1);
+      expect(s.score.currentSet.b).toBe(0);
+      expect(s.history.length).toBe(1);
     });
 
     it('restored engine should handle subtractPoint', () => {
@@ -307,7 +308,7 @@ describe('MatchEngine.fromState', () => {
       const restored = MatchEngine.fromState(state);
 
       restored.subtractPoint('A');
-      const newState = restored.getState();
+      const newState = restored.getState() as any;
 
       expect(newState.score.currentSet.a).toBe(1);
       expect(newState.history.length).toBe(3); // original 2 + correction
@@ -325,7 +326,7 @@ describe('MatchEngine.fromState', () => {
       });
 
       const restored = MatchEngine.fromState(finishedState);
-      const result = restored.recordPoint('A');
+      const result = restored.recordPoint('A') as any;
 
       // Should return state unchanged since match is finished
       expect(result.score.currentSet.a).toBe(11);

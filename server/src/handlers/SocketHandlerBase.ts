@@ -7,7 +7,7 @@
 
 import { Server, Socket } from 'socket.io';
 import crypto from 'crypto';
-import { TableManager } from '../domain/tableManager';
+import { TableManager } from '../domain/courtManager';
 import { TableInfo, TableInfoWithPin } from '../domain/types';
 import { logger, maskIp } from '../utils/logger';
 import { RateLimiter } from '../services/security/RateLimiter';

@@ -1,4 +1,5 @@
-import { TableManager } from './tableManager';
+import { SPORT } from '../../../shared/types';
+import { TableManager } from './courtManager';
 import { StateStore } from '../services/store/StateStore';
 import type { FileSystem, PersistedTable, PersistedMatchState } from '../services/store/types';
 import type { HubConfig, MatchStateExtended, MatchEvent } from './types';
@@ -81,7 +82,7 @@ function makePersistedTable(overrides: Partial<PersistedTable> = {}): PersistedT
     playerNames: { a: 'Alice', b: 'Bob' },
     createdAt: 1700000000000,
     matchState: {
-      config: { pointsPerSet: 11, bestOf: 3, minDifference: 2 },
+      config: { sport: SPORT.TABLE_TENNIS, pointsPerSet: 11, bestOf: 3, minDifference: 2 },
       score: {
         sets: { a: 0, b: 0 },
         currentSet: { a: 5, b: 3 },
@@ -92,7 +93,7 @@ function makePersistedTable(overrides: Partial<PersistedTable> = {}): PersistedT
       setHistory: [],
       status: 'LIVE',
       winner: null,
-      sport: 'tableTennis',
+      sport: SPORT.TABLE_TENNIS,
       history: [
         {
           id: 'h1',
@@ -286,7 +287,7 @@ describe('TableManager with StateStore', () => {
       // TableManager should still be functional after save error
       const state = manager.recordPoint(table.id, 'A');
       expect(state).not.toBeNull();
-      expect(state!.score.currentSet.a).toBe(1);
+      expect((state as any)!.score.currentSet.a).toBe(1);
     });
 
     it('should persist exact PIN after mutations', () => {
@@ -360,7 +361,7 @@ describe('TableManager with StateStore', () => {
         name: 'Mesa Alfa',
         pin: '1111',
         matchState: {
-          config: { pointsPerSet: 11, bestOf: 3, minDifference: 2 },
+          config: { sport: SPORT.TABLE_TENNIS, pointsPerSet: 11, bestOf: 3, minDifference: 2 },
           score: {
             sets: { a: 0, b: 0 },
             currentSet: { a: 7, b: 4 },
@@ -371,7 +372,7 @@ describe('TableManager with StateStore', () => {
           setHistory: [],
           status: 'LIVE',
           winner: null,
-          sport: 'tableTennis',
+          sport: SPORT.TABLE_TENNIS,
           history: [],
         },
       });
@@ -393,7 +394,7 @@ describe('TableManager with StateStore', () => {
       expect(fullTable!.status).toBe('LIVE');
 
       // Verify match state
-      const matchState = manager.getMatchState('t1');
+      const matchState = manager.getMatchState('t1') as any;
       expect(matchState).not.toBeNull();
       expect(matchState!.score.currentSet.a).toBe(7);
       expect(matchState!.score.currentSet.b).toBe(4);
@@ -414,7 +415,7 @@ describe('TableManager with StateStore', () => {
         playerNames: { a: 'Carol', b: 'Dave' },
         status: 'FINISHED',
         matchState: {
-          config: { pointsPerSet: 11, bestOf: 3, minDifference: 2 },
+          config: { sport: SPORT.TABLE_TENNIS, pointsPerSet: 11, bestOf: 3, minDifference: 2 },
           score: {
             sets: { a: 2, b: 1 },
             currentSet: { a: 11, b: 3 },
@@ -428,7 +429,7 @@ describe('TableManager with StateStore', () => {
           ],
           status: 'FINISHED',
           winner: 'A',
-          sport: 'tableTennis',
+          sport: SPORT.TABLE_TENNIS,
           history: [],
         },
       });
@@ -458,7 +459,7 @@ describe('TableManager with StateStore', () => {
     it('should restore undo history', () => {
       const t1 = makePersistedTable({
         matchState: {
-          config: { pointsPerSet: 11, bestOf: 3, minDifference: 2 },
+          config: { sport: SPORT.TABLE_TENNIS, pointsPerSet: 11, bestOf: 3, minDifference: 2 },
           score: {
             sets: { a: 0, b: 0 },
             currentSet: { a: 3, b: 0 },
@@ -469,7 +470,7 @@ describe('TableManager with StateStore', () => {
           setHistory: [],
           status: 'LIVE',
           winner: null,
-          sport: 'tableTennis',
+          sport: SPORT.TABLE_TENNIS,
           history: [
             {
               id: 'h1',
@@ -509,7 +510,7 @@ describe('TableManager with StateStore', () => {
       expect(matchState!.undoAvailable).toBe(true);
 
       // Should be able to undo
-      const undone = manager.undoLast('table-1');
+      const undone = manager.undoLast('table-1') as any;
       expect(undone).not.toBeNull();
       expect(undone!.score.currentSet.a).toBe(2);
       expect(undone!.history.length).toBe(2);
@@ -548,8 +549,8 @@ describe('TableManager with StateStore', () => {
       expect(manager.getAllTables()).toHaveLength(0);
     });
 
-    it('should skip corrupted tables gracefully', () => {
-      // Seed a corrupted PersistedTable that will fail MatchEngine.fromState
+    it('should handle all persisted tables gracefully (resilient fromState)', () => {
+      // Even with a broken matchState, fromState now recovers with defaults
       const badTable: PersistedTable = {
         id: 'bad-table',
         number: 1,
@@ -559,16 +560,15 @@ describe('TableManager with StateStore', () => {
         playerNames: { a: 'X', b: 'Y' },
         createdAt: 1,
         matchState: {
-          // Missing required config field — will cause fromState to fail
           config: undefined as any,
           score: undefined as any,
-          swappedSides: false,
-          midSetSwapped: false,
-          setHistory: [],
-          status: 'LIVE',
-          winner: null,
-          sport: 'tableTennis' as any,
-          history: [],
+          swappedSides: false as any,
+          midSetSwapped: false as any,
+          setHistory: undefined as any,
+          status: undefined as any,
+          winner: undefined as any,
+          sport: undefined as any,
+          history: undefined as any,
         },
       };
       const goodTable = makePersistedTable({ id: 'good-table' });
@@ -577,12 +577,13 @@ describe('TableManager with StateStore', () => {
       const manager = new TableManager(mockHubConfig, stateStore);
 
       const result = manager.loadTournament();
-      // Should return true because at least one table was restored
+      // Both tables are restored — fromState recovers gracefully
       expect(result).toBe(true);
 
       const tables = manager.getAllTables();
-      expect(tables).toHaveLength(1);
-      expect(tables[0].id).toBe('good-table');
+      expect(tables).toHaveLength(2);
+      const ids = tables.map((t) => t.id).sort();
+      expect(ids).toEqual(['bad-table', 'good-table']);
     });
 
     it('should skip CONFIGURING tables (only LIVE/FINISHED)', () => {
@@ -674,7 +675,7 @@ describe('TableManager with StateStore', () => {
       expect(restoredTable!.playerNames).toEqual({ a: 'Alpha', b: 'Beta' });
       expect(restoredTable!.status).toBe('LIVE');
 
-      const state = newManager.getMatchState(table.id);
+      const state = newManager.getMatchState(table.id) as any;
       expect(state!.score.currentSet.a).toBe(2);
       expect(state!.score.currentSet.b).toBe(1);
       expect(state!.history.length).toBe(3);

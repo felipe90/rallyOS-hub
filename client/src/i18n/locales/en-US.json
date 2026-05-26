@@ -151,5 +151,12 @@
   "toastMatchStarted": "Match started",
   "toastWinnerAnnounced": "Winner announced",
   "toastConnectionError": "Connection error",
-  "toastPinVerificationFailed": "PIN verification failed"
+  "toastPinVerificationFailed": "PIN verification failed",
+  "sportTableTennis": "Table Tennis",
+  "sportPadel": "Padel",
+  "deuce": "Deuce",
+  "advantage": "Advantage",
+  "tiebreak": "Tie-break",
+  "game": "Game",
+  "goldenPoint": "Golden Point"
 }

@@ -1,3 +1,23 @@
+/**
+ * MatchEngine — Thin orchestrator that delegates sport-specific scoring
+ * to a SportRules implementation (Strategy pattern).
+ *
+ * MatchEngine owns:
+ * - State container (InternalMatchState)
+ * - History/undo tracking
+ * - Event callbacks
+ * - Player identity (names, table IDs)
+ *
+ * SportRules own:
+ * - Scoring logic (recordScore, subtractScore)
+ * - Set/Match completion detection
+ * - Serving rotation
+ * - Side-swap decisions
+ *
+ * Phase 3: Refactored to thin delegator. Constructor accepts optional
+ * SportRules (defaults to TableTennisRules for backward compat).
+ */
+
 import crypto from 'crypto';
 import {
   Player,
@@ -8,11 +28,10 @@ import {
   MatchStateExtended,
   ScoreChange,
   MatchEvent,
-  SetWonEvent,
-  MatchWonEvent,
   TableStatus
 } from './types';
-import { logger } from '../utils/logger';
+import type { SportRules, GameState, ScoreResult } from './sports/types';
+import { TableTennisRules } from './sports/tableTennis.rules';
 
 export type { Player, Score, MatchConfig, MatchState, MatchConfigExtended, MatchStateExtended };
 
@@ -32,10 +51,17 @@ interface InternalMatchState extends MatchState {
 
 export class MatchEngine {
   private state: InternalMatchState;
+  private rules: SportRules;
   private onMatchEvent?: (event: MatchEvent) => void;
 
-  constructor(config: Partial<MatchConfig> = {}) {
-    this.state = this.getInitialState({ ...INITIAL_CONFIG, ...config });
+  constructor(config: Partial<MatchConfig> = {}, rules?: SportRules) {
+    this.rules = rules || new TableTennisRules();
+    const resolvedConfig: MatchConfig = {
+      ...INITIAL_CONFIG,
+      ...config,
+      sport: config.sport || this.rules.sport,
+    };
+    this.state = this.getInitialState(resolvedConfig);
   }
 
   private getInitialState(config: MatchConfig): InternalMatchState {
@@ -58,12 +84,53 @@ export class MatchEngine {
       setHistory: [],
       status: 'WAITING' as TableStatus,
       winner: null,
+      sport: config.sport || 'tableTennis',
       tableId: '',
       tableName: '',
       playerNames: { a: 'Player A', b: 'Player B' },
       history: [],
       undoAvailable: false,
     };
+  }
+
+  /**
+   * Extract the GameState portion (shared state) from the full InternalMatchState.
+   * This is what gets passed to SportRules methods.
+   */
+  private extractGameState(): GameState {
+    return {
+      config: this.state.config,
+      score: {
+        sets: { ...this.state.score.sets },
+        currentSet: { ...this.state.score.currentSet },
+        serving: this.state.score.serving,
+      },
+      swappedSides: this.state.swappedSides,
+      midSetSwapped: this.state.midSetSwapped,
+      setHistory: this.state.setHistory.map(s => ({ ...s })),
+      status: this.state.status,
+      winner: this.state.winner,
+      sport: this.state.sport,
+    };
+  }
+
+  /**
+   * Merge a GameState result back into InternalMatchState,
+   * preserving runtime-only fields.
+   */
+  private mergeGameState(gameState: GameState): void {
+    this.state.config = gameState.config;
+    this.state.score = {
+      sets: { ...gameState.score.sets },
+      currentSet: { ...gameState.score.currentSet },
+      serving: gameState.score.serving,
+    };
+    this.state.swappedSides = gameState.swappedSides;
+    this.state.midSetSwapped = gameState.midSetSwapped;
+    this.state.setHistory = gameState.setHistory.map(s => ({ ...s }));
+    this.state.status = gameState.status;
+    this.state.winner = gameState.winner;
+    this.state.sport = gameState.sport;
   }
 
   public setEventCallback(cb: (event: MatchEvent) => void) {
@@ -110,7 +177,7 @@ export class MatchEngine {
     
     const lastChange = this.state.history.pop()!;
     this.state.score.currentSet = { ...lastChange.pointsBefore };
-    this.updateServing();
+    this.state.score.serving = this.rules.updateServing(this.extractGameState());
     this.state.undoAvailable = this.state.history.length > 0;
     
     return this.getState();
@@ -126,126 +193,37 @@ export class MatchEngine {
 
     const pointsBefore = { ...this.state.score.currentSet };
     
-    if (player === 'A') this.state.score.currentSet.a++;
-    else this.state.score.currentSet.b++;
+    // Delegate scoring to sport rules
+    const gameState = this.extractGameState();
+    const result: ScoreResult = this.rules.recordScore(gameState, player);
+    this.mergeGameState(result.state);
 
+    // History tracking stays in MatchEngine (common to all sports)
     this.addToHistory(player, 'POINT', pointsBefore, { ...this.state.score.currentSet });
     
-    this.checkSideSwap();
-    this.checkSetWin();
-    this.updateServing();
-
-    return this.getState();
-  }
-
-  private checkSideSwap() {
-    const { a, b } = this.state.score.sets;
-    const isFinalSet = (a + b) === (this.state.config.bestOf - 1);
-    
-    if (isFinalSet && !this.state.midSetSwapped) {
-      const { a: scoreA, b: scoreB } = this.state.score.currentSet;
-      if (scoreA >= 5 || scoreB >= 5) {
-        this.state.swappedSides = !this.state.swappedSides;
-        this.state.midSetSwapped = true;
-        logger.info('Decisive set midpoint reached: Swapping sides');
+    // Emit any events from rules through the callback
+    if (this.onMatchEvent) {
+      for (const event of result.events) {
+        this.onMatchEvent(event);
       }
     }
+
+    return this.getState();
   }
 
   public subtractPoint(player: Player): MatchStateExtended {
     if (this.state.status !== 'LIVE') return this.getState();
 
-    const p = player.toLowerCase() as 'a' | 'b';
-    
-    // Allow subtraction even with negative handicap (referee can adjust)
     const pointsBefore = { ...this.state.score.currentSet };
-    this.state.score.currentSet[p]--;
+    
+    // Delegate to sport rules
+    const gameState = this.extractGameState();
+    const newState = this.rules.subtractScore(gameState, player);
+    this.mergeGameState(newState);
+
     this.addToHistory(player, 'CORRECTION', pointsBefore, { ...this.state.score.currentSet });
-    this.updateServing();
 
     return this.getState();
-  }
-
-  private updateServing() {
-    const totalPoints = this.state.score.currentSet.a + this.state.score.currentSet.b;
-    const isDeuce = this.state.score.currentSet.a >= 10 && this.state.score.currentSet.b >= 10;
-    const changeInterval = isDeuce ? 1 : 2;
-
-    if (totalPoints % changeInterval === 0) {
-      this.state.score.serving = this.state.score.serving === 'A' ? 'B' : 'A';
-    }
-  }
-
-  private checkSetWin() {
-    const { a, b } = this.state.score.currentSet;
-    const { pointsPerSet, minDifference } = this.state.config;
-
-    const hasReachedLimit = a >= pointsPerSet || b >= pointsPerSet;
-    const hasDifference = Math.abs(a - b) >= minDifference;
-
-    if (hasReachedLimit && hasDifference) {
-      const winner = a > b ? 'A' : 'B';
-      if (winner === 'A') this.state.score.sets.a++;
-      else this.state.score.sets.b++;
-
-      this.state.setHistory.push({ a, b });
-      
-      // Record SET_WON in history
-      const setNumber = this.state.score.sets.a + this.state.score.sets.b;
-      this.addToHistory(winner, 'SET_WON', { a, b }, { a, b }, setNumber);
-      
-      if (this.onMatchEvent) {
-        const setNumber = this.state.score.sets.a + this.state.score.sets.b;
-        const event: SetWonEvent = {
-          type: 'SET_WON',
-          winner,
-          score: { a, b },
-          setNumber
-        };
-        this.onMatchEvent(event);
-      }
-
-      this.checkMatchWin();
-
-      if (this.state.status !== 'FINISHED') {
-        // Apply handicap to next set
-        const handicapA = this.state.config.handicapA || 0;
-        const handicapB = this.state.config.handicapB || 0;
-        this.state.score.currentSet = { a: handicapA, b: handicapB };
-      }
-
-      if (this.state.status !== 'FINISHED') {
-        const oldSide = this.state.swappedSides;
-        this.state.swappedSides = !this.state.swappedSides;
-        this.state.midSetSwapped = false;
-        logger.debug({ oldSide, newSide: this.state.swappedSides }, 'Set finished. Swapping sides for next set');
-      } else {
-        logger.debug('Match finished. Keeping sides as is');
-      }
-    }
-  }
-
-  private checkMatchWin() {
-    const { a, b } = this.state.score.sets;
-    const setsNeeded = Math.ceil(this.state.config.bestOf / 2);
-
-    if (a >= setsNeeded) {
-      this.state.status = 'FINISHED';
-      this.state.winner = 'A';
-    } else if (b >= setsNeeded) {
-      this.state.status = 'FINISHED';
-      this.state.winner = 'B';
-    }
-
-    if (this.state.status === 'FINISHED' && this.onMatchEvent) {
-      const event: MatchWonEvent = {
-        type: 'MATCH_WON',
-        winner: this.state.winner as Player,
-        finalScore: [...this.state.setHistory, { a: this.state.score.currentSet.a, b: this.state.score.currentSet.b }],
-        sets: { ...this.state.score.sets }
-      };
-      this.onMatchEvent(event);
-    }
   }
 
   public setServer(player: Player): MatchStateExtended {
@@ -255,7 +233,6 @@ export class MatchEngine {
 
   public swapSides(): MatchStateExtended {
     this.state.swappedSides = !this.state.swappedSides;
-    logger.info({ swappedSides: this.state.swappedSides }, 'Referee manually swapped sides');
     return this.getState();
   }
 
@@ -284,10 +261,12 @@ export class MatchEngine {
    * @param state  Serialized state (from getState() or PersistedMatchState).
    *               history[] defaults to empty array if absent.
    *               undoAvailable is recalculated from history length.
+   * @param rules  Optional SportRules instance. If omitted, defaults to
+   *               TableTennisRules (backward-compatible behavior).
    * @returns A new MatchEngine instance with restored state.
    */
-  public static fromState(state: MatchStateExtended): MatchEngine {
-    const engine = new MatchEngine(state.config);
+  public static fromState(state: MatchStateExtended, rules?: SportRules): MatchEngine {
+    const engine = new MatchEngine(state.config, rules);
 
     engine.state = {
       config: { ...state.config },
@@ -297,6 +276,7 @@ export class MatchEngine {
       setHistory: state.setHistory.map((s) => ({ ...s })),
       status: state.status,
       winner: state.winner,
+      sport: state.sport || 'tableTennis',
       tableId: state.tableId || '',
       tableName: state.tableName || '',
       playerNames: state.playerNames

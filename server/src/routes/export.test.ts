@@ -98,6 +98,7 @@ function makeFinishedTable(overrides: Partial<PersistedTable> = {}): PersistedTa
       ],
       status: 'FINISHED',
       winner: 'A',
+      sport: 'tableTennis',
       history: [],
     },
     ...overrides,

@@ -151,5 +151,12 @@
   "toastMatchStarted": "Partido iniciado",
   "toastWinnerAnnounced": "Ganador anunciado",
   "toastConnectionError": "Error de conexión",
-  "toastPinVerificationFailed": "Verificación de PIN fallida"
+  "toastPinVerificationFailed": "Verificación de PIN fallida",
+  "sportTableTennis": "Tenis de Mesa",
+  "sportPadel": "Pádel",
+  "deuce": "Iguales",
+  "advantage": "Ventaja",
+  "tiebreak": "Tie-break",
+  "game": "Juego",
+  "goldenPoint": "Punto de Oro"
 }

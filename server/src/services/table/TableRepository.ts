@@ -4,17 +4,17 @@
  * Responsibility: Store and retrieve tables.
  */
 
-import { Table } from '../../domain/types';
+import { Court } from '../../domain/types';
 
 export class TableRepository {
-  private tables: Map<string, Table> = new Map();
+  private tables: Map<string, Court> = new Map();
 
-  create(table: Table): Table {
+  create(table: Court): Court {
     this.tables.set(table.id, table);
     return table;
   }
 
-  get(tableId: string): Table | undefined {
+  get(tableId: string): Court | undefined {
     return this.tables.get(tableId);
   }
 
@@ -22,7 +22,7 @@ export class TableRepository {
     return this.tables.delete(tableId);
   }
 
-  getAll(): Table[] {
+  getAll(): Court[] {
     return Array.from(this.tables.values());
   }
 

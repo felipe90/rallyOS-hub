@@ -13,7 +13,7 @@ function createMockTable(pin: string): Table {
     name: 'Test Table',
     status: 'WAITING',
     pin,
-    matchEngine: new MatchEngine(),
+    sportRules: new MatchEngine(),
     playerNames: { a: 'Player A', b: 'Player B' },
     history: [],
     players: [],

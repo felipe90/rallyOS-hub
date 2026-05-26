@@ -1,6 +1,132 @@
 import { MatchEngine } from './matchEngine';
 import type { MatchStateExtended } from './types';
 import { ScoreChange } from './types';
+import type { SportRules } from './sports/types';
+import type { GameState, ScoreResult } from './sports/types';
+import type { Player, MatchEvent, SportConfig } from '../../../shared/types';
+
+// ── Mock SportRules for delegation testing ─────────────────────────────
+
+function createMockRules(): jest.Mocked<SportRules> {
+  const baseState: GameState = {
+    config: { sport: 'tableTennis', pointsPerSet: 11, bestOf: 3, minDifference: 2 },
+    score: { sets: { a: 0, b: 0 }, currentSet: { a: 0, b: 0 }, serving: 'A' },
+    swappedSides: false,
+    midSetSwapped: false,
+    setHistory: [],
+    status: 'LIVE',
+    winner: null,
+    sport: 'tableTennis',
+  };
+
+  return {
+    sport: 'tableTennis' as const,
+    validateConfig: jest.fn().mockReturnValue(true),
+    recordScore: jest.fn().mockImplementation((_state: GameState, player: Player): ScoreResult => {
+      const newState = JSON.parse(JSON.stringify(_state));
+      if (player === 'A') newState.score.currentSet.a++;
+      else newState.score.currentSet.b++;
+      return { state: newState, events: [] };
+    }),
+    subtractScore: jest.fn().mockImplementation((_state: GameState, player: Player): GameState => {
+      const newState = JSON.parse(JSON.stringify(_state));
+      const p = player.toLowerCase() as 'a' | 'b';
+      newState.score.currentSet[p]--;
+      return newState;
+    }),
+    isSetComplete: jest.fn().mockReturnValue(false),
+    isMatchComplete: jest.fn().mockReturnValue(false),
+    updateServing: jest.fn().mockReturnValue('B' as Player),
+    checkSideSwap: jest.fn().mockReturnValue(false),
+    formatDisplayScore: jest.fn().mockReturnValue({
+      type: 'tableTennis' as const,
+      leftScore: 0,
+      rightScore: 0,
+      leftSets: 0,
+      rightSets: 0,
+    }),
+    getDefaultConfig: jest.fn().mockReturnValue({
+      sport: 'tableTennis' as const,
+      pointsPerSet: 11,
+      bestOf: 3,
+      minDifference: 2,
+    }),
+    needsHandicap: jest.fn().mockReturnValue(false),
+  };
+}
+
+// ── Delegation ─────────────────────────────────────────────────────────
+
+describe('MatchEngine delegation', () => {
+  it('should accept SportRules in constructor and delegate recordPoint', () => {
+    const mockRules = createMockRules();
+    const engine = new MatchEngine({}, mockRules);
+    engine.startMatch();
+    engine.recordPoint('A');
+
+    expect(mockRules.recordScore).toHaveBeenCalledTimes(1);
+    expect(mockRules.recordScore).toHaveBeenCalledWith(
+      expect.objectContaining({ sport: 'tableTennis' }),
+      'A',
+    );
+  });
+
+  it('should delegate subtractPoint to rules.subtractScore', () => {
+    const mockRules = createMockRules();
+    const engine = new MatchEngine({}, mockRules);
+    engine.startMatch();
+    engine.subtractPoint('A');
+
+    expect(mockRules.subtractScore).toHaveBeenCalledTimes(1);
+    expect(mockRules.subtractScore).toHaveBeenCalledWith(
+      expect.objectContaining({ sport: 'tableTennis' }),
+      'A',
+    );
+  });
+
+  it('should keep history tracking in MatchEngine (not delegated)', () => {
+    const rules = new (require('./sports/tableTennis.rules').TableTennisRules)();
+    const engine = new MatchEngine({}, rules);
+    engine.startMatch();
+    engine.recordPoint('B');
+    engine.recordPoint('A');
+
+    const state = engine.getState();
+    expect(state.history).toHaveLength(2);
+    expect(state.history[0].action).toBe('POINT');
+    expect(state.history[0].player).toBe('B');
+    expect(state.history[1].action).toBe('POINT');
+    expect(state.history[1].player).toBe('A');
+  });
+
+  it('should emit events returned by rules.recordScore through callback', () => {
+    const mockRules = createMockRules();
+    const events: MatchEvent[] = [];
+    const engine = new MatchEngine({}, mockRules);
+    engine.setEventCallback((e: MatchEvent) => { events.push(e); });
+    engine.startMatch();
+
+    // Make recordScore return an event
+    const event: MatchEvent = { type: 'SET_WON', winner: 'A', score: { a: 11, b: 0 }, setNumber: 1 };
+    mockRules.recordScore.mockReturnValueOnce({
+      state: {
+        config: { sport: 'tableTennis', pointsPerSet: 11, bestOf: 3, minDifference: 2 },
+        score: { sets: { a: 1, b: 0 }, currentSet: { a: 0, b: 0 }, serving: 'B' },
+        swappedSides: true,
+        midSetSwapped: false,
+        setHistory: [{ a: 11, b: 0 }],
+        status: 'LIVE',
+        winner: null,
+        sport: 'tableTennis',
+      },
+      events: [event],
+    });
+
+    engine.recordPoint('A');
+    expect(events).toHaveLength(1);
+    expect(events[0]).toEqual(event);
+  });
+});
 
 describe('MatchEngine.fromState', () => {
   // ── Helpers ──────────────────────────────────────────────────────────
@@ -18,6 +144,7 @@ describe('MatchEngine.fromState', () => {
       setHistory: [],
       status: 'WAITING',
       winner: null,
+      sport: 'tableTennis',
       tableId: '',
       tableName: '',
       playerNames: { a: 'Player A', b: 'Player B' },

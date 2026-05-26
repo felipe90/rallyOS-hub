@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { FileSystem, PersistedState, PersistedTable } from './types';
+import { FileSystem, PersistedState, PersistedTable, PERSISTENCE_VERSION } from './types';
+import { migrateV1toV2 } from './migration';
 import { logger } from '../../utils/logger';
 
 const DEFAULT_PATH = 'data/rallyos-state.json';
@@ -21,11 +22,12 @@ export class StateStore {
 
   /**
    * Persist tables to disk atomically (tmp + rename).
+   * Always writes version 2 format (with sport field on matchState).
    * Only the caller is responsible for filtering to LIVE/FINISHED tables.
    */
   save(tables: PersistedTable[]): void {
     const persisted: PersistedState = {
-      version: 1,
+      version: PERSISTENCE_VERSION,
       savedAt: Date.now(),
       tables,
     };
@@ -44,6 +46,7 @@ export class StateStore {
 
   /**
    * Load persisted state from disk.
+   * Auto-migrates v1 state to v2 (in-memory only — disk file is not rewritten).
    * Returns `null` if the file is missing, empty, or contains invalid JSON.
    */
   load(): PersistedState | null {
@@ -71,7 +74,10 @@ export class StateStore {
         return null;
       }
 
-      return parsed as PersistedState;
+      // Auto-migrate v1→v2 (adds sport: 'tableTennis' to matchState)
+      const migrated = migrateV1toV2(parsed as PersistedState);
+
+      return migrated;
     } catch (err) {
       logger.warn({ err }, 'StateStore: failed to load state, returning null');
       return null;

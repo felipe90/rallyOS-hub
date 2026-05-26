@@ -4,25 +4,25 @@
  * Responsibility: Configure, start, score, and reset matches.
  */
 
-import { Table, MatchEvent } from '../../domain/types';
+import { Court, MatchEvent } from '../../domain/types';
 import { MatchEngine, Player, MatchConfig, MatchStateExtended } from '../../domain/matchEngine';
 import { logger } from '../../utils/logger';
 
 export class MatchOrchestrator {
-  configureMatch(table: Table, config: { playerNames?: { a: string; b: string }; matchConfig?: MatchConfig }): void {
+  configureMatch(table: Court, config: { playerNames?: { a: string; b: string }; matchConfig?: MatchConfig }): void {
     if (config.playerNames) {
       table.playerNames = config.playerNames;
-      table.matchEngine.setPlayerNames(config.playerNames);
+      table.sportRules.setPlayerNames(config.playerNames);
     }
 
     if (config.matchConfig) {
       const tblId = table.id;
       const tblName = table.name;
 
-      table.matchEngine = new MatchEngine(config.matchConfig);
-      table.matchEngine.setTableId(tblId, tblName);
-      table.matchEngine.setPlayerNames(table.playerNames);
-      table.matchEngine.setEventCallback((event: MatchEvent) => {
+      table.sportRules = new MatchEngine(config.matchConfig);
+      table.sportRules.setTableId(tblId, tblName);
+      table.sportRules.setPlayerNames(table.playerNames);
+      table.sportRules.setEventCallback((event: MatchEvent) => {
         if (table.onMatchEvent) {
           table.onMatchEvent(event);
         }
@@ -32,7 +32,7 @@ export class MatchOrchestrator {
     table.status = 'CONFIGURING';
   }
 
-  startMatch(table: Table, config?: Partial<MatchConfig> & { playerNameA?: string; playerNameB?: string }): MatchStateExtended | null {
+  startMatch(table: Court, config?: Partial<MatchConfig> & { playerNameA?: string; playerNameB?: string }): MatchStateExtended | null {
     logger.info({ tableId: table.id, config }, 'startMatch called');
 
     const playerNames = {
@@ -45,7 +45,7 @@ export class MatchOrchestrator {
       const tblId = table.id;
       const tblName = table.name;
 
-      table.matchEngine = new MatchEngine({
+      table.sportRules = new MatchEngine({
         pointsPerSet: config.pointsPerSet || 11,
         bestOf: config.bestOf || 3,
         minDifference: 2,
@@ -53,9 +53,9 @@ export class MatchOrchestrator {
         handicapB: config.handicapB || 0,
       });
 
-      table.matchEngine.setTableId(tblId, tblName);
-      table.matchEngine.setPlayerNames(playerNames);
-      table.matchEngine.setEventCallback((event: MatchEvent) => {
+      table.sportRules.setTableId(tblId, tblName);
+      table.sportRules.setPlayerNames(playerNames);
+      table.sportRules.setEventCallback((event: MatchEvent) => {
         if (table.onMatchEvent) {
           table.onMatchEvent(event);
         }
@@ -67,50 +67,50 @@ export class MatchOrchestrator {
     }
 
     table.status = 'LIVE';
-    const state = table.matchEngine.startMatch();
+    const state = table.sportRules.startMatch();
     logger.debug({ tableId: table.id, status: state?.status }, 'After startMatch, state status');
 
     return state;
   }
 
-  recordPoint(table: Table, player: Player): MatchStateExtended | null {
+  recordPoint(table: Court, player: Player): MatchStateExtended | null {
     if (table.status !== 'LIVE') return null;
 
-    const state = table.matchEngine.recordPoint(player);
+    const state = table.sportRules.recordPoint(player);
     if (state) {
       table.status = state.status;
     }
     return state;
   }
 
-  subtractPoint(table: Table, player: Player): MatchStateExtended | null {
+  subtractPoint(table: Court, player: Player): MatchStateExtended | null {
     if (table.status !== 'LIVE') return null;
 
-    return table.matchEngine.subtractPoint(player);
+    return table.sportRules.subtractPoint(player);
   }
 
-  undoLast(table: Table): MatchStateExtended | null {
+  undoLast(table: Court): MatchStateExtended | null {
     if (table.status !== 'LIVE') return null;
 
-    return table.matchEngine.undoLast();
+    return table.sportRules.undoLast();
   }
 
-  setServer(table: Table, player: Player): MatchStateExtended | null {
+  setServer(table: Court, player: Player): MatchStateExtended | null {
     if (table.status !== 'LIVE') return null;
 
-    return table.matchEngine.setServer(player);
+    return table.sportRules.setServer(player);
   }
 
-  swapSides(table: Table): MatchStateExtended | null {
+  swapSides(table: Court): MatchStateExtended | null {
     if (table.status !== 'LIVE') return null;
 
-    return table.matchEngine.swapSides();
+    return table.sportRules.swapSides();
   }
 
-  resetTable(table: Table, config?: MatchConfig): void {
-    table.matchEngine = new MatchEngine(config);
-    table.matchEngine.setTableId(table.id, table.name);
-    table.matchEngine.setEventCallback((event: MatchEvent) => {
+  resetTable(table: Court, config?: MatchConfig): void {
+    table.sportRules = new MatchEngine(config);
+    table.sportRules.setTableId(table.id, table.name);
+    table.sportRules.setEventCallback((event: MatchEvent) => {
       if (table.onMatchEvent) {
         table.onMatchEvent(event);
       }
@@ -119,7 +119,7 @@ export class MatchOrchestrator {
     table.status = 'WAITING';
   }
 
-  getMatchState(table: Table): MatchStateExtended | null {
-    return table.matchEngine.getState();
+  getMatchState(table: Court): MatchStateExtended | null {
+    return table.sportRules.getState();
   }
 }

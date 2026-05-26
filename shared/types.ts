@@ -12,11 +12,67 @@
 
 export type Player = 'A' | 'B';
 
+// ── Sport ────────────────────────────────────────────────────────────
+
+/** Supported sports */
+export type Sport = 'tableTennis' | 'padel';
+
+// ── Padel Point ──────────────────────────────────────────────────────
+
+/** Padel scoring: 0, 15, 30, 40, or Advantage */
+export type PadelPoint = 0 | 15 | 30 | 40 | 'AD';
+
+// ── Sport Config ─────────────────────────────────────────────────────
+
+export type SportConfig = TableTennisConfig | PadelConfig;
+
+export interface TableTennisConfig {
+  sport: 'tableTennis';
+  pointsPerSet: number;
+  bestOf: number;
+  minDifference: number;
+  handicapA?: number;
+  handicapB?: number;
+}
+
+export interface PadelConfig {
+  sport: 'padel';
+  bestOf: number;
+  tiebreakPoints: 7 | 10;
+  gamesPerSet: number;
+  goldenPoint?: boolean;
+}
+
+// ── Sport Display Score ──────────────────────────────────────────────
+
+/** Discriminated union for frontend score display */
+export type SportDisplayScore = TTPointDisplay | PadelPointDisplay;
+
+export interface TTPointDisplay {
+  type: 'tableTennis';
+  leftScore: number;
+  rightScore: number;
+  leftSets: number;
+  rightSets: number;
+}
+
+export interface PadelPointDisplay {
+  type: 'padel';
+  leftPoint: string;
+  rightPoint: string;
+  leftGames: number;
+  rightGames: number;
+  leftSets: number;
+  rightSets: number;
+}
+
 // ── Score ───────────────────────────────────────────────────────────
 
 export interface Score {
   a: number;
   b: number;
+  /** Sport-specific detail score for padel (games, points) — additive, preserves flat a/b for backward compat */
+  detailScore?: SportDisplayScore;
 }
 
 // ── Table Status ────────────────────────────────────────────────────
@@ -65,6 +121,8 @@ export interface MatchConfig {
   handicapB?: number;
   initialScore?: Score;
   initialServer?: Player;
+  /** Sport type — defaults to 'tableTennis' when omitted */
+  sport?: Sport;
 }
 
 export interface MatchConfigExtended extends MatchConfig {
@@ -85,6 +143,8 @@ export interface MatchState {
   setHistory: Score[];
   status: TableStatus;
   winner: Player | null;
+  /** Discriminator for sport-specific display and logic */
+  sport: Sport;
 }
 
 export interface MatchStateExtended extends MatchState {
@@ -109,9 +169,9 @@ export interface AllHistoryEntry {
   };
 }
 
-// ── Table Info (sent to client) ─────────────────────────────────────
+// ── Court Info (formerly Table Info) ─────────────────────────────────
 
-export interface TableInfo {
+export interface CourtInfo {
   id: string;
   number: number;
   name: string;
@@ -123,9 +183,15 @@ export interface TableInfo {
   winner?: Player | null;
 }
 
-export interface TableInfoWithPin extends TableInfo {
+export interface CourtInfoWithPin extends CourtInfo {
   pin?: string;
 }
+
+/** @deprecated Use CourtInfo instead — legacy alias for backward compat */
+export type TableInfo = CourtInfo;
+
+/** @deprecated Use CourtInfoWithPin instead — legacy alias for backward compat */
+export type TableInfoWithPin = CourtInfoWithPin;
 
 // ── QR Data ─────────────────────────────────────────────────────────
 

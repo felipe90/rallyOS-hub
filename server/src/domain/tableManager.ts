@@ -12,7 +12,7 @@
 
 import crypto from 'crypto';
 import { MatchEngine } from './matchEngine';
-import { Table, TableInfo, TableInfoWithPin, Player, MatchConfig, MatchStateExtended, QRData, HubConfig } from './types';
+import { Court, TableInfo, TableInfoWithPin, Player, MatchConfig, MatchStateExtended, QRData, HubConfig } from './types';
 import { AllHistoryEntry } from '../../../shared/types';
 import { logger } from '../utils/logger';
 import { sanitizeInput } from '../utils/validation';
@@ -48,27 +48,27 @@ export class TableManager {
   }
 
   // Table CRUD
-  createTable(name?: string): Table {
+  createTable(name?: string): Court {
     const tableNumber = this.repository.getNextTableNumber();
     const tableName = name ? sanitizeInput(name, 256) : `Mesa ${tableNumber}`;
     const pin = this.pinService.generatePin();
     const id = crypto.randomUUID();
 
-    const table: Table = {
+    const table: Court = {
       id,
       number: tableNumber,
       name: tableName,
       status: 'WAITING',
       pin,
-      matchEngine: new MatchEngine(),
+      sportRules: new MatchEngine(),
       playerNames: { a: 'Player A', b: 'Player B' },
       history: [],
       players: [],
       createdAt: Date.now()
     };
 
-    table.matchEngine.setTableId(id, tableName);
-    table.matchEngine.setEventCallback((event: any) => {
+    table.sportRules.setTableId(id, tableName);
+    table.sportRules.setEventCallback((event: any) => {
       this.onMatchEvent(id, event);
     });
 
@@ -79,7 +79,7 @@ export class TableManager {
     return table;
   }
 
-  getTable(tableId: string): Table | undefined {
+  getTable(tableId: string): Court | undefined {
     return this.repository.get(tableId);
   }
 
@@ -146,7 +146,7 @@ export class TableManager {
     this.matchOrchestrator.configureMatch(table, config);
 
     // Rewire callback: MatchOrchestrator may replace matchEngine routing to undefined table.onMatchEvent
-    table.matchEngine.setEventCallback((event: any) => {
+    table.sportRules.setEventCallback((event: any) => {
       this.onMatchEvent(tableId, event);
     });
 
@@ -164,7 +164,7 @@ export class TableManager {
 
     // Rewire match engine callback — MatchOrchestrator routes to table.onMatchEvent
     // which is never set. Route directly to tableManager.onMatchEvent instead.
-    table.matchEngine.setEventCallback((event: any) => {
+    table.sportRules.setEventCallback((event: any) => {
       this.onMatchEvent(tableId, event);
     });
 
@@ -234,7 +234,7 @@ export class TableManager {
     this.matchOrchestrator.resetTable(table, config);
 
     // Rewire callback: MatchOrchestrator creates new matchEngine routing to undefined table.onMatchEvent
-    table.matchEngine.setEventCallback((event: any) => {
+    table.sportRules.setEventCallback((event: any) => {
       this.onMatchEvent(tableId, event);
     });
 
@@ -256,7 +256,7 @@ export class TableManager {
       const playerNames = table.playerNames ?? { a: 'Player A', b: 'Player B' };
 
       // Extract handicap from table config if present
-      const config = table.matchEngine?.getConfig?.();
+      const config = table.sportRules?.getConfig?.();
       const handicap = config?.handicapA !== undefined || config?.handicapB !== undefined
         ? {
             ...(config?.handicapA !== undefined && { a: config.handicapA }),
@@ -286,11 +286,11 @@ export class TableManager {
     table.players = [];
     table.playerNames = { a: 'Player A', b: 'Player B' };
     this.matchOrchestrator.resetTable(table);
-    table.matchEngine.setTableId(table.id, table.name);
-    table.matchEngine.setPlayerNames({ a: 'Player A', b: 'Player B' });
+    table.sportRules.setTableId(table.id, table.name);
+    table.sportRules.setPlayerNames({ a: 'Player A', b: 'Player B' });
 
     // Rewire callback: MatchOrchestrator creates new matchEngine routing to undefined table.onMatchEvent
-    table.matchEngine.setEventCallback((event: any) => {
+    table.sportRules.setEventCallback((event: any) => {
       this.onMatchEvent(tableId, event);
     });
 
@@ -310,7 +310,7 @@ export class TableManager {
   }
 
   // Formatting
-  tableToInfo(table: Table): TableInfo {
+  tableToInfo(table: Court): TableInfo {
     return this.formatter.toPublicInfo(table);
   }
 
@@ -325,7 +325,7 @@ export class TableManager {
   }
 
   // Private
-  private notifyUpdate(table: Table): void {
+  private notifyUpdate(table: Court): void {
     if (this.onTableUpdate) {
       this.onTableUpdate(this.formatter.toPublicInfo(table));
     }
@@ -357,8 +357,8 @@ export class TableManager {
    * Excludes runtime-only fields: MatchEngine instance, PlayerConnection.socketId,
    * and Socket.io callback references.
    */
-  private toPersistedTable(table: Table): PersistedTable {
-    const state = table.matchEngine.getState();
+  private toPersistedTable(table: Court): PersistedTable {
+    const state = table.sportRules.getState();
     return {
       id: table.id,
       number: table.number,
@@ -375,6 +375,7 @@ export class TableManager {
         setHistory: state.setHistory.map((s) => ({ ...s })),
         status: state.status,
         winner: state.winner,
+        sport: state.sport || 'tableTennis',
         history: (state.history || []).map((h) => ({
           ...h,
           pointsBefore: { ...h.pointsBefore },
@@ -427,13 +428,13 @@ export class TableManager {
 
         engine.setTableId(pt.id, pt.name);
 
-        const table: Table = {
+    const table: Court = {
           id: pt.id,
           number: pt.number,
           name: pt.name,
           status: pt.status,
           pin: pt.pin,
-          matchEngine: engine,
+          sportRules: engine,
           playerNames: { ...pt.playerNames },
           history: [],
           players: [],

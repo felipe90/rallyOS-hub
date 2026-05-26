@@ -108,6 +108,7 @@ function makeTable(overrides: Partial<PersistedTable> = {}): PersistedTable {
       setHistory: [],
       status: 'LIVE',
       winner: null,
+      sport: 'tableTennis',
       history: [],
     },
     ...overrides,

@@ -4,11 +4,11 @@
  * Responsibility: Format tables for public/owner consumption.
  */
 
-import { Table, TableInfo, TableInfoWithPin } from '../../domain/types';
+import { Court, TableInfo, TableInfoWithPin } from '../../domain/types';
 
 export class TableFormatter {
-  toPublicInfo(table: Table): TableInfo {
-    const state = table.matchEngine.getState();
+  toPublicInfo(table: Court): TableInfo {
+    const state = table.sportRules.getState();
     return {
       id: table.id,
       number: table.number,
@@ -22,7 +22,7 @@ export class TableFormatter {
     };
   }
 
-  toInfoWithPin(table: Table): TableInfoWithPin {
+  toInfoWithPin(table: Court): TableInfoWithPin {
     const publicInfo = this.toPublicInfo(table);
     return {
       ...publicInfo,
@@ -30,11 +30,11 @@ export class TableFormatter {
     };
   }
 
-  toPublicList(tables: Table[]): TableInfo[] {
+  toPublicList(tables: Court[]): TableInfo[] {
     return tables.map(t => this.toPublicInfo(t));
   }
 
-  toListWithPins(tables: Table[]): TableInfoWithPin[] {
+  toListWithPins(tables: Court[]): TableInfoWithPin[] {
     return tables.map(t => this.toInfoWithPin(t));
   }
 }

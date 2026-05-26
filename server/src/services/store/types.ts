@@ -27,6 +27,13 @@ export interface PersistedTable {
 }
 
 /**
+ * Current persistence schema version.
+ * - Version 1: Pre-multi-sport (no sport field in matchState).
+ * - Version 2: Multi-sport support (sport field in matchState).
+ */
+export const PERSISTENCE_VERSION = 2;
+
+/**
  * Top-level persistence wrapper written to disk.
  */
 export interface PersistedState {

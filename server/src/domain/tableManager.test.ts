@@ -92,6 +92,7 @@ function makePersistedTable(overrides: Partial<PersistedTable> = {}): PersistedT
       setHistory: [],
       status: 'LIVE',
       winner: null,
+      sport: 'tableTennis',
       history: [
         {
           id: 'h1',
@@ -169,7 +170,7 @@ describe('TableManager with StateStore', () => {
       const savedContent = fs._files.get('data/rallyos-state.json');
       expect(savedContent).toBeDefined();
       const parsed = JSON.parse(savedContent!);
-      expect(parsed.version).toBe(1);
+      expect(parsed.version).toBe(2);
       expect(parsed.tables).toHaveLength(1);
       expect(parsed.tables[0].id).toBe(table.id);
       expect(parsed.tables[0].pin).toBe(table.pin);
@@ -322,7 +323,7 @@ describe('TableManager with StateStore', () => {
       const parsed = JSON.parse(savedContent!);
       const savedTable = parsed.tables[0];
 
-      expect(savedTable.matchEngine).toBeUndefined();
+      expect(savedTable.sportRules).toBeUndefined();
       expect(savedTable.players).toBeUndefined();
       expect(savedTable.onTableUpdate).toBeUndefined();
       expect(savedTable.onMatchEvent).toBeUndefined();
@@ -370,6 +371,7 @@ describe('TableManager with StateStore', () => {
           setHistory: [],
           status: 'LIVE',
           winner: null,
+          sport: 'tableTennis',
           history: [],
         },
       });
@@ -426,6 +428,7 @@ describe('TableManager with StateStore', () => {
           ],
           status: 'FINISHED',
           winner: 'A',
+          sport: 'tableTennis',
           history: [],
         },
       });
@@ -466,6 +469,7 @@ describe('TableManager with StateStore', () => {
           setHistory: [],
           status: 'LIVE',
           winner: null,
+          sport: 'tableTennis',
           history: [
             {
               id: 'h1',
@@ -563,6 +567,7 @@ describe('TableManager with StateStore', () => {
           setHistory: [],
           status: 'LIVE',
           winner: null,
+          sport: 'tableTennis' as any,
           history: [],
         },
       };

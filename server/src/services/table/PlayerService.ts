@@ -4,7 +4,7 @@
  * Responsibility: Join, leave, and referee management.
  */
 
-import { Table, PlayerConnection } from '../../domain/types';
+import { Court, PlayerConnection } from '../../domain/types';
 import { logger } from '../../utils/logger';
 import { sanitizeInput } from '../../utils/validation';
 import { PinService } from '../security/PinService';
@@ -16,7 +16,7 @@ export class PlayerService {
     this.pinService = pinService;
   }
 
-  joinTable(table: Table, socketId: string, name: string, pin?: string): boolean {
+  joinTable(table: Court, socketId: string, name: string, pin?: string): boolean {
     if (pin && !this.pinService.validatePin(table, pin)) {
       logger.warn({ tableId: table.id, tableName: table.name }, 'Invalid PIN attempt');
       return false;
@@ -41,7 +41,7 @@ export class PlayerService {
     return true;
   }
 
-  leaveTable(table: Table, socketId: string): void {
+  leaveTable(table: Court, socketId: string): void {
     const index = table.players.findIndex(p => p.socketId === socketId);
     if (index === -1) return;
 
@@ -50,7 +50,7 @@ export class PlayerService {
     logger.info({ tableId: table.id, tableName: table.name, playerName: player.name }, 'Player left table');
   }
 
-  setReferee(table: Table, socketId: string, pin: string): boolean {
+  setReferee(table: Court, socketId: string, pin: string): boolean {
     if (!this.pinService.validatePin(table, pin)) return false;
 
     const existingReferee = table.players.find(p => p.role === 'REFEREE');
@@ -75,12 +75,12 @@ export class PlayerService {
     return true;
   }
 
-  isReferee(table: Table, socketId: string): boolean {
+  isReferee(table: Court, socketId: string): boolean {
     const player = table.players.find(p => p.socketId === socketId);
     return player?.role === 'REFEREE';
   }
 
-  getRefereeSocketId(table: Table): string | null {
+  getRefereeSocketId(table: Court): string | null {
     const referee = table.players.find(p => p.role === 'REFEREE');
     return referee?.socketId || null;
   }

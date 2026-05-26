@@ -320,6 +320,8 @@ describe('Tournament route handlers', () => {
   });
 
   describe('handleFinish', () => {
+    const mockTableManager = { finishTournament: jest.fn() };
+
     it('should archive file and clear state when tournament exists', () => {
       const fs = makeFs();
       const stateStore = new StateStore(fs, 'data/rallyos-state.json');
@@ -334,7 +336,9 @@ describe('Tournament route handlers', () => {
       const req = mockReq();
       const { status, json } = mockRes();
 
-      handleFinish(stateStore, req, { status, json } as unknown as Response);
+      handleFinish(stateStore, mockTableManager as never, req, { status, json } as unknown as Response);
+
+      expect(mockTableManager.finishTournament).toHaveBeenCalled();
 
       // Source file should be gone (archived)
       expect(fs._files.has('data/rallyos-state.json')).toBe(false);
@@ -357,7 +361,7 @@ describe('Tournament route handlers', () => {
       const req = mockReq();
       const { status, json } = mockRes();
 
-      handleFinish(stateStore, req, { status, json } as unknown as Response);
+      handleFinish(stateStore, mockTableManager as never, req, { status, json } as unknown as Response);
 
       expect(status).toHaveBeenCalledWith(409);
       expect(json).toHaveBeenCalledWith({
@@ -377,7 +381,7 @@ describe('Tournament route handlers', () => {
       const req = mockReq();
       const { json } = mockRes();
 
-      handleFinish(stateStore, req, {
+      handleFinish(stateStore, mockTableManager as never, req, {
         status: jest.fn().mockReturnValue({ json }),
         json,
       } as unknown as Response);

@@ -159,7 +159,7 @@ export interface ValidationError {
 
 export interface RefRevokedEvent {
   tableId: string;
-  reason: 'Regenerado' | 'Expulsado';
+  reason: 'Regenerado' | 'Expulsado' | 'Eliminada';
 }
 
 // ── Kiosk Notifications ────────────────────────────────────────────

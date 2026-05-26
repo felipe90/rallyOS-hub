@@ -41,11 +41,11 @@ export function BackgroundDecor() {
 export function ServingIndicator({ side }: { side: 'A' | 'B' }) {
   return (
     <div 
-      className="absolute top-6 z-20 flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber/10 border border-amber/20 backdrop-blur-sm"
-      style={{ [side === 'A' ? 'left' : 'right']: '1.5rem' }}
+      className="absolute top-6 z-20 flex items-center gap-3 px-6 py-3 rounded-full bg-amber/10 border-2 border-amber/20 backdrop-blur-sm"
+      style={{ [side === 'A' ? 'left' : 'right']: '2rem' }}
     >
-      <div className="w-3 h-3 bg-amber rounded-full animate-pulse" />
-      <span className="text-amber text-sm font-bold uppercase tracking-wider">Saque</span>
+      <div className="w-[clamp(0.75rem,2vw,1.5rem)] h-[clamp(0.75rem,2vw,1.5rem)] bg-amber rounded-full animate-pulse" />
+      <span className="text-amber text-[clamp(0.75rem,2vw,1.25rem)] font-bold uppercase tracking-wider">Saque</span>
     </div>
   );
 }

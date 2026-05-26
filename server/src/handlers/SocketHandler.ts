@@ -57,6 +57,11 @@ export class SocketHandler {
       this.io.emit(SocketEvents.SERVER.TABLE_LIST, this.getPublicTableList());
     };
 
+    // On tournament finish, broadcast empty table list to all clients
+    this.tableManager.onTournamentFinish = () => {
+      this.io.emit(SocketEvents.SERVER.TABLE_LIST, []);
+    };
+
     this.tableManager.onMatchEvent = (tableId, event) => {
       if (event.type === 'SET_WON') {
         this.io.to(tableId).emit(SocketEvents.SERVER.SET_WON, { tableId, ...event });

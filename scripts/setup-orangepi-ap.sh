@@ -252,7 +252,8 @@ dhcp-range=${DHCP_RANGE_START},${DHCP_RANGE_END},255.255.255.0,24h
 domain=local
 address=/rallyos.local/${AP_IP}
 address=/rallyos-hub.local/${AP_IP}
-address=/#/${AP_IP}
+# DO NOT add address=/#/ — catch-all DNS prevents iOS/Android from detecting "no internet"
+# and falling back to cellular data for non-rallyOS traffic.
 EOF
 
     # Use systemd-networkd instead of /etc/network/interfaces (more reliable on Armbian)
@@ -369,6 +370,11 @@ echo "  Next:"
 echo "    WiFi → connect to '${AP_SSID}', opens scoreboard automatically"
 echo "    HDMI → kiosk grid should be on screen"
 echo "    Start hub manually: ${REPO_PATH}/scripts/start-orange-pi.sh"
+echo ""
+echo "  Ensuring data directories for persistence..."
+mkdir -p "${REPO_PATH}/data/archive"
+chmod 777 "${REPO_PATH}/data" "${REPO_PATH}/data/archive" 2>/dev/null || true
+echo "    data/archive ready (rwx for Docker container)"
 _step_ok
 
 echo ""

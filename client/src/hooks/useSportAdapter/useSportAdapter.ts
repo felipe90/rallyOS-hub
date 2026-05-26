@@ -22,7 +22,7 @@ export { SportDisplayRegistry } from '../../adapters/SportDisplayRegistry'
  */
 export function useSportAdapter(match: MatchStateExtended): SportDisplayAdapter {
   return useMemo(() => {
-    const sport: Sport | undefined = (match as any).sport ?? SPORT.TABLE_TENNIS
+    const sport: Sport | undefined = match.sport ?? SPORT.TABLE_TENNIS
     return registry.resolve(sport)
-  }, [(match as any).sport])
+  }, [match.sport])
 }

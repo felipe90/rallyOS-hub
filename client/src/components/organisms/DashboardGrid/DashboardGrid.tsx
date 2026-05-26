@@ -1,6 +1,6 @@
 import { motion, useReducedMotion } from 'framer-motion';
 import type { TableInfo, TableInfoWithPin } from '@shared/types';
-import { TableStatusChip } from '../../molecules/TableStatusChip';
+import { CourtStatusChip } from '../../molecules/CourtStatusChip';
 import { StatCard } from '../../molecules/StatCard';
 import { Body, Title } from '../../atoms/Typography';
 import { Button } from '../../atoms/Button';
@@ -67,7 +67,7 @@ export function DashboardGrid({
             transition={shouldReduceMotion ? undefined : { duration: 0.3 }}
             className="relative"
           >
-            <TableStatusChip
+            <CourtStatusChip
               tableNumber={table.number}
               tableName={table.name}
               status={table.status}
@@ -109,7 +109,7 @@ export function DashboardGrid({
             transition={shouldReduceMotion ? undefined : { duration: 0.3, delay: index * 0.1 }}
             className="relative"
           >
-            <TableStatusChip
+            <CourtStatusChip
               tableNumber={table.number}
               tableName={table.name}
               status={table.status}

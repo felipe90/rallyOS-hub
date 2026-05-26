@@ -18,6 +18,7 @@ import type { SportDisplayAdapter, ConfigField, FormattedSet } from './SportDisp
 
 export class TableTennisDisplayAdapter implements SportDisplayAdapter {
   readonly sport = SPORT.TABLE_TENNIS
+  readonly displayKey = 'sportTableTennis'
   readonly DisplayComponent = TTPointDisplay
 
   computeDisplayData(state: MatchStateExtended): SportDisplayScore {

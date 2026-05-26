@@ -31,4 +31,9 @@ export class SportDisplayRegistry {
     }
     return tableTennisAdapter
   }
+
+  /** All available sport identifiers */
+  getAvailableSports(): Sport[] {
+    return Array.from(adapterMap.keys())
+  }
 }

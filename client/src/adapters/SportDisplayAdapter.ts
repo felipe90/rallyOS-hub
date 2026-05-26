@@ -19,6 +19,9 @@ export interface SportDisplayAdapter {
   /** Sport identifier */
   readonly sport: Sport
 
+  /** i18n key for display name (e.g. 'sportTableTennis' → 'Tenis de Mesa') */
+  readonly displayKey: string
+
   /**
    * Transform MatchStateExtended → UI-ready display data.
    * @param state — current match state (extended with runtime fields)

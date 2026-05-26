@@ -8,7 +8,12 @@ export { ScoreDisplay, ScorePair } from './ScoreDisplay'
 
 export { StatCard, MiniStatCard } from './StatCard'
 
+export { CourtStatusChip } from './CourtStatusChip'
+export type { CourtStatusChipProps } from './CourtStatusChip'
+
+/** @deprecated Use CourtStatusChip instead */
 export { TableStatusChip } from './TableStatusChip'
+/** @deprecated Use CourtStatusChipProps instead */
 export type { TableStatusChipProps } from './TableStatusChip'
 
 export { HistoryList } from './HistoryList'

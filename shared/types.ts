@@ -30,12 +30,8 @@ export type PadelPoint = 0 | 15 | 30 | 40 | 'AD';
 
 // ── Sport Config ─────────────────────────────────────────────────────
 
-/** @deprecated Use TableTennisMatchConfig or PadelMatchConfig. Kept for type compat. */
+/** Union of all sport configs — use TableTennisMatchConfig | PadelMatchConfig */
 export type SportConfig = TableTennisMatchConfig | PadelMatchConfig;
-/** @deprecated Use TableTennisMatchConfig instead. */
-export type TableTennisConfig = TableTennisMatchConfig;
-/** @deprecated Use PadelMatchConfig instead. */
-export type PadelConfig = PadelMatchConfig;
 
 // ── Sport Display Score ──────────────────────────────────────────────
 

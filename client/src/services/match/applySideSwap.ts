@@ -6,7 +6,7 @@
  * Uses SportDisplayAdapter to extract sport-specific state (no branching).
  */
 
-import type { MatchStateExtended, Player } from '@shared/types'
+import type { MatchStateExtended, Player, TableTennisMatchConfig } from '@shared/types'
 import type { SportDisplayAdapter } from '../../adapters/SportDisplayAdapter'
 
 export interface SwappedDisplay {
@@ -47,12 +47,12 @@ export function applySideSwap(
 
   // Delegate handicap to adapter
   const needsHandicap = adapter.needsHandicap()
-  const m = match as any
+  const ttConfig = match.config as TableTennisMatchConfig
   const leftHandicap = needsHandicap
-    ? (isSwapped ? (m.config?.handicapB) : (m.config?.handicapA))
+    ? (isSwapped ? (ttConfig.handicapB) : (ttConfig.handicapA))
     : undefined
   const rightHandicap = needsHandicap
-    ? (isSwapped ? (m.config?.handicapA) : (m.config?.handicapB))
+    ? (isSwapped ? (ttConfig.handicapA) : (ttConfig.handicapB))
     : undefined
 
   // Delegate serving to adapter

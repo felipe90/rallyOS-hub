@@ -18,6 +18,7 @@ import type { SportDisplayAdapter, ConfigField, FormattedSet } from './SportDisp
 
 export class PadelDisplayAdapter implements SportDisplayAdapter {
   readonly sport = SPORT.PADEL
+  readonly displayKey = 'sportPadel'
   readonly DisplayComponent = PadelPointDisplay
 
   computeDisplayData(state: MatchStateExtended): SportDisplayScore {

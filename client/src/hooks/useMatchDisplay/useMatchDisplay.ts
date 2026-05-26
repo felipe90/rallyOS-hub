@@ -6,7 +6,7 @@
  */
 
 import { useMemo } from 'react'
-import type { MatchStateExtended, Sport, SportDisplayScore } from '@shared/types'
+import type { MatchStateExtended, Sport, SportDisplayScore, TableTennisMatchConfig } from '@shared/types'
 import { SPORT } from '@shared/types'
 import {
   calculateSetsWon,
@@ -48,7 +48,7 @@ export function useMatchDisplay(match: MatchStateExtended): MatchDisplayState {
     const { status, config } = match
 
     // Discriminate to access setHistory safely
-    const setHistory: Array<{ a: number; b: number }> = (match as any).setHistory || []
+    const setHistory: Array<{ a: number; b: number }> = match.setHistory || []
 
     const { setsA, setsB } = calculateSetsWon(setHistory)
     const totalSets = config?.bestOf ? Math.ceil(config.bestOf / 2) * 2 - 1 : 3
@@ -62,8 +62,8 @@ export function useMatchDisplay(match: MatchStateExtended): MatchDisplayState {
       const scores = adapter.getCurrentScores(match)
       const scoreA = swapped.leftPlayer === 'A' ? scores.a : scores.b
       const scoreB = swapped.leftPlayer === 'A' ? scores.b : scores.a
-      const ttc = adapter.getConfigDefaults()
-      const pointsPerSet = (ttc as any).pointsPerSet ?? 11
+      const ttc = adapter.getConfigDefaults() as Partial<TableTennisMatchConfig>
+      const pointsPerSet = ttc.pointsPerSet ?? 11
       setWinner = determineSetWinner(scoreA, scoreB, pointsPerSet)
     }
 
@@ -71,7 +71,7 @@ export function useMatchDisplay(match: MatchStateExtended): MatchDisplayState {
     const isMatchOver = status === 'FINISHED' || !!matchWinner
 
     // Compute SportDisplayScore via adapter
-    const sport: Sport = (match as any).sport ?? SPORT.TABLE_TENNIS
+    const sport: Sport = match.sport ?? SPORT.TABLE_TENNIS
     const sportDisplayScore: SportDisplayScore = adapter.computeDisplayData(match)
 
     return {

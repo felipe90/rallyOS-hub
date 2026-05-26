@@ -10,7 +10,7 @@ import { RefreshCw, Trash2 } from 'lucide-react';
 import { buildScoreboardUrl } from '@/services/url';
 import { useI18n } from '@/i18n';
 
-/* TableStatusChip Molecule - Table info card component */
+/* TableStatusChip Molecule - Court info card component */
 export interface TableStatusChipProps {
   tableNumber: number;
   tableName: string;
@@ -112,7 +112,7 @@ export function TableStatusChip({
       `}
     >
       <div className="flex items-center justify-between">
-        <Body className="font-medium text-text-h">Mesa {tableNumber}</Body>
+        <Body className="font-medium text-text-h">Cancha {tableNumber}</Body>
         <StatusBadgeComponent label={resolvedLabel} />
       </div>
       
@@ -166,7 +166,7 @@ export function TableStatusChip({
           stopPropagation
           className="mt-2"
         >
-          Limpiar Mesa
+          Limpiar Cancha
         </Button>
       )}
 
@@ -179,17 +179,17 @@ export function TableStatusChip({
           onClick={() => onDelete()}
           stopPropagation
           className="mt-2"
-          aria-label={`Eliminar mesa ${tableName}`}
+          aria-label={`Eliminar cancha ${tableName}`}
         >
-          Eliminar Mesa
+          Eliminar Cancha
         </Button>
       )}
 
       {/* Delete confirmation dialog */}
       <ConfirmDialog
         isOpen={showDeleteConfirm && !!onDeleteConfirm && !!onDeleteCancel}
-        title="Eliminar Mesa"
-        message="¿Estás seguro de eliminar la mesa? Esta acción no se puede deshacer."
+        title="Eliminar Cancha"
+        message="¿Estás seguro de eliminar la cancha? Esta acción no se puede deshacer."
         severity="error"
         confirmLabel="Eliminar"
         cancelLabel="Cancelar"
@@ -200,8 +200,8 @@ export function TableStatusChip({
       {/* Clean confirmation - using ConfirmDialog component */}
       <ConfirmDialog
         isOpen={showCleanConfirm && !!onCleanConfirm && !!onCleanCancel}
-        title="Limpiar Mesa"
-        message="¿Estás seguro de resetear esta mesa? Se borrarán los nombres, el score y se generará un nuevo PIN."
+        title="Limpiar Cancha"
+        message="¿Estás seguro de resetear esta cancha? Se borrarán los nombres, el score y se generará un nuevo PIN."
         severity="warning"
         confirmLabel="Limpiar"
         cancelLabel="Cancelar"

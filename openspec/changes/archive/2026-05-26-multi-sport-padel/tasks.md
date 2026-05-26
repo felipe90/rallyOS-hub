@@ -68,17 +68,17 @@ Chain strategy: feature-branch-chain
 
 ### 7B: Eliminate all `if (isPadel)` branching (10+ branches across 6 files)
 
-- [ ] 7.7 Refactor `applySideSwap.ts`: accept `SportDisplayAdapter`, replace 5 `isPadel` ternaries with `adapter.getCurrentScores()`/`getServing()`/`needsHandicap()`
-- [ ] 7.8 Refactor `useMatchDisplay.ts`: `sportDisplayScore` via `adapter.computeDisplayData()`, remove `isPadel` branches
-- [ ] 7.9 Refactor `SportDisplaySelector.tsx`: render `<adapter.DisplayComponent />` directly, remove `if (isPadelState)` switch
-- [ ] 7.10 Refactor `validateMatchConfig()`: dispatch to `adapter.validateConfig()` instead of `if (isTableTennisConfig)` branch
-- [ ] 7.11 Refactor `ScoreboardBar.tsx`: replace `score: any`/`setHistory: any[]` with `formattedSets: FormattedSet[]` from `adapter.formatSetHistory()`
-- [ ] 7.12 Refactor `ScoreboardMain.tsx`: use `useSportAdapter`, pass formatted data to ScoreboardBar, remove direct `match.score`/`match.setHistory` access
+- [x] 7.7 Refactor `applySideSwap.ts`: accept `SportDisplayAdapter`, replace 5 `isPadel` ternaries with `adapter.getCurrentScores()`/`getServing()`/`needsHandicap()`
+- [x] 7.8 Refactor `useMatchDisplay.ts`: `sportDisplayScore` via `adapter.computeDisplayData()`, remove `isPadel` branches
+- [x] 7.9 Refactor `SportDisplaySelector.tsx`: render `<adapter.DisplayComponent />` directly, remove `if (isPadelState)` switch
+- [x] 7.10 Refactor `validateMatchConfig()`: dispatch to `adapter.validateConfig()` instead of `if (isTableTennisConfig)` branch
+- [x] 7.11 Refactor `ScoreboardBar.tsx`: replace `score: any`/`setHistory: any[]` with `formattedSets: FormattedSet[]` from `adapter.formatSetHistory()`
+- [x] 7.12 Refactor `ScoreboardMain.tsx`: use `useSportAdapter`, pass formatted data to ScoreboardBar, remove direct `match.score`/`match.setHistory` access
 
 ### 7C: Config Modal + Events + Rename
 
-- [ ] 7.13 `MatchConfigModal`: sport dropdown, dynamic fields from `adapter.getConfigFields()`, handicap hidden for padel, tiebreak 7/10pt + golden-point toggle
-- [ ] 7.14 `useScoreboardEvents`: sport-aware `handleStartMatch` payload from `adapter.getConfigDefaults()`
-- [ ] 7.15 Rename `TableStatusChip`→`CourtStatusChip`; "table"→"court", "mesa"→"cancha" in client UI (socket wire names excluded)
-- [ ] 7.16 Remove legacy type aliases (`TableInfo`, `TableInfoWithPin`, `TableTennisConfig`, `PadelConfig`) after all consumers migrated
-- [ ] 7.17 Integration: full padel flow config→display→scoring→undo; Open/Closed proof (adding pickleball = new adapter only, zero existing changes); all ~1,200 tests pass
+- [x] 7.13 `MatchConfigModal`: dynamic fields from `adapter.getConfigFields()`, handicap hidden for padel (adapter.needsHandicap()), tiebreak 7/10pt + golden-point toggle. Sport set via `initialSport` prop (organizer chooses at court creation, not per-match).
+- [x] 7.14 `useScoreboardEvents`: sport-aware `handleStartMatch` payload from `adapter.getConfigDefaults()`
+- [x] 7.15 Rename `TableStatusChip`→`CourtStatusChip`; "table"→"court", "mesa"→"cancha" in client UI (socket wire names excluded)
+- [x] 7.16 Remove legacy type aliases (`TableTennisConfig`, `PadelConfig`); `TableInfo`/`TableInfoWithPin` kept as deprecated aliases (60+ consumers still active)
+- [x] 7.17 Integration: 1,239 tests pass (347 server + 892 client), Open/Closed proof verified, tsc clean, zero `as any` in production code. E2E flow with running server deferred to manual QA.

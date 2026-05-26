@@ -49,7 +49,7 @@ export function ScoreboardMain({
 
   // Format set history via adapter (sport-appropriate display)
   const formattedSets = adapter.formatSetHistory(
-    (match as any).setHistory || []
+    match.setHistory || []
   );
 
   return (

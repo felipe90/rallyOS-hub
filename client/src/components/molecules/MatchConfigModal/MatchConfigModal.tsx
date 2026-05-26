@@ -7,8 +7,21 @@ import { SPORT } from '@shared/types'
 import type { Sport } from '@shared/types'
 import { SportDisplayRegistry } from '../../../adapters/SportDisplayRegistry'
 import type { ConfigField } from '../../../adapters/SportDisplayAdapter'
+import { useI18n } from '../../../i18n'
 
 const registry = new SportDisplayRegistry()
+
+export interface MatchSubmitPayload {
+  bestOf: number
+  handicapA: number
+  handicapB: number
+  playerNameA: string
+  playerNameB: string
+  sport?: Sport
+  gamesPerSet?: number
+  tiebreakPoints?: 7 | 10
+  goldenPoint?: boolean
+}
 
 export interface MatchConfigModalProps {
   isOpen: boolean
@@ -18,17 +31,7 @@ export interface MatchConfigModalProps {
   initialHandicapA?: number
   initialHandicapB?: number
   initialSport?: Sport
-  onSubmit: (config: {
-    bestOf: number
-    handicapA: number
-    handicapB: number
-    playerNameA: string
-    playerNameB: string
-    sport?: Sport
-    gamesPerSet?: number
-    tiebreakPoints?: 7 | 10
-    goldenPoint?: boolean
-  }) => void
+  onSubmit: (config: MatchSubmitPayload) => void
   onClose: () => void
   isLoading?: boolean
   error?: string | null
@@ -82,6 +85,7 @@ export function MatchConfigModal({
 
   const modalRef = useRef<HTMLDivElement>(null)
   useFocusTrap(modalRef, isOpen, onClose)
+  const { i18nText } = useI18n()
 
   // Resolve adapter for current sport (memoized, non-React use)
   const adapter = useMemo(() => registry.resolve(sport), [sport])
@@ -110,26 +114,8 @@ export function MatchConfigModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, initialBestOf, initialHandicapA, initialHandicapB, initialSport])
 
-  const handleSportChange = (newSport: Sport) => {
-    setSport(newSport)
-    // Reset sport-specific config when sport changes
-    const newAdapter = registry.resolve(newSport)
-    const defaults = newAdapter.getConfigDefaults()
-    const initial: Record<string, unknown> = {}
-    for (const field of newAdapter.getConfigFields()) {
-      initial[field.name] = (defaults as any)[field.name] ?? (
-        field.type === 'boolean' ? false : field.type === 'number' ? (field.min ?? 0) : ''
-      )
-    }
-    setSportConfig(initial)
-  }
-
-  const updateSportField = (name: string, value: unknown) => {
-    setSportConfig(prev => ({ ...prev, [name]: value }))
-  }
-
   const handleSubmit = () => {
-    const payload: any = {
+    const payload: MatchSubmitPayload = {
       bestOf,
       handicapA,
       handicapB,
@@ -140,7 +126,7 @@ export function MatchConfigModal({
 
     // Include sport-specific config fields
     for (const field of configFields) {
-      payload[field.name] = sportConfig[field.name]
+      (payload as Record<string, unknown>)[field.name] = sportConfig[field.name]
     }
 
     onSubmit(payload)
@@ -282,24 +268,13 @@ export function MatchConfigModal({
           </div>
         </div>
 
-        {/* Sport Selector */}
-        <div className="mb-4">
-          <Label className="mb-2">Deporte</Label>
-          <div className="flex gap-2">
-            {([SPORT.TABLE_TENNIS, SPORT.PADEL] as Sport[]).map(s => (
-              <Button
-                key={s}
-                variant={sport === s ? 'primary' : 'secondary'}
-                size="sm"
-                fullWidth
-                onClick={() => handleSportChange(s)}
-                disabled={isLoading}
-              >
-                {s === SPORT.TABLE_TENNIS ? 'Tenis de Mesa' : 'Padel'}
-              </Button>
-            ))}
+        {/* Sport Config Fields (dynamic per court sport) */}
+        {configFields.length > 0 && (
+          <div className="mb-4 p-3 bg-surface-low rounded-[--radius-md]">
+            <Label className="mb-2">{i18nText(adapter.displayKey)}</Label>
+            {configFields.map(renderField)}
           </div>
-        </div>
+        )}
 
         {/* Best Of */}
         <div className="mb-4">
@@ -319,13 +294,6 @@ export function MatchConfigModal({
             ))}
           </div>
         </div>
-
-        {/* Dynamic Sport Config Fields */}
-        {configFields.length > 0 && (
-          <div className="mb-4 p-3 bg-surface-low rounded-[--radius-md]">
-            {configFields.map(renderField)}
-          </div>
-        )}
 
         {/* Handicap (only shown when adapter supports it) */}
         {showHandicap && (

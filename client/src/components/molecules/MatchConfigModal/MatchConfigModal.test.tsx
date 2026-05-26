@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { MatchConfigModal } from './MatchConfigModal'
+import { SPORT } from '@shared/types'
 
 const defaultProps = {
   isOpen: true,
@@ -162,10 +163,8 @@ describe('MatchConfigModal', () => {
     expect(screen.getByText('Handicap')).toBeInTheDocument()
   })
 
-  it('switches to padel and shows padel config fields', () => {
-    render(<MatchConfigModal {...defaultProps} />)
-    const padelBtn = screen.getByText('Padel')
-    fireEvent.click(padelBtn)
+  it('shows padel config fields when initialSport is padel', () => {
+    render(<MatchConfigModal {...defaultProps} initialSport={SPORT.PADEL} />)
     expect(screen.queryByText('Handicap')).not.toBeInTheDocument()
     expect(screen.getByText('Games por set')).toBeInTheDocument()
     expect(screen.getByText('Tiebreak')).toBeInTheDocument()
@@ -174,8 +173,7 @@ describe('MatchConfigModal', () => {
 
   it('submits padel config with sport-specific fields', () => {
     const onSubmit = vi.fn()
-    render(<MatchConfigModal {...defaultProps} onSubmit={onSubmit} />)
-    fireEvent.click(screen.getByText('Padel'))
+    render(<MatchConfigModal {...defaultProps} initialSport={SPORT.PADEL} onSubmit={onSubmit} />)
     fireEvent.click(screen.getByText('Iniciar Partido'))
     expect(onSubmit).toHaveBeenCalledWith(
       expect.objectContaining({

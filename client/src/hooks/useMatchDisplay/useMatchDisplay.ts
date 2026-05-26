@@ -1,18 +1,20 @@
 /**
  * useMatchDisplay - Calculates match display values
  *
- * Thin wrapper over services/match/.
+ * Thin orchestrator: delegates sport-specific logic to SportDisplayAdapter
+ * via useSportAdapter hook. All `if (isPadel)` branches eliminated.
  */
 
 import { useMemo } from 'react'
-import type { MatchStateExtended } from '@shared/types'
-import { isTableTennisStateExtended, SPORT } from '@shared/types'
+import type { MatchStateExtended, Sport, SportDisplayScore } from '@shared/types'
+import { SPORT } from '@shared/types'
 import {
   calculateSetsWon,
   determineSetWinner,
   determineMatchWinner,
   applySideSwap,
 } from '@/services/match'
+import { useSportAdapter } from '../useSportAdapter/useSportAdapter'
 
 export interface MatchDisplayState {
   setsA: number
@@ -35,31 +37,42 @@ export interface MatchDisplayState {
   setWinner: 'A' | 'B' | null
   matchWinner: 'A' | 'B' | null
   isMatchOver: boolean
+  sport: Sport
+  sportDisplayScore: SportDisplayScore
 }
 
 export function useMatchDisplay(match: MatchStateExtended): MatchDisplayState {
+  const adapter = useSportAdapter(match)
+
   return useMemo(() => {
     const { status, config } = match
-    const m = match as any
-    
-    // Discriminate by sport to access score/setHistory
-    const isPadel = match.sport === SPORT.PADEL
-    const score = isPadel ? null : m.score
-    const setHistory: Array<{ a: number; b: number }> = m.setHistory || []
+
+    // Discriminate to access setHistory safely
+    const setHistory: Array<{ a: number; b: number }> = (match as any).setHistory || []
 
     const { setsA, setsB } = calculateSetsWon(setHistory)
     const totalSets = config?.bestOf ? Math.ceil(config.bestOf / 2) * 2 - 1 : 3
-    const pointsPerSet = isPadel ? 0 : (config as any)?.pointsPerSet || 11
 
-    const swapped = applySideSwap(match, setsA, setsB)
+    // Delegate side swap to adapter
+    const swapped = applySideSwap(match, setsA, setsB, adapter)
 
-    const cSet = score?.currentSet ?? { a: 0, b: 0 }
-    const scoreA = swapped.leftPlayer === 'A' ? cSet.a : cSet.b
-    const scoreB = swapped.leftPlayer === 'A' ? cSet.b : cSet.a
+    // Compute set winner (TT-specific logic — only relevant when scoring unit is points)
+    let setWinner: 'A' | 'B' | null = null
+    if (adapter.sport === SPORT.TABLE_TENNIS) {
+      const scores = adapter.getCurrentScores(match)
+      const scoreA = swapped.leftPlayer === 'A' ? scores.a : scores.b
+      const scoreB = swapped.leftPlayer === 'A' ? scores.b : scores.a
+      const ttc = adapter.getConfigDefaults()
+      const pointsPerSet = (ttc as any).pointsPerSet ?? 11
+      setWinner = determineSetWinner(scoreA, scoreB, pointsPerSet)
+    }
 
-    const setWinner = pointsPerSet > 0 ? determineSetWinner(scoreA, scoreB, pointsPerSet) : null
     const matchWinner = determineMatchWinner(setsA, setsB, totalSets)
     const isMatchOver = status === 'FINISHED' || !!matchWinner
+
+    // Compute SportDisplayScore via adapter
+    const sport: Sport = (match as any).sport ?? SPORT.TABLE_TENNIS
+    const sportDisplayScore: SportDisplayScore = adapter.computeDisplayData(match)
 
     return {
       setsA,
@@ -82,6 +95,8 @@ export function useMatchDisplay(match: MatchStateExtended): MatchDisplayState {
       setWinner,
       matchWinner,
       isMatchOver,
+      sport,
+      sportDisplayScore,
     }
-  }, [match])
+  }, [match, adapter])
 }

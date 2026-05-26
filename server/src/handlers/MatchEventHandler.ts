@@ -20,6 +20,7 @@ import { SocketEvents } from '../../../shared/events';
 import { SocketHandlerBase } from './SocketHandlerBase';
 
 import type { Player, MatchConfig } from '../domain/matchEngine';
+import { SPORT } from '../../../shared/types';
 
 export class MatchEventHandler extends SocketHandlerBase {
   constructor(io: Server, tableManager: TableManager, ownerPin: string) {
@@ -54,7 +55,10 @@ export class MatchEventHandler extends SocketHandlerBase {
       playerNames?: { a: string; b: string };
       format?: number;
       ptsPerSet?: number;
-      handicap?: { a: number; b: number }
+      handicap?: { a: number; b: number };
+      sport?: string;
+      tiebreakPoints?: number;
+      goldenPoint?: boolean;
     }) => {
       if (!validateSocketPayload(socket, data, {
         tableId: { required: true, type: 'string', maxLength: 36 },
@@ -62,6 +66,9 @@ export class MatchEventHandler extends SocketHandlerBase {
         format: { type: 'number', required: false, min: 1, max: 9 },
         ptsPerSet: { type: 'number', required: false, min: 1, max: 99 },
         handicap: { type: 'object', required: false },
+        sport: { type: 'string', required: false, enum: [SPORT.TABLE_TENNIS, SPORT.PADEL] },
+        tiebreakPoints: { type: 'number', required: false, min: 7, max: 10 },
+        goldenPoint: { type: 'boolean', required: false },
       }, 'CONFIGURE_MATCH')) {
         return;
       }
@@ -73,11 +80,21 @@ export class MatchEventHandler extends SocketHandlerBase {
       if (!this.validateReferee(socket, data.tableId)) return;
 
       // Build MatchConfig union — defaults to table tennis for backward compat
-      const matchConfigPartial: Record<string, any> = {};
-      if (data.format) matchConfigPartial.bestOf = data.format;
-      if (data.ptsPerSet) matchConfigPartial.pointsPerSet = data.ptsPerSet;
-      if (data.handicap) {
-        matchConfigPartial.initialScore = { a: data.handicap.a, b: data.handicap.b };
+      const sport = data.sport || SPORT.TABLE_TENNIS;
+      const matchConfigPartial: Record<string, any> = { sport };
+
+      if (sport === SPORT.PADEL) {
+        // Padel-specific fields
+        if (data.format) matchConfigPartial.bestOf = data.format;
+        if (data.tiebreakPoints) matchConfigPartial.tiebreakPoints = data.tiebreakPoints;
+        if (data.goldenPoint !== undefined) matchConfigPartial.goldenPoint = data.goldenPoint;
+      } else {
+        // Table tennis (legacy) fields
+        if (data.format) matchConfigPartial.bestOf = data.format;
+        if (data.ptsPerSet) matchConfigPartial.pointsPerSet = data.ptsPerSet;
+        if (data.handicap) {
+          matchConfigPartial.initialScore = { a: data.handicap.a, b: data.handicap.b };
+        }
       }
 
       // Sanitize player names to prevent XSS and log injection

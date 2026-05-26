@@ -127,6 +127,9 @@ export class MatchEngine {
       initialScoreB = initialScoreB || ttConfig.handicapB || 0;
     }
     
+    // Extract padel-specific config fields for root-level state
+    const padelConfig = sport === SPORT.PADEL ? (config as PadelMatchConfig) : null;
+    
     return {
       config,
       score: {
@@ -143,6 +146,11 @@ export class MatchEngine {
       status: 'WAITING' as TableStatus,
       winner: null,
       sport,
+      // Initialize padel-specific root-level fields from config
+      padelPoints: padelConfig ? { a: 0 as PadelPoint, b: 0 as PadelPoint } : undefined,
+      isTiebreak: padelConfig ? false : undefined,
+      tiebreakPoints: padelConfig ? { a: 0, b: 0 } : undefined,
+      goldenPoint: padelConfig ? (padelConfig.goldenPoint ?? false) : undefined,
       tableId: '',
       tableName: '',
       playerNames: { a: 'Player A', b: 'Player B' },

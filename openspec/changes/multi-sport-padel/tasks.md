@@ -41,24 +41,44 @@ Chain strategy: feature-branch-chain
 
 ## Phase 5: Server Wiring + Socket Events
 
-- [ ] 5.1 `MatchOrchestrator`: accept `sport`, resolve rules from registry, default='tableTennis'
-- [ ] 5.2 `MatchEventHandler`: `CONFIGURE_MATCH` accepts `sport`/`tiebreakPoints`/`goldenPoint`; `RECORD_POINT`→`recordScore`
-- [ ] 5.3 Emit `GAME_WON`, `TIEBREAK_START`, `DEUCE` from engine callback; broadcast via socket
-- [ ] 5.4 Rename `tableManager.ts`→`courtManager.ts`; update internal refs
-- [ ] 5.5 Create TT match (no sport→defaults); create padel match; socket emits correct events
+- [x] 5.1 `MatchOrchestrator`: accept `sport`, resolve rules from registry, default='tableTennis'
+- [x] 5.2 `MatchEventHandler`: `CONFIGURE_MATCH` accepts `sport`/`tiebreakPoints`/`goldenPoint`; `RECORD_POINT`→`recordScore`
+- [x] 5.3 Emit `GAME_WON`, `TIEBREAK_START`, `DEUCE` from engine callback; broadcast via socket
+- [x] 5.4 Rename `tableManager.ts`→`courtManager.ts`; update internal refs
+- [x] 5.5 Create TT match (no sport→defaults); create padel match; socket emits correct events
 
 ## Phase 6: Frontend Sport Display
 
-- [ ] 6.1 Extract number display → `TTPointDisplay.tsx`; create `PadelPointDisplay.tsx` (game+15-30-40-AD+sets)
-- [ ] 6.2 Create `SportDisplaySelector.tsx`: switch by `match.state.sport`
-- [ ] 6.3 Update `useMatchDisplay`/types: add `sport`, compute `SportDisplayScore`; add padel test cases
-- [ ] 6.4 Wire `ScoreboardMain` to selector; update `ScoreDisplay` molecule for sport-aware props
-- [ ] 6.5 RTL: "30-40" visible, AD indicator; 763 client tests pass
+- [x] 6.1 Extract number display → `TTPointDisplay.tsx`; create `PadelPointDisplay.tsx` (game+15-30-40-AD+sets)
+- [x] 6.2 Create `SportDisplaySelector.tsx`: switch by `match.state.sport`
+- [x] 6.3 Update `useMatchDisplay`/types: add `sport`, compute `SportDisplayScore`; add padel test cases
+- [x] 6.4 Wire `ScoreboardMain` to selector; update `ScoreDisplay` molecule for sport-aware props
+- [x] 6.5 RTL: "30-40" visible, AD indicator; 829 client tests pass (+36 new)
 
-## Phase 7: Frontend Config + Match Logic + Rename Finish
+## Phase 7: Frontend SportDisplayAdapter + Config + Rename
 
-- [ ] 7.1 `MatchConfigModal`: sport dropdown; handicap hidden for padel; tiebreak 7/10pt, golden-point toggle
-- [ ] 7.2 Dynamic labels "pts/set" vs "games/set"; `determineWinner` sport-aware; `formatEvent` sport-aware
-- [ ] 7.3 Rename `TableStatusChip`→`CourtStatusChip`; "table"→"court", "mesa"→"cancha" in client
-- [ ] 7.4 Remove legacy type aliases after all consumers migrated
-- [ ] 7.5 Config modal RTL (padel hides handicap, shows tiebreak); no "table"/"mesa" in UI; all tests pass
+### 7A: SportDisplayAdapter Foundation (Strategy Pattern)
+
+- [x] 7.1 Create `SportDisplayAdapter` interface in `client/src/adapters/SportDisplayAdapter.ts` (10 methods matching spec `frontend-sport-adapter`)
+- [x] 7.2 Create `TableTennisDisplayAdapter` — extract TT logic from current `useMatchDisplay`/`applySideSwap`/`SportDisplaySelector`
+- [x] 7.3 Create `PadelDisplayAdapter` — extract padel logic from current `useMatchDisplay`/`applySideSwap`/`SportDisplaySelector`
+- [x] 7.4 Create `SportDisplayRegistry` (`Map<Sport, SportDisplayAdapter>` + `resolve(sport)` with TT fallback)
+- [x] 7.5 Create `useSportAdapter` hook — `useMemo` keyed on `match.sport`, returns adapter from registry
+- [x] 7.6 Unit tests: both adapters (TDD), registry resolution + fallback, hook memoization
+
+### 7B: Eliminate all `if (isPadel)` branching (10+ branches across 6 files)
+
+- [ ] 7.7 Refactor `applySideSwap.ts`: accept `SportDisplayAdapter`, replace 5 `isPadel` ternaries with `adapter.getCurrentScores()`/`getServing()`/`needsHandicap()`
+- [ ] 7.8 Refactor `useMatchDisplay.ts`: `sportDisplayScore` via `adapter.computeDisplayData()`, remove `isPadel` branches
+- [ ] 7.9 Refactor `SportDisplaySelector.tsx`: render `<adapter.DisplayComponent />` directly, remove `if (isPadelState)` switch
+- [ ] 7.10 Refactor `validateMatchConfig()`: dispatch to `adapter.validateConfig()` instead of `if (isTableTennisConfig)` branch
+- [ ] 7.11 Refactor `ScoreboardBar.tsx`: replace `score: any`/`setHistory: any[]` with `formattedSets: FormattedSet[]` from `adapter.formatSetHistory()`
+- [ ] 7.12 Refactor `ScoreboardMain.tsx`: use `useSportAdapter`, pass formatted data to ScoreboardBar, remove direct `match.score`/`match.setHistory` access
+
+### 7C: Config Modal + Events + Rename
+
+- [ ] 7.13 `MatchConfigModal`: sport dropdown, dynamic fields from `adapter.getConfigFields()`, handicap hidden for padel, tiebreak 7/10pt + golden-point toggle
+- [ ] 7.14 `useScoreboardEvents`: sport-aware `handleStartMatch` payload from `adapter.getConfigDefaults()`
+- [ ] 7.15 Rename `TableStatusChip`→`CourtStatusChip`; "table"→"court", "mesa"→"cancha" in client UI (socket wire names excluded)
+- [ ] 7.16 Remove legacy type aliases (`TableInfo`, `TableInfoWithPin`, `TableTennisConfig`, `PadelConfig`) after all consumers migrated
+- [ ] 7.17 Integration: full padel flow config→display→scoring→undo; Open/Closed proof (adding pickleball = new adapter only, zero existing changes); all ~1,200 tests pass

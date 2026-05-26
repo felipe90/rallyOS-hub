@@ -19,6 +19,7 @@ import { sanitizeInput } from '../utils/validation';
 import { TableRepository } from '../services/table/TableRepository';
 import { PlayerService } from '../services/table/PlayerService';
 import { MatchOrchestrator } from '../services/table/MatchOrchestrator';
+import { SportRegistry } from './sports/sport.registry';
 import { TableFormatter } from '../services/table/TableFormatter';
 import { PinService } from '../services/security/PinService';
 import { QRService } from '../services/qr/QRService';
@@ -41,7 +42,8 @@ export class TableManager {
     this.repository = new TableRepository();
     this.pinService = new PinService();
     this.playerService = new PlayerService(this.pinService);
-    this.matchOrchestrator = new MatchOrchestrator();
+    const registry = new SportRegistry();
+    this.matchOrchestrator = new MatchOrchestrator(registry);
     this.formatter = new TableFormatter();
     this.qrService = new QRService(hubConfig);
     this.stateStore = stateStore;

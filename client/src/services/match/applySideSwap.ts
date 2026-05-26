@@ -1,12 +1,13 @@
 /**
- * Side swap logic (ITTF rules)
+ * Side swap logic
  *
  * Pure functions for applying side swap between sets.
  * No React dependencies - testable in isolation.
+ * Uses SportDisplayAdapter to extract sport-specific state (no branching).
  */
 
-import type { MatchStateExtended, Player, TableTennisMatchConfig, PadelMatchConfig } from '@shared/types'
-import { isTableTennisStateExtended, SPORT } from '@shared/types'
+import type { MatchStateExtended, Player } from '@shared/types'
+import type { SportDisplayAdapter } from '../../adapters/SportDisplayAdapter'
 
 export interface SwappedDisplay {
   leftPlayer: Player
@@ -26,38 +27,36 @@ export interface SwappedDisplay {
 /**
  * Apply side swap to match display data.
  * When swappedSides is true, player A appears on the right and B on the left.
- * Only valid for table tennis matches (score and handicap access).
+ * Score, serving, and handicap extraction is delegated to the SportDisplayAdapter.
  */
 export function applySideSwap(
   match: MatchStateExtended,
   setsA: number,
   setsB: number,
+  adapter: SportDisplayAdapter,
 ): SwappedDisplay {
   const isSwapped = match.swappedSides === true
-  const isPadel = match.sport === SPORT.PADEL
-  const m = match as any
 
   const leftPlayer: Player = isSwapped ? 'B' : 'A'
   const rightPlayer: Player = isSwapped ? 'A' : 'B'
 
-  // Access score based on discriminated union
-  const leftScore = isSwapped
-    ? (isPadel ? m.games?.b ?? 0 : m.score?.currentSet?.b ?? 0)
-    : (isPadel ? m.games?.a ?? 0 : m.score?.currentSet?.a ?? 0)
-  const rightScore = isSwapped
-    ? (isPadel ? m.games?.a ?? 0 : m.score?.currentSet?.a ?? 0)
-    : (isPadel ? m.games?.b ?? 0 : m.score?.currentSet?.b ?? 0)
+  // Delegate score extraction to adapter
+  const scores = adapter.getCurrentScores(match)
+  const leftScore = isSwapped ? scores.b : scores.a
+  const rightScore = isSwapped ? scores.a : scores.b
 
-  // Handicap only applies to TT config
-  const leftHandicap = isSwapped
-    ? (isPadel ? undefined : (m.config as TableTennisMatchConfig)?.handicapB)
-    : (isPadel ? undefined : (m.config as TableTennisMatchConfig)?.handicapA)
-  const rightHandicap = isSwapped
-    ? (isPadel ? undefined : (m.config as TableTennisMatchConfig)?.handicapA)
-    : (isPadel ? undefined : (m.config as TableTennisMatchConfig)?.handicapB)
+  // Delegate handicap to adapter
+  const needsHandicap = adapter.needsHandicap()
+  const m = match as any
+  const leftHandicap = needsHandicap
+    ? (isSwapped ? (m.config?.handicapB) : (m.config?.handicapA))
+    : undefined
+  const rightHandicap = needsHandicap
+    ? (isSwapped ? (m.config?.handicapA) : (m.config?.handicapB))
+    : undefined
 
-  // Serving access based on discriminated union
-  const serving = isPadel ? m.serving : m.score?.serving
+  // Delegate serving to adapter
+  const serving = adapter.getServing(match)
 
   return {
     leftPlayer,

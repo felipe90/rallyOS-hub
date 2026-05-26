@@ -361,6 +361,113 @@ describe('useMatchDisplay', () => {
     })
   })
 
+  describe('sport and sportDisplayScore', () => {
+    it('returns sport as tableTennis for TT match', () => {
+      const match = createMockMatch({ sport: SPORT.TABLE_TENNIS });
+
+      const { result } = renderHook(() => useMatchDisplay(match));
+
+      expect(result.current.sport).toBe(SPORT.TABLE_TENNIS);
+    });
+
+    it('computes TTPointDisplay score from TT state', () => {
+      const match = createMockMatch({
+        sport: SPORT.TABLE_TENNIS,
+        score: {
+          sets: { a: 1, b: 0 },
+          currentSet: { a: 5, b: 3 },
+          serving: 'A',
+        },
+        setHistory: [{ a: 11, b: 5 }],
+      });
+
+      const { result } = renderHook(() => useMatchDisplay(match));
+
+      expect(result.current.sport).toBe(SPORT.TABLE_TENNIS);
+      expect(result.current.sportDisplayScore.type).toBe(SPORT.TABLE_TENNIS);
+      if (result.current.sportDisplayScore.type === SPORT.TABLE_TENNIS) {
+        expect(result.current.sportDisplayScore.leftScore).toBe(5);
+        expect(result.current.sportDisplayScore.rightScore).toBe(3);
+        expect(result.current.sportDisplayScore.leftSets).toBe(1);
+        expect(result.current.sportDisplayScore.rightSets).toBe(0);
+      }
+    });
+
+    it('returns sport as padel for padel match', () => {
+      const match = createMockMatch({
+        sport: SPORT.PADEL,
+        score: undefined as any,
+        padelPoints: { a: 15, b: 30 },
+        games: { a: 3, b: 2 },
+        sets: { a: 1, b: 0 },
+        config: { sport: SPORT.PADEL, bestOf: 3, tiebreakPoints: 7, gamesPerSet: 6 } as any,
+      });
+
+      const { result } = renderHook(() => useMatchDisplay(match));
+
+      expect(result.current.sport).toBe(SPORT.PADEL);
+    });
+
+    it('computes PadelPointDisplay from padel state', () => {
+      const match = createMockMatch({
+        sport: SPORT.PADEL,
+        score: undefined as any,
+        padelPoints: { a: 40, b: 'AD' as any },
+        games: { a: 5, b: 4 },
+        sets: { a: 2, b: 1 },
+        config: { sport: SPORT.PADEL, bestOf: 5, tiebreakPoints: 7, gamesPerSet: 6 } as any,
+        setHistory: [{ a: 6, b: 4 }, { a: 3, b: 6 }, { a: 6, b: 2 }],
+      });
+
+      const { result } = renderHook(() => useMatchDisplay(match));
+
+      expect(result.current.sport).toBe(SPORT.PADEL);
+      expect(result.current.sportDisplayScore.type).toBe(SPORT.PADEL);
+      if (result.current.sportDisplayScore.type === SPORT.PADEL) {
+        expect(result.current.sportDisplayScore.leftPoint).toBe('40');
+        expect(result.current.sportDisplayScore.rightPoint).toBe('AD');
+        expect(result.current.sportDisplayScore.leftGames).toBe(5);
+        expect(result.current.sportDisplayScore.rightGames).toBe(4);
+        expect(result.current.sportDisplayScore.leftSets).toBe(2);
+        expect(result.current.sportDisplayScore.rightSets).toBe(1);
+      }
+    });
+
+    it('converts padel numeric points to strings for display', () => {
+      const match = createMockMatch({
+        sport: SPORT.PADEL,
+        score: undefined as any,
+        padelPoints: { a: 0, b: 15 },
+        games: { a: 0, b: 0 },
+        sets: { a: 0, b: 0 },
+        config: { sport: SPORT.PADEL, bestOf: 3, tiebreakPoints: 7, gamesPerSet: 6 } as any,
+      });
+
+      const { result } = renderHook(() => useMatchDisplay(match));
+
+      if (result.current.sportDisplayScore.type === SPORT.PADEL) {
+        expect(result.current.sportDisplayScore.leftPoint).toBe('0');
+        expect(result.current.sportDisplayScore.rightPoint).toBe('15');
+      }
+    });
+
+    it('keeps backward compat leftScore/rightScore for TT', () => {
+      const match = createMockMatch({
+        score: {
+          sets: { a: 0, b: 0 },
+          currentSet: { a: 11, b: 8 },
+          serving: 'A',
+        },
+      });
+
+      const { result } = renderHook(() => useMatchDisplay(match));
+
+      // existing fields must still work
+      expect(result.current.leftScore).toBe(11);
+      expect(result.current.rightScore).toBe(8);
+    });
+  });
+
   describe('edge cases', () => {
     it('handles undefined playerNames', () => {
       const match = createMockMatch({

@@ -73,6 +73,12 @@ export class SocketHandler {
           message: `¡Ganador: ${winner}!`,
           timestamp: Date.now(),
         });
+      } else if (event.type === 'GAME_WON') {
+        this.io.to(tableId).emit(SocketEvents.SERVER.GAME_WON, { tableId, ...event });
+      } else if (event.type === 'DEUCE') {
+        this.io.to(tableId).emit(SocketEvents.SERVER.DEUCE, { tableId, ...event });
+      } else if (event.type === 'TIEBREAK_START') {
+        this.io.to(tableId).emit(SocketEvents.SERVER.TIEBREAK_START, { tableId, ...event });
       }
     };
     

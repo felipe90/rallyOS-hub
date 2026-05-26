@@ -2,13 +2,57 @@
  * MatchOrchestrator - Match lifecycle management
  *
  * Responsibility: Configure, start, score, and reset matches.
+ * Phase 5: Accepts SportRegistry to resolve sport-specific rules
+ * when creating MatchEngine instances. Defaults to TableTennisRules
+ * when no sport is specified (backward-compatible).
  */
 
 import { Court, MatchEvent, SPORT } from '../../domain/types';
 import { MatchEngine, Player, MatchConfig, MatchStateExtended } from '../../domain/matchEngine';
 import { logger } from '../../utils/logger';
+import { SportRegistry } from '../../domain/sports/sport.registry';
+import type { SportRules } from '../../domain/sports/types';
 
 export class MatchOrchestrator {
+  private registry: SportRegistry;
+
+  constructor(registry?: SportRegistry) {
+    this.registry = registry || new SportRegistry();
+  }
+
+  /**
+   * Resolve the correct SportRules for the given sport.
+   * Defaults to table tennis when sport is absent (backward-compatible).
+   */
+  private resolveRules(sport?: string): SportRules {
+    if (sport && sport === SPORT.PADEL) {
+      return this.registry.getRules(SPORT.PADEL);
+    }
+    return this.registry.getRules(SPORT.TABLE_TENNIS);
+  }
+
+  /**
+   * Create a new MatchEngine and wire callbacks for a court.
+   */
+  private createEngine(
+    table: Court,
+    config: MatchConfig,
+    playerNames?: { a: string; b: string },
+  ): MatchEngine {
+    const sport = (config as any).sport;
+    const rules = this.resolveRules(sport);
+    const engine = new MatchEngine(config, rules);
+    engine.setTableId(table.id, table.name);
+    if (playerNames) {
+      engine.setPlayerNames(playerNames);
+    }
+    engine.setEventCallback((event: MatchEvent) => {
+      if (table.onMatchEvent) {
+        table.onMatchEvent(event);
+      }
+    });
+    return engine;
+  }
   configureMatch(table: Court, config: { playerNames?: { a: string; b: string }; matchConfig?: MatchConfig }): void {
     if (config.playerNames) {
       table.playerNames = config.playerNames;
@@ -16,17 +60,7 @@ export class MatchOrchestrator {
     }
 
     if (config.matchConfig) {
-      const tblId = table.id;
-      const tblName = table.name;
-
-      table.sportRules = new MatchEngine(config.matchConfig);
-      table.sportRules.setTableId(tblId, tblName);
-      table.sportRules.setPlayerNames(table.playerNames);
-      table.sportRules.setEventCallback((event: MatchEvent) => {
-        if (table.onMatchEvent) {
-          table.onMatchEvent(event);
-        }
-      });
+      table.sportRules = this.createEngine(table, config.matchConfig, table.playerNames);
     }
 
     table.status = 'CONFIGURING';
@@ -42,36 +76,27 @@ export class MatchOrchestrator {
 
     if (config) {
       logger.debug({ tableId: table.id }, 'Creating new MatchEngine with config');
-      const tblId = table.id;
-      const tblName = table.name;
 
-      // Default to table tennis config for backward compat
-      const engineConfig = config.sport === SPORT.TABLE_TENNIS || !config.sport
+      // Resolve full config: default to table tennis for backward compat
+      const sport = (config as any).sport;
+      const engineConfig: MatchConfig = sport === SPORT.PADEL
         ? {
+            sport: SPORT.PADEL,
+            bestOf: config.bestOf || 3,
+            tiebreakPoints: (config as any).tiebreakPoints ?? 7,
+            gamesPerSet: (config as any).gamesPerSet ?? 6,
+            goldenPoint: (config as any).goldenPoint ?? false,
+          } as MatchConfig
+        : {
             sport: SPORT.TABLE_TENNIS,
             pointsPerSet: (config as any).pointsPerSet || 11,
             bestOf: config.bestOf || 3,
             minDifference: (config as any).minDifference ?? 2,
             handicapA: (config as any).handicapA || 0,
             handicapB: (config as any).handicapB || 0,
-          }
-        : {
-            sport: SPORT.PADEL,
-            bestOf: config.bestOf || 3,
-            tiebreakPoints: (config as any).tiebreakPoints ?? 7,
-            gamesPerSet: (config as any).gamesPerSet ?? 6,
-            goldenPoint: (config as any).goldenPoint ?? false,
-          };
+          } as MatchConfig;
 
-      table.sportRules = new MatchEngine(engineConfig);
-
-      table.sportRules.setTableId(tblId, tblName);
-      table.sportRules.setPlayerNames(playerNames);
-      table.sportRules.setEventCallback((event: MatchEvent) => {
-        if (table.onMatchEvent) {
-          table.onMatchEvent(event);
-        }
-      });
+      table.sportRules = this.createEngine(table, engineConfig, playerNames);
     }
 
     if (config?.playerNameA || config?.playerNameB) {
@@ -120,14 +145,8 @@ export class MatchOrchestrator {
   }
 
   resetTable(table: Court, config?: MatchConfig): void {
-    table.sportRules = new MatchEngine(config);
-    table.sportRules.setTableId(table.id, table.name);
-    table.sportRules.setEventCallback((event: MatchEvent) => {
-      if (table.onMatchEvent) {
-        table.onMatchEvent(event);
-      }
-    });
-
+    const resolvedConfig = config || { sport: SPORT.TABLE_TENNIS, pointsPerSet: 11, bestOf: 3, minDifference: 2 } as MatchConfig;
+    table.sportRules = this.createEngine(table, resolvedConfig, table.playerNames);
     table.status = 'WAITING';
   }
 

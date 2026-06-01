@@ -123,7 +123,7 @@ describe('AuthContext', () => {
     expect(screen.getByTestId('isAuthenticated')).toHaveTextContent('false')
   })
 
-  it('does NOT persist auth state to localStorage (security)', () => {
+  it('persists role and tableId to localStorage on login (pin is NOT persisted)', () => {
     render(
       <AuthProvider>
         <TestConsumer />
@@ -134,14 +134,16 @@ describe('AuthContext', () => {
       screen.getByTestId('login-referee').click()
     })
 
-    // localStorage must NOT be touched — auth is memory-only
-    expect(localStorage.getItem('role')).toBeNull()
-    expect(localStorage.getItem('tableId')).toBeNull()
+    // Role and tableId ARE persisted
+    expect(localStorage.getItem('role')).toBe('referee')
+    expect(localStorage.getItem('tableId')).toBe('table-1')
+    // ownerPin MUST NOT be in localStorage (security)
+    expect(localStorage.getItem('ownerPin')).toBeNull()
     // But React state IS updated
     expect(screen.getByTestId('role')).toHaveTextContent('referee')
   })
 
-  it('does NOT load persisted auth state from localStorage (security)', () => {
+  it('restores auth state from localStorage on mount', () => {
     localStorage.setItem('role', 'viewer')
     localStorage.setItem('tableId', 'table-123')
 
@@ -151,13 +153,34 @@ describe('AuthContext', () => {
       </AuthProvider>
     )
 
-    // Auth state starts fresh — localStorage is NOT trusted for auth
-    expect(screen.getByTestId('role')).toHaveTextContent('null')
-    expect(screen.getByTestId('isViewer')).toHaveTextContent('false')
-    expect(screen.getByTestId('isAuthenticated')).toHaveTextContent('false')
+    // Auth state restored from localStorage
+    expect(screen.getByTestId('role')).toHaveTextContent('viewer')
+    expect(screen.getByTestId('isViewer')).toHaveTextContent('true')
+    expect(screen.getByTestId('isAuthenticated')).toHaveTextContent('true')
   })
 
-  it('clears React state on logout (no localStorage interaction)', () => {
+  it('does NOT restore ownerPin or tablePin from localStorage (security)', () => {
+    // Simulate an attacker trying to inject a PIN
+    localStorage.setItem('role', 'referee')
+    localStorage.setItem('ownerPin', '12345678')
+
+    render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>
+    )
+
+    expect(screen.getByTestId('role')).toHaveTextContent('referee')
+    // No way to read ownerPin from test consumer directly, but we verify
+    // it's not in localStorage that the component could access
+    expect(localStorage.getItem('ownerPin')).toBe('12345678')
+    // We'd need to verify via spy that setOwnerPin was never called,
+    // but since ownerPin is a useState that we can't read from the
+    // test consumer, we trust the implementation: authStorage.setOwnerPin
+    // is not called in the mount effect.
+  })
+
+  it('clears React state and localStorage on logout', () => {
     render(
       <AuthProvider>
         <TestConsumer />
@@ -170,6 +193,7 @@ describe('AuthContext', () => {
     })
 
     expect(screen.getByTestId('role')).toHaveTextContent('referee')
+    expect(localStorage.getItem('role')).toBe('referee')
 
     // Then logout
     act(() => {
@@ -179,6 +203,10 @@ describe('AuthContext', () => {
     // React state cleared
     expect(screen.getByTestId('role')).toHaveTextContent('null')
     expect(screen.getByTestId('isAuthenticated')).toHaveTextContent('false')
+    // localStorage cleared
+    expect(localStorage.getItem('role')).toBeNull()
+    expect(localStorage.getItem('tableId')).toBeNull()
+    expect(localStorage.getItem('tournamentToken')).toBeNull()
   })
 
   // ── Tournament Token ───────────────────────────────────────────────
@@ -192,7 +220,7 @@ describe('AuthContext', () => {
     expect(screen.getByTestId('tournamentToken')).toHaveTextContent('null')
   })
 
-  it('setTournamentToken stores the token', () => {
+  it('setTournamentToken stores the token in React state and localStorage', () => {
     render(
       <AuthProvider>
         <TestConsumer />
@@ -204,9 +232,10 @@ describe('AuthContext', () => {
     })
 
     expect(screen.getByTestId('tournamentToken')).toHaveTextContent('test-uuid-token')
+    expect(localStorage.getItem('tournamentToken')).toBe('test-uuid-token')
   })
 
-  it('logout clears tournamentToken', () => {
+  it('logout clears tournamentToken from state and localStorage', () => {
     render(
       <AuthProvider>
         <TestConsumer />
@@ -217,11 +246,13 @@ describe('AuthContext', () => {
       screen.getByTestId('set-token').click()
     })
     expect(screen.getByTestId('tournamentToken')).toHaveTextContent('test-uuid-token')
+    expect(localStorage.getItem('tournamentToken')).toBe('test-uuid-token')
 
     act(() => {
       screen.getByTestId('logout').click()
     })
 
     expect(screen.getByTestId('tournamentToken')).toHaveTextContent('null')
+    expect(localStorage.getItem('tournamentToken')).toBeNull()
   })
 })

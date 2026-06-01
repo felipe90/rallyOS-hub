@@ -160,5 +160,8 @@
   "advantage": "Ventaja",
   "tiebreak": "Tie-break",
   "game": "Juego",
-  "goldenPoint": "Punto de Oro"
+  "goldenPoint": "Punto de Oro",
+  "fullscreenButton": "Pantalla completa",
+  "iosFullscreenTitle": "Pantalla Completa",
+  "iosFullscreenInstructions": "Tocá el ícono de compartir y elegí 'Agregar a Inicio'"
 }

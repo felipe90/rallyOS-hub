@@ -27,6 +27,7 @@ export interface AuthContextValue {
   isReferee: boolean
   isViewer: boolean
   isAuthenticated: boolean
+  isRestoring: boolean
   login: (newRole: UserRole, tId?: string, pin?: string) => void
   logout: () => void
   setOwner: (isOwner: boolean, pin?: string) => void

@@ -105,13 +105,12 @@ export function MatchConfigModal({
       const defaults = adapter.getConfigDefaults()
       const initial: Record<string, unknown> = {}
       for (const field of configFields) {
-        initial[field.name] = (defaults as any)[field.name] ?? (
+        initial[field.name] = (defaults as unknown as Record<string, unknown>)[field.name] ?? (
           field.type === 'boolean' ? false : field.type === 'number' ? (field.min ?? 0) : ''
         )
       }
       setSportConfig(initial)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, initialBestOf, initialHandicapA, initialHandicapB, initialSport])
 
   const handleSubmit = () => {

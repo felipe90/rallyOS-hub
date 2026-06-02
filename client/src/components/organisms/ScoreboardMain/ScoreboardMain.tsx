@@ -3,7 +3,6 @@ import type { MatchStateExtended } from '@shared/types';
 import { ScoreboardBar } from './components/ScoreboardBar';
 import { SportDisplaySelector } from '../../molecules/SportDisplaySelector/SportDisplaySelector';
 import { ToggleButton } from '../../atoms/Button/ToggleButton';
-import { MatchHistoryTicker } from '../../molecules/MatchHistoryTicker';
 import { Maximize2, Minimize2 } from 'lucide-react';
 import { useI18n } from '@/i18n';
 import { useSportAdapter } from '../../../hooks/useSportAdapter/useSportAdapter';
@@ -35,7 +34,7 @@ export function ScoreboardMain({
 }: ScoreboardMainProps) {
   const { i18nText } = useI18n();
   const adapter = useSportAdapter(match);
-  const { status, history } = match;
+  const { status } = match;
 
   const {
     totalSets,
@@ -110,8 +109,6 @@ export function ScoreboardMain({
         </div>
       </div>
 
-      {/* Match History Ticker - Broadcast Overlay */}
-      <MatchHistoryTicker history={history || []} />
     </div>
   );
 }

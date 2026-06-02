@@ -1,11 +1,6 @@
 export { PageHeader } from './PageHeader'
 export type { PageHeaderProps } from './PageHeader'
 
-export { FormField } from './FormField'
-export type { FormFieldProps } from './FormField'
-
-export { ScoreDisplay, ScorePair } from './ScoreDisplay'
-
 export { StatCard, MiniStatCard } from './StatCard'
 
 export { CourtStatusChip } from './CourtStatusChip'
@@ -31,5 +26,3 @@ export type { MatchContextProps, SetScoreProps } from './MatchContext'
 
 export { ConfirmDialog } from './ConfirmDialog'
 export type { ConfirmDialogProps, ConfirmDialogSeverity } from './ConfirmDialog'
-
-export { WifiQrCode } from './WifiQrCode'

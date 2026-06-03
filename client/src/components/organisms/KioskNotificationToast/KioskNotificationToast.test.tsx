@@ -53,12 +53,10 @@ function setupMockAudio() {
     start = mockOscillatorStart
     stop = mockOscillatorStop
     constructor() {
-      // Track frequency and type via the instance reference
-      const self = this
+      // Capture frequency and type via arrow function (no this-alias needed)
       const origSetValue = this.frequency.setValueAtTime
       this.frequency.setValueAtTime = vi.fn((freq: number, time: number) => {
-        self.type = self.type // preserve type
-        createdOscillators.push({ type: self.type as OscillatorType, frequency: freq, startOffset: time })
+        createdOscillators.push({ type: this.type as OscillatorType, frequency: freq, startOffset: time })
         return origSetValue(freq, time)
       })
     }
@@ -66,7 +64,12 @@ function setupMockAudio() {
 
   // Mock GainNode as a class
   class MockGainNode {
-    gain: any
+    gain: {
+      value: number
+      setValueAtTime: ReturnType<typeof vi.fn>
+      linearRampToValueAtTime: ReturnType<typeof vi.fn>
+      exponentialRampToValueAtTime: ReturnType<typeof vi.fn>
+    }
     connect = mockGainConnect
     constructor() {
       const linearRampCalls: Array<{ value: number; endTime: number }> = []

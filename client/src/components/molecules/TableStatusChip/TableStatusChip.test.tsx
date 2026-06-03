@@ -19,13 +19,6 @@ vi.mock('@/i18n', () => ({
   }),
 }));
 
-// Mock QRCodeImage since it renders SVG which is heavy in tests
-vi.mock('../QRCodeImage', () => ({
-  QRCodeImage: ({ joinUrl }: { joinUrl: string }) => (
-    <div data-testid="qr-code" data-url={joinUrl}>QR:{joinUrl}</div>
-  ),
-}));
-
 describe('TableStatusChip', () => {
   const cases = [
     { status: 'WAITING' as const, text: 'Esperando' },
@@ -155,66 +148,22 @@ describe('TableStatusChip', () => {
     });
   });
 
-  // ── Task 3.2: QR stopPropagation + fullscreen modal ──
-  describe('QR code interaction', () => {
-    it('clicking QR area stops propagation to parent onClick', () => {
-      const handleClick = vi.fn();
-      render(
-        <TableStatusChip
-          tableNumber={1}
-          tableName="Test"
-          status="WAITING"
-          pin="1234"
-          tableId="table-123"
-          onClick={handleClick}
-        />
-      );
+  it('clicking card triggers onClick', () => {
+    const handleClick = vi.fn();
+    render(
+      <TableStatusChip
+        tableNumber={1}
+        tableName="Test"
+        status="WAITING"
+        pin="1234"
+        tableId="table-123"
+        onClick={handleClick}
+      />
+    );
 
-      // The QR is rendered via our mock
-      const qrElement = screen.getByTestId('qr-code');
-      fireEvent.click(qrElement);
+    const cardText = screen.getByText('Cancha 1');
+    fireEvent.click(cardText);
 
-      // The parent onClick should NOT have been called
-      expect(handleClick).not.toHaveBeenCalled();
-    });
-
-    it('opens QR fullscreen modal when QR is clicked', () => {
-      render(
-        <TableStatusChip
-          tableNumber={1}
-          tableName="Test"
-          status="WAITING"
-          pin="1234"
-          tableId="table-123"
-        />
-      );
-
-      const qrElement = screen.getByTestId('qr-code');
-      fireEvent.click(qrElement);
-
-      // After clicking QR, the close QR button should appear (modal opened)
-      const closeButton = screen.getByRole('button', { name: /close qr/i });
-      expect(closeButton).toBeInTheDocument();
-    });
-
-    it('clicking parent card still triggers onClick', () => {
-      const handleClick = vi.fn();
-      render(
-        <TableStatusChip
-          tableNumber={1}
-          tableName="Test"
-          status="WAITING"
-          pin="1234"
-          tableId="table-123"
-          onClick={handleClick}
-        />
-      );
-
-      // Click the card text (not the QR area)
-      const cardText = screen.getByText('Cancha 1');
-      fireEvent.click(cardText);
-
-      expect(handleClick).toHaveBeenCalledTimes(1);
-    });
+    expect(handleClick).toHaveBeenCalledTimes(1);
   });
 });

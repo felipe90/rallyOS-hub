@@ -3,11 +3,8 @@ import type { TableStatus } from '@shared/types';
 import { WaitingBadge, ConfiguringBadge, LiveBadge, FinishedBadge } from '../../atoms/Badge';
 import { Body } from '../../atoms/Typography';
 import { Button } from '../../atoms/Button';
-import { QRCodeImage } from '../QRCodeImage';
-import { QrExpandModal } from '../QrExpandModal';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { RefreshCw, Trash2 } from 'lucide-react';
-import { buildScoreboardUrl } from '@/services/url';
 import { useI18n } from '@/i18n';
 
 /* TableStatusChip Molecule - Court info card component */
@@ -52,12 +49,10 @@ export function TableStatusChip({
   tableName,
   status,
   playerNames,
-  playerCount = 0,
   currentSets,
   className = '',
   onClick,
   pin,
-  tableId,
   onClean,
   showCleanConfirm = false,
   onCleanConfirm,
@@ -74,8 +69,6 @@ export function TableStatusChip({
 
   // Keep last known PIN to prevent flicker during updates
   const [lastKnownPin, setLastKnownPin] = useState(pin);
-  const [joinUrl, setJoinUrl] = useState('');
-  const [showQrModal, setShowQrModal] = useState(false);
 
   useEffect(() => {
     if (pin) {
@@ -83,22 +76,9 @@ export function TableStatusChip({
     }
   }, [pin]);
 
-  // Build QR URL async (AES-256-GCM encryption)
   const displayPin = pin || lastKnownPin;
 
-  useEffect(() => {
-    if (displayPin && tableId) {
-      setJoinUrl(buildScoreboardUrl(tableId, displayPin))
-    } else {
-      setJoinUrl('')
-    }
-  }, [displayPin, tableId])
-
   const hasPin = !!(pin || lastKnownPin);
-
-  const handleQrExpand = () => {
-    setShowQrModal(true);
-  };
 
   return (
     <div
@@ -138,21 +118,13 @@ export function TableStatusChip({
         </div>
       )}
 
-      {/* PIN and QR for Owner (RF-01, RF-02) */}
+      {/* PIN for Owner */}
       {hasPin && (
         <div className="flex items-center gap-2 mt-1 pt-2 border-t border-border/30">
           <div className="flex items-center gap-1">
             <Body className="text-xs text-text-muted">PIN:</Body>
             <Body className="text-sm font-mono font-bold text-primary">{displayPin}</Body>
           </div>
-          {joinUrl && (
-            <div
-              className="ml-auto cursor-pointer"
-              onClick={(e) => { e.stopPropagation(); handleQrExpand(); }}
-            >
-              <QRCodeImage joinUrl={joinUrl} size={48} />
-            </div>
-          )}
         </div>
       )}
 
@@ -207,12 +179,6 @@ export function TableStatusChip({
         cancelLabel="Cancelar"
         onConfirm={() => onCleanConfirm?.()}
         onCancel={() => onCleanCancel?.()}
-      />
-
-      {/* QR Fullscreen Modal */}
-      <QrExpandModal
-        joinUrl={showQrModal ? joinUrl : ''}
-        onClose={() => setShowQrModal(false)}
       />
 
     </div>

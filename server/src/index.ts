@@ -9,7 +9,7 @@ import fs from 'fs';
 import { app, spaFallback } from './app';
 import { createSecureServer, gracefulShutdown } from './server';
 import { createSocketServer } from './socket';
-import { TableManager } from './domain/tableManager';
+import { TableManager } from './domain/courtManager';
 import { StateStore } from './services/store/StateStore';
 import { createTournamentRouter } from './routes/tournament';
 import { createExportRouter } from './routes/export';

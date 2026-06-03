@@ -4,7 +4,7 @@
  * Responsibility: Generate QR data for table joining.
  */
 
-import { Table, QRData, HubConfig } from '../../domain/types';
+import { Court, QRData, HubConfig } from '../../domain/types';
 import { encryptPin } from '../../utils/pinEncryption';
 
 export class QRService {
@@ -14,7 +14,7 @@ export class QRService {
     this.hubConfig = hubConfig;
   }
 
-  generateQRData(table: Table): QRData | null {
+  generateQRData(table: Court): QRData | null {
     if (!table) return null;
 
     const encryptedPin = encryptPin(table.pin, table.id);

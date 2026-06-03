@@ -13,14 +13,14 @@ const mockTables: TableInfo[] = [
   {
     id: 'table-1',
     number: 1,
-    name: 'Mesa 1',
+    name: 'Cancha 1',
     status: 'WAITING',
     playerCount: 0,
   },
   {
     id: 'table-2',
     number: 2,
-    name: 'Mesa 2',
+    name: 'Cancha 2',
     status: 'LIVE',
     playerCount: 2,
     playerNames: { a: 'Player A', b: 'Player B' },
@@ -28,7 +28,7 @@ const mockTables: TableInfo[] = [
   {
     id: 'table-3',
     number: 3,
-    name: 'Mesa 3',
+    name: 'Cancha 3',
     status: 'FINISHED',
     playerCount: 2,
   },
@@ -37,22 +37,22 @@ const mockTables: TableInfo[] = [
 describe('DashboardGrid', () => {
   it('renders list of tables in grid mode', () => {
     render(<DashboardGrid tables={mockTables} viewMode="grid" />);
-    expect(screen.getAllByText('Mesa 1')).toHaveLength(2);
-    expect(screen.getAllByText('Mesa 2')).toHaveLength(2);
-    expect(screen.getAllByText('Mesa 3')).toHaveLength(2);
+    expect(screen.getAllByText('Cancha 1')).toHaveLength(2);
+    expect(screen.getAllByText('Cancha 2')).toHaveLength(2);
+    expect(screen.getAllByText('Cancha 3')).toHaveLength(2);
   });
 
   it('renders list of tables in list mode', () => {
     render(<DashboardGrid tables={mockTables} viewMode="list" />);
-    expect(screen.getAllByText('Mesa 1')).toHaveLength(2);
-    expect(screen.getAllByText('Mesa 2')).toHaveLength(2);
+    expect(screen.getAllByText('Cancha 1')).toHaveLength(2);
+    expect(screen.getAllByText('Cancha 2')).toHaveLength(2);
   });
 
   it('calls onTableClick when table is clicked', () => {
     const handleClick = vi.fn();
     render(<DashboardGrid tables={mockTables} onTableClick={handleClick} />);
     
-    const firstTable = screen.getAllByText('Mesa 1')[0].closest('div');
+    const firstTable = screen.getAllByText('Cancha 1')[0].closest('div');
     fireEvent.click(firstTable!);
     expect(handleClick).toHaveBeenCalledWith('table-1');
   });
@@ -66,7 +66,7 @@ describe('DashboardGrid', () => {
 
   it('shows empty state when no tables', () => {
     render(<DashboardGrid tables={[]} />);
-    expect(screen.queryByText(/Mesa/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Cancha/)).not.toBeInTheDocument();
   });
 
   it('renders grid with correct responsive classes', () => {

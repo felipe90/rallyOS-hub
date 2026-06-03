@@ -1,8 +1,27 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Button } from '../../atoms/Button'
 import { Body, Title, Label } from '../../atoms/Typography'
 import { useFocusTrap } from '../../../hooks/useFocusTrap'
 import { AlertTriangle } from 'lucide-react'
+import { SPORT } from '@shared/types'
+import type { Sport } from '@shared/types'
+import { SportDisplayRegistry } from '../../../adapters/SportDisplayRegistry'
+import type { ConfigField } from '../../../adapters/SportDisplayAdapter'
+import { useI18n } from '../../../i18n'
+
+const registry = new SportDisplayRegistry()
+
+export interface MatchSubmitPayload {
+  bestOf: number
+  handicapA: number
+  handicapB: number
+  playerNameA: string
+  playerNameB: string
+  sport?: Sport
+  gamesPerSet?: number
+  tiebreakPoints?: 7 | 10
+  goldenPoint?: boolean
+}
 
 export interface MatchConfigModalProps {
   isOpen: boolean
@@ -11,13 +30,8 @@ export interface MatchConfigModalProps {
   initialBestOf?: 1 | 3 | 5
   initialHandicapA?: number
   initialHandicapB?: number
-  onSubmit: (config: {
-    bestOf: number
-    handicapA: number
-    handicapB: number
-    playerNameA: string
-    playerNameB: string
-  }) => void
+  initialSport?: Sport
+  onSubmit: (config: MatchSubmitPayload) => void
   onClose: () => void
   isLoading?: boolean
   error?: string | null
@@ -41,6 +55,7 @@ export function MatchConfigModal({
   initialBestOf = 3,
   initialHandicapA = 0,
   initialHandicapB = 0,
+  initialSport = SPORT.TABLE_TENNIS,
   onSubmit,
   onClose,
   isLoading = false,
@@ -63,9 +78,19 @@ export function MatchConfigModal({
   const [bestOf, setBestOf] = useState<1 | 3 | 5>(initialBestOf)
   const [handicapA, setHandicapA] = useState(initialHandicapA)
   const [handicapB, setHandicapB] = useState(initialHandicapB)
+  const [sport, setSport] = useState<Sport>(initialSport)
+
+  // Sport-specific config state (dynamic per adapter)
+  const [sportConfig, setSportConfig] = useState<Record<string, unknown>>({})
 
   const modalRef = useRef<HTMLDivElement>(null)
   useFocusTrap(modalRef, isOpen, onClose)
+  const { i18nText } = useI18n()
+
+  // Resolve adapter for current sport (memoized, non-React use)
+  const adapter = useMemo(() => registry.resolve(sport), [sport])
+  const configFields = useMemo(() => adapter.getConfigFields(), [adapter])
+  const showHandicap = adapter.needsHandicap()
 
   // Reset state when modal opens
   useEffect(() => {
@@ -75,23 +100,131 @@ export function MatchConfigModal({
       setBestOf(initialBestOf)
       setHandicapA(initialHandicapA)
       setHandicapB(initialHandicapB)
+      setSport(initialSport)
+      // Initialize sport config from adapter defaults
+      const defaults = adapter.getConfigDefaults()
+      const initial: Record<string, unknown> = {}
+      for (const field of configFields) {
+        initial[field.name] = (defaults as unknown as Record<string, unknown>)[field.name] ?? (
+          field.type === 'boolean' ? false : field.type === 'number' ? (field.min ?? 0) : ''
+        )
+      }
+      setSportConfig(initial)
     }
-  }, [isOpen, initialBestOf, initialHandicapA, initialHandicapB])
+  }, [isOpen, initialBestOf, initialHandicapA, initialHandicapB, initialSport])
 
   const handleSubmit = () => {
-    onSubmit({
+    const payload: MatchSubmitPayload = {
       bestOf,
       handicapA,
       handicapB,
       playerNameA: playerNameA.trim() || 'Player A',
       playerNameB: playerNameB.trim() || 'Player B',
-    })
+      sport,
+    }
+
+    // Include sport-specific config fields (user-configured)
+    for (const field of configFields) {
+      (payload as unknown as Record<string, unknown>)[field.name] = sportConfig[field.name]
+    }
+
+    // Include adapter defaults for fields not shown in UI (e.g., pointsPerSet for TT)
+    const defaults = adapter.getConfigDefaults()
+    for (const key of Object.keys(defaults) as Array<keyof typeof defaults>) {
+      if (!(key in payload)) {
+        (payload as unknown as Record<string, unknown>)[key] = defaults[key]
+      }
+    }
+
+    onSubmit(payload)
+  }
+
+  const updateSportField = (name: string, value: unknown) => {
+    setSportConfig(prev => ({ ...prev, [name]: value }))
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
       onClose()
     }
+  }
+
+  /** Render a config field based on its type */
+  const renderField = (field: ConfigField) => {
+    const value = sportConfig[field.name]
+
+    if (field.type === 'boolean') {
+      return (
+        <div key={field.name} className="flex items-center justify-between mb-3">
+          <Label>{field.label}</Label>
+          <button
+            type="button"
+            onClick={() => updateSportField(field.name, !value)}
+            className={`relative w-12 h-6 rounded-full transition-colors ${
+              value ? 'bg-primary' : 'bg-surface-low border border-border'
+            }`}
+            disabled={isLoading}
+            role="switch"
+            aria-checked={!!value}
+          >
+            <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
+              value ? 'left-[26px]' : 'left-0.5'
+            }`} />
+          </button>
+        </div>
+      )
+    }
+
+    if (field.type === 'select' && field.options) {
+      return (
+        <div key={field.name} className="mb-3">
+          <Label className="mb-1">{field.label}</Label>
+          <div className="flex gap-2">
+            {field.options.map(opt => (
+              <Button
+                key={String(opt.value)}
+                variant={value === opt.value ? 'primary' : 'secondary'}
+                size="sm"
+                onClick={() => updateSportField(field.name, opt.value)}
+                disabled={isLoading}
+              >
+                {opt.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
+    // Number field
+    return (
+      <div key={field.name} className="mb-3">
+        <Label className="mb-1">{field.label}</Label>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => updateSportField(field.name, Math.max(field.min ?? 0, (value as number || 1) - 1))}
+            disabled={isLoading}
+            className="!p-2"
+          >
+            -
+          </Button>
+          <div className="w-12 text-center font-heading text-xl font-bold">
+            {value as number ?? field.min ?? 1}
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => updateSportField(field.name, Math.min(field.max ?? 99, (value as number || 0) + 1))}
+            disabled={isLoading}
+            className="!p-2"
+          >
+            +
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   if (!isOpen) return null
@@ -146,6 +279,14 @@ export function MatchConfigModal({
           </div>
         </div>
 
+        {/* Sport Config Fields (dynamic per court sport) */}
+        {configFields.length > 0 && (
+          <div className="mb-4 p-3 bg-surface-low rounded-[--radius-md]">
+            <Label className="mb-2">{i18nText(adapter.displayKey)}</Label>
+            {configFields.map(renderField)}
+          </div>
+        )}
+
         {/* Best Of */}
         <div className="mb-4">
           <Label className="mb-2">{bestOfLabel}</Label>
@@ -165,21 +306,22 @@ export function MatchConfigModal({
           </div>
         </div>
 
-        {/* Handicap */}
-        <div className="mb-6">
-          <Label className="mb-2">{handicapLabel}</Label>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col items-center gap-2 bg-surface-low rounded-[--radius-md] p-3">
-              <Label>{teamALabel}</Label>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
+        {/* Handicap (only shown when adapter supports it) */}
+        {showHandicap && (
+          <div className="mb-6">
+            <Label className="mb-2">{handicapLabel}</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col items-center gap-2 bg-surface-low rounded-[--radius-md] p-3">
+                <Label>{teamALabel}</Label>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
                   onClick={() => setHandicapA(handicapA - 1)}
                   disabled={isLoading}
                   className="!p-2"
                 >
-                  −
+                  -
                 </Button>
                 <div className="w-10 text-center font-heading text-xl font-bold">
                   {handicapA}
@@ -188,41 +330,42 @@ export function MatchConfigModal({
                   variant="ghost"
                   size="sm"
                   onClick={() => setHandicapA(handicapA + 1)}
-                  disabled={isLoading}
-                  className="!p-2"
-                >
-                  +
-                </Button>
+                    disabled={isLoading}
+                    className="!p-2"
+                  >
+                    +
+                  </Button>
+                </div>
               </div>
-            </div>
-            <div className="flex flex-col items-center gap-2 bg-surface-low rounded-[--radius-md] p-3">
-              <Label>{teamBLabel}</Label>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
+              <div className="flex flex-col items-center gap-2 bg-surface-low rounded-[--radius-md] p-3">
+                <Label>{teamBLabel}</Label>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
                   onClick={() => setHandicapB(handicapB - 1)}
                   disabled={isLoading}
                   className="!p-2"
                 >
-                  −
+                  -
                 </Button>
-                <div className="w-10 text-center font-heading text-xl font-bold">
-                  {handicapB}
+                  <div className="w-10 text-center font-heading text-xl font-bold">
+                    {handicapB}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setHandicapB(handicapB + 1)}
+                    disabled={isLoading}
+                    className="!p-2"
+                  >
+                    +
+                  </Button>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setHandicapB(handicapB + 1)}
-                  disabled={isLoading}
-                  className="!p-2"
-                >
-                  +
-                </Button>
               </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Error display */}
         {error && (

@@ -11,7 +11,7 @@
 
 import { Router, Request, Response } from 'express';
 import { StateStore } from '../services/store/StateStore';
-import type { TableManager } from '../domain/tableManager';
+import type { TableManager } from '../domain/courtManager';
 
 /**
  * GET /status

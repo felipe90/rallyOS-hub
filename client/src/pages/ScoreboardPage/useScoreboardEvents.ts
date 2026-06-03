@@ -9,7 +9,7 @@
 import { useNavigate } from 'react-router-dom'
 import { SocketEvents } from '@shared/events'
 import { Routes } from '@/routes'
-// emit type: (event: string, data?: unknown) => void
+import type { Sport } from '@shared/types'
 
 export interface UseScoreboardEventsProps {
   emit: (event: string, data?: unknown) => void
@@ -18,20 +18,36 @@ export interface UseScoreboardEventsProps {
   connected: boolean
 }
 
+export interface MatchStartConfig {
+  /** Sport identifier (defaults to tableTennis on server) */
+  sport?: Sport
+  /** Table tennis: points per set */
+  pointsPerSet?: number
+  /** Best of N sets */
+  bestOf: number
+  /** Table tennis: handicap for player A */
+  handicapA?: number
+  /** Table tennis: handicap for player B */
+  handicapB?: number
+  /** Padel: games per set */
+  gamesPerSet?: number
+  /** Padel: tiebreak target (7 or 10) */
+  tiebreakPoints?: 7 | 10
+  /** Padel: golden point / sudden death */
+  goldenPoint?: boolean
+  /** Player name A */
+  playerNameA?: string
+  /** Player name B */
+  playerNameB?: string
+}
+
 export interface UseScoreboardEventsReturn {
   handleScorePoint: (player: 'A' | 'B') => void
   handleSubtractPoint: (player: 'A' | 'B') => void
   handleUndo: () => void
   handleSetServer: (player: 'A' | 'B') => void
   handleSwapSides: () => void
-  handleStartMatch: (config: {
-    pointsPerSet: number
-    bestOf: number
-    handicapA?: number
-    handicapB?: number
-    playerNameA?: string
-    playerNameB?: string
-  }) => void
+  handleStartMatch: (config: MatchStartConfig) => void
   handleCancelMatch: () => void
 }
 
@@ -69,24 +85,29 @@ export function useScoreboardEvents({
     emit(SocketEvents.CLIENT.SWAP_SIDES, { tableId })
   }
 
-  const handleStartMatch = (config: {
-    pointsPerSet: number
-    bestOf: number
-    handicapA?: number
-    handicapB?: number
-    playerNameA?: string
-    playerNameB?: string
-  }) => {
+  const handleStartMatch = (config: MatchStartConfig) => {
     if (!connected) return
-    emit(SocketEvents.CLIENT.START_MATCH, {
+    const payload: Record<string, unknown> = {
       tableId,
-      pointsPerSet: config.pointsPerSet,
       bestOf: config.bestOf,
-      handicapA: config.handicapA,
-      handicapB: config.handicapB,
       playerNameA: config.playerNameA,
       playerNameB: config.playerNameB,
-    })
+    }
+
+    // Include sport if specified
+    if (config.sport) {
+      payload.sport = config.sport
+    }
+
+    // Include sport-specific fields (server ignores irrelevant ones)
+    if (config.pointsPerSet !== undefined) payload.pointsPerSet = config.pointsPerSet
+    if (config.handicapA !== undefined) payload.handicapA = config.handicapA
+    if (config.handicapB !== undefined) payload.handicapB = config.handicapB
+    if (config.gamesPerSet !== undefined) payload.gamesPerSet = config.gamesPerSet
+    if (config.tiebreakPoints !== undefined) payload.tiebreakPoints = config.tiebreakPoints
+    if (config.goldenPoint !== undefined) payload.goldenPoint = config.goldenPoint
+
+    emit(SocketEvents.CLIENT.START_MATCH, payload)
   }
 
   const handleCancelMatch = () => {

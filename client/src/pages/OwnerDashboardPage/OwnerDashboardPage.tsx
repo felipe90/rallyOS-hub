@@ -13,6 +13,7 @@ import { PinModal } from '@/components/molecules/PinModal'
 import { KioskNotificationModal } from '@/components/molecules/KioskNotificationModal'
 import { ConfirmDialog } from '@/components/molecules/ConfirmDialog'
 import { useSocketContext } from '@/contexts/SocketContext'
+import logoImg from '@/assets/logo-big.png'
 import { useAuthContext } from '@/contexts/AuthContext'
 import { useDashboardStats } from '@/hooks/useDashboardStats'
 import { usePinSubmission } from '@/hooks/usePinSubmission'
@@ -326,6 +327,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
       <PageHeader
         title={i18nText('ownerTitle')}
         subtitle={i18nText('ownerSubtitle')}
+        logo={logoImg}
         showStatus={true}
         connectionLabels={{
           connected: i18nText('connectionConnected'),
@@ -350,7 +352,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
             onViewModeChange={setViewMode}
             actions={dashboardActions}
             statIcons={{
-              mesas: <Table2 className="text-blue-500" size={28} />,
+              canchas: <Table2 className="text-blue-500" size={28} />,
               partidos: <Swords className="text-amber-500" size={28} />,
               jugadores: <Users className="text-emerald-500" size={28} />,
             }}
@@ -372,6 +374,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
             cleanTableId={tableMgmt.cleanConfirmTableId}
             onCleanTableConfirm={() => {
               tableMgmt.confirmClean();
+              requestTablesWithPins(ownerPin || '');
               addToast('success', i18nText('toastTableCleaned'));
             }}
             onCleanTableCancel={tableMgmt.cancelClean}

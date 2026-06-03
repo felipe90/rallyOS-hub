@@ -83,6 +83,7 @@ unclutter -idle 0 -root &
 
 exec "$CHROMIUM_BIN" \
     --kiosk \
+    --autoplay-policy=no-user-gesture-required \
     --start-fullscreen \
     --window-size="${RESOLUTION}" \
     --window-position=0,0 \

@@ -7,7 +7,7 @@
 
 import { AuthHandler } from './AuthHandler';
 import type { Server, Socket } from 'socket.io';
-import type { TableManager } from '../domain/tableManager';
+import type { TableManager } from '../domain/courtManager';
 import { SocketEvents } from '../../../shared/events';
 
 // Intercept crypto.randomUUID to verify it was called

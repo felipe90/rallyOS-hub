@@ -1,11 +1,13 @@
 /**
- * Side swap logic (ITTF rules)
+ * Side swap logic
  *
  * Pure functions for applying side swap between sets.
  * No React dependencies - testable in isolation.
+ * Uses SportDisplayAdapter to extract sport-specific state (no branching).
  */
 
-import type { MatchStateExtended, Player } from '@shared/types'
+import type { MatchStateExtended, Player, TableTennisMatchConfig } from '@shared/types'
+import type { SportDisplayAdapter } from '../../adapters/SportDisplayAdapter'
 
 export interface SwappedDisplay {
   leftPlayer: Player
@@ -25,33 +27,49 @@ export interface SwappedDisplay {
 /**
  * Apply side swap to match display data.
  * When swappedSides is true, player A appears on the right and B on the left.
+ * Score, serving, and handicap extraction is delegated to the SportDisplayAdapter.
  */
 export function applySideSwap(
   match: MatchStateExtended,
   setsA: number,
   setsB: number,
+  adapter: SportDisplayAdapter,
 ): SwappedDisplay {
   const isSwapped = match.swappedSides === true
 
   const leftPlayer: Player = isSwapped ? 'B' : 'A'
   const rightPlayer: Player = isSwapped ? 'A' : 'B'
 
+  // Delegate score extraction to adapter
+  const scores = adapter.getCurrentScores(match)
+  const leftScore = isSwapped ? scores.b : scores.a
+  const rightScore = isSwapped ? scores.a : scores.b
+
+  // Delegate handicap to adapter
+  const needsHandicap = adapter.needsHandicap()
+  const ttConfig = match.config as TableTennisMatchConfig
+  const leftHandicap = needsHandicap
+    ? (isSwapped ? (ttConfig.handicapB) : (ttConfig.handicapA))
+    : undefined
+  const rightHandicap = needsHandicap
+    ? (isSwapped ? (ttConfig.handicapA) : (ttConfig.handicapB))
+    : undefined
+
+  // Delegate serving to adapter
+  const serving = adapter.getServing(match)
+
   return {
     leftPlayer,
     rightPlayer,
     leftName: isSwapped ? match.playerNames?.b : match.playerNames?.a,
     rightName: isSwapped ? match.playerNames?.a : match.playerNames?.b,
-    leftScore: isSwapped ? match.score.currentSet.b : match.score.currentSet.a,
-    rightScore: isSwapped ? match.score.currentSet.a : match.score.currentSet.b,
+    leftScore,
+    rightScore,
     leftSets: isSwapped ? setsB : setsA,
     rightSets: isSwapped ? setsA : setsB,
-    leftHandicap: isSwapped ? match.config?.handicapB : match.config?.handicapA,
-    rightHandicap: isSwapped ? match.config?.handicapA : match.config?.handicapB,
-    leftServing: isSwapped
-      ? match.score.serving === 'B'
-      : match.score.serving === 'A',
-    rightServing: isSwapped
-      ? match.score.serving === 'A'
-      : match.score.serving === 'B',
+    leftHandicap,
+    rightHandicap,
+    leftServing: isSwapped ? serving === 'B' : serving === 'A',
+    rightServing: isSwapped ? serving === 'A' : serving === 'B',
   }
 }

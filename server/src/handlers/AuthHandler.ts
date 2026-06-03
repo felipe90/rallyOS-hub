@@ -7,7 +7,7 @@
  */
 
 import { Server, Socket } from 'socket.io';
-import { TableManager } from '../domain/tableManager';
+import { TableManager } from '../domain/courtManager';
 import { validateSocketPayload } from '../utils/validation';
 import { logger } from '../utils/logger';
 import { SocketEvents } from '../../../shared/events';
@@ -81,7 +81,7 @@ export class AuthHandler extends SocketHandlerBase {
         if (table) {
           const existingRef = table.players.find(p => p.role === 'REFEREE');
           if (existingRef && existingRef.socketId !== socket.id) {
-            return this.emitError(socket, 'REF_ALREADY_ACTIVE', 'Ya hay un árbitro activo en esta mesa');
+            return this.emitError(socket, 'REF_ALREADY_ACTIVE', 'Ya hay un árbitro activo en esta cancha');
           }
         }
         this.emitError(socket, 'INVALID_PIN', 'PIN incorrecto');

@@ -5,7 +5,7 @@
  * from the match configuration when handicap is set.
  */
 
-import { TableManager } from '../src/domain/tableManager';
+import { TableManager } from '../src/domain/courtManager';
 import type { Table } from '../src/domain/types';
 
 describe('getAllHistories — handicap', () => {
@@ -18,10 +18,10 @@ describe('getAllHistories — handicap', () => {
   it('includes handicap in payload when config has handicapA and handicapB', () => {
     const table = manager.createTable('Mesa Test') as Table;
 
-    // Set config with handicap via matchEngine.getConfig() → mutate state
-    const matchEngine = table.matchEngine;
-    (matchEngine as any).state.config.handicapA = 2;
-    (matchEngine as any).state.config.handicapB = 0;
+    // Set config with handicap via sportRules.getConfig() → mutate state
+    const sportRules = table.sportRules;
+    (sportRules as any).state.config.handicapA = 2;
+    (sportRules as any).state.config.handicapB = 0;
 
     const histories = manager.getAllHistories();
     expect(histories).toHaveLength(1);
@@ -39,8 +39,8 @@ describe('getAllHistories — handicap', () => {
   it('handles partial handicap (handicapA without handicapB)', () => {
     const table = manager.createTable('Mesa Partial') as Table;
 
-    const matchEngine = table.matchEngine;
-    (matchEngine as any).state.config.handicapA = 3;
+    const sportRules = table.sportRules;
+    (sportRules as any).state.config.handicapA = 3;
 
     const histories = manager.getAllHistories();
     expect(histories).toHaveLength(1);

@@ -1,18 +1,10 @@
 import { motion, useReducedMotion } from 'framer-motion';
 import type { TableInfo, TableInfoWithPin } from '@shared/types';
-import { TableStatusChip } from '../../molecules/TableStatusChip';
-import { StatCard } from '../../molecules/StatCard';
+import { CourtStatusChip } from '../../molecules/CourtStatusChip';
 import { Body, Title } from '../../atoms/Typography';
 import { Button } from '../../atoms/Button';
-import { LayoutGrid, List, RefreshCw } from 'lucide-react';
+import { LayoutGrid, List } from 'lucide-react';
 import { useState, useRef, useCallback, type ReactNode } from 'react';
-
-// Generate QR code URL (for Owner to share)
-// The table link can be shared with referees to directly access the scoreboard
-function generateTableUrl(tableId: string): string {
-  const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-  return `${baseUrl}/scoreboard/${tableId}`;
-}
 
 export interface DashboardGridProps {
   tables: (TableInfo | TableInfoWithPin)[];
@@ -37,7 +29,6 @@ export function DashboardGrid({
   viewMode = 'grid',
   className = '',
   showPin = false,
-  showQr = false,
   onCleanTable,
   cleanTableId,
   onCleanTableConfirm,
@@ -48,12 +39,6 @@ export function DashboardGrid({
   onDeleteTableCancel,
 }: DashboardGridProps) {
   const shouldReduceMotion = useReducedMotion()
-
-  // Helper for QR code display
-  const getQrDisplay = (tableId: string) => {
-    if (!showQr) return undefined;
-    return generateTableUrl(tableId);
-  };
 
   if (viewMode === 'list') {
     const ListWrapper = shouldReduceMotion ? 'div' : motion.div
@@ -67,7 +52,7 @@ export function DashboardGrid({
             transition={shouldReduceMotion ? undefined : { duration: 0.3 }}
             className="relative"
           >
-            <TableStatusChip
+            <CourtStatusChip
               tableNumber={table.number}
               tableName={table.name}
               status={table.status}
@@ -109,7 +94,7 @@ export function DashboardGrid({
             transition={shouldReduceMotion ? undefined : { duration: 0.3, delay: index * 0.1 }}
             className="relative"
           >
-            <TableStatusChip
+            <CourtStatusChip
               tableNumber={table.number}
               tableName={table.name}
               status={table.status}
@@ -144,7 +129,7 @@ export interface DashboardHeaderProps {
   onViewModeChange: (mode: 'grid' | 'list') => void;
   actions?: ReactNode;
   statIcons?: {
-    mesas?: ReactNode;
+    canchas?: ReactNode;
     partidos?: ReactNode;
     jugadores?: ReactNode;
   };
@@ -185,12 +170,12 @@ export function DashboardHeader({
   }, [])
   return (
     <div className="flex flex-col gap-4 mb-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-2 items-center">
           {actions}
         </div>
 
-        <div className="relative">
+        <div className="relative flex-shrink-0">
           <div className="flex gap-1 p-1 bg-slate-100 rounded-full">
             <Button
               variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
@@ -221,10 +206,22 @@ export function DashboardHeader({
         </div>
       </div>
       
-      <div className="grid grid-cols-3 gap-4">
-        <StatCard title={statLabels.tables || ''} value={totalTables ?? 0} icon={statIcons?.mesas} />
-        <StatCard title={statLabels.matches || ''} value={liveMatches ?? 0} icon={statIcons?.partidos} />
-        <StatCard title={statLabels.players || ''} value={activePlayers ?? 0} icon={statIcons?.jugadores} />
+      <div className="flex items-center gap-4 flex-wrap">
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-surface shadow-sm">
+          {statIcons?.canchas}
+          <Body className="text-text-muted text-xs">{statLabels.tables || ''}</Body>
+          <Title className="text-text-h text-lg">{totalTables ?? 0}</Title>
+        </div>
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-surface shadow-sm">
+          {statIcons?.partidos}
+          <Body className="text-text-muted text-xs">{statLabels.matches || ''}</Body>
+          <Title className="text-text-h text-lg">{liveMatches ?? 0}</Title>
+        </div>
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-surface shadow-sm">
+          {statIcons?.jugadores}
+          <Body className="text-text-muted text-xs">{statLabels.players || ''}</Body>
+          <Title className="text-text-h text-lg">{activePlayers ?? 0}</Title>
+        </div>
       </div>
     </div>
   );

@@ -13,13 +13,14 @@
  */
 
 import { Server, Socket } from 'socket.io';
-import { TableManager } from '../domain/tableManager';
+import { TableManager } from '../domain/courtManager';
 import { validateSocketPayload, sanitizeInput } from '../utils/validation';
 import { logger } from '../utils/logger';
 import { SocketEvents } from '../../../shared/events';
 import { SocketHandlerBase } from './SocketHandlerBase';
 
 import type { Player, MatchConfig } from '../domain/matchEngine';
+import { SPORT } from '../../../shared/types';
 
 export class MatchEventHandler extends SocketHandlerBase {
   constructor(io: Server, tableManager: TableManager, ownerPin: string) {
@@ -54,7 +55,10 @@ export class MatchEventHandler extends SocketHandlerBase {
       playerNames?: { a: string; b: string };
       format?: number;
       ptsPerSet?: number;
-      handicap?: { a: number; b: number }
+      handicap?: { a: number; b: number };
+      sport?: string;
+      tiebreakPoints?: number;
+      goldenPoint?: boolean;
     }) => {
       if (!validateSocketPayload(socket, data, {
         tableId: { required: true, type: 'string', maxLength: 36 },
@@ -62,6 +66,9 @@ export class MatchEventHandler extends SocketHandlerBase {
         format: { type: 'number', required: false, min: 1, max: 9 },
         ptsPerSet: { type: 'number', required: false, min: 1, max: 99 },
         handicap: { type: 'object', required: false },
+        sport: { type: 'string', required: false, enum: [SPORT.TABLE_TENNIS, SPORT.PADEL] },
+        tiebreakPoints: { type: 'number', required: false, min: 7, max: 10 },
+        goldenPoint: { type: 'boolean', required: false },
       }, 'CONFIGURE_MATCH')) {
         return;
       }
@@ -72,11 +79,22 @@ export class MatchEventHandler extends SocketHandlerBase {
 
       if (!this.validateReferee(socket, data.tableId)) return;
 
-      const matchConfig: any = {};
-      if (data.format) matchConfig.bestOf = data.format;
-      if (data.ptsPerSet) matchConfig.pointsPerSet = data.ptsPerSet;
-      if (data.handicap) {
-        matchConfig.initialScore = { a: data.handicap.a, b: data.handicap.b };
+      // Build MatchConfig union — defaults to table tennis for backward compat
+      const sport = data.sport || SPORT.TABLE_TENNIS;
+      const matchConfigPartial: Record<string, any> = { sport };
+
+      if (sport === SPORT.PADEL) {
+        // Padel-specific fields
+        if (data.format) matchConfigPartial.bestOf = data.format;
+        if (data.tiebreakPoints) matchConfigPartial.tiebreakPoints = data.tiebreakPoints;
+        if (data.goldenPoint !== undefined) matchConfigPartial.goldenPoint = data.goldenPoint;
+      } else {
+        // Table tennis (legacy) fields
+        if (data.format) matchConfigPartial.bestOf = data.format;
+        if (data.ptsPerSet) matchConfigPartial.pointsPerSet = data.ptsPerSet;
+        if (data.handicap) {
+          matchConfigPartial.initialScore = { a: data.handicap.a, b: data.handicap.b };
+        }
       }
 
       // Sanitize player names to prevent XSS and log injection
@@ -87,7 +105,7 @@ export class MatchEventHandler extends SocketHandlerBase {
 
       this.tableManager.configureMatch(data.tableId, {
         playerNames: sanitizedNames,
-        matchConfig: matchConfig
+        matchConfig: matchConfigPartial as MatchConfig
       });
 
       // Emit TABLE_UPDATE for dashboard
@@ -303,7 +321,7 @@ export class MatchEventHandler extends SocketHandlerBase {
       if (state) {
         socket.emit(SocketEvents.SERVER.MATCH_UPDATE, state);
       } else {
-        this.emitError(socket, 'TABLE_NOT_FOUND', 'Mesa no encontrada');
+        this.emitError(socket, 'TABLE_NOT_FOUND', 'Cancha no encontrada');
       }
     });
 

@@ -118,6 +118,8 @@
   "tableStatusLive": "In play",
   "tableStatusFinished": "Finished",
   "scoreboardWifiDomain": "Open {{domain}}",
+  "scoreboardWifiQrCta": "Step 1: Scan for WiFi",
+  "scoreboardUrlQrCta": "Step 2: Scan to open rallyOS",
   "ownerCreateNotification": "Create Notification",
   "notificationModalTitle": "Send Notification",
   "notificationTypeLabel": "Type",
@@ -151,5 +153,17 @@
   "toastMatchStarted": "Match started",
   "toastWinnerAnnounced": "Winner announced",
   "toastConnectionError": "Connection error",
-  "toastPinVerificationFailed": "PIN verification failed"
+  "toastPinVerificationFailed": "PIN verification failed",
+  "sportTableTennis": "Table Tennis",
+  "sportPadel": "Padel",
+  "configSportLabel": "Sport",
+  "authSelectSportDescription": "Choose the sport for all tournament courts:",
+  "deuce": "Deuce",
+  "advantage": "Advantage",
+  "tiebreak": "Tie-break",
+  "game": "Game",
+  "goldenPoint": "Golden Point",
+  "fullscreenButton": "Fullscreen",
+  "iosFullscreenTitle": "Fullscreen",
+  "iosFullscreenInstructions": "Tap the share icon and choose 'Add to Home Screen'"
 }

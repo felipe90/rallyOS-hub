@@ -1,3 +1,4 @@
+import { SPORT } from '../../../../shared/types';
 import { StateStore } from './StateStore';
 import { FileSystem, PersistedTable } from './types';
 
@@ -60,7 +61,7 @@ function makeTable(overrides: Partial<PersistedTable> = {}): PersistedTable {
     playerNames: { a: 'Alice', b: 'Bob' },
     createdAt: 1700000000000,
     matchState: {
-      config: { pointsPerSet: 11, bestOf: 3, minDifference: 2 },
+      config: { sport: SPORT.TABLE_TENNIS, pointsPerSet: 11, bestOf: 3, minDifference: 2 },
       score: {
         sets: { a: 0, b: 0 },
         currentSet: { a: 5, b: 3 },
@@ -71,6 +72,7 @@ function makeTable(overrides: Partial<PersistedTable> = {}): PersistedTable {
       setHistory: [],
       status: 'LIVE',
       winner: null,
+      sport: SPORT.TABLE_TENNIS,
       history: [],
     },
     ...overrides,
@@ -98,7 +100,7 @@ describe('StateStore', () => {
       expect(savedContent).toBeDefined();
 
       const parsed = JSON.parse(savedContent!);
-      expect(parsed.version).toBe(1);
+      expect(parsed.version).toBe(2);
       expect(typeof parsed.savedAt).toBe('number');
       expect(parsed.tables).toHaveLength(1);
       expect(parsed.tables[0].id).toBe('table-1');
@@ -130,7 +132,7 @@ describe('StateStore', () => {
       const finalContent = fs._files.get('data/rallyos-state.json');
       expect(finalContent).toBeDefined();
       const parsed = JSON.parse(finalContent!);
-      expect(parsed.version).toBe(1);
+      expect(parsed.version).toBe(2);
     });
 
     it('should save empty tables array', () => {
@@ -166,10 +168,13 @@ describe('StateStore', () => {
       const result = store.load();
 
       expect(result).not.toBeNull();
-      expect(result!.version).toBe(1);
+      // v1 state is auto-migrated to v2 on load
+      expect(result!.version).toBe(2);
       expect(result!.savedAt).toBe(1700000000000);
       expect(result!.tables).toHaveLength(1);
       expect(result!.tables[0].id).toBe('table-1');
+      // sport field added by migration
+      expect(result!.tables[0].matchState.sport).toBe(SPORT.TABLE_TENNIS);
     });
 
     it('should return null when file does not exist', () => {

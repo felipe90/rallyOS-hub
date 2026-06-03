@@ -1,12 +1,11 @@
 import { useMatchDisplay } from '../../../hooks/useMatchDisplay';
 import type { MatchStateExtended } from '@shared/types';
 import { ScoreboardBar } from './components/ScoreboardBar';
-import { PlayerScoreArea } from './components/PlayerScoreArea';
-import { VSDivider, BackgroundDecor } from './components/ScoreDecorations';
+import { SportDisplaySelector } from '../../molecules/SportDisplaySelector/SportDisplaySelector';
 import { ToggleButton } from '../../atoms/Button/ToggleButton';
-import { MatchHistoryTicker } from '../../molecules/MatchHistoryTicker';
 import { Maximize2, Minimize2 } from 'lucide-react';
 import { useI18n } from '@/i18n';
+import { useSportAdapter } from '../../../hooks/useSportAdapter/useSportAdapter';
 
 export interface ScoreboardMainProps {
   match: MatchStateExtended;
@@ -34,25 +33,23 @@ export function ScoreboardMain({
   className = '',
 }: ScoreboardMainProps) {
   const { i18nText } = useI18n();
-  const { status, history } = match;
+  const adapter = useSportAdapter(match);
+  const { status } = match;
 
   const {
-    setsA,
-    setsB,
     totalSets,
-    leftPlayer,
-    rightPlayer,
     leftName,
     rightName,
-    leftScore,
-    rightScore,
-    leftSets,
-    rightSets,
-    leftHandicap,
-    rightHandicap,
     leftServing,
     rightServing,
+    leftSets,
+    rightSets,
   } = useMatchDisplay(match);
+
+  // Format set history via adapter (sport-appropriate display)
+  const formattedSets = adapter.formatSetHistory(
+    match.setHistory || []
+  );
 
   return (
     <div className={`
@@ -65,8 +62,7 @@ export function ScoreboardMain({
         tableName={match.tableName}
         isConnected={isConnected}
         status={status}
-        score={match.score}
-        setHistory={match.setHistory}
+        formattedSets={formattedSets}
         isLandscape={isLandscape}
       />
 
@@ -97,44 +93,22 @@ export function ScoreboardMain({
           p-4 ${isLandscape ? 'py-2' : 'landscape:p-8'} bg-surface
           min-h-0
         `}>
-          <div className={`flex w-full h-full ${isLandscape ? 'flex-row' : ''}`}>
-            <PlayerScoreArea
-              isReferee={isReferee}
-              side={leftPlayer}
-              playerName={leftName || i18nText('commonPlayerA')}
-              score={leftScore}
-              setsWon={leftSets}
-              totalSets={totalSets}
-              handicap={leftHandicap}
-              isServing={leftServing}
-              onScorePoint={onScorePoint}
-              onSubtractPoint={onSubtractPoint}
-              isLeft={true}
-            />
-
-            <VSDivider onSwapSides={isReferee ? onSwapSides : undefined} />
-
-            <PlayerScoreArea
-              isReferee={isReferee}
-              side={rightPlayer}
-              playerName={rightName || i18nText('commonPlayerB')}
-              score={rightScore}
-              setsWon={rightSets}
-              totalSets={totalSets}
-              handicap={rightHandicap}
-              isServing={rightServing}
-              onScorePoint={onScorePoint}
-              onSubtractPoint={onSubtractPoint}
-              isLeft={false}
-            />
-
-            {isReferee && <BackgroundDecor />}
-          </div>
+          <SportDisplaySelector
+            match={match}
+            leftPlayerName={leftName || i18nText('commonPlayerA')}
+            rightPlayerName={rightName || i18nText('commonPlayerB')}
+            totalSets={totalSets}
+            leftServing={leftServing}
+            rightServing={rightServing}
+            leftSets={leftSets}
+            rightSets={rightSets}
+            isReferee={isReferee}
+            onScorePoint={onScorePoint}
+            onSubtractPoint={onSubtractPoint}
+          />
         </div>
       </div>
 
-      {/* Match History Ticker - Broadcast Overlay */}
-      <MatchHistoryTicker history={history || []} />
     </div>
   );
 }

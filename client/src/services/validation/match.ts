@@ -2,49 +2,46 @@
  * Match config validation
  *
  * Pure functions for validating match configuration.
+ * Uses SportDisplayRegistry to delegate sport-specific validation.
  * Uses i18nText singleton — no React dependencies.
  */
 
-import type { MatchConfig } from '@shared/types'
+import type { Sport } from '@shared/types'
+import { SPORT } from '@shared/types'
 import { i18nText } from '@/i18n'
+import { SportDisplayRegistry } from '../../adapters/SportDisplayRegistry'
 
 export const MIN_POINTS_PER_SET = 1
 export const MAX_POINTS_PER_SET = 99
 export const MIN_BEST_OF = 1
 export const MAX_BEST_OF = 9
 
+const registry = new SportDisplayRegistry()
+
 /**
- * Validate match configuration.
+ * Validate match configuration (sport-aware).
+ * Accepts a loose config object since callers may provide partial/flat configs.
+ * Dispatches sport-specific validation to the adapter resolved from config.sport.
  */
-export function validateMatchConfig(config: Partial<MatchConfig>): { valid: boolean; errors: string[] } {
+export function validateMatchConfig(config: Record<string, unknown>): { valid: boolean; errors: string[] } {
   const errors: string[] = []
 
-  if (config.pointsPerSet !== undefined) {
-    if (config.pointsPerSet < MIN_POINTS_PER_SET || config.pointsPerSet > MAX_POINTS_PER_SET) {
-      errors.push(i18nText('validationPointsPerSetRange', { min: MIN_POINTS_PER_SET, max: MAX_POINTS_PER_SET }))
-    }
-  }
-
+  // Common validation (applies to all sports)
   if (config.bestOf !== undefined) {
-    if (config.bestOf < MIN_BEST_OF || config.bestOf > MAX_BEST_OF) {
+    if ((config.bestOf as number) < MIN_BEST_OF || (config.bestOf as number) > MAX_BEST_OF) {
       errors.push(i18nText('validationBestOfRange', { min: MIN_BEST_OF, max: MAX_BEST_OF }))
     }
-    if (config.bestOf % 2 === 0) {
+    if ((config.bestOf as number) % 2 === 0) {
       errors.push(i18nText('validationBestOfOdd'))
     }
   }
 
-  if (config.minDifference !== undefined && config.minDifference < 1) {
-    errors.push(i18nText('validationMinDifference'))
-  }
+  // Resolve sport from config, default to TT
+  const sport: Sport = (config.sport as Sport) || SPORT.TABLE_TENNIS
 
-  if (config.handicapA !== undefined && (config.handicapA < 0 || config.handicapA > 20)) {
-    errors.push(i18nText('validationHandicapARange'))
-  }
-
-  if (config.handicapB !== undefined && (config.handicapB < 0 || config.handicapB > 20)) {
-    errors.push(i18nText('validationHandicapBRange'))
-  }
+  // Delegate sport-specific validation to adapter
+  const adapter = registry.resolve(sport)
+  errors.push(...adapter.validateConfig(config))
 
   return { valid: errors.length === 0, errors }
 }

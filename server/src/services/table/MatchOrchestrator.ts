@@ -2,37 +2,71 @@
  * MatchOrchestrator - Match lifecycle management
  *
  * Responsibility: Configure, start, score, and reset matches.
+ * Phase 5: Accepts SportRegistry to resolve sport-specific rules
+ * when creating MatchEngine instances. Defaults to TableTennisRules
+ * when no sport is specified (backward-compatible).
  */
 
-import { Table, MatchEvent } from '../../domain/types';
+import { Court, MatchEvent, SPORT } from '../../domain/types';
 import { MatchEngine, Player, MatchConfig, MatchStateExtended } from '../../domain/matchEngine';
 import { logger } from '../../utils/logger';
+import { SportRegistry } from '../../domain/sports/sport.registry';
+import type { SportRules } from '../../domain/sports/types';
 
 export class MatchOrchestrator {
-  configureMatch(table: Table, config: { playerNames?: { a: string; b: string }; matchConfig?: MatchConfig }): void {
+  private registry: SportRegistry;
+
+  constructor(registry?: SportRegistry) {
+    this.registry = registry || new SportRegistry();
+  }
+
+  /**
+   * Resolve the correct SportRules for the given sport.
+   * Defaults to table tennis when sport is absent (backward-compatible).
+   */
+  private resolveRules(sport?: string): SportRules {
+    if (sport && sport === SPORT.PADEL) {
+      return this.registry.getRules(SPORT.PADEL);
+    }
+    return this.registry.getRules(SPORT.TABLE_TENNIS);
+  }
+
+  /**
+   * Create a new MatchEngine and wire callbacks for a court.
+   */
+  private createEngine(
+    table: Court,
+    config: MatchConfig,
+    playerNames?: { a: string; b: string },
+  ): MatchEngine {
+    const sport = (config as any).sport;
+    const rules = this.resolveRules(sport);
+    const engine = new MatchEngine(config, rules);
+    engine.setTableId(table.id, table.name);
+    if (playerNames) {
+      engine.setPlayerNames(playerNames);
+    }
+    engine.setEventCallback((event: MatchEvent) => {
+      if (table.onMatchEvent) {
+        table.onMatchEvent(event);
+      }
+    });
+    return engine;
+  }
+  configureMatch(table: Court, config: { playerNames?: { a: string; b: string }; matchConfig?: MatchConfig }): void {
     if (config.playerNames) {
       table.playerNames = config.playerNames;
-      table.matchEngine.setPlayerNames(config.playerNames);
+      table.sportRules.setPlayerNames(config.playerNames);
     }
 
     if (config.matchConfig) {
-      const tblId = table.id;
-      const tblName = table.name;
-
-      table.matchEngine = new MatchEngine(config.matchConfig);
-      table.matchEngine.setTableId(tblId, tblName);
-      table.matchEngine.setPlayerNames(table.playerNames);
-      table.matchEngine.setEventCallback((event: MatchEvent) => {
-        if (table.onMatchEvent) {
-          table.onMatchEvent(event);
-        }
-      });
+      table.sportRules = this.createEngine(table, config.matchConfig, table.playerNames);
     }
 
     table.status = 'CONFIGURING';
   }
 
-  startMatch(table: Table, config?: Partial<MatchConfig> & { playerNameA?: string; playerNameB?: string }): MatchStateExtended | null {
+  startMatch(table: Court, config?: Partial<MatchConfig> & { playerNameA?: string; playerNameB?: string }): MatchStateExtended | null {
     logger.info({ tableId: table.id, config }, 'startMatch called');
 
     const playerNames = {
@@ -42,24 +76,27 @@ export class MatchOrchestrator {
 
     if (config) {
       logger.debug({ tableId: table.id }, 'Creating new MatchEngine with config');
-      const tblId = table.id;
-      const tblName = table.name;
 
-      table.matchEngine = new MatchEngine({
-        pointsPerSet: config.pointsPerSet || 11,
-        bestOf: config.bestOf || 3,
-        minDifference: 2,
-        handicapA: config.handicapA || 0,
-        handicapB: config.handicapB || 0,
-      });
+      // Resolve full config: default to table tennis for backward compat
+      const sport = (config as any).sport;
+      const engineConfig: MatchConfig = sport === SPORT.PADEL
+        ? {
+            sport: SPORT.PADEL,
+            bestOf: config.bestOf || 3,
+            tiebreakPoints: (config as any).tiebreakPoints ?? 7,
+            gamesPerSet: (config as any).gamesPerSet ?? 6,
+            goldenPoint: (config as any).goldenPoint ?? false,
+          } as MatchConfig
+        : {
+            sport: SPORT.TABLE_TENNIS,
+            pointsPerSet: (config as any).pointsPerSet || 11,
+            bestOf: config.bestOf || 3,
+            minDifference: (config as any).minDifference ?? 2,
+            handicapA: (config as any).handicapA || 0,
+            handicapB: (config as any).handicapB || 0,
+          } as MatchConfig;
 
-      table.matchEngine.setTableId(tblId, tblName);
-      table.matchEngine.setPlayerNames(playerNames);
-      table.matchEngine.setEventCallback((event: MatchEvent) => {
-        if (table.onMatchEvent) {
-          table.onMatchEvent(event);
-        }
-      });
+      table.sportRules = this.createEngine(table, engineConfig, playerNames);
     }
 
     if (config?.playerNameA || config?.playerNameB) {
@@ -67,59 +104,53 @@ export class MatchOrchestrator {
     }
 
     table.status = 'LIVE';
-    const state = table.matchEngine.startMatch();
+    const state = table.sportRules.startMatch();
     logger.debug({ tableId: table.id, status: state?.status }, 'After startMatch, state status');
 
     return state;
   }
 
-  recordPoint(table: Table, player: Player): MatchStateExtended | null {
+  recordPoint(table: Court, player: Player): MatchStateExtended | null {
     if (table.status !== 'LIVE') return null;
 
-    const state = table.matchEngine.recordPoint(player);
+    const state = table.sportRules.recordPoint(player);
     if (state) {
       table.status = state.status;
     }
     return state;
   }
 
-  subtractPoint(table: Table, player: Player): MatchStateExtended | null {
+  subtractPoint(table: Court, player: Player): MatchStateExtended | null {
     if (table.status !== 'LIVE') return null;
 
-    return table.matchEngine.subtractPoint(player);
+    return table.sportRules.subtractPoint(player);
   }
 
-  undoLast(table: Table): MatchStateExtended | null {
+  undoLast(table: Court): MatchStateExtended | null {
     if (table.status !== 'LIVE') return null;
 
-    return table.matchEngine.undoLast();
+    return table.sportRules.undoLast();
   }
 
-  setServer(table: Table, player: Player): MatchStateExtended | null {
+  setServer(table: Court, player: Player): MatchStateExtended | null {
     if (table.status !== 'LIVE') return null;
 
-    return table.matchEngine.setServer(player);
+    return table.sportRules.setServer(player);
   }
 
-  swapSides(table: Table): MatchStateExtended | null {
+  swapSides(table: Court): MatchStateExtended | null {
     if (table.status !== 'LIVE') return null;
 
-    return table.matchEngine.swapSides();
+    return table.sportRules.swapSides();
   }
 
-  resetTable(table: Table, config?: MatchConfig): void {
-    table.matchEngine = new MatchEngine(config);
-    table.matchEngine.setTableId(table.id, table.name);
-    table.matchEngine.setEventCallback((event: MatchEvent) => {
-      if (table.onMatchEvent) {
-        table.onMatchEvent(event);
-      }
-    });
-
+  resetTable(table: Court, config?: MatchConfig): void {
+    const resolvedConfig = config || { sport: SPORT.TABLE_TENNIS, pointsPerSet: 11, bestOf: 3, minDifference: 2 } as MatchConfig;
+    table.sportRules = this.createEngine(table, resolvedConfig, table.playerNames);
     table.status = 'WAITING';
   }
 
-  getMatchState(table: Table): MatchStateExtended | null {
-    return table.matchEngine.getState();
+  getMatchState(table: Court): MatchStateExtended | null {
+    return table.sportRules.getState();
   }
 }

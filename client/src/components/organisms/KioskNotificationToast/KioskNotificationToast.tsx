@@ -12,6 +12,14 @@ const COLOR_MAP: Record<KioskNotificationData['type'], string> = {
   important: 'bg-primary',
 }
 
+// Static classes so Tailwind JIT sees them at build time (no dynamic /90)
+const COLOR_MAP_KIOSK: Record<KioskNotificationData['type'], string> = {
+  info: 'bg-green-600/90',
+  warning: 'bg-amber-500/90',
+  error: 'bg-red-600/90',
+  important: 'bg-primary/90',
+}
+
 const ICON_MAP: Record<KioskNotificationData['type'], React.ComponentType<{ size?: number }>> = {
   info: Info,
   warning: AlertTriangle,
@@ -19,68 +27,119 @@ const ICON_MAP: Record<KioskNotificationData['type'], React.ComponentType<{ size
   important: Bell,
 }
 
-// ── Sound config per type ────────────────────────────────────────────
+// ── Sound config per type (V2 — ADSR + note sequences) ──────────────
 
 interface SoundConfig {
-  waveform: OscillatorType
-  frequency: number
-  durationMs: number
-  secondFrequency?: number
+  notes: Array<{ freq: number; startOffset: number; duration: number; waveform: OscillatorType }>
+  adsr: { attack: number; decay: number; sustain: number; release: number }
+  totalDuration: number
+  gain: number
 }
 
-const SOUND_MAP: Record<KioskNotificationData['type'], SoundConfig> = {
-  info: { waveform: 'sine', frequency: 880, durationMs: 200 },
-  warning: { waveform: 'sine', frequency: 660, durationMs: 300 },
-  error: { waveform: 'square', frequency: 440, durationMs: 400 },
-  important: { waveform: 'sine', frequency: 1047, durationMs: 500, secondFrequency: 1319 },
+const SOUND_MAP_V2: Record<KioskNotificationData['type'], SoundConfig> = {
+  info: {
+    notes: [
+      { freq: 523, startOffset: 0, duration: 0.18, waveform: 'sine' },
+      { freq: 659, startOffset: 0.18, duration: 0.18, waveform: 'sine' },
+      { freq: 784, startOffset: 0.36, duration: 0.18, waveform: 'sine' },
+    ],
+    adsr: { attack: 0.02, decay: 0.05, sustain: 0.7, release: 0.05 },
+    totalDuration: 0.6,
+    gain: 0.4,
+  },
+  warning: {
+    notes: [
+      { freq: 392, startOffset: 0, duration: 0.18, waveform: 'triangle' },     // G4
+      { freq: 523, startOffset: 0.2, duration: 0.18, waveform: 'triangle' },   // C5
+    ],
+    adsr: { attack: 0.03, decay: 0.04, sustain: 0.6, release: 0.04 },
+    totalDuration: 0.4,
+    gain: 0.4,
+  },
+  error: {
+    notes: [
+      { freq: 523, startOffset: 0, duration: 0.4, waveform: 'sawtooth' },      // C5
+      { freq: 370, startOffset: 0.1, duration: 0.3, waveform: 'sawtooth' },    // F#4 (tritone)
+      { freq: 440, startOffset: 0.2, duration: 0.3, waveform: 'sawtooth' },    // A4 (sub-oscillator)
+    ],
+    adsr: { attack: 0.01, decay: 0.4, sustain: 0.3, release: 0.1 },
+    totalDuration: 0.8,
+    gain: 0.35,
+  },
+  important: {
+    notes: [
+      { freq: 262, startOffset: 0, duration: 0.25, waveform: 'triangle' },
+      { freq: 392, startOffset: 0.2, duration: 0.25, waveform: 'triangle' },
+      { freq: 523, startOffset: 0.4, duration: 0.3, waveform: 'triangle' },
+    ],
+    adsr: { attack: 0.02, decay: 0.08, sustain: 0.8, release: 0.1 },
+    totalDuration: 0.9,
+    gain: 0.45,
+  },
 }
 
-// ── Sound engine ─────────────────────────────────────────────────────
+// ── Sound engine (V2 — ADSR synthesis) ───────────────────────────────
 
-const INITIAL_GAIN = 0.3
-const SECONDARY_GAIN = 0.2
-const FADE_TARGET = 0.001
-const CLEANUP_DELAY_MS = 100
+let _audioCtx: AudioContext | null = null
 
-function playSound(type: KioskNotificationData['type']): void {
+function getAudioContext(): AudioContext {
+  if (!_audioCtx || _audioCtx.state === 'closed') _audioCtx = new AudioContext()
+  return _audioCtx
+}
+
+/** Reset the singleton AudioContext (for test isolation) */
+export function _resetAudioContext(): void {
+  _audioCtx = null
+}
+
+// ── ADSR helper ──
+
+function applyAdsr(
+  gainNode: GainNode,
+  ctx: AudioContext,
+  attack: number,
+  decay: number,
+  sustain: number,
+  release: number,
+  duration: number,
+  gain: number,
+) {
+  const t = ctx.currentTime
+  gainNode.gain.setValueAtTime(0, t)
+  gainNode.gain.linearRampToValueAtTime(gain, t + attack)
+  gainNode.gain.linearRampToValueAtTime(gain * sustain, t + attack + decay)
+  gainNode.gain.setValueAtTime(gain * sustain, t + duration - release)
+  gainNode.gain.linearRampToValueAtTime(0.001, t + duration)
+}
+
+async function playSoundV2(type: KioskNotificationData['type'], reduceMotion: boolean): Promise<void> {
   try {
-    const config = SOUND_MAP[type]
-    const ctx = new AudioContext()
-    const durationSeconds = config.durationMs / 1000
+    const config = SOUND_MAP_V2[type]
+    const ctx = getAudioContext()
+    if (ctx.state === 'suspended') await ctx.resume()
 
-    // Primary oscillator
-    const oscillator = ctx.createOscillator()
-    const gainNode = ctx.createGain()
-    oscillator.type = config.waveform
-    oscillator.frequency.setValueAtTime(config.frequency, ctx.currentTime)
-    gainNode.gain.setValueAtTime(INITIAL_GAIN, ctx.currentTime)
-    gainNode.gain.exponentialRampToValueAtTime(FADE_TARGET, ctx.currentTime + durationSeconds)
-    oscillator.connect(gainNode)
-    gainNode.connect(ctx.destination)
-    oscillator.start(ctx.currentTime)
-    oscillator.stop(ctx.currentTime + durationSeconds)
+    const gain = reduceMotion ? config.gain * 0.6 : config.gain
+    const totalDuration = reduceMotion ? config.totalDuration * 0.5 : config.totalDuration
+    const durationScale = reduceMotion ? 0.5 : 1
 
-    // Dual oscillator for "important" bell sound
-    if (config.secondFrequency) {
-      const oscillator2 = ctx.createOscillator()
-      const gainNode2 = ctx.createGain()
-      oscillator2.type = config.waveform
-      oscillator2.frequency.setValueAtTime(config.secondFrequency, ctx.currentTime)
-      gainNode2.gain.setValueAtTime(SECONDARY_GAIN, ctx.currentTime)
-      gainNode2.gain.exponentialRampToValueAtTime(FADE_TARGET, ctx.currentTime + durationSeconds)
-      oscillator2.connect(gainNode2)
-      gainNode2.connect(ctx.destination)
-      oscillator2.start(ctx.currentTime)
-      oscillator2.stop(ctx.currentTime + durationSeconds)
+    for (const note of config.notes) {
+      const osc = ctx.createOscillator()
+      const gn = ctx.createGain()
+      const waveform = reduceMotion && note.waveform === 'sawtooth' ? 'sine' : note.waveform
+      osc.type = waveform
+      const noteDuration = note.duration * durationScale
+      const noteStart = note.startOffset * durationScale
+      osc.frequency.setValueAtTime(note.freq, ctx.currentTime + noteStart)
+      applyAdsr(gn, ctx, config.adsr.attack, config.adsr.decay, config.adsr.sustain, config.adsr.release, noteDuration, gain)
+      osc.connect(gn)
+      gn.connect(ctx.destination)
+      osc.start(ctx.currentTime + noteStart)
+      osc.stop(ctx.currentTime + noteStart + noteDuration + 0.05)
     }
 
-    // Clean up AudioContext after sound finishes
-    setTimeout(() => {
-      ctx.close?.()?.catch(() => {})
-    }, config.durationMs + CLEANUP_DELAY_MS)
-  } catch {
-    // Silent fallback — kiosk already has autoplay policy configured,
-    // but if AudioContext is unavailable for any reason, degrade gracefully.
+    // AudioContext singleton stays alive for the kiosk session
+  } catch (err) {
+    console.warn('[KioskSound] Audio error:', err)
   }
 }
 
@@ -89,21 +148,23 @@ function playSound(type: KioskNotificationData['type']): void {
 export interface KioskNotificationToastProps {
   notification: KioskNotificationData
   onDismiss: () => void
+  kioskMode?: boolean
 }
 
 // ── Component ────────────────────────────────────────────────────────
 
-export function KioskNotificationToast({ notification, onDismiss }: KioskNotificationToastProps) {
+export function KioskNotificationToast({ notification, onDismiss, kioskMode = false }: KioskNotificationToastProps) {
   const Icon = ICON_MAP[notification.type]
   const colorClass = COLOR_MAP[notification.type]
   const shouldReduceMotion = useReducedMotion()
+  const isKiosk = kioskMode
 
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Play sound on mount
   useEffect(() => {
-    playSound(notification.type)
-  }, [notification.type])
+    playSoundV2(notification.type, shouldReduceMotion ?? false)
+  }, [notification.type, shouldReduceMotion])
 
   // Auto-dismiss after duration
   useEffect(() => {
@@ -131,12 +192,22 @@ export function KioskNotificationToast({ notification, onDismiss }: KioskNotific
   return (
     <ToastWrapper
       {...toastMotionProps}
-      className={`fixed bottom-0 left-0 right-0 z-50 ${colorClass} text-white m-4 rounded-lg shadow-lg`}
+      className={`fixed bottom-0 left-0 right-0 z-[100] text-white m-4 ${
+        isKiosk
+          ? `${COLOR_MAP_KIOSK[notification.type]} min-h-[15vh] rounded-xl shadow-2xl`
+          : `${colorClass} rounded-lg shadow-lg`
+      }`}
       role="alert"
     >
-      <div className="flex items-center justify-center gap-6 px-8 py-6 max-w-6xl mx-auto">
-        <span className="shrink-0" data-testid={`toast-icon-${notification.type}`}><Icon size={40} /></span>
-        <span className="text-lg font-semibold">{notification.message}</span>
+      <div className={`flex items-center justify-center ${
+        isKiosk ? 'gap-8 px-8 py-6' : 'gap-6 px-8 py-6 max-w-6xl mx-auto'
+      }`}>
+        <span className="shrink-0" data-testid={`toast-icon-${notification.type}`}>
+          <Icon size={isKiosk ? 80 : 40} />
+        </span>
+        <span className={isKiosk ? 'text-5xl md:text-6xl lg:text-7xl font-black leading-tight' : 'text-lg font-semibold'}>
+          {notification.message}
+        </span>
       </div>
     </ToastWrapper>
   )

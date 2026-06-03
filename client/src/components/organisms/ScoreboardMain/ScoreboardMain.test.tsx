@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { SPORT } from '@shared/types';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ScoreboardMain } from './ScoreboardMain';
-import type { MatchStateExtended, Score } from '@shared/types';
+import { MatchStateExtended, Score } from '@shared/types';
 import React from 'react';
 
 vi.mock('framer-motion', () => ({
@@ -55,8 +56,39 @@ vi.mock('../../hooks/useMatchDisplay', () => ({
       leftServing,
       rightServing,
       phaseLabel: 'round',
+      sport: SPORT.TABLE_TENNIS,
+      sportDisplayScore: { type: SPORT.TABLE_TENNIS, leftScore, rightScore, leftSets: setsA, rightSets: setsB },
     };
   }),
+}));
+
+vi.mock('../../../hooks/useSportAdapter/useSportAdapter', () => ({
+  useSportAdapter: vi.fn(() => ({
+    sport: SPORT.TABLE_TENNIS,
+    computeDisplayData: (state: any) => ({
+      type: SPORT.TABLE_TENNIS,
+      leftScore: state.score?.currentSet?.a ?? 0,
+      rightScore: state.score?.currentSet?.b ?? 0,
+      leftSets: (state.setHistory || []).filter((s: any) => (s.a ?? 0) > (s.b ?? 0)).length,
+      rightSets: (state.setHistory || []).filter((s: any) => (s.b ?? 0) > (s.a ?? 0)).length,
+    }),
+    DisplayComponent: ({ sportDisplay, leftPlayerName, rightPlayerName }: any) => (
+      <div data-testid="sport-display">
+        <span>{leftPlayerName}</span>
+        <span>{sportDisplay?.leftScore}</span>
+        <span>{rightPlayerName}</span>
+        <span>{sportDisplay?.rightScore}</span>
+      </div>
+    ),
+    getCurrentScores: (state: any) => ({ a: state.score?.currentSet?.a ?? 0, b: state.score?.currentSet?.b ?? 0 }),
+    getServing: (state: any) => state.score?.serving ?? 'A',
+    needsHandicap: () => true,
+    getConfigDefaults: () => ({ sport: SPORT.TABLE_TENNIS }),
+    validateConfig: () => [],
+    getConfigFields: () => [],
+    formatSetHistory: (h: any[]) => h.map((s, i) => ({ left: s.a, right: s.b, label: `Set ${i + 1}` })),
+  })),
+  SportDisplayRegistry: class {},
 }));
 
 const createMockMatch = (overrides: Partial<MatchStateExtended> = {}): MatchStateExtended => ({
@@ -66,17 +98,19 @@ const createMockMatch = (overrides: Partial<MatchStateExtended> = {}): MatchStat
   history: [],
   undoAvailable: false,
   config: {
+    sport: SPORT.TABLE_TENNIS,
     pointsPerSet: 11,
     bestOf: 3,
     minDifference: 2,
     handicapA: 0,
     handicapB: 0,
-  },
+  } as any,
   score: {
     sets: { a: 0, b: 0 },
     currentSet: { a: 0, b: 0 },
     serving: 'A',
   },
+  sport: SPORT.TABLE_TENNIS,
   swappedSides: false,
   midSetSwapped: false,
   setHistory: [],

@@ -27,6 +27,11 @@ import {
   QRData,
   ErrorResponse,
   ValidationError,
+  TableTennisMatchConfig,
+  PadelMatchConfig,
+  PadelPoint,
+  Sport,
+  SPORT,
 } from '../../../shared/types';
 import type { MatchEngine } from './matchEngine';
 
@@ -49,6 +54,11 @@ export {
   QRData,
   ErrorResponse,
   ValidationError,
+  TableTennisMatchConfig,
+  PadelMatchConfig,
+  PadelPoint,
+  Sport,
+  SPORT,
 };
 
 /**
@@ -79,18 +89,18 @@ export interface PlayerConnection {
 }
 
 /**
- * Table (internal server-only type)
+ * Court (internal server-only type)
  *
  * This type adds server-internal fields (callbacks, internal state)
  * that must never be serialized and sent to the client.
  */
-export interface Table {
+export interface Court {
   id: string;
   number: number;
   name: string;
   status: TableStatus;
   pin: string;
-  matchEngine: MatchEngine;
+  sportRules: MatchEngine;
   playerNames: { a: string; b: string };
   history: MatchEvent[];
   players: PlayerConnection[];
@@ -99,6 +109,9 @@ export interface Table {
   onTableUpdate?: () => void;
   onMatchEvent?: (event: MatchEvent) => void;
 }
+
+/** @deprecated Use Court instead — legacy alias for backward compat */
+export type Table = Court;
 
 /**
  * Socket data attached to authenticated sockets.

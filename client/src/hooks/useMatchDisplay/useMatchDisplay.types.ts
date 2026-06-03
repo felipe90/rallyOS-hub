@@ -1,4 +1,4 @@
-import type { MatchStateExtended } from '@shared/types'
+import type { MatchStateExtended, Sport, SportDisplayScore } from '@shared/types'
 
 export interface MatchDisplayState {
   setsA: number
@@ -21,6 +21,10 @@ export interface MatchDisplayState {
   setWinner: 'A' | 'B' | null
   matchWinner: 'A' | 'B' | null
   isMatchOver: boolean
+  /** The sport type of the current match */
+  sport: Sport
+  /** Sport-specific display score for the frontend */
+  sportDisplayScore: SportDisplayScore
 }
 
 export type UseMatchDisplayReturn = MatchDisplayState

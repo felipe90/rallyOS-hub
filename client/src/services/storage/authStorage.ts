@@ -11,6 +11,7 @@ const ROLE_KEY = 'role'
 const TABLE_ID_KEY = 'tableId'
 const OWNER_PIN_KEY = 'ownerPin'
 const TABLE_PIN_KEY = 'tablePin'
+const TOURNAMENT_TOKEN_KEY = 'tournamentToken'
 
 export const authStorage = {
   getRole: (): UserRole => {
@@ -66,11 +67,26 @@ export const authStorage = {
     // This is a no-op — PINs are stored in memory only (React state)
   },
 
+  getTournamentToken: (): string | null => {
+    if (typeof window === 'undefined') return null
+    return localStorage.getItem(TOURNAMENT_TOKEN_KEY)
+  },
+
+  setTournamentToken: (token: string | null): void => {
+    if (typeof window === 'undefined') return
+    if (token) {
+      localStorage.setItem(TOURNAMENT_TOKEN_KEY, token)
+    } else {
+      localStorage.removeItem(TOURNAMENT_TOKEN_KEY)
+    }
+  },
+
   clear: (): void => {
     if (typeof window === 'undefined') return
     localStorage.removeItem(ROLE_KEY)
     localStorage.removeItem(TABLE_ID_KEY)
     // tablePin is no longer persisted — no need to remove from localStorage
     sessionStorage.removeItem(OWNER_PIN_KEY)
+    localStorage.removeItem(TOURNAMENT_TOKEN_KEY)
   },
 }

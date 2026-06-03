@@ -9,15 +9,22 @@ import { Button } from '@/components/atoms/Button'
 import { PinInput } from '@/components/atoms/PinInput'
 import { Typography } from '@/components/atoms/Typography'
 import { TournamentResumeModal } from '@/components/molecules/TournamentResumeModal'
+import { SportDisplayRegistry } from '@/adapters/SportDisplayRegistry'
+import { SPORT } from '@shared/types'
+import type { Sport } from '@shared/types'
 import logoBig from '@/assets/logo-big.png'
 import { Routes } from '@/routes'
 
-export type AuthMode = 'select' | 'owner-pin'
+export type AuthMode = 'select' | 'owner-pin' | 'sport-select'
+
+const registry = new SportDisplayRegistry()
+const SPORT_STORAGE_KEY = 'rallyos-sport'
 
 export function AuthPage() {
   const [pin, setPin] = useState('')
   const [mode, setMode] = useState<AuthMode>('select')
   const [randomOwnerPin, setRandomOwnerPin] = useState<string | null>(null)
+  const [pendingAction, setPendingAction] = useState<'load' | 'new' | null>(null)
   const navigate = useNavigate()
   const { i18nText } = useI18n()
   const { login, setOwner, setTournamentToken } = useAuthContext()
@@ -29,6 +36,7 @@ export function AuthPage() {
     setOwner,
     login,
     setTournamentToken,
+    onOwnerResolved: () => setMode('sport-select'),
   })
 
   const { addToast } = useToast()
@@ -100,12 +108,19 @@ export function AuthPage() {
     clearError()
   }
 
+  const handleSelectSport = (sport: Sport) => {
+    localStorage.setItem(SPORT_STORAGE_KEY, sport)
+    navigate(Routes.DASHBOARD_OWNER)
+  }
+
   return (
     <div className="flex flex-col items-center justify-center min-h-dvh bg-surface gap-8 p-4">
       <div className="flex flex-col items-center gap-4">
         <img src={logoBig} alt="RallyOS" className="w-32 h-auto mb-2 rounded-[--radius-md]" />
         <Typography variant="title">
-          {mode === 'select' ? i18nText('authSelectRole') : i18nText('authEnterOwnerPin')}
+          {mode === 'select' ? i18nText('authSelectRole')
+           : mode === 'sport-select' ? i18nText('configSportLabel')
+           : i18nText('authEnterOwnerPin')}
         </Typography>
       </div>
 
@@ -139,6 +154,27 @@ export function AuthPage() {
           >
             {i18nText('authRoleSpectator')}
           </Button>
+        </div>
+      ) : mode === 'sport-select' ? (
+        // Sport Selection Mode — shown after owner PIN verification
+        <div className="flex flex-col gap-4 w-full max-w-sm items-center">
+          <Typography variant="body" className="text-center text-muted-foreground">
+            {i18nText('authSelectSportDescription')}
+          </Typography>
+          <div className="flex gap-3 w-full">
+            {registry.getAvailableSports().map(s => (
+              <Button
+                key={s}
+                variant="primary"
+                size="lg"
+                fullWidth
+                onClick={() => handleSelectSport(s)}
+                animate={false}
+              >
+                {i18nText(registry.resolve(s).displayKey)}
+              </Button>
+            ))}
+          </div>
         </div>
       ) : (
         // Owner PIN Mode

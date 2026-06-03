@@ -1,3 +1,4 @@
+import { SPORT } from '../../../shared/types';
 /**
  * Tournament route handler tests.
  *
@@ -97,7 +98,7 @@ function makeTable(overrides: Partial<PersistedTable> = {}): PersistedTable {
     playerNames: { a: 'Alice', b: 'Bob' },
     createdAt: 1700000000000,
     matchState: {
-      config: { pointsPerSet: 11, bestOf: 3, minDifference: 2 },
+      config: { sport: SPORT.TABLE_TENNIS, pointsPerSet: 11, bestOf: 3, minDifference: 2 },
       score: {
         sets: { a: 0, b: 0 },
         currentSet: { a: 5, b: 3 },
@@ -108,6 +109,7 @@ function makeTable(overrides: Partial<PersistedTable> = {}): PersistedTable {
       setHistory: [],
       status: 'LIVE',
       winner: null,
+      sport: SPORT.TABLE_TENNIS,
       history: [],
     },
     ...overrides,

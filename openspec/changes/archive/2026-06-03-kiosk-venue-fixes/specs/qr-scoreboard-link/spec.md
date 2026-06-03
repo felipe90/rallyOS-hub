@@ -1,16 +1,12 @@
-# qr-scoreboard-link Specification
+# Delta for qr-scoreboard-link
 
-## Purpose
-
-Static WiFi QR on scoreboard enables network connection. Domain text guides to web app.
-
-**Data source**: hub config via existing Socket.IO connection (`{ ssid, wifiPassword }`). Domain from `HUB_DOMAIN` env var. No `QR_DATA` event consumed.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: WiFi QR Code
 
 The system MUST render a WiFi QR using `WIFI:T:WPA2;S:{ssid};P:{password};H:false;;` from hub config. Encryption type SHALL be `T:WPA2` to match hostapd `wpa=2` AES-only configuration. Hidden SSID parameter `H:false` MUST be included explicitly. Both WiFi QR and URL QR SHALL use error correction level `H` (30%) for readability on glare-prone TV screens. QR MUST render at 180px (confirmed for venue TV readability).
+
+(Previously: `T:WPA` encoding mismatched hostapd WPA2-only config; no `H:false` parameter; no error correction level specification.)
 
 #### Scenario: WPA2 QR triggers auto-connect
 
@@ -36,19 +32,11 @@ The system MUST render a WiFi QR using `WIFI:T:WPA2;S:{ssid};P:{password};H:fals
 - WHEN QRCodeSVG component is instantiated
 - THEN `level="H"` (30% error correction) is used
 
-### Requirement: Domain Link Text
-
-Below the QR, the system MUST display "Abrí {domain}" using HUB_DOMAIN env var.
-
-#### Scenario: Domain text below QR
-
-- GIVEN HUB_DOMAIN="rallyos-hub.local"
-- WHEN scoreboard renders
-- THEN "Abrí rallyos-hub.local" appears below the QR
-
 ### Requirement: Missing Credentials Fallback
 
 When `hubConfig.wifiPassword` is absent, the system SHALL hide only the WiFi QR. The URL QR and domain text SHALL remain visible. Domain text continues to use `hubConfig.domain`.
+
+(Previously: "hide the QR and display domain text only" — now URL QR persists independently.)
 
 #### Scenario: WiFi QR hidden, URL QR visible
 
@@ -59,6 +47,8 @@ When `hubConfig.wifiPassword` is absent, the system SHALL hide only the WiFi QR.
 ### Requirement: Kiosk-Only Visibility
 
 The WiFi QR, URL QR, and domain text SHALL render ONLY on the kiosk all-tables view (`/scoreboard/all/kiosk`). Other scoreboard views (per-table referee, view) SHALL NOT display either QR.
+
+(Previously: mentioned only WiFi QR — now applies to both WiFi QR and URL QR.)
 
 #### Scenario: Both QRs on kiosk only
 
@@ -71,6 +61,8 @@ The WiFi QR, URL QR, and domain text SHALL render ONLY on the kiosk all-tables v
 - GIVEN hub config provides wifiPassword
 - WHEN a per-table scoreboard view (referee, view) displays
 - THEN neither WiFi QR nor URL QR is visible
+
+## ADDED Requirements
 
 ### Requirement: URL QR Code
 

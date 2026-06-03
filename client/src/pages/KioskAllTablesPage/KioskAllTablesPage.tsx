@@ -4,7 +4,6 @@ import { useSocketContext } from '@/contexts/SocketContext'
 import { ConnectionStatus, Typography } from '@/components/atoms'
 import { KioskTableCard } from '@/components/organisms/KioskTableCard'
 import { KioskNotificationToast } from '@/components/organisms/KioskNotificationToast'
-import { useResponsiveQrSize } from '@/hooks'
 import { QRCodeSVG } from 'qrcode.react'
 import logoBig from '@/assets/logo-big.png'
 import type { TableInfo, KioskNotificationData } from '@shared/types'
@@ -47,7 +46,6 @@ export function calculatePages(
 export function KioskAllTablesPage() {
   const { tables, connected, connecting, hubConfig, kioskNotification } = useSocketContext()
   const { i18nText } = useI18n()
-  const qrSize = useResponsiveQrSize()
 
   // Rotation state
   const [pages, setPages] = useState<TableInfo[][]>([[]])
@@ -147,28 +145,37 @@ export function KioskAllTablesPage() {
 
       {/* Header — Logo + QR (always visible) */}
       <div className="flex items-center justify-between px-8 pt-6 pb-4">
-        <img src={logoBig} alt="RallyOS" style={{ height: qrSize }} className="w-auto rounded-[--radius-md]" />
+        <img src={logoBig} alt="RallyOS" style={{ height: 180 }} className="w-auto rounded-[--radius-md]" />
         {hubConfig?.domain && (
-          <div className="flex items-center gap-3">
+          <div className="flex flex-row items-start gap-6">
+            {/* WiFi QR — conditional */}
             {hubConfig.wifiPassword && (
+              <div className="flex flex-col items-center gap-2">
+                <span className="text-sm font-semibold">{i18nText('scoreboardWifiQrCta')}</span>
+                <QRCodeSVG
+                  value={`WIFI:T:WPA2;S:${hubConfig.ssid};P:${hubConfig.wifiPassword};H:false;;`}
+                  size={180}
+                  bgColor="#ffffff"
+                  fgColor="#000000"
+                  level="H"
+                  includeMargin={true}
+                />
+              </div>
+            )}
+            {/* URL QR — always visible */}
+            <div className="flex flex-col items-center gap-2">
+              <span className="text-sm font-semibold">{i18nText('scoreboardUrlQrCta')}</span>
               <QRCodeSVG
-                value={`WIFI:T:WPA;S:${hubConfig.ssid};P:${hubConfig.wifiPassword};;`}
-                size={qrSize}
+                value={`https://${hubConfig.domain}:${hubConfig.port}`}
+                size={180}
                 bgColor="#ffffff"
                 fgColor="#000000"
-                level="M"
+                level="H"
                 includeMargin={true}
               />
-            )}
-            <div className="flex flex-col items-end gap-1">
-              <Typography variant="label" className="text-text/80 text-sm font-mono">
+              <Typography variant="label" className="text-text/80 text-xs font-mono">
                 https://{hubConfig.domain}:{hubConfig.port}
               </Typography>
-              {hubConfig.wifiPassword && (
-                <Typography variant="label" className="text-text-muted text-xs">
-                  {i18nText('scoreboardWifiDomain', { domain: hubConfig.domain })}
-                </Typography>
-              )}
             </div>
           </div>
         )}
@@ -224,6 +231,7 @@ export function KioskAllTablesPage() {
         <KioskNotificationToast
           notification={visibleNotification}
           onDismiss={() => setVisibleNotification(null)}
+          kioskMode
         />
       )}
     </div>

@@ -118,6 +118,8 @@
   "tableStatusLive": "In play",
   "tableStatusFinished": "Finished",
   "scoreboardWifiDomain": "Open {{domain}}",
+  "scoreboardWifiQrCta": "Step 1: Scan for WiFi",
+  "scoreboardUrlQrCta": "Step 2: Scan to open rallyOS",
   "ownerCreateNotification": "Create Notification",
   "notificationModalTitle": "Send Notification",
   "notificationTypeLabel": "Type",

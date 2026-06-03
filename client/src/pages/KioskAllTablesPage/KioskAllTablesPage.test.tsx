@@ -25,6 +25,8 @@ vi.mock('@/i18n', () => ({
         'kioskNoActiveMatches': 'No active matches',
         'kioskPageTitle': 'Scoreboard',
         'scoreboardWifiDomain': 'Abrí rallyos-hub.local',
+        'scoreboardWifiQrCta': 'Paso 1: Escaneá para conectarte al WiFi',
+        'scoreboardUrlQrCta': 'Paso 2: Escaneá para abrir rallyOS',
       }
       return map[key] || key
     },
@@ -128,9 +130,99 @@ describe('KioskAllTablesPage', () => {
       </MemoryRouter>
     )
 
-    // QR code renders as an SVG element
-    const svg = document.querySelector('svg')
-    expect(svg).toBeInTheDocument()
+    // QRCodeSVG renders with role="img" — both WiFi and URL QRs
+    const qrSvgs = document.querySelectorAll('svg[role="img"]')
+    expect(qrSvgs.length).toBe(2)
+  })
+
+  it('WiFi QR encodes WPA2 with H:false in value string', () => {
+    mockUseSocketContext.mockReturnValue({
+      tables: [makeTable({ status: 'LIVE' })],
+      connected: true,
+      connecting: false,
+      hubConfig: { ssid: 'RallyOS', wifiPassword: 'test1234', domain: 'rallyos-hub.local' },
+    })
+
+    render(
+      <MemoryRouter>
+        <KioskAllTablesPage />
+      </MemoryRouter>
+    )
+
+    const qrSvgs = document.querySelectorAll('svg[role="img"]')
+    // Two QRs: WiFi and URL
+    expect(qrSvgs.length).toBe(2)
+    // Both QRs should have hardcoded size 180
+    expect(qrSvgs[0]).toHaveAttribute('width', '180')
+    expect(qrSvgs[1]).toHaveAttribute('width', '180')
+    // WiFi QR label is visible
+    expect(screen.getByText('Paso 1: Escaneá para conectarte al WiFi')).toBeInTheDocument()
+  })
+
+  it('URL QR encodes hub domain and port', () => {
+    mockUseSocketContext.mockReturnValue({
+      tables: [makeTable({ status: 'LIVE' })],
+      connected: true,
+      connecting: false,
+      hubConfig: { ssid: 'RallyOS', wifiPassword: 'test1234', domain: 'rallyos-hub.local', port: 3001 },
+    })
+
+    render(
+      <MemoryRouter>
+        <KioskAllTablesPage />
+      </MemoryRouter>
+    )
+
+    const qrSvgs = document.querySelectorAll('svg[role="img"]')
+    expect(qrSvgs.length).toBe(2)
+    // URL text is visible below the URL QR
+    expect(screen.getByText('https://rallyos-hub.local:3001')).toBeInTheDocument()
+    // URL QR label is visible
+    expect(screen.getByText('Paso 2: Escaneá para abrir rallyOS')).toBeInTheDocument()
+  })
+
+  it('hides WiFi QR when wifiPassword is absent but shows URL QR', () => {
+    mockUseSocketContext.mockReturnValue({
+      tables: [makeTable({ status: 'LIVE' })],
+      connected: true,
+      connecting: false,
+      hubConfig: { domain: 'rallyos-hub.local', port: 3001 },
+    })
+
+    render(
+      <MemoryRouter>
+        <KioskAllTablesPage />
+      </MemoryRouter>
+    )
+
+    const qrSvgs = document.querySelectorAll('svg[role="img"]')
+    // Only the URL QR should be visible — no WiFi QR
+    expect(qrSvgs.length).toBe(1)
+    // URL text is still visible
+    expect(screen.getByText('https://rallyos-hub.local:3001')).toBeInTheDocument()
+    // URL QR label is visible
+    expect(screen.getByText('Paso 2: Escaneá para abrir rallyOS')).toBeInTheDocument()
+    // WiFi label should NOT be visible
+    expect(screen.queryByText('Paso 1: Escaneá para conectarte al WiFi')).not.toBeInTheDocument()
+  })
+
+  it('renders WiFi and URL step labels in horizontal layout', () => {
+    mockUseSocketContext.mockReturnValue({
+      tables: [makeTable({ status: 'LIVE' })],
+      connected: true,
+      connecting: false,
+      hubConfig: { ssid: 'RallyOS', wifiPassword: 'test1234', domain: 'rallyos-hub.local', port: 3001 },
+    })
+
+    render(
+      <MemoryRouter>
+        <KioskAllTablesPage />
+      </MemoryRouter>
+    )
+
+    // Step labels should be visible
+    expect(screen.getByText('Paso 1: Escaneá para conectarte al WiFi')).toBeInTheDocument()
+    expect(screen.getByText('Paso 2: Escaneá para abrir rallyOS')).toBeInTheDocument()
   })
 
   it('renders single table grid', () => {
@@ -441,10 +533,7 @@ describe('KioskAllTablesPage — rotation behavior', () => {
     expect(dots.length).toBeGreaterThan(0)
   })
 
-  it('renders QR code with size proportional to viewport width', () => {
-    // Small viewport: 375px width → 5% ≈ 18.75 → clamped to min 80
-    Object.defineProperty(window, 'innerWidth', { value: 375, configurable: true })
-
+  it('renders QR code with hardcoded size 180', () => {
     mockUseSocketContext.mockReturnValue({
       tables: [makeTable({ status: 'LIVE' })],
       connected: true,
@@ -458,10 +547,10 @@ describe('KioskAllTablesPage — rotation behavior', () => {
       </MemoryRouter>,
     )
 
-    const svg = document.querySelector('svg')
-    expect(svg).toBeInTheDocument()
-    // QR size is computed from viewport width; just verify it renders at some size
-    expect(svg).toHaveAttribute('width')
+    const qrSvgs = document.querySelectorAll('svg[role="img"]')
+    expect(qrSvgs.length).toBeGreaterThanOrEqual(1)
+    // QR size is hardcoded to 180px
+    expect(qrSvgs[0]).toHaveAttribute('width', '180')
   })
 
   it('displays full URL in monospace font when hubConfig available', () => {

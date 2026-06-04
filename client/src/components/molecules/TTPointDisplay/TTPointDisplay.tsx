@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Undo2 } from 'lucide-react';
+import { HoldToConfirmButton } from '../../atoms/Button/HoldToConfirmButton';
 import type { TTPointDisplay as TTPointDisplayData } from '@shared/types';
 
 export interface TTPointDisplayProps {
@@ -13,6 +14,7 @@ export interface TTPointDisplayProps {
   isReferee?: boolean;
   onScorePoint?: (side: 'A' | 'B') => void;
   onSubtractPoint?: (side: 'A' | 'B') => void;
+  onSwapSides?: () => void;
 }
 
 function PlayerSide({
@@ -151,6 +153,7 @@ export function TTPointDisplay({
   isReferee = false,
   onScorePoint,
   onSubtractPoint,
+  onSwapSides,
 }: TTPointDisplayProps) {
   return (
     <div className="flex w-full h-full">
@@ -172,6 +175,17 @@ export function TTPointDisplay({
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-white/5 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/10">
           <span className="font-heading font-bold text-base text-white/40 italic">VS</span>
         </div>
+        {/* Swap sides button for referee — right below VS */}
+        {onSwapSides && isReferee && (
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 translate-y-[44px]">
+            <HoldToConfirmButton
+              onConfirm={onSwapSides}
+              holdDuration={1500}
+              variant="neutral"
+              ariaLabel="Intercambiar lados"
+            />
+          </div>
+        )}
       </div>
 
       <PlayerSide

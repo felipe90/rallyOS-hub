@@ -13,6 +13,7 @@ export interface SportDisplaySelectorProps {
   isReferee?: boolean;
   onScorePoint?: (side: 'A' | 'B') => void;
   onSubtractPoint?: (side: 'A' | 'B') => void;
+  onSwapSides?: () => void;
 }
 
 /**
@@ -34,6 +35,7 @@ export function SportDisplaySelector({
   isReferee = false,
   onScorePoint,
   onSubtractPoint,
+  onSwapSides,
 }: SportDisplaySelectorProps) {
   const adapter = useSportAdapter(match);
   const sportDisplay = adapter.computeDisplayData(match);
@@ -52,6 +54,7 @@ export function SportDisplaySelector({
       isReferee={isReferee}
       onScorePoint={onScorePoint}
       onSubtractPoint={onSubtractPoint}
+      onSwapSides={onSwapSides}
     />
   );
 }

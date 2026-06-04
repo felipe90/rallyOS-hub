@@ -9,9 +9,14 @@ vi.mock('framer-motion', () => ({
     div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
     section: ({ children, ...props }: any) => <section {...props}>{children}</section>,
     span: ({ children, ...props }: any) => <span {...props}>{children}</span>,
+    button: ({ children, ...props }: any) => <button {...props}>{children}</button>,
   },
   AnimatePresence: ({ children }: any) => children,
   useReducedMotion: () => false,
+  useAnimation: () => ({
+    start: vi.fn(),
+    stop: vi.fn(),
+  }),
 }));
 
 const createTTSportDisplay = (overrides: Partial<TTPointDisplayData> = {}): TTPointDisplayData => ({
@@ -248,6 +253,67 @@ describe('TTPointDisplay', () => {
       if (leftSection) fireEvent.click(leftSection);
 
       expect(onScorePoint).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('swap sides button', () => {
+    it('renders swap sides button when onSwapSides provided and isReferee', () => {
+      const onSwapSides = vi.fn();
+      const data = createTTSportDisplay();
+
+      render(
+        <TTPointDisplay
+          sportDisplay={data}
+          leftPlayerName="Alice"
+          rightPlayerName="Bob"
+          totalSets={3}
+          leftServing={false}
+          rightServing={false}
+          isReferee={true}
+          onSwapSides={onSwapSides}
+        />
+      );
+
+      const button = screen.getByLabelText('Intercambiar lados');
+      expect(button).toBeInTheDocument();
+    });
+
+    it('does not render swap sides button when onSwapSides is not provided', () => {
+      const data = createTTSportDisplay();
+
+      render(
+        <TTPointDisplay
+          sportDisplay={data}
+          leftPlayerName="Alice"
+          rightPlayerName="Bob"
+          totalSets={3}
+          leftServing={false}
+          rightServing={false}
+          isReferee={true}
+        />
+      );
+
+      expect(screen.queryByLabelText('Intercambiar lados')).not.toBeInTheDocument();
+    });
+
+    it('does not render swap sides button when not referee', () => {
+      const onSwapSides = vi.fn();
+      const data = createTTSportDisplay();
+
+      render(
+        <TTPointDisplay
+          sportDisplay={data}
+          leftPlayerName="Alice"
+          rightPlayerName="Bob"
+          totalSets={3}
+          leftServing={false}
+          rightServing={false}
+          isReferee={false}
+          onSwapSides={onSwapSides}
+        />
+      );
+
+      expect(screen.queryByLabelText('Intercambiar lados')).not.toBeInTheDocument();
     });
   });
 });

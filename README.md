@@ -1,20 +1,99 @@
 # rallyOS-hub
 
-Real-time scoreboard system for rally events with multi-table support, PWA, offline capabilities, and embedded deployment on Orange Pi devices.
+Real-time scoreboard system for rally events with multi-court support, multi-sport scoring (Table Tennis + Padel), PWA, offline capabilities, and embedded deployment on Orange Pi devices.
 
 ## System Architecture
 
-RallyOS Hub is a standalone, real-time scoreboard server optimized for embedded deployment on single-board computers (SBCs) like the Orange Pi Zero 3. It operates as a monorepo containing a React-based PWA frontend, an Express + Socket.IO backend, and a shared module serving as the Single Source of Truth (SSoT).
+RallyOS Hub is a standalone, real-time scoreboard server optimized for embedded deployment on single-board computers (SBCs) like the Orange Pi Zero 3. It operates as a TypeScript monorepo containing a React-based PWA frontend, an Express + Socket.IO backend, and a shared module serving as the Single Source of Truth (SSoT).
 
-![Alt text](rallyos-hub_diagram_v1.0.png)
+Multi-sport scoring is implemented via the **Strategy pattern** — server-side `SportRules` (TableTennisRules, PadelRules) and client-side `SportDisplayAdapter` (TableTennisDisplayAdapter, PadelDisplayAdapter) — enabling different scoring systems, display layouts, and match configuration per sport.
+
+```mermaid
+flowchart TB
+    subgraph DEVICES["📱 Client Devices"]
+        PWA["React 19 PWA<br/>Vite 8 · Tailwind CSS 4"]
+        KIOSK_DISPLAY["🖥️ HDMI Kiosk<br/>Chromium + X11"]
+    end
+
+    subgraph NETWORK["📡 Embedded Network Stack"]
+        AP["hostapd<br/>WiFi AP · WPA2-PSK"]
+        DNS["dnsmasq<br/>DHCP · DNS · Captive Portal"]
+        NAT["iptables<br/>NAT · Port Forwarding"]
+    end
+
+    subgraph SERVER["🖧 Server — Node.js 22 · Express 5"]
+        EXPRESS["Express REST API<br/>CORS · Helmet · CSP"]
+        SOCKET["Socket.IO 4<br/>Real-time Events"]
+
+        subgraph HANDLERS["Event Handlers"]
+            AUTH_H["AuthHandler"]
+            TABLE_H["TableEventHandler"]
+            MATCH_H["MatchEventHandler"]
+            ADMIN_H["AdminHandler"]
+        end
+
+        subgraph DOMAIN["Domain Layer — TableManager"]
+            MATCH_ORCH["MatchOrchestrator"]
+            PLAYER_SVC["PlayerService"]
+            QR_SVC["QRService"]
+            PIN_SVC["PinService"]
+            STORE["StateStore<br/>JSON Persistence"]
+
+            subgraph SPORTS["Sport Rules — Strategy Pattern"]
+                TT["TableTennisRules"]
+                PADEL["PadelRules"]
+            end
+        end
+    end
+
+    subgraph SHARED["📋 Shared Module — SSoT"]
+        TYPES["TypeScript Types"]
+        EVENTS["Socket Event Names"]
+        VALIDATION["Validation Rules"]
+    end
+
+    PWA <-->|"Socket.IO · REST"| NETWORK
+    KIOSK_DISPLAY <-->|"Socket.IO"| NETWORK
+    NETWORK <--> SERVER
+
+    EXPRESS --> AUTH_H
+    EXPRESS --> TABLE_H
+    EXPRESS --> MATCH_H
+    EXPRESS --> ADMIN_H
+
+    TABLE_H --> MATCH_ORCH
+    MATCH_H --> MATCH_ORCH
+    AUTH_H --> PIN_SVC
+    ADMIN_H --> STORE
+
+    MATCH_ORCH --> PLAYER_SVC
+    MATCH_ORCH --> QR_SVC
+    MATCH_ORCH --> PIN_SVC
+    MATCH_ORCH --> STORE
+    MATCH_ORCH --> TT
+    MATCH_ORCH --> PADEL
+
+    SHARED -.-> PWA
+    SHARED -.-> SERVER
+
+    classDef devices fill:#0d7377,stroke:#006b5f,color:#fff
+    classDef network fill:#855300,stroke:#6b4200,color:#fff
+    classDef server fill:#1a1a2e,stroke:#16213e,color:#e0e0e0
+    classDef shared fill:#2d6a4f,stroke:#1b4332,color:#fff
+
+    class PWA,KIOSK_DISPLAY devices
+    class AP,DNS,NAT network
+    class EXPRESS,SOCKET,AUTH_H,TABLE_H,MATCH_H,ADMIN_H,MATCH_ORCH,PLAYER_SVC,QR_SVC,PIN_SVC,STORE,TT,PADEL server
+    class TYPES,EVENTS,VALIDATION shared
+```
 
 ### Component Breakdown
 
 | Component | Role | Key Technologies |
 |-----------|------|-----------------|
-| **Client (Frontend)** | React 19 PWA with atomic design (atoms, molecules, organisms, pages). Offline-first via `vite-plugin-pwa`. | React 19, Vite 8, React Router v7, Tailwind CSS 4 |
-| **Server (Backend)** | Express 5 + Socket.IO 4 real-time engine. Clean, service-oriented: event handlers delegate socket payloads to the `TableManager`, which coordinates sub-services (`PlayerService`, `MatchOrchestrator`, `PinService`). | Node.js 22, Express 5, Socket.IO 4, Pino logger |
-| **Shared Module** | Monorepo package with TypeScript interfaces, validation limits, and event names. Ensures absolute synchronization of data formats between client and server. | TypeScript 6 |
+| **Client (Frontend)** | React 19 PWA with atomic design (atoms, molecules, organisms, pages). Sport-specific display adapters for Table Tennis and Padel. i18n (es-AR / en-US). Offline-first via `vite-plugin-pwa`. | React 19, Vite 8, React Router v7, Tailwind CSS 4, i18next |
+| **Server (Backend)** | Express 5 + Socket.IO 4 real-time engine. Clean, service-oriented: event handlers delegate socket payloads to the `TableManager`, which coordinates sub-services (`MatchOrchestrator`, `PlayerService`, `PinService`, `QRService`). Multi-sport scoring via Strategy pattern (`SportRules` interface → `TableTennisRules`, `PadelRules`). | Node.js 22, Express 5, Socket.IO 4, Pino logger |
+| **Shared Module** | Monorepo package with TypeScript types (discriminated unions for multi-sport), validation limits, and event names. Ensures absolute synchronization of data formats between client and server. | TypeScript 6 |
 | **Embedded Network Stack** | Orchestrated by deployment scripts to configure the Orange Pi as a standalone hub: `hostapd` broadcasts Wi-Fi, `dnsmasq` serves DHCP/DNS, `iptables` enforces captive portal, and Chromium drives the HDMI kiosk display. | hostapd, dnsmasq, iptables, Chromium, X11 |
 
 ### Embedded Network Stack
@@ -35,7 +114,8 @@ The Orange Pi becomes a self-contained tournament hub with no external internet 
 - **Build**: Vite 8 + vite-plugin-pwa (service worker)
 - **Styling**: Tailwind CSS 4 + PostCSS
 - **Routing**: React Router v7
-- **UI**: Framer Motion (animations), Lucide React (icons)
+- **UI**: Framer Motion (animations), Lucide React + react-icons (icons)
+- **i18n**: i18next (es-AR / en-US)
 - **Real-time**: Socket.IO Client
 - **QR**: qrcode.react
 
@@ -63,15 +143,20 @@ The Orange Pi becomes a self-contained tournament hub with no external internet 
 
 ## Features
 
-- **Multi-table system** with independent waiting rooms and referee management
+- **Multi-sport scoring**: Table Tennis + Padel via Strategy pattern (`SportRules` / `SportDisplayAdapter`)
+- **Multi-court system** with independent referee management per court
 - **Real-time scoreboard updates** via Socket.IO
 - **PWA** installable on mobile devices with offline asset caching
-- **QR code generation** for instant table access
+- **QR code generation** for instant court access and WiFi connection
 - **PIN-based authentication** for referees and tournament owners (AES-256-GCM encrypted)
 - **Full match lifecycle**: configure, start, record points, undo, swap sides, reset
-- **Set/match win detection** with automatic progression
+- **Sport-specific displays**: Table Tennis (points/sets), Padel (points/games/sets with 15-30-40-AD format)
+- **Set/match/game win detection** with automatic progression
 - **Match history** tracking and audit log
-- **Rate limiting** per table and per client
+- **Kiosk display** for venue-scale TVs with notification overlays and audio alerts
+- **Wake lock** for mobile scoreboards (prevents screen sleep)
+- **i18n** Spanish (es-AR) and English (en-US)
+- **Rate limiting** per court and per client
 - **Docker** deployment for production (ARM-compatible)
 - **Orange Pi** embedded deployment with access point mode
 
@@ -83,10 +168,11 @@ flowchart TD
     ROOT["/"] -->|redirect| AUTH
 
     %% Public routes
-    AUTH["/auth<br/>AuthPage"] -->|owner PIN| OWNER
-    AUTH -->|referee PIN + table| SCOREBOARD_R
+    AUTH["/auth<br/>AuthPage"] -->|owner PIN| AUTH
+    AUTH -->|referee access| SCOREBOARD_R
     AUTH -->|spectator access| SPECTATOR
     AUTH -.->|public, no auth| KIOSK
+    AUTH -->|sport select| OWNER
 
     %% Protected dashboards
     OWNER["/dashboard/owner<br/>OwnerDashboardPage"]
@@ -181,7 +267,9 @@ Copy `.env.example` to `.env` and adjust:
 | `PORT` | `3000` | Server port |
 | `TOURNAMENT_OWNER_PIN` | — | Admin PIN (8 digits) |
 | `HUB_SSID` | `RallyOS` | Wi-Fi SSID broadcast by the hub |
+| `HUB_WIFI_PASSWORD` | `rallyos2026` | Wi-Fi WPA2 password |
 | `HUB_IP` | `192.168.4.1` | Hub IP address (AP mode) |
+| `HUB_DOMAIN` | `rallyos-hub.local` | Hub domain name |
 | `HUB_ALLOWED_ORIGINS` | — | Comma-separated CORS origins |
 | `ENCRYPTION_SECRET` | — | AES-256-GCM key (32-byte hex) |
 | `NODE_OPTIONS` | `--max-old-space-size=256` | Memory limit for ARM devices |
@@ -306,6 +394,8 @@ grep "address=" /etc/dnsmasq.conf
 
 ## Authentication
 
+- **Role selection**: Guests choose Owner, Referee, or Spectator role
+- **Sport selection**: After owner PIN verification, the owner selects Table Tennis or Padel for the tournament
 - **Table PINs**: Auto-generated 6-digit numeric codes for referee access
 - **Owner PIN**: 8-digit admin code set via `TOURNAMENT_OWNER_PIN` env var
 - **Encryption**: PINs for QR-based referee access are encrypted server-side with AES-256-GCM using a derived per-table key (HMAC-SHA256). The encryption secret never leaves the server.
@@ -331,7 +421,8 @@ All event names use `UPPER_CASE` convention. Client and server types are generat
 | `VERIFY_OWNER` | Verify owner PIN |
 | `CONFIGURE_MATCH` | Configure match settings |
 | `START_MATCH` | Start a match |
-| `RECORD_POINT` | Record a point |
+| `RECORD_POINT` | Record a point (legacy — preserved for backward compat) |
+| `RECORD_SCORE` | Record a score event |
 | `SUBTRACT_POINT` | Subtract a point |
 | `UNDO_LAST` | Undo the last action |
 | `SET_SERVER` | Set serving team/player |
@@ -341,6 +432,7 @@ All event names use `UPPER_CASE` convention. Client and server types are generat
 | `REGENERATE_PIN` | Generate new table PIN |
 | `GET_RATE_LIMIT_STATUS` | Check rate limit status |
 | `GET_ALL_HISTORY` | Get complete match history |
+| `SEND_NOTIFICATION` | Send kiosk notification |
 
 ### Server → Client
 
@@ -361,10 +453,15 @@ All event names use `UPPER_CASE` convention. Client and server types are generat
 | `PIN_REGENERATED` | Table PIN changed |
 | `OWNER_VERIFIED` | Owner authentication result |
 | `SET_WON` | A set was won |
+| `GAME_WON` | A game was won (padel) |
+| `DEUCE` | Deuce reached (padel) |
+| `TIEBREAK_START` | Tiebreak started (padel) |
 | `MATCH_WON` | The match was won |
 | `PLAYER_LEFT` | A player disconnected |
 | `ERROR` | Error event |
 | `RATE_LIMIT_STATUS` | Rate limit state |
+| `HUB_CONFIG` | Hub configuration (WiFi, domain) |
+| `KIOSK_NOTIFICATION` | Kiosk notification event |
 
 ## PWA
 
@@ -406,30 +503,36 @@ Manual release workflow (`workflow_dispatch` on `main`) creates a GitHub release
 
 ```
 rallyOS-hub/
-├── client/               # React frontend (Vite)
+├── client/               # React 19 PWA frontend (Vite 8)
 │   ├── src/
-│   │   ├── components/   # UI components
-│   │   ├── contexts/     # React contexts
-│   │   ├── hooks/        # Custom hooks
-│   │   ├── pages/        # Route pages
-│   │   ├── services/     # Socket.IO client service
-│   │   ├── server/       # Server-side rendering / mock server
-│   │   ├── shared/       # Client copy of shared types
+│   │   ├── adapters/     # Sport display adapters (TableTennis / Padel)
+│   │   ├── components/   # Atomic design (atoms, molecules, organisms)
+│   │   ├── contexts/     # React contexts (Auth, Socket)
+│   │   ├── hooks/        # Custom hooks (25+)
+│   │   ├── i18n/         # Translations (es-AR, en-US)
+│   │   ├── pages/        # Route pages (9 modules)
+│   │   ├── services/     # Client services (dashboard, match, permissions)
+│   │   ├── assets/       # Images, logos
 │   │   └── test/         # Test utilities & setup
-│   └── public/
-├── server/               # Express + Socket.IO backend
+│   └── public/           # Static assets, PWA manifest
+├── server/               # Express 5 + Socket.IO 4 backend
 │   └── src/
 │       ├── config/       # App configuration
-│       ├── domain/       # Domain logic (tables, matches, pins)
+│       ├── domain/       # Domain logic
+│       │   ├── courtManager.ts    # TableManager (orchestrator)
+│       │   ├── matchEngine.ts     # Match engine (Strategy delegator)
+│       │   └── sports/           # Sport rules (TableTennis, Padel), registry
 │       ├── handlers/     # Socket.IO event handlers
-│       ├── services/     # Business logic services
-│       ├── utils/        # Utilities (rate limiter, encryption)
+│       ├── middleware/    # Express middleware (ownerAuth)
+│       ├── routes/       # REST routes (tournament, CSV export)
+│       ├── services/     # Business logic (QR, PIN, Store, Table, CSV export)
+│       ├── utils/        # Utilities (logger, encryption, QR, validation)
 │       ├── app.ts        # Express app setup
-│       ├── server.ts     # HTTP + Socket.IO server
+│       ├── server.ts     # HTTPS server + graceful shutdown
 │       ├── socket.ts     # Socket.IO initialization
 │       └── index.ts      # Entry point
 ├── shared/               # Shared types, events, validation (SSoT)
-├── scripts/               # All utility scripts
+├── scripts/              # All utility scripts
 │   ├── setup-orangepi-ap.sh  # Orange Pi full setup (Docker + AP + Kiosk)
 │   ├── start-orange-pi.sh    # Orange Pi startup
 │   ├── start.sh              # Docker production launcher

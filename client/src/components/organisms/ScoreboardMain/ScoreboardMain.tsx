@@ -1,5 +1,6 @@
 import { useMatchDisplay } from '../../../hooks/useMatchDisplay';
 import type { MatchStateExtended } from '@shared/types';
+import { SPORT } from '@shared/types';
 import { ScoreboardBar } from './components/ScoreboardBar';
 import { SportDisplaySelector } from '../../molecules/SportDisplaySelector/SportDisplaySelector';
 import { ToggleButton } from '../../atoms/Button/ToggleButton';
@@ -105,6 +106,7 @@ export function ScoreboardMain({
             isReferee={isReferee}
             onScorePoint={onScorePoint}
             onSubtractPoint={onSubtractPoint}
+            onSwapSides={match.sport !== SPORT.PADEL ? onSwapSides : undefined}
           />
         </div>
       </div>

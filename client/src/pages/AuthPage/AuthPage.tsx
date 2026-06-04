@@ -168,6 +168,7 @@ export function AuthPage() {
                 variant="primary"
                 size="lg"
                 fullWidth
+                icon={registry.resolve(s).icon}
                 onClick={() => handleSelectSport(s)}
                 animate={false}
               >

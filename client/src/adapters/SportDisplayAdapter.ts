@@ -22,6 +22,9 @@ export interface SportDisplayAdapter {
   /** i18n key for display name (e.g. 'sportTableTennis' → 'Tenis de Mesa') */
   readonly displayKey: string
 
+  /** Icon element representing this sport */
+  readonly icon: ReactNode
+
   /**
    * Transform MatchStateExtended → UI-ready display data.
    * @param state — current match state (extended with runtime fields)
@@ -81,6 +84,7 @@ export interface SportDisplayProps {
   isReferee?: boolean
   onScorePoint?: (side: 'A' | 'B') => void
   onSubtractPoint?: (side: 'A' | 'B') => void
+  onSwapSides?: () => void
 }
 
 /** Config field descriptor for dynamic form generation in MatchConfigModal */

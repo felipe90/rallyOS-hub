@@ -12,6 +12,8 @@
 import { SPORT, isTableTennisStateExtended } from '@shared/types'
 import type { MatchStateExtended, MatchConfig, Score, Player, SportDisplayScore } from '@shared/types'
 import { TTPointDisplay } from '../components/molecules/TTPointDisplay/TTPointDisplay'
+import React from 'react'
+import { TableTennisIcon } from './icons/TableTennisIcon'
 import { calculateSetsWon } from '../services/match'
 import { i18nText } from '../i18n'
 import type { SportDisplayAdapter, ConfigField, FormattedSet } from './SportDisplayAdapter'
@@ -20,6 +22,7 @@ export class TableTennisDisplayAdapter implements SportDisplayAdapter {
   readonly sport = SPORT.TABLE_TENNIS
   readonly displayKey = 'sportTableTennis'
   readonly DisplayComponent = TTPointDisplay
+  readonly icon = React.createElement(TableTennisIcon)
 
   computeDisplayData(state: MatchStateExtended): SportDisplayScore {
     const score = isTableTennisStateExtended(state) ? state.score : { currentSet: { a: 0, b: 0 } }

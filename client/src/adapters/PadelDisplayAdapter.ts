@@ -13,6 +13,8 @@
 import { SPORT } from '@shared/types'
 import type { MatchStateExtended, MatchConfig, Score, Player, SportDisplayScore } from '@shared/types'
 import { PadelPointDisplay } from '../components/molecules/PadelPointDisplay/PadelPointDisplay'
+import React from 'react'
+import { PadelIcon } from './icons/PadelIcon'
 import { calculateSetsWon } from '../services/match'
 import type { SportDisplayAdapter, ConfigField, FormattedSet } from './SportDisplayAdapter'
 
@@ -20,6 +22,7 @@ export class PadelDisplayAdapter implements SportDisplayAdapter {
   readonly sport = SPORT.PADEL
   readonly displayKey = 'sportPadel'
   readonly DisplayComponent = PadelPointDisplay
+  readonly icon = React.createElement(PadelIcon)
 
   computeDisplayData(state: MatchStateExtended): SportDisplayScore {
     const s = state as any

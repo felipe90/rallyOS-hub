@@ -13,6 +13,7 @@ export interface PadelPointDisplayProps {
   isReferee?: boolean;
   onScorePoint?: (side: 'A' | 'B') => void;
   onSubtractPoint?: (side: 'A' | 'B') => void;
+  onSwapSides?: () => void;
 }
 
 function PadelPlayerSide({
@@ -159,6 +160,7 @@ export function PadelPointDisplay({
   isReferee = false,
   onScorePoint,
   onSubtractPoint,
+  onSwapSides,
 }: PadelPointDisplayProps) {
   return (
     <div className="flex w-full h-full">

@@ -77,6 +77,13 @@ export function KioskAllTablesPage() {
     return () => { document.body.classList.remove('kiosk-page') }
   }, [])
 
+  // Apply 2x zoom for large-venue displays — GPU renders native 1080p,
+  // Chromium compositor scales the final frame (cheap texture operation)
+  useEffect(() => {
+    document.documentElement.style.zoom = '2'
+    return () => { document.documentElement.style.zoom = '' }
+  }, [])
+
   // Auto-reload when socket permanently disconnects (all retries exhausted)
   useEffect(() => {
     if (!connected && !connecting) {

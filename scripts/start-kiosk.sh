@@ -83,6 +83,7 @@ unclutter -idle 0 -root &
 
 exec "$CHROMIUM_BIN" \
     --kiosk \
+    --disable-gpu \
     --force-device-scale-factor=2.0 \
     --autoplay-policy=no-user-gesture-required \
     --start-fullscreen \

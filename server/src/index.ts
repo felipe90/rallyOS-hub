@@ -47,13 +47,13 @@ const hubConfig = {
 
 // Create StateStore and CourtManager with persistence
 const stateStore = new StateStore();
-const tableManager = new CourtManager(hubConfig, stateStore);
-createSocketServer(io, tableManager, ownerPin, hubConfig);
+const courtManager = new CourtManager(hubConfig, stateStore);
+createSocketServer(io, courtManager, ownerPin, hubConfig);
 
 // Mount tournament lifecycle routes (before SPA fallback)
 app.use(
   '/api/tournament',
-  createTournamentRouter(stateStore, tableManager, ownerAuthMiddleware),
+  createTournamentRouter(stateStore, courtManager, ownerAuthMiddleware),
 );
 
 // Mount CSV export route (before SPA fallback)
@@ -96,11 +96,11 @@ const shutdown = (signal: 'SIGTERM' | 'SIGINT') => {
     httpsServer,
     io,
     () => {
-      const allTables = tableManager.getAllTables();
-      for (const table of allTables) {
-        tableManager.deleteTable(table.id);
+      const allCourts = courtManager.getAllCourts();
+      for (const court of allCourts) {
+        courtManager.deleteCourt(court.id);
       }
-      logger.info({ tableCount: allTables.length }, 'Active tables cleared');
+      logger.info({ courtCount: allCourts.length }, 'Active courts cleared');
     },
     signal
   ).catch((err) => {

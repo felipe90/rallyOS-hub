@@ -27,24 +27,24 @@ export abstract class SocketHandlerBase {
   }
 
   /**
-   * Convert table to public info
+   * Convert court to public info
    */
-  protected toPublicTableInfo(table: TableInfo): TableInfo {
-    return table;
+  protected toPublicCourtInfo(court: TableInfo): TableInfo {
+    return court;
   }
 
   /**
-   * Get public table list
+   * Get public court list
    */
-  protected getPublicTableList(): TableInfo[] {
-    return this.tableManager.getAllTables().map((table) => this.toPublicTableInfo(table));
+  protected getPublicCourtList(): TableInfo[] {
+    return this.tableManager.getAllCourts().map((court) => this.toPublicCourtInfo(court));
   }
 
   /**
-   * Get tables with PINs (owner only)
+   * Get courts with PINs (owner only)
    */
-  protected getTablesWithPins(): TableInfoWithPin[] {
-    return this.tableManager.getAllTablesWithPins();
+  protected getCourtsWithPins(): TableInfoWithPin[] {
+    return this.tableManager.getAllCourtsWithPins();
   }
 
   /**
@@ -75,8 +75,8 @@ export abstract class SocketHandlerBase {
   /**
    * Log rate limit warning with masked IP.
    */
-  protected logRateLimitBlocked(action: string, tableId: string, clientIp: string): void {
-    logger.warn({ action, tableId, ip: maskIp(clientIp) }, `${action} rate limit blocked`);
+  protected logRateLimitBlocked(action: string, courtId: string, clientIp: string): void {
+    logger.warn({ action, courtId, ip: maskIp(clientIp) }, `${action} rate limit blocked`);
   }
 
   /**
@@ -87,15 +87,15 @@ export abstract class SocketHandlerBase {
   }
 
   /**
-   * Validate table ID exists and emit error if not
+   * Validate court ID exists and emit error if not
    */
-  protected validateTableExists(socket: Socket, tableId: string | undefined): boolean {
-    if (!tableId) {
-      this.emitError(socket, 'INVALID_PARAMS', 'tableId required');
+  protected validateCourtExists(socket: Socket, courtId: string | undefined): boolean {
+    if (!courtId) {
+      this.emitError(socket, 'INVALID_PARAMS', 'courtId required');
       return false;
     }
-    const table = this.tableManager.getTable(tableId);
-    if (!table) {
+    const court = this.tableManager.getCourt(courtId);
+    if (!court) {
       this.emitError(socket, 'TABLE_NOT_FOUND', 'Cancha no encontrada');
       return false;
     }
@@ -115,10 +115,10 @@ export abstract class SocketHandlerBase {
   }
 
   /**
-   * Check if socket is referee for table and emit error if not
+   * Check if socket is referee for court and emit error if not
    */
-  protected validateReferee(socket: Socket, tableId: string): boolean {
-    if (!this.tableManager.isReferee(tableId, socket.id)) {
+  protected validateReferee(socket: Socket, courtId: string): boolean {
+    if (!this.tableManager.isReferee(courtId, socket.id)) {
       this.emitError(socket, 'UNAUTHORIZED', 'No autorizado');
       return false;
     }

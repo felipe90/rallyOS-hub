@@ -75,11 +75,11 @@ function mockRes(): { res: Response; status: jest.Mock; json: jest.Mock; sent: a
 function makeFakeTableManager(restoredCount: number) {
   return {
     loadTournament: jest.fn().mockReturnValue(restoredCount > 0),
-    getAllTables: jest.fn().mockReturnValue(
+    getAllCourts: jest.fn().mockReturnValue(
       Array.from({ length: restoredCount }, (_, i) => ({
-        id: `table-${i}`,
+        id: `court-${i}`,
         number: i + 1,
-        name: `Table ${i + 1}`,
+        name: `Court ${i + 1}`,
         status: 'LIVE',
       })),
     ),

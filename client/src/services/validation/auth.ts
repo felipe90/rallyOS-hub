@@ -5,14 +5,14 @@
  * No React dependencies - testable in isolation.
  */
 
-export const MAX_TABLE_NAME_LENGTH = 256
+export const MAX_COURT_NAME_LENGTH = 256
 
 /**
- * Validate a table name.
+ * Validate a court name.
  */
-export function validateTableName(name?: string): boolean {
+export function validateCourtName(name?: string): boolean {
   if (!name) return true // Optional
-  return typeof name === 'string' && name.length <= MAX_TABLE_NAME_LENGTH
+  return typeof name === 'string' && name.length <= MAX_COURT_NAME_LENGTH
 }
 
 /**

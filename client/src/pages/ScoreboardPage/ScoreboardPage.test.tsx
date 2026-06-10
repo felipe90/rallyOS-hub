@@ -142,7 +142,7 @@ describe('ScoreboardPage', () => {
     mockUseAuthContext.mockReturnValue({
       role: ROLE_REFEREE,
       tableId: 'table-1',
-      tablePin: '1234',
+      courtPin: '1234',
       isReferee: true,
       isViewer: false,
       isOwner: false,
@@ -151,8 +151,8 @@ describe('ScoreboardPage', () => {
       login: vi.fn(),
       logout: vi.fn(),
       setOwner: vi.fn(),
-      setTablePin: vi.fn(),
-      tablePin: null,
+      setCourtPin: vi.fn(),
+      courtPin: null,
     })
 
     mockUsePermissions.mockReturnValue({
@@ -185,7 +185,7 @@ describe('ScoreboardPage', () => {
     mockUseAuthContext.mockReturnValue({
       role: ROLE_REFEREE,
       tableId: 'table-1',
-      tablePin: '12345',
+      courtPin: '12345',
       isReferee: true,
       isViewer: false,
       isOwner: false,
@@ -194,7 +194,7 @@ describe('ScoreboardPage', () => {
       login: vi.fn(),
       logout: vi.fn(),
       setOwner: vi.fn(),
-      setTablePin: vi.fn(),
+      setCourtPin: vi.fn(),
     })
 
     renderWithRouter(<ScoreboardPage />)
@@ -279,8 +279,8 @@ describe('ScoreboardPage', () => {
       login: vi.fn(),
       logout: vi.fn(),
       setOwner: vi.fn(),
-      setTablePin: vi.fn(),
-      tablePin: null,
+      setCourtPin: vi.fn(),
+      courtPin: null,
     })
 
     mockUsePermissions.mockReturnValue({

@@ -37,7 +37,7 @@ export class CourtManager {
 
   public onTableUpdate: (table: TableInfo) => void = () => {};
   public onTournamentFinish: () => void = () => {};
-  public onMatchEvent: (tableId: string, event: any) => void = () => {};
+  public onMatchEvent: (courtId: string, event: any) => void = () => {};
 
   constructor(hubConfig: HubConfig, stateStore?: StateStore) {
     this.repository = new CourtRepository();
@@ -51,16 +51,16 @@ export class CourtManager {
   }
 
   // Table CRUD
-  createTable(name?: string): Court {
-    const tableNumber = this.repository.getNextTableNumber();
-    const tableName = name ? sanitizeInput(name, 256) : `Cancha ${tableNumber}`;
+  createCourt(name?: string): Court {
+    const courtNumber = this.repository.getNextTableNumber();
+    const courtName = name ? sanitizeInput(name, 256) : `Cancha ${courtNumber}`;
     const pin = this.pinService.generatePin();
     const id = crypto.randomUUID();
 
-    const table: Court = {
+    const court: Court = {
       id,
-      number: tableNumber,
-      name: tableName,
+      number: courtNumber,
+      name: courtName,
       status: 'WAITING',
       pin,
       sportRules: new MatchEngine(),
@@ -71,30 +71,30 @@ export class CourtManager {
       featured: false,
     };
 
-    table.sportRules.setTableId(id, tableName);
-    table.sportRules.setEventCallback((event: any) => {
+    court.sportRules.setTableId(id, courtName);
+    court.sportRules.setEventCallback((event: any) => {
       this.onMatchEvent(id, event);
     });
 
-    this.repository.create(table);
-    logger.info({ tableId: id, tableName }, 'Table created');
-    this.notifyUpdate(table);
+    this.repository.create(court);
+    logger.info({ courtId: id, courtName }, 'Court created');
+    this.notifyUpdate(court);
 
-    return table;
+    return court;
   }
 
-  getTable(tableId: string): Court | undefined {
-    return this.repository.get(tableId);
+  getCourt(courtId: string): Court | undefined {
+    return this.repository.get(courtId);
   }
 
-  getAllTables(): TableInfo[] {
+  getAllCourts(): TableInfo[] {
     return this.formatter.toPublicList(this.repository.getAll());
   }
 
-  deleteTable(tableId: string): boolean {
-    const deleted = this.repository.delete(tableId);
+  deleteCourt(courtId: string): boolean {
+    const deleted = this.repository.delete(courtId);
     if (deleted) {
-      logger.info({ tableId }, 'Table deleted');
+      logger.info({ courtId }, 'Court deleted');
       if (this.stateStore) {
         this.autoSave();
       }
@@ -109,171 +109,171 @@ export class CourtManager {
       this.stateStore.clear();
     }
     this.onTournamentFinish();
-    logger.info({ deletedCount: count }, 'Tournament finished — all tables cleared');
+    logger.info({ deletedCount: count }, 'Tournament finished — all courts cleared');
   }
 
   // Player management
-  joinTable(tableId: string, socketId: string, name: string, pin?: string): boolean {
-    const table = this.repository.get(tableId);
-    if (!table) return false;
+  joinTable(courtId: string, socketId: string, name: string, pin?: string): boolean {
+    const court = this.repository.get(courtId);
+    if (!court) return false;
 
-    const success = this.playerService.joinTable(table, socketId, name, pin);
+    const success = this.playerService.joinCourt(court, socketId, name, pin);
     if (success) {
-      this.notifyUpdate(table);
+      this.notifyUpdate(court);
     }
     return success;
   }
 
-  leaveTable(tableId: string, socketId: string): void {
-    const table = this.repository.get(tableId);
-    if (!table) return;
+  leaveTable(courtId: string, socketId: string): void {
+    const court = this.repository.get(courtId);
+    if (!court) return;
 
-    this.playerService.leaveTable(table, socketId);
-    this.notifyUpdate(table);
+    this.playerService.leaveCourt(court, socketId);
+    this.notifyUpdate(court);
   }
 
-  setReferee(tableId: string, socketId: string, pin: string): boolean {
-    const table = this.repository.get(tableId);
-    if (!table) return false;
+  setReferee(courtId: string, socketId: string, pin: string): boolean {
+    const court = this.repository.get(courtId);
+    if (!court) return false;
 
-    const success = this.playerService.setReferee(table, socketId, pin);
+    const success = this.playerService.setReferee(court, socketId, pin);
     if (success) {
-      this.notifyUpdate(table);
+      this.notifyUpdate(court);
     }
     return success;
   }
 
-  isReferee(tableId: string, socketId: string): boolean {
-    const table = this.repository.get(tableId);
-    if (!table) return false;
-    return this.playerService.isReferee(table, socketId);
+  isReferee(courtId: string, socketId: string): boolean {
+    const court = this.repository.get(courtId);
+    if (!court) return false;
+    return this.playerService.isReferee(court, socketId);
   }
 
-  getRefereeSocketId(tableId: string): string | null {
-    const table = this.repository.get(tableId);
-    if (!table) return null;
-    return this.playerService.getRefereeSocketId(table);
+  getRefereeSocketId(courtId: string): string | null {
+    const court = this.repository.get(courtId);
+    if (!court) return null;
+    return this.playerService.getRefereeSocketId(court);
   }
 
   // Match orchestration
-  configureMatch(tableId: string, config: { playerNames?: { a: string; b: string }; matchConfig?: MatchConfig }): void {
-    const table = this.repository.get(tableId);
-    if (!table) return;
+  configureMatch(courtId: string, config: { playerNames?: { a: string; b: string }; matchConfig?: MatchConfig }): void {
+    const court = this.repository.get(courtId);
+    if (!court) return;
 
-    this.matchOrchestrator.configureMatch(table, config);
+    this.matchOrchestrator.configureMatch(court, config);
 
-    // Rewire callback: MatchOrchestrator may replace matchEngine routing to undefined table.onMatchEvent
-    table.sportRules.setEventCallback((event: any) => {
-      this.onMatchEvent(tableId, event);
+    // Rewire callback: MatchOrchestrator may replace matchEngine routing to undefined court.onMatchEvent
+    court.sportRules.setEventCallback((event: any) => {
+      this.onMatchEvent(courtId, event);
     });
 
-    this.notifyUpdate(table);
+    this.notifyUpdate(court);
   }
 
-  startMatch(tableId: string, config?: Partial<MatchConfig> & { playerNameA?: string; playerNameB?: string }): MatchStateExtended | null {
-    const table = this.repository.get(tableId);
-    if (!table) {
-      logger.warn({ tableId }, 'startMatch: table not found');
+  startMatch(courtId: string, config?: Partial<MatchConfig> & { playerNameA?: string; playerNameB?: string }): MatchStateExtended | null {
+    const court = this.repository.get(courtId);
+    if (!court) {
+      logger.warn({ courtId }, 'startMatch: court not found');
       return null;
     }
 
-    const state = this.matchOrchestrator.startMatch(table, config);
+    const state = this.matchOrchestrator.startMatch(court, config);
 
-    // Rewire match engine callback — MatchOrchestrator routes to table.onMatchEvent
-    // which is never set. Route directly to tableManager.onMatchEvent instead.
-    table.sportRules.setEventCallback((event: any) => {
-      this.onMatchEvent(tableId, event);
+    // Rewire match engine callback — MatchOrchestrator routes to court.onMatchEvent
+    // which is never set. Route directly to courtManager.onMatchEvent instead.
+    court.sportRules.setEventCallback((event: any) => {
+      this.onMatchEvent(courtId, event);
     });
 
-    this.notifyUpdate(table);
+    this.notifyUpdate(court);
     return state;
   }
 
-  recordPoint(tableId: string, player: Player): MatchStateExtended | null {
-    const table = this.repository.get(tableId);
-    if (!table) return null;
+  recordPoint(courtId: string, player: Player): MatchStateExtended | null {
+    const court = this.repository.get(courtId);
+    if (!court) return null;
 
-    const state = this.matchOrchestrator.recordPoint(table, player);
+    const state = this.matchOrchestrator.recordPoint(court, player);
     if (state) {
-      this.notifyUpdate(table);
+      this.notifyUpdate(court);
     }
     return state;
   }
 
-  subtractPoint(tableId: string, player: Player): MatchStateExtended | null {
-    const table = this.repository.get(tableId);
-    if (!table) return null;
+  subtractPoint(courtId: string, player: Player): MatchStateExtended | null {
+    const court = this.repository.get(courtId);
+    if (!court) return null;
 
-    const state = this.matchOrchestrator.subtractPoint(table, player);
+    const state = this.matchOrchestrator.subtractPoint(court, player);
     if (state) {
-      this.notifyUpdate(table);
+      this.notifyUpdate(court);
     }
     return state;
   }
 
-  undoLast(tableId: string): MatchStateExtended | null {
-    const table = this.repository.get(tableId);
-    if (!table) return null;
+  undoLast(courtId: string): MatchStateExtended | null {
+    const court = this.repository.get(courtId);
+    if (!court) return null;
 
-    const state = this.matchOrchestrator.undoLast(table);
+    const state = this.matchOrchestrator.undoLast(court);
     if (state) {
-      this.notifyUpdate(table);
+      this.notifyUpdate(court);
     }
     return state;
   }
 
-  setServer(tableId: string, player: Player): MatchStateExtended | null {
-    const table = this.repository.get(tableId);
-    if (!table) return null;
+  setServer(courtId: string, player: Player): MatchStateExtended | null {
+    const court = this.repository.get(courtId);
+    if (!court) return null;
 
-    const state = this.matchOrchestrator.setServer(table, player);
+    const state = this.matchOrchestrator.setServer(court, player);
     if (state) {
-      this.notifyUpdate(table);
+      this.notifyUpdate(court);
     }
     return state;
   }
 
-  swapSides(tableId: string): MatchStateExtended | null {
-    const table = this.repository.get(tableId);
-    if (!table) return null;
+  swapSides(courtId: string): MatchStateExtended | null {
+    const court = this.repository.get(courtId);
+    if (!court) return null;
 
-    const state = this.matchOrchestrator.swapSides(table);
+    const state = this.matchOrchestrator.swapSides(court);
     if (state) {
-      this.notifyUpdate(table);
+      this.notifyUpdate(court);
     }
     return state;
   }
 
-  resetTable(tableId: string, config?: MatchConfig): void {
-    const table = this.repository.get(tableId);
-    if (!table) return;
+  resetTable(courtId: string, config?: MatchConfig): void {
+    const court = this.repository.get(courtId);
+    if (!court) return;
 
-    this.matchOrchestrator.resetTable(table, config);
+    this.matchOrchestrator.resetTable(court, config);
 
-    // Rewire callback: MatchOrchestrator creates new matchEngine routing to undefined table.onMatchEvent
-    table.sportRules.setEventCallback((event: any) => {
-      this.onMatchEvent(tableId, event);
+    // Rewire callback: MatchOrchestrator creates new matchEngine routing to undefined court.onMatchEvent
+    court.sportRules.setEventCallback((event: any) => {
+      this.onMatchEvent(courtId, event);
     });
 
-    this.notifyUpdate(table);
+    this.notifyUpdate(court);
   }
 
-  getMatchState(tableId: string): MatchStateExtended | null {
-    const table = this.repository.get(tableId);
-    if (!table) return null;
-    return this.matchOrchestrator.getMatchState(table);
+  getMatchState(courtId: string): MatchStateExtended | null {
+    const court = this.repository.get(courtId);
+    if (!court) return null;
+    return this.matchOrchestrator.getMatchState(court);
   }
 
   // Aggregated history — ALL_HISTORY event
   getAllHistories(): AllHistoryEntry[] {
-    const tables = this.repository.getAll();
-    return tables.map((table) => {
-      const state = this.matchOrchestrator.getMatchState(table);
+    const courts = this.repository.getAll();
+    return courts.map((court) => {
+      const state = this.matchOrchestrator.getMatchState(court);
       const history = state?.history ?? [];
-      const playerNames = table.playerNames ?? { a: 'Player A', b: 'Player B' };
+      const playerNames = court.playerNames ?? { a: 'Player A', b: 'Player B' };
 
-      // Extract handicap from table config if present (TT only)
-      const cfg = table.sportRules?.getConfig?.();
+      // Extract handicap from court config if present (TT only)
+      const cfg = court.sportRules?.getConfig?.();
       const cfgAny = cfg as any;
       const hasHandicap = cfg && cfg.sport === SPORT.TABLE_TENNIS && (cfgAny.handicapA !== undefined || cfgAny.handicapB !== undefined);
       const handicap = hasHandicap
@@ -284,9 +284,9 @@ export class CourtManager {
         : undefined;
 
       return {
-        tableId: table.id,
-        tableName: table.name,
-        status: table.status,
+        tableId: court.id,
+        tableName: court.name,
+        status: court.status,
         playerNames,
         history,
         handicap,
@@ -295,27 +295,27 @@ export class CourtManager {
   }
 
   // PIN management
-  regeneratePin(tableId: string): string | null {
-    const table = this.repository.get(tableId);
-    if (!table) return null;
+  regeneratePin(courtId: string): string | null {
+    const court = this.repository.get(courtId);
+    if (!court) return null;
 
-    const oldReferee = this.playerService.getRefereeSocketId(table);
+    const oldReferee = this.playerService.getRefereeSocketId(court);
 
-    table.pin = this.pinService.generatePin();
-    table.players = [];
-    table.playerNames = { a: 'Player A', b: 'Player B' };
-    this.matchOrchestrator.resetTable(table);
-    table.sportRules.setTableId(table.id, table.name);
-    table.sportRules.setPlayerNames({ a: 'Player A', b: 'Player B' });
+    court.pin = this.pinService.generatePin();
+    court.players = [];
+    court.playerNames = { a: 'Player A', b: 'Player B' };
+    this.matchOrchestrator.resetTable(court);
+    court.sportRules.setTableId(court.id, court.name);
+    court.sportRules.setPlayerNames({ a: 'Player A', b: 'Player B' });
 
-    // Rewire callback: MatchOrchestrator creates new matchEngine routing to undefined table.onMatchEvent
-    table.sportRules.setEventCallback((event: any) => {
-      this.onMatchEvent(tableId, event);
+    // Rewire callback: MatchOrchestrator creates new matchEngine routing to undefined court.onMatchEvent
+    court.sportRules.setEventCallback((event: any) => {
+      this.onMatchEvent(courtId, event);
     });
 
-    table.status = 'WAITING';
+    court.status = 'WAITING';
 
-    logger.info({ tableId, tableName: table.name, oldRefereeId: oldReferee || 'none', newPin: table.pin }, 'Table reset with new PIN');
+    logger.info({ courtId, courtName: court.name, oldRefereeId: oldReferee || 'none', newPin: court.pin }, 'Court reset with new PIN');
     // Only autoSave — skip notifyUpdate (which broadcasts TABLE_LIST without PINs).
     // The client gets the new PIN via PIN_REGENERATED + TABLE_LIST_WITH_PINS,
     // avoiding a race where TABLE_LIST overwrites TABLE_LIST_WITH_PINS state.
@@ -323,35 +323,35 @@ export class CourtManager {
       this.autoSave();
     }
 
-    return table.pin;
+    return court.pin;
   }
 
   // QR
-  generateQRData(tableId: string): QRData | null {
-    const table = this.repository.get(tableId);
-    if (!table) return null;
-    return this.qrService.generateQRData(table);
+  generateQRData(courtId: string): QRData | null {
+    const court = this.repository.get(courtId);
+    if (!court) return null;
+    return this.qrService.generateQRData(court);
   }
 
   // Formatting
-  tableToInfo(table: Court): TableInfo {
-    return this.formatter.toPublicInfo(table);
+  courtToInfo(court: Court): TableInfo {
+    return this.formatter.toPublicInfo(court);
   }
 
-  getTableWithPin(tableId: string): TableInfoWithPin | null {
-    const table = this.repository.get(tableId);
-    if (!table) return null;
-    return this.formatter.toInfoWithPin(table);
+  getCourtWithPin(courtId: string): TableInfoWithPin | null {
+    const court = this.repository.get(courtId);
+    if (!court) return null;
+    return this.formatter.toInfoWithPin(court);
   }
 
-  getAllTablesWithPins(): TableInfoWithPin[] {
+  getAllCourtsWithPins(): TableInfoWithPin[] {
     return this.formatter.toListWithPins(this.repository.getAll());
   }
 
   // Private
-  private notifyUpdate(table: Court): void {
+  private notifyUpdate(court: Court): void {
     if (this.onTableUpdate) {
-      this.onTableUpdate(this.formatter.toPublicInfo(table));
+      this.onTableUpdate(this.formatter.toPublicInfo(court));
     }
 
     // Auto-save to state store (fire-and-forget — errors logged but don't crash)
@@ -361,15 +361,15 @@ export class CourtManager {
   }
 
   /**
-   * Persist all LIVE and FINISHED tables to the state store.
+   * Persist all LIVE and FINISHED courts to the state store.
    * Errors are caught and logged — the caller is never affected.
    */
   private autoSave(): void {
     try {
-      const allTables = this.repository.getAll();
-      const persisted: PersistedCourt[] = allTables
-        .filter((t) => t.status === 'LIVE' || t.status === 'FINISHED')
-        .map((t) => this.toPersistedTable(t));
+      const allCourts = this.repository.getAll();
+      const persisted: PersistedCourt[] = allCourts
+        .filter((c) => c.status === 'LIVE' || c.status === 'FINISHED')
+        .map((c) => this.toPersistedCourt(c));
       this.stateStore!.save(persisted);
     } catch (err) {
       logger.error({ err }, 'StateStore: auto-save failed');
@@ -377,23 +377,23 @@ export class CourtManager {
   }
 
   /**
-   * Convert a runtime Table into a serializable PersistedCourt.
+   * Convert a runtime Court into a serializable PersistedCourt.
    * Excludes runtime-only fields: MatchEngine instance, PlayerConnection.socketId,
    * and Socket.io callback references.
    */
-  private toPersistedTable(table: Court): PersistedCourt {
-    const state = table.sportRules.getState();
+  private toPersistedCourt(court: Court): PersistedCourt {
+    const state = court.sportRules.getState();
     const isPadel = state.sport === SPORT.PADEL;
     const s = state as any;
 
     return {
-      id: table.id,
-      number: table.number,
-      name: table.name,
-      status: table.status,
-      pin: table.pin,
-      playerNames: { ...table.playerNames },
-      createdAt: table.createdAt,
+      id: court.id,
+      number: court.number,
+      name: court.name,
+      status: court.status,
+      pin: court.pin,
+      playerNames: { ...court.playerNames },
+      createdAt: court.createdAt,
       matchState: {
         config: { ...state.config },
         score: isPadel
@@ -421,16 +421,16 @@ export class CourtManager {
   }
 
   /**
-   * Load tournament state from disk and reconstruct tables.
+   * Load tournament state from disk and reconstruct courts.
    *
-   * Reads persisted state via StateStore.load(), reconstructs Table objects
+   * Reads persisted state via StateStore.load(), reconstructs Court objects
    * and MatchEngine instances via MatchEngine.fromState(), and rewires
    * Socket.io callbacks.
    *
-   * Only tables with LIVE or FINISHED status are restored.
+   * Only courts with LIVE or FINISHED status are restored.
    * Corrupted entries are skipped with a warning.
    *
-   * @returns true if at least one table was restored, false otherwise.
+   * @returns true if at least one court was restored, false otherwise.
    */
   public loadTournament(): boolean {
     if (!this.stateStore) {
@@ -446,7 +446,7 @@ export class CourtManager {
     let restored = 0;
 
     for (const pt of persisted.tables) {
-      // Only restore LIVE or FINISHED tables
+      // Only restore LIVE or FINISHED courts
       if (pt.status !== 'LIVE' && pt.status !== 'FINISHED') {
         continue;
       }
@@ -463,7 +463,7 @@ export class CourtManager {
 
         engine.setTableId(pt.id, pt.name);
 
-    const table: Court = {
+    const court: Court = {
           id: pt.id,
           number: pt.number,
           name: pt.name,
@@ -482,25 +482,25 @@ export class CourtManager {
           this.onMatchEvent(pt.id, event);
         });
 
-        this.repository.create(table);
+        this.repository.create(court);
         restored++;
 
         logger.info(
-          { tableId: pt.id, tableName: pt.name, status: pt.status },
-          'CourtManager: restored table from state',
+          { courtId: pt.id, courtName: pt.name, status: pt.status },
+          'CourtManager: restored court from state',
         );
       } catch (err) {
         logger.warn(
-          { err, tableId: pt.id },
-          'CourtManager.loadTournament: failed to restore table, skipping',
+          { err, courtId: pt.id },
+          'CourtManager.loadTournament: failed to restore court, skipping',
         );
       }
     }
 
     if (restored > 0) {
-      // Notify listeners about each restored table
-      for (const table of this.repository.getAll()) {
-        this.notifyUpdate(table);
+      // Notify listeners about each restored court
+      for (const court of this.repository.getAll()) {
+        this.notifyUpdate(court);
       }
     }
 

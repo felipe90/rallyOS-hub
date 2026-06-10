@@ -8,124 +8,124 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import type { Socket } from 'socket.io-client'
 import { SocketEvents } from '@shared/events'
-import { validateTableName } from '@/services/validation'
+import { validateCourtName } from '@/services/validation'
 
-export interface TableManagementConfig {
+export interface CourtManagementConfig {
   socket: Socket | null
   connected: boolean
 }
 
-export function useCourtManagement({ socket, connected }: TableManagementConfig) {
-  /** ── Table Creation ── */
-  const [isCreatingTable, setIsCreatingTable] = useState(false)
+export function useCourtManagement({ socket, connected }: CourtManagementConfig) {
+  /** ── Court Creation ── */
+  const [isCreatingCourt, setIsCreatingCourt] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
-  const [tableName, setTableName] = useState('')
+  const [courtName, setCourtName] = useState('')
 
   // Ref to avoid stale closures in callbacks
-  const tableNameRef = useRef(tableName)
-  const setTableNameRef = useCallback((name: string) => {
-    tableNameRef.current = name
-    setTableName(name)
+  const courtNameRef = useRef(courtName)
+  const setCourtNameRef = useCallback((name: string) => {
+    courtNameRef.current = name
+    setCourtName(name)
   }, [])
 
   const startCreating = useCallback(() => {
-    setIsCreatingTable(true)
-    setTableNameRef('')
-  }, [setTableNameRef])
+    setIsCreatingCourt(true)
+    setCourtNameRef('')
+  }, [setCourtNameRef])
 
   const cancelCreating = useCallback(() => {
-    setIsCreatingTable(false)
+    setIsCreatingCourt(false)
     setIsCreating(false)
-    setTableNameRef('')
-  }, [setTableNameRef])
+    setCourtNameRef('')
+  }, [setCourtNameRef])
 
-  const createTable = useCallback(() => {
-    const name = tableNameRef.current.trim() || undefined
-    if (!validateTableName(name)) return
+  const createCourt = useCallback(() => {
+    const name = courtNameRef.current.trim() || undefined
+    if (!validateCourtName(name)) return
     socket?.emit(SocketEvents.CLIENT.CREATE_TABLE, { name })
     setIsCreating(true)
     // Name preserved so user can edit and retry on ERROR (SC-TC-02)
-    // Name cleared in handleTableCreated (happy path) and cancelCreating (cancel)
-    // Do NOT setIsCreatingTable(false) — waits for TABLE_CREATED or ERROR from server
+    // Name cleared in handleCourtCreated (happy path) and cancelCreating (cancel)
+    // Do NOT setIsCreatingCourt(false) — waits for TABLE_CREATED or ERROR from server
   }, [socket, connected])
 
   // Defer closing the creation input until server responds
   useEffect(() => {
     if (!socket) return
 
-    const handleTableCreated = () => {
+    const handleCourtCreated = () => {
       setIsCreating(false)
-      setIsCreatingTable(false)
-      setTableName('')
+      setIsCreatingCourt(false)
+      setCourtName('')
     }
 
     const handleError = () => {
       setIsCreating(false)
-      // Keep isCreatingTable=true (input stays open)
-      // Keep tableName (user can edit and retry)
+      // Keep isCreatingCourt=true (input stays open)
+      // Keep courtName (user can edit and retry)
     }
 
-    socket.on(SocketEvents.SERVER.TABLE_CREATED, handleTableCreated)
+    socket.on(SocketEvents.SERVER.TABLE_CREATED, handleCourtCreated)
     socket.on(SocketEvents.SERVER.ERROR, handleError)
 
     return () => {
-      socket.off(SocketEvents.SERVER.TABLE_CREATED, handleTableCreated)
+      socket.off(SocketEvents.SERVER.TABLE_CREATED, handleCourtCreated)
       socket.off(SocketEvents.SERVER.ERROR, handleError)
     }
   }, [socket])
 
-  /** ── Table Cleaning (PIN Regeneration) ── */
-  const [cleanConfirmTableId, setCleanConfirmTableId] = useState<string | null>(null)
+  /** ── Court Cleaning (PIN Regeneration) ── */
+  const [cleanConfirmCourtId, setCleanConfirmCourtId] = useState<string | null>(null)
 
-  const requestClean = useCallback((tableId: string) => {
-    setCleanConfirmTableId(tableId)
+  const requestClean = useCallback((courtId: string) => {
+    setCleanConfirmCourtId(courtId)
   }, [])
 
   const confirmClean = useCallback(() => {
-    if (cleanConfirmTableId && socket && connected) {
-      socket.emit(SocketEvents.CLIENT.REGENERATE_PIN, { tableId: cleanConfirmTableId })
+    if (cleanConfirmCourtId && socket && connected) {
+      socket.emit(SocketEvents.CLIENT.REGENERATE_PIN, { tableId: cleanConfirmCourtId })
     }
-    setCleanConfirmTableId(null)
-  }, [cleanConfirmTableId, socket, connected])
+    setCleanConfirmCourtId(null)
+  }, [cleanConfirmCourtId, socket, connected])
 
   const cancelClean = useCallback(() => {
-    setCleanConfirmTableId(null)
+    setCleanConfirmCourtId(null)
   }, [])
 
-  /** ── Table Deletion ── */
-  const [deleteConfirmTableId, setDeleteConfirmTableId] = useState<string | null>(null)
+  /** ── Court Deletion ── */
+  const [deleteConfirmCourtId, setDeleteConfirmCourtId] = useState<string | null>(null)
 
-  const requestDelete = useCallback((tableId: string) => {
-    setDeleteConfirmTableId(tableId)
+  const requestDelete = useCallback((courtId: string) => {
+    setDeleteConfirmCourtId(courtId)
   }, [])
 
   const confirmDelete = useCallback(() => {
-    if (deleteConfirmTableId && socket && connected) {
-      socket.emit(SocketEvents.CLIENT.DELETE_TABLE, { tableId: deleteConfirmTableId })
+    if (deleteConfirmCourtId && socket && connected) {
+      socket.emit(SocketEvents.CLIENT.DELETE_TABLE, { tableId: deleteConfirmCourtId })
     }
-    setDeleteConfirmTableId(null)
-  }, [deleteConfirmTableId, socket, connected])
+    setDeleteConfirmCourtId(null)
+  }, [deleteConfirmCourtId, socket, connected])
 
   const cancelDelete = useCallback(() => {
-    setDeleteConfirmTableId(null)
+    setDeleteConfirmCourtId(null)
   }, [])
 
   return {
     // Creation
-    isCreatingTable,
+    isCreatingCourt,
     isCreating,
-    tableName,
-    setTableName: setTableNameRef,
+    courtName,
+    setCourtName: setCourtNameRef,
     startCreating,
     cancelCreating,
-    createTable,
+    createCourt,
     // Cleaning
-    cleanConfirmTableId,
+    cleanConfirmCourtId,
     requestClean,
     confirmClean,
     cancelClean,
     // Deletion
-    deleteConfirmTableId,
+    deleteConfirmCourtId,
     requestDelete,
     confirmDelete,
     cancelDelete,

@@ -28,46 +28,46 @@ export interface RefereeDashboardPageProps {
 export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashboardPageProps) {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(initialViewMode || 'grid')
   const [pinModalOpen, setPinModalOpen] = useState(false)
-  const [selectedTable, setSelectedTable] = useState<TableInfoWithPin | null>(null)
+  const [selectedCourt, setSelectedCourt] = useState<TableInfoWithPin | null>(null)
   const navigate = useNavigate()
   const { i18nText } = useI18n()
-  const { tables, connected, socket, requestTables } = useSocketContext()
-  const { logout, setTablePin } = useAuthContext()
-  const stats = useDashboardStats(tables)
+  const { courts, connected, socket, requestCourts } = useSocketContext()
+  const { logout, setCourtPin } = useAuthContext()
+  const stats = useDashboardStats(courts)
   const { submitPin, loading: pinLoading, error: pinError, clearError } = usePinSubmission(socket)
   const { saveSession, findAnyValidSession, clearSession } = useRefereeSession()
 
-  // Referee gets regular tables (no PINs visible)
+  // Referee gets regular courts (no PINs visible)
   useEffect(() => {
     if (!connected) return
-    requestTables()
-  }, [connected, requestTables])
+    requestCourts()
+  }, [connected, requestCourts])
 
   // Auto-restore valid referee session on first visit only
   // Uses sessionStorage to prevent re-triggering when navigating back from scoreboard
   useEffect(() => {
-    if (!connected || tables.length === 0) return
+    if (!connected || courts.length === 0) return
     const alreadyRestored = sessionStorage.getItem('rallyos-ref-restored')
     if (alreadyRestored) return
-    const session = findAnyValidSession(tables)
+    const session = findAnyValidSession(courts)
     if (session) {
       sessionStorage.setItem('rallyos-ref-restored', '1')
-      setTablePin(session.pin)
+      setCourtPin(session.pin)
       navigate(buildScoreboardRoute(session.tableId, 'referee'))
     } else {
       // No valid session — clear flag so auto-restore works next time
       sessionStorage.removeItem('rallyos-ref-restored')
     }
-  }, [connected, tables, findAnyValidSession, setTablePin, navigate])
+  }, [connected, courts, findAnyValidSession, setCourtPin, navigate])
 
-  // Clear sessions for tables that transition to FINISHED
+  // Clear sessions for courts that transition to FINISHED
   useEffect(() => {
-    for (const table of tables) {
-      if (table.status === 'FINISHED') {
-        clearSession(table.id)
+    for (const court of courts) {
+      if (court.status === 'FINISHED') {
+        clearSession(court.id)
       }
     }
-  }, [tables, clearSession])
+  }, [courts, clearSession])
 
   const handleLogout = () => {
     sessionStorage.removeItem('rallyos-ref-restored')
@@ -75,28 +75,28 @@ export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashb
     navigate(Routes.AUTH)
   }
 
-  const handleTableClick = (tableId: string) => {
-    const table = tables.find(t => t.id === tableId)
-    if (table) {
-      setSelectedTable(table as TableInfoWithPin)
+  const handleCourtClick = (courtId: string) => {
+    const court = courts.find(t => t.id === courtId)
+    if (court) {
+      setSelectedCourt(court as TableInfoWithPin)
       setPinModalOpen(true)
       clearError()
     }
   }
 
   const handlePinSubmit = async (pin: string) => {
-    if (!selectedTable) return
-    setTablePin(pin)
-    const result = await submitPin(pin, selectedTable.id)
+    if (!selectedCourt) return
+    setCourtPin(pin)
+    const result = await submitPin(pin, selectedCourt.id)
     if (result.success) {
-      saveSession(selectedTable.id, pin)
-      navigate(buildScoreboardRoute(selectedTable.id, 'referee'))
+      saveSession(selectedCourt.id, pin)
+      navigate(buildScoreboardRoute(selectedCourt.id, 'referee'))
     }
   }
 
   const handlePinClose = () => {
     setPinModalOpen(false)
-    setSelectedTable(null)
+    setSelectedCourt(null)
     clearError()
   }
 
@@ -155,8 +155,8 @@ export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashb
             listViewLabel={i18nText('dashboardListView')}
           />
           <DashboardGrid 
-            tables={tables} 
-            onTableClick={handleTableClick} 
+            courts={courts} 
+            onCourtClick={handleCourtClick} 
             viewMode={viewMode}
             showPin={false}
             showQr={false}
@@ -166,13 +166,13 @@ export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashb
 
       <PinModal
         isOpen={pinModalOpen}
-        tableName={selectedTable?.name || ''}
+        tableName={selectedCourt?.name || ''}
         onClose={handlePinClose}
         onSubmit={handlePinSubmit}
         isLoading={pinLoading}
         error={translatePinError(pinError)}
         title={i18nText('matchConfigTitle')}
-        forTableLabel={i18nText('matchConfigForTable', { tableName: selectedTable?.name || '' })}
+        forTableLabel={i18nText('matchConfigForTable', { tableName: selectedCourt?.name || '' })}
         cancelLabel={i18nText('commonCancel')}
         submitLabel={i18nText('authEnter')}
         submitLoadingLabel={i18nText('authVerifying')}

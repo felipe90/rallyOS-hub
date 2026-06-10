@@ -115,14 +115,14 @@ describe('SET_FEATURED', () => {
     ];
 
     tableManager = {
-      getTable: jest.fn((id: string) => courts.find(c => c.id === id)),
-      getAllTables: jest.fn(() => courts),
-      tableToInfo: jest.fn((t: any) => ({
-        id: t.id,
-        number: t.number,
-        name: t.name,
-        status: t.status,
-        featured: t.featured,
+      getCourt: jest.fn((id: string) => courts.find(c => c.id === id)),
+      getAllCourts: jest.fn(() => courts),
+      courtToInfo: jest.fn((c: any) => ({
+        id: c.id,
+        number: c.number,
+        name: c.name,
+        status: c.status,
+        featured: c.featured,
       })),
       onTableUpdate: () => {},
       onMatchEvent: () => {},
@@ -169,8 +169,8 @@ describe('SET_FEATURED', () => {
     });
 
     it('should clear all featured when targetTableId is missing (null/empty)', () => {
-      const court1 = tableManager.getTable('court-1');
-      const court2 = tableManager.getTable('court-2');
+      const court1 = tableManager.getCourt('court-1');
+      const court2 = tableManager.getCourt('court-2');
       court1.featured = true;
 
       const handlerFn = getHandler(SocketEvents.CLIENT.SET_FEATURED);
@@ -186,26 +186,26 @@ describe('SET_FEATURED', () => {
       const handlerFn = getHandler(SocketEvents.CLIENT.SET_FEATURED);
       handlerFn({ targetTableId: 'court-1' });
 
-      const court1 = tableManager.getTable('court-1');
+      const court1 = tableManager.getCourt('court-1');
       expect(court1.featured).toBe(true);
     });
 
     it('should unfeature the previously featured court when setting new one', () => {
       // Set court-2 as featured first
-      const court2 = tableManager.getTable('court-2');
+      const court2 = tableManager.getCourt('court-2');
       court2.featured = true;
 
       const handlerFn = getHandler(SocketEvents.CLIENT.SET_FEATURED);
       handlerFn({ targetTableId: 'court-1' });
 
-      const court1 = tableManager.getTable('court-1');
-      const updatedCourt2 = tableManager.getTable('court-2');
+      const court1 = tableManager.getCourt('court-1');
+      const updatedCourt2 = tableManager.getCourt('court-2');
       expect(court1.featured).toBe(true);
       expect(updatedCourt2.featured).toBe(false);
     });
 
     it('should broadcast TABLE_UPDATE for both previous and new featured courts', () => {
-      const court2 = tableManager.getTable('court-2');
+      const court2 = tableManager.getCourt('court-2');
       court2.featured = true;
 
       const handlerFn = getHandler(SocketEvents.CLIENT.SET_FEATURED);
@@ -218,8 +218,8 @@ describe('SET_FEATURED', () => {
 
   describe('clear all featured', () => {
     it('should set all courts to non-featured when targetTableId is null or empty', () => {
-      const court1 = tableManager.getTable('court-1');
-      const court2 = tableManager.getTable('court-2');
+      const court1 = tableManager.getCourt('court-1');
+      const court2 = tableManager.getCourt('court-2');
       court1.featured = true;
       court2.featured = true;
 
@@ -231,7 +231,7 @@ describe('SET_FEATURED', () => {
     });
 
     it('should broadcast TABLE_UPDATE for previously featured courts when clearing all', () => {
-      const court1 = tableManager.getTable('court-1');
+      const court1 = tableManager.getCourt('court-1');
       court1.featured = true;
 
       const handlerFn = getHandler(SocketEvents.CLIENT.SET_FEATURED);
@@ -268,7 +268,7 @@ describe('SUBSCRIBE_MATCH', () => {
     ];
 
     tableManager = {
-      getTable: jest.fn((id: string) => courts.find(c => c.id === id)),
+      getCourt: jest.fn((id: string) => courts.find(c => c.id === id)),
       getMatchState: jest.fn((id: string) => {
         if (id === 'court-1') return matchState;
         return null;
@@ -340,7 +340,7 @@ describe('UNSUBSCRIBE_MATCH', () => {
 
     tableManager = {
       getTable: jest.fn(),
-      getAllTables: jest.fn(() => []),
+      getAllCourts: jest.fn(() => []),
       onTableUpdate: () => {},
       onMatchEvent: () => {},
     };
@@ -389,8 +389,8 @@ describe('MATCH_WON auto-clear featured', () => {
     ];
 
     tableManager = {
-      getTable: jest.fn((id: string) => courts.find(c => c.id === id)),
-      getAllTables: jest.fn(() => courts.map(c => ({
+      getCourt: jest.fn((id: string) => courts.find(c => c.id === id)),
+      getAllCourts: jest.fn(() => courts.map(c => ({
         id: c.id,
         number: c.number,
         name: c.name,
@@ -404,12 +404,12 @@ describe('MATCH_WON auto-clear featured', () => {
       onTournamentFinish: () => {},
       onMatchEvent: () => {},
       leaveTable: jest.fn(),
-      tableToInfo: jest.fn((t: any) => ({
-        id: t.id,
-        number: t.number,
-        name: t.name,
-        status: t.status,
-        featured: t.featured,
+      courtToInfo: jest.fn((c: any) => ({
+        id: c.id,
+        number: c.number,
+        name: c.name,
+        status: c.status,
+        featured: c.featured,
       })),
     };
 
@@ -419,18 +419,18 @@ describe('MATCH_WON auto-clear featured', () => {
   });
 
   it('should clear featured when MATCH_WON occurs on a featured court', () => {
-    const court1 = tableManager.getTable('court-1');
+    const court1 = tableManager.getCourt('court-1');
     expect(court1.featured).toBe(true);
 
     // Simulate MATCH_WON event
     tableManager.onMatchEvent('court-1', { type: 'MATCH_WON', winner: 'A', finalScore: [], sets: { a: 0, b: 0 } });
 
-    const updatedCourt1 = tableManager.getTable('court-1');
+    const updatedCourt1 = tableManager.getCourt('court-1');
     expect(updatedCourt1.featured).toBe(false);
   });
 
   it('should not clear featured when MATCH_WON occurs on a non-featured court', () => {
-    const court2 = tableManager.getTable('court-2');
+    const court2 = tableManager.getCourt('court-2');
     expect(court2.featured).toBe(false);
 
     // Simulate MATCH_WON event on the non-featured court
@@ -448,7 +448,7 @@ describe('MATCH_WON auto-clear featured', () => {
   });
 
   it('should not affect non-MATCH_WON events on featured court', () => {
-    const court1 = tableManager.getTable('court-1');
+    const court1 = tableManager.getCourt('court-1');
 
     // Trigger non-MATCH_WON events
     tableManager.onMatchEvent('court-1', { type: 'SET_WON', winner: 'A', score: { a: 1, b: 0 }, setNumber: 1 });

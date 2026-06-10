@@ -35,18 +35,18 @@ export class AdminHandler extends SocketHandlerBase {
       }
 
       if (!data?.tableId) {
-        return this.emitError(socket, 'INVALID_PARAMS', 'tableId required');
+        return this.emitError(socket, 'INVALID_PARAMS', 'courtId required');
       }
 
-      const table = this.tableManager.getTable(data.tableId);
-      if (!table) {
+      const court = this.tableManager.getCourt(data.tableId);
+      if (!court) {
         return this.emitError(socket, 'TABLE_NOT_FOUND', 'Cancha no encontrada');
       }
 
       // Verify the requester is the owner (timing-safe comparison)
       const isOwnerAuthorizing = !data.pin || this.comparePin(data.pin, this.ownerPin);
 
-      if (!isOwnerAuthorizing && !this.comparePin(data.pin!, table.pin)) {
+      if (!isOwnerAuthorizing && !this.comparePin(data.pin!, court.pin)) {
         return this.emitError(socket, 'UNAUTHORIZED', 'No autorizado');
       }
 
@@ -66,7 +66,7 @@ export class AdminHandler extends SocketHandlerBase {
           reason: 'Regenerado'
         });
         this.io.in(oldRefereeSocketId).socketsLeave(data.tableId);
-        logger.info({ tableId: data.tableId, oldRefereeId: oldRefereeSocketId }, 'Old referee disconnected from table');
+        logger.info({ courtId: data.tableId, oldRefereeId: oldRefereeSocketId }, 'Old referee disconnected from court');
       }
 
       // Send new QR to the owner who requested regeneration
@@ -80,7 +80,7 @@ export class AdminHandler extends SocketHandlerBase {
       // NOTE: Don't emit TABLE_UPDATE here - client will fetch TABLE_LIST_WITH_PINS after PIN_REGENERATED
       // This avoids UI flicker from TABLE_UPDATE (no PIN) followed by TABLE_LIST_WITH_PINS (with PIN)
 
-      logger.info({ tableId: data.tableId }, 'PIN regenerated for table');
+      logger.info({ courtId: data.tableId }, 'PIN regenerated for court');
     });
 
     // SEND_NOTIFICATION: Send typed notification to all kiosk clients

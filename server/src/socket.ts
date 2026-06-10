@@ -13,11 +13,11 @@ import { logger } from './utils/logger';
 
 export function createSocketServer(
   io: IOServer,
-  tableManager: CourtManager,
+  courtManager: CourtManager,
   ownerPin: string,
   hubConfig: HubConfig,
 ): SocketHandler {
-  const socketHandler = new SocketHandler(io, tableManager, ownerPin, hubConfig);
+  const socketHandler = new SocketHandler(io, courtManager, ownerPin, hubConfig);
 
   logger.info('Socket.IO initialized');
   logger.debug({ transports: io.engine.opts.transports }, 'Socket.IO transports');

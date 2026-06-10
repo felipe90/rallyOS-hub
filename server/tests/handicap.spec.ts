@@ -6,7 +6,7 @@
  */
 
 import { CourtManager } from '../src/domain/courtManager';
-import type { Table } from '../src/domain/types';
+import type { Court } from '../src/domain/types';
 
 describe('getAllHistories — handicap', () => {
   let manager: CourtManager;
@@ -16,10 +16,10 @@ describe('getAllHistories — handicap', () => {
   });
 
   it('includes handicap in payload when config has handicapA and handicapB', () => {
-    const table = manager.createTable('Mesa Test') as Table;
+    const court = manager.createCourt('Mesa Test') as Court;
 
     // Set config with handicap via sportRules.getConfig() → mutate state
-    const sportRules = table.sportRules;
+    const sportRules = court.sportRules;
     (sportRules as any).state.config.handicapA = 2;
     (sportRules as any).state.config.handicapB = 0;
 
@@ -29,7 +29,7 @@ describe('getAllHistories — handicap', () => {
   });
 
   it('does NOT include handicap when config has no handicap fields', () => {
-    const table = manager.createTable('Mesa Sin Handicap') as Table;
+    const court = manager.createCourt('Mesa Sin Handicap') as Court;
 
     const histories = manager.getAllHistories();
     expect(histories).toHaveLength(1);
@@ -37,9 +37,9 @@ describe('getAllHistories — handicap', () => {
   });
 
   it('handles partial handicap (handicapA without handicapB)', () => {
-    const table = manager.createTable('Mesa Partial') as Table;
+    const court = manager.createCourt('Mesa Partial') as Court;
 
-    const sportRules = table.sportRules;
+    const sportRules = court.sportRules;
     (sportRules as any).state.config.handicapA = 3;
 
     const histories = manager.getAllHistories();

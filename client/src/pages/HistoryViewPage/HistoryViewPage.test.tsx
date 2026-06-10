@@ -84,13 +84,13 @@ describe('HistoryViewPage', () => {
       role: 'owner',
       isViewer: false,
       isAuthenticated: true,
-      tableId: null,
+      courtId: null,
       ownerPin: null,
       login: vi.fn(),
       logout: vi.fn(),
       setOwner: vi.fn(),
-      setTablePin: vi.fn(),
-      tablePin: null,
+      setCourtPin: vi.fn(),
+      courtPin: null,
     })
   })
 
@@ -224,13 +224,13 @@ describe('HistoryViewPage', () => {
       role: 'referee',
       isViewer: false,
       isAuthenticated: true,
-      tableId: null,
+      courtId: null,
       ownerPin: null,
       login: vi.fn(),
       logout: vi.fn(),
       setOwner: vi.fn(),
-      setTablePin: vi.fn(),
-      tablePin: null,
+      setCourtPin: vi.fn(),
+      courtPin: null,
     })
 
     renderWithProviders(
@@ -260,13 +260,13 @@ describe('HistoryViewPage', () => {
       role: 'viewer',
       isViewer: true,
       isAuthenticated: true,
-      tableId: null,
+      courtId: null,
       ownerPin: null,
       login: vi.fn(),
       logout: vi.fn(),
       setOwner: vi.fn(),
-      setTablePin: vi.fn(),
-      tablePin: null,
+      setCourtPin: vi.fn(),
+      courtPin: null,
     })
 
     renderWithProviders(

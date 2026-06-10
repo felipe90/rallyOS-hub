@@ -61,7 +61,7 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
   const navigate = useNavigate()
   const { i18nText } = useI18n()
   const { currentMatch, emit, connected, socket } = useSocketContext()
-  const { isReferee, isOwner, tablePin } = useAuthContext()
+  const { isReferee, isOwner, courtPin } = useAuthContext()
   const { scoreboard: perms } = usePermissions()
   const { canEdit, canConfigure, canViewHistory } = perms
   const { isLandscape, toggle: toggleOrientation } = useOrientation()
@@ -72,7 +72,7 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
     useScoreboardEvents({ emit, tableId: tableId ?? '', canEdit, connected })
 
   useMatchState(emit, tableId, connected)
-  useRefAuth(emit, tableId, connected, canEdit, tablePin)
+  useRefAuth(emit, tableId, connected, canEdit, courtPin)
   const refRevoked = useRefRevoked({ socket, tableId: tableId ?? '', navigate })
   const [historyOpen, setHistoryOpen] = useState(false)
   const [showWinnerDialog, setShowWinnerDialog] = useState(false)

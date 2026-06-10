@@ -14,20 +14,20 @@ export class QRService {
     this.hubConfig = hubConfig;
   }
 
-  generateQRData(table: Court): QRData | null {
-    if (!table) return null;
+  generateQRData(court: Court): QRData | null {
+    if (!court) return null;
 
-    const encryptedPin = encryptPin(table.pin, table.id);
+    const encryptedPin = encryptPin(court.pin, court.id);
 
     return {
       hubSsid: this.hubConfig.ssid,
       hubIp: this.hubConfig.ip,
       hubPort: this.hubConfig.port,
-      tableId: table.id,
-      tableName: table.name,
-      pin: table.pin,
+      tableId: court.id,
+      tableName: court.name,
+      pin: court.pin,
       encryptedPin,
-      url: `rallyhub://join/${table.id}?ePin=${encodeURIComponent(encryptedPin)}`
+      url: `rallyhub://join/${court.id}?ePin=${encodeURIComponent(encryptedPin)}`
     };
   }
 }

@@ -19,9 +19,9 @@ describe('authStorage', () => {
     expect(authStorage.getRole()).toBeNull()
   })
 
-  it('stores and retrieves tableId', () => {
-    authStorage.setTableId('table-1')
-    expect(authStorage.getTableId()).toBe('table-1')
+  it('stores and retrieves courtId', () => {
+    authStorage.setCourtId('table-1')
+    expect(authStorage.getCourtId()).toBe('table-1')
   })
 
   it('stores ownerPin in sessionStorage', () => {
@@ -32,15 +32,15 @@ describe('authStorage', () => {
 
   it('clears all auth data', () => {
     authStorage.setRole('owner')
-    authStorage.setTableId('table-1')
+    authStorage.setCourtId('table-1')
     authStorage.setOwnerPin('12345678')
-    authStorage.setTablePin('1234')
+    authStorage.setCourtPin('1234')
 
     authStorage.clear()
 
     expect(authStorage.getRole()).toBeNull()
-    expect(authStorage.getTableId()).toBeNull()
+    expect(authStorage.getCourtId()).toBeNull()
     expect(authStorage.getOwnerPin()).toBeNull()
-    expect(authStorage.getTablePin()).toBeNull()
+    expect(authStorage.getCourtPin()).toBeNull()
   })
 })

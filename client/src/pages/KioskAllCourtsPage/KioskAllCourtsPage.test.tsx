@@ -61,12 +61,12 @@ function makeTable(overrides: Partial<TableInfo> = {}): TableInfo {
 }
 
 function renderPage(
-  tables: TableInfo[] = [],
+  courts: TableInfo[] = [],
   socketOverrides?: { on?: ReturnType<typeof vi.fn>; off?: ReturnType<typeof vi.fn>; emit?: ReturnType<typeof vi.fn> },
 ) {
   const mockSocket = socketOverrides || { on: vi.fn(), off: vi.fn(), emit: vi.fn() }
   mockUseSocketContext.mockReturnValue({
-    tables,
+    courts,
     connected: true,
     connecting: false,
     socket: mockSocket,
@@ -134,7 +134,7 @@ describe('KioskAllCourtsPage', () => {
 
   it('shows QR code when hubConfig is available', () => {
     mockUseSocketContext.mockReturnValue({
-      tables: [makeTable({ status: 'LIVE' })],
+      courts: [makeTable({ status: 'LIVE' })],
       connected: true,
       connecting: false,
       hubConfig: { ssid: 'RallyOS', wifiPassword: 'test1234', domain: 'rallyos-hub.local' },
@@ -153,7 +153,7 @@ describe('KioskAllCourtsPage', () => {
 
   it('WiFi QR encodes WPA2 with H:false in value string', () => {
     mockUseSocketContext.mockReturnValue({
-      tables: [makeTable({ status: 'LIVE' })],
+      courts: [makeTable({ status: 'LIVE' })],
       connected: true,
       connecting: false,
       hubConfig: { ssid: 'RallyOS', wifiPassword: 'test1234', domain: 'rallyos-hub.local' },
@@ -177,7 +177,7 @@ describe('KioskAllCourtsPage', () => {
 
   it('URL QR encodes hub domain and port', () => {
     mockUseSocketContext.mockReturnValue({
-      tables: [makeTable({ status: 'LIVE' })],
+      courts: [makeTable({ status: 'LIVE' })],
       connected: true,
       connecting: false,
       hubConfig: { ssid: 'RallyOS', wifiPassword: 'test1234', domain: 'rallyos-hub.local', port: 3001 },
@@ -199,7 +199,7 @@ describe('KioskAllCourtsPage', () => {
 
   it('hides WiFi QR when wifiPassword is absent but shows URL QR', () => {
     mockUseSocketContext.mockReturnValue({
-      tables: [makeTable({ status: 'LIVE' })],
+      courts: [makeTable({ status: 'LIVE' })],
       connected: true,
       connecting: false,
       hubConfig: { domain: 'rallyos-hub.local', port: 3001 },
@@ -224,7 +224,7 @@ describe('KioskAllCourtsPage', () => {
 
   it('renders WiFi and URL step labels in horizontal layout', () => {
     mockUseSocketContext.mockReturnValue({
-      tables: [makeTable({ status: 'LIVE' })],
+      courts: [makeTable({ status: 'LIVE' })],
       connected: true,
       connecting: false,
       hubConfig: { ssid: 'RallyOS', wifiPassword: 'test1234', domain: 'rallyos-hub.local', port: 3001 },
@@ -269,7 +269,7 @@ describe('KioskAllCourtsPage', () => {
 
     it('renders KioskNotificationToast when kioskNotification is non-null', () => {
       mockUseSocketContext.mockReturnValue({
-        tables: [makeTable({ status: 'LIVE' })],
+        courts: [makeTable({ status: 'LIVE' })],
         connected: true,
         connecting: false,
         kioskNotification: mockNotification,
@@ -287,7 +287,7 @@ describe('KioskAllCourtsPage', () => {
 
     it('does NOT render KioskNotificationToast when kioskNotification is null', () => {
       mockUseSocketContext.mockReturnValue({
-        tables: [makeTable({ status: 'LIVE' })],
+        courts: [makeTable({ status: 'LIVE' })],
         connected: true,
         connecting: false,
         kioskNotification: null,
@@ -304,7 +304,7 @@ describe('KioskAllCourtsPage', () => {
 
     it('does NOT render KioskNotificationToast when kioskNotification is undefined', () => {
       mockUseSocketContext.mockReturnValue({
-        tables: [makeTable({ status: 'LIVE' })],
+        courts: [makeTable({ status: 'LIVE' })],
         connected: true,
         connecting: false,
       })
@@ -321,7 +321,7 @@ describe('KioskAllCourtsPage', () => {
     it('renders toast with tables still visible (does not obscure scores)', () => {
       const table1 = makeTable({ id: 't1', name: 'Mesa 1', status: 'LIVE' })
       mockUseSocketContext.mockReturnValue({
-        tables: [table1],
+        courts: [table1],
         connected: true,
         connecting: false,
         kioskNotification: { ...mockNotification, message: 'Break time!' },
@@ -389,23 +389,23 @@ describe('KioskAllCourtsPage — featured court spotlight', () => {
     const mockOff = vi.fn()
     const socket = { on: mockOn, off: mockOff, emit: mockEmit }
 
-    const initialTables = [
+    const initialCourts = [
       makeTable({ id: 't1', name: 'First Featured', status: 'LIVE', featured: true }),
       makeTable({ id: 't2', name: 'Second Court', status: 'LIVE' }),
     ]
 
-    const { rerender } = renderPage(initialTables, socket)
+    const { rerender } = renderPage(initialCourts, socket)
     expect(mockEmit).toHaveBeenCalledWith('SUBSCRIBE_MATCH', { courtId: 't1' })
 
     // Change featured court
-    const updatedTables = [
+    const updatedCourts = [
       makeTable({ id: 't1', name: 'First Featured', status: 'LIVE', featured: false }),
       makeTable({ id: 't2', name: 'Second Court', status: 'LIVE', featured: true }),
     ]
 
     // Update mock context and re-render
     mockUseSocketContext.mockReturnValue({
-      tables: updatedTables,
+      courts: updatedCourts,
       connected: true,
       connecting: false,
       socket,
@@ -622,7 +622,7 @@ describe('KioskAllCourtsPage — rotation behavior', () => {
   it('renders all cards in static mode when they fit (no indicators, no rotation)', () => {
     // 3 tables on 1920×1080 → all fit on one page → static mode
     mockUseSocketContext.mockReturnValue({
-      tables: makeTables(3),
+      courts: makeTables(3),
       connected: true,
       connecting: false,
     })
@@ -648,7 +648,7 @@ describe('KioskAllCourtsPage — rotation behavior', () => {
     Object.defineProperty(window, 'innerHeight', { value: 600, configurable: true })
 
     mockUseSocketContext.mockReturnValue({
-      tables: makeTables(8),
+      courts: makeTables(8),
       connected: true,
       connecting: false,
     })
@@ -681,7 +681,7 @@ describe('KioskAllCourtsPage — rotation behavior', () => {
     Object.defineProperty(window, 'innerHeight', { value: 667, configurable: true })
 
     mockUseSocketContext.mockReturnValue({
-      tables: makeTables(4), // 4 tables → 2 pages of 2
+      courts: makeTables(4), // 4 tables → 2 pages of 2
       connected: true,
       connecting: false,
     })
@@ -718,9 +718,9 @@ describe('KioskAllCourtsPage — rotation behavior', () => {
     Object.defineProperty(window, 'innerWidth', { value: 1920, configurable: true })
     Object.defineProperty(window, 'innerHeight', { value: 1080, configurable: true })
 
-    const initialTables = makeTables(3)
+    const initialCourts = makeTables(3)
     mockUseSocketContext.mockReturnValue({
-      tables: initialTables,
+      courts: initialCourts,
       connected: true,
       connecting: false,
     })
@@ -738,9 +738,9 @@ describe('KioskAllCourtsPage — rotation behavior', () => {
     Object.defineProperty(window, 'innerWidth', { value: 375, configurable: true })
     Object.defineProperty(window, 'innerHeight', { value: 667, configurable: true })
 
-    const moreTables = makeTables(8)
+    const moreCourts = makeTables(8)
     mockUseSocketContext.mockReturnValue({
-      tables: moreTables,
+      courts: moreCourts,
       connected: true,
       connecting: false,
     })
@@ -758,7 +758,7 @@ describe('KioskAllCourtsPage — rotation behavior', () => {
 
   it('renders QR code with hardcoded size 180', () => {
     mockUseSocketContext.mockReturnValue({
-      tables: [makeTable({ status: 'LIVE' })],
+      courts: [makeTable({ status: 'LIVE' })],
       connected: true,
       connecting: false,
       hubConfig: { ssid: 'RallyOS', wifiPassword: 'test1234', domain: 'rallyos-hub.local' },
@@ -778,7 +778,7 @@ describe('KioskAllCourtsPage — rotation behavior', () => {
 
   it('displays full URL in monospace font when hubConfig available', () => {
     mockUseSocketContext.mockReturnValue({
-      tables: [makeTable({ status: 'LIVE' })],
+      courts: [makeTable({ status: 'LIVE' })],
       connected: true,
       connecting: false,
       hubConfig: { domain: 'rallyos-hub.local', port: 3001 },
@@ -801,7 +801,7 @@ describe('KioskAllCourtsPage — rotation behavior', () => {
     Object.defineProperty(window, 'innerHeight', { value: 667, configurable: true })
 
     mockUseSocketContext.mockReturnValue({
-      tables: makeTables(6), // 6 tables → 3 pages of 2
+      courts: makeTables(6), // 6 tables → 3 pages of 2
       connected: true,
       connecting: false,
     })
@@ -820,7 +820,7 @@ describe('KioskAllCourtsPage — rotation behavior', () => {
     Object.defineProperty(window, 'innerHeight', { value: 1080, configurable: true })
 
     mockUseSocketContext.mockReturnValue({
-      tables: makeTables(1),
+      courts: makeTables(1),
       connected: true,
       connecting: false,
     })
@@ -840,7 +840,7 @@ describe('KioskAllCourtsPage — rotation behavior', () => {
     Object.defineProperty(window, 'innerHeight', { value: 667, configurable: true })
 
     mockUseSocketContext.mockReturnValue({
-      tables: makeTables(6), // 3 pages
+      courts: makeTables(6), // 3 pages
       connected: true,
       connecting: false,
     })
@@ -870,9 +870,9 @@ describe('KioskAllCourtsPage — rotation behavior', () => {
     Object.defineProperty(window, 'innerWidth', { value: 375, configurable: true })
     Object.defineProperty(window, 'innerHeight', { value: 667, configurable: true })
 
-    const initialTables = makeTables(6)
+    const initialCourts = makeTables(6)
     mockUseSocketContext.mockReturnValue({
-      tables: initialTables,
+      courts: initialCourts,
       connected: true,
       connecting: false,
     })
@@ -889,12 +889,12 @@ describe('KioskAllCourtsPage — rotation behavior', () => {
     })
 
     // Simulate live score update (same tables, different scores)
-    const updatedTables = initialTables.map((t) => ({
+    const updatedCourts = initialCourts.map((t) => ({
       ...t,
       currentScore: { a: (t.currentScore?.a ?? 0) + 1, b: t.currentScore?.b ?? 0 },
     }))
     mockUseSocketContext.mockReturnValue({
-      tables: updatedTables,
+      courts: updatedCourts,
       connected: true,
       connecting: false,
     })
@@ -922,7 +922,7 @@ describe('KioskAllCourtsPage — rotation behavior', () => {
     Object.defineProperty(document, 'hidden', { value: false, writable: true, configurable: true })
 
     mockUseSocketContext.mockReturnValue({
-      tables: makeTables(6), // 3 pages
+      courts: makeTables(6), // 3 pages
       connected: true,
       connecting: false,
     })

@@ -31,7 +31,7 @@ const mockAuth = (isAuthenticated: boolean, role: string = UserRoles.REFEREE) =>
   mockUseAuthContext.mockReturnValue({
     isAuthenticated,
     role,
-    tableId: 'table-1',
+    courtId: 'court-1',
     ownerPin: '12345',
     isOwner: role === UserRoles.OWNER,
     isReferee: role === UserRoles.REFEREE,
@@ -39,8 +39,8 @@ const mockAuth = (isAuthenticated: boolean, role: string = UserRoles.REFEREE) =>
     login: vi.fn(),
     logout: vi.fn(),
     setOwner: vi.fn(),
-    setTablePin: vi.fn(),
-      tablePin: null,
+    setCourtPin: vi.fn(),
+      courtPin: null,
   })
 }
 

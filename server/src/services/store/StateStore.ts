@@ -21,9 +21,9 @@ export class StateStore {
   }
 
   /**
-   * Persist tables to disk atomically (tmp + rename).
+   * Persist courts to disk atomically (tmp + rename).
    * Always writes version 2 format (with sport field on matchState).
-   * Only the caller is responsible for filtering to LIVE/FINISHED tables.
+   * Only the caller is responsible for filtering to LIVE/FINISHED courts.
    */
   save(tables: PersistedCourt[]): void {
     const persisted: PersistedState = {

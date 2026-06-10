@@ -7,41 +7,41 @@ import { LayoutGrid, List } from 'lucide-react';
 import { useState, useRef, useCallback, type ReactNode } from 'react';
 
 export interface DashboardGridProps {
-  tables: (TableInfo | TableInfoWithPin)[];
-  onTableClick?: (tableId: string) => void;
+  courts: (TableInfo | TableInfoWithPin)[];
+  onCourtClick?: (courtId: string) => void;
   viewMode?: 'grid' | 'list';
   className?: string;
   showPin?: boolean;  // Show PIN for Owner
   showQr?: boolean;   // Show QR for Owner
-  onCleanTable?: (tableId: string) => void;  // Clean/reset table (Owner only)
-  cleanTableId?: string | null;  // Table ID being confirmed for cleaning
-  onCleanTableConfirm?: () => void;  // Confirm clean
-  onCleanTableCancel?: () => void;    // Cancel clean
-  onDeleteTable?: (tableId: string) => void;  // Delete table (Owner only)
-  showDeleteConfirm?: string | null;  // Table ID being confirmed for deletion
-  onDeleteTableConfirm?: () => void;  // Confirm delete
-  onDeleteTableCancel?: () => void;    // Cancel delete
+  onCleanCourt?: (courtId: string) => void;  // Clean/reset court (Owner only)
+  cleanConfirmCourtId?: string | null;  // Court ID being confirmed for cleaning
+  onCleanCourtConfirm?: () => void;  // Confirm clean
+  onCleanCourtCancel?: () => void;    // Cancel clean
+  onDeleteCourt?: (courtId: string) => void;  // Delete court (Owner only)
+  showDeleteConfirm?: string | null;  // Court ID being confirmed for deletion
+  onDeleteCourtConfirm?: () => void;  // Confirm delete
+  onDeleteCourtCancel?: () => void;    // Cancel delete
   /** Currently featured court ID for spotlight toggle display */
-  featuredTableId?: string | null;
+  featuredCourtId?: string | null;
   /** Called to toggle featured status for a court */
-  onToggleFeatured?: (tableId: string) => void;
+  onToggleFeatured?: (courtId: string) => void;
 }
 
 export function DashboardGrid({ 
-  tables, 
-  onTableClick,
+  courts, 
+  onCourtClick,
   viewMode = 'grid',
   className = '',
   showPin = false,
-  onCleanTable,
-  cleanTableId,
-  onCleanTableConfirm,
-  onCleanTableCancel,
-  onDeleteTable,
+  onCleanCourt,
+  cleanConfirmCourtId,
+  onCleanCourtConfirm,
+  onCleanCourtCancel,
+  onDeleteCourt,
   showDeleteConfirm,
-  onDeleteTableConfirm,
-  onDeleteTableCancel,
-  featuredTableId,
+  onDeleteCourtConfirm,
+  onDeleteCourtCancel,
+  featuredCourtId,
   onToggleFeatured,
 }: DashboardGridProps) {
   const shouldReduceMotion = useReducedMotion()
@@ -50,35 +50,35 @@ export function DashboardGrid({
     const ListWrapper = shouldReduceMotion ? 'div' : motion.div
     return (
       <div className={`flex flex-col gap-3 ${className}`}>
-        {tables.map((table) => (
+        {courts.map((court) => (
           <ListWrapper
-            key={table.id}
+            key={court.id}
             initial={shouldReduceMotion ? undefined : { opacity: 0, y: 20 }}
             animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
             transition={shouldReduceMotion ? undefined : { duration: 0.3 }}
             className="relative"
           >
             <CourtStatusChip
-              tableNumber={table.number}
-              tableName={table.name}
-              status={table.status}
-              playerNames={table.playerNames}
-              playerCount={table.playerCount}
-              currentSets={table.currentSets as { a: number; b: number } | undefined}
+              tableNumber={court.number}
+              tableName={court.name}
+              status={court.status}
+              playerNames={court.playerNames}
+              playerCount={court.playerCount}
+              currentSets={court.currentSets as { a: number; b: number } | undefined}
               className="cursor-pointer"
-              onClick={() => onTableClick?.(table.id)}
-              pin={showPin ? (table as TableInfoWithPin).pin : undefined}
-              tableId={showPin ? table.id : undefined}
-              onClean={onCleanTable ? () => onCleanTable(table.id) : undefined}
-              showCleanConfirm={cleanTableId === table.id}
-              onCleanConfirm={onCleanTableConfirm}
-              onCleanCancel={onCleanTableCancel}
-              onDelete={onDeleteTable ? () => onDeleteTable(table.id) : undefined}
-              showDeleteConfirm={showDeleteConfirm === table.id}
-              onDeleteConfirm={onDeleteTableConfirm}
-              onDeleteCancel={onDeleteTableCancel}
-              featured={table.featured === true}
-              onToggleFeatured={onToggleFeatured ? () => onToggleFeatured(table.id) : undefined}
+              onClick={() => onCourtClick?.(court.id)}
+              pin={showPin ? (court as TableInfoWithPin).pin : undefined}
+              tableId={showPin ? court.id : undefined}
+              onClean={onCleanCourt ? () => onCleanCourt(court.id) : undefined}
+              showCleanConfirm={cleanConfirmCourtId === court.id}
+              onCleanConfirm={onCleanCourtConfirm}
+              onCleanCancel={onCleanCourtCancel}
+              onDelete={onDeleteCourt ? () => onDeleteCourt(court.id) : undefined}
+              showDeleteConfirm={showDeleteConfirm === court.id}
+              onDeleteConfirm={onDeleteCourtConfirm}
+              onDeleteCancel={onDeleteCourtCancel}
+              featured={court.featured === true}
+              onToggleFeatured={onToggleFeatured ? () => onToggleFeatured(court.id) : undefined}
             />
           </ListWrapper>
         ))}
@@ -90,39 +90,39 @@ export function DashboardGrid({
 
   return (
     <div className={`grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 ${className}`}>
-      {tables.map((table, index) => {
+      {courts.map((court, index) => {
         // NO spanning - let each card be its own size
         // This prevents the overflow/alignment issues with spans
         
         return (
           <GridWrapper
-            key={table.id}
+            key={court.id}
             initial={shouldReduceMotion ? undefined : { opacity: 0, y: 20 }}
             animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
             transition={shouldReduceMotion ? undefined : { duration: 0.3, delay: index * 0.1 }}
             className="relative"
           >
             <CourtStatusChip
-              tableNumber={table.number}
-              tableName={table.name}
-              status={table.status}
-              playerNames={table.playerNames}
-              playerCount={table.playerCount}
-              currentSets={table.currentSets as { a: number; b: number } | undefined}
+              tableNumber={court.number}
+              tableName={court.name}
+              status={court.status}
+              playerNames={court.playerNames}
+              playerCount={court.playerCount}
+              currentSets={court.currentSets as { a: number; b: number } | undefined}
               className="cursor-pointer"
-              onClick={() => onTableClick?.(table.id)}
-              pin={showPin ? (table as TableInfoWithPin).pin : undefined}
-              tableId={showPin ? table.id : undefined}
-              onClean={onCleanTable ? () => onCleanTable(table.id) : undefined}
-              showCleanConfirm={cleanTableId === table.id}
-              onCleanConfirm={onCleanTableConfirm}
-              onCleanCancel={onCleanTableCancel}
-              onDelete={onDeleteTable ? () => onDeleteTable(table.id) : undefined}
-              showDeleteConfirm={showDeleteConfirm === table.id}
-              onDeleteConfirm={onDeleteTableConfirm}
-              onDeleteCancel={onDeleteTableCancel}
-              featured={table.featured === true}
-              onToggleFeatured={onToggleFeatured ? () => onToggleFeatured(table.id) : undefined}
+              onClick={() => onCourtClick?.(court.id)}
+              pin={showPin ? (court as TableInfoWithPin).pin : undefined}
+              tableId={showPin ? court.id : undefined}
+              onClean={onCleanCourt ? () => onCleanCourt(court.id) : undefined}
+              showCleanConfirm={cleanConfirmCourtId === court.id}
+              onCleanConfirm={onCleanCourtConfirm}
+              onCleanCancel={onCleanCourtCancel}
+              onDelete={onDeleteCourt ? () => onDeleteCourt(court.id) : undefined}
+              showDeleteConfirm={showDeleteConfirm === court.id}
+              onDeleteConfirm={onDeleteCourtConfirm}
+              onDeleteCancel={onDeleteCourtCancel}
+              featured={court.featured === true}
+              onToggleFeatured={onToggleFeatured ? () => onToggleFeatured(court.id) : undefined}
             />
           </GridWrapper>
         );

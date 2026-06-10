@@ -46,7 +46,7 @@ export function calculatePages(
 }
 
 export function KioskAllCourtsPage() {
-  const { tables, connected, connecting, hubConfig, kioskNotification, socket } = useSocketContext()
+  const { courts, connected, connecting, hubConfig, kioskNotification, socket } = useSocketContext()
   const { i18nText } = useI18n()
 
   // Rotation state
@@ -93,17 +93,17 @@ export function KioskAllCourtsPage() {
     }
   }, [connected, connecting])
 
-  const activeTables = tables.filter((t) => ACTIVE_STATUSES.includes(t.status))
+  const activeCourts = courts.filter((t) => ACTIVE_STATUSES.includes(t.status))
   const inSpotlight = featuredCourtId !== null
 
-  // Detect featured court from tables — only LIVE/WAITING courts qualify
+  // Detect featured court from courts — only LIVE/WAITING courts qualify
   useEffect(() => {
-    const featured = tables.find(
+    const featured = courts.find(
       (t) => t.featured === true && ACTIVE_STATUSES.includes(t.status),
     )
     const newFeaturedId = featured?.id ?? null
     setFeaturedCourtId(newFeaturedId)
-  }, [tables])
+  }, [courts])
 
   // Subscribe/unsubscribe to featured court match updates
   useEffect(() => {
@@ -167,10 +167,10 @@ export function KioskAllCourtsPage() {
     }
   }, [inSpotlight])
 
-  // Page calculation — recalculate when tables change or window resizes
+  // Page calculation — recalculate when courts change or window resizes
   useEffect(() => {
     const recalculate = () => {
-      const active = tables.filter((t) => ACTIVE_STATUSES.includes(t.status))
+      const active = courts.filter((t) => ACTIVE_STATUSES.includes(t.status))
       const newPages = calculatePages(active, window.innerWidth, window.innerHeight)
       setPages(newPages)
       setCurrentPage((prev) => (prev >= newPages.length ? Math.max(0, newPages.length - 1) : prev))
@@ -178,7 +178,7 @@ export function KioskAllCourtsPage() {
     recalculate()
     window.addEventListener('resize', recalculate)
     return () => window.removeEventListener('resize', recalculate)
-  }, [tables])
+  }, [courts])
 
   // Rotation timer — advances currentPage when in rotation mode
   useEffect(() => {
@@ -212,7 +212,7 @@ export function KioskAllCourtsPage() {
   const isRotating = pages.length > 1
 
   // Find featured court info for the Destacado bar
-  const featuredTable = inSpotlight ? tables.find((t) => t.id === featuredCourtId) : null
+  const featuredCourt = inSpotlight ? courts.find((t) => t.id === featuredCourtId) : null
 
   return (
     <div className="min-h-dvh bg-surface flex flex-col">
@@ -227,7 +227,7 @@ export function KioskAllCourtsPage() {
               </span>
             </div>
             <Typography variant="body" className="font-semibold text-text-h text-base">
-              {featuredTable?.name ?? ''}
+              {featuredCourt?.name ?? ''}
             </Typography>
             <LiveBadge label={i18nText('kioskEnVivo')} />
           </div>
@@ -302,7 +302,7 @@ export function KioskAllCourtsPage() {
 
           {/* Content — Grid / Rotation / Empty */}
           <main id="main-content" className="flex-1 flex flex-col">
-          {activeTables.length === 0 ? (
+          {activeCourts.length === 0 ? (
             <div className="flex-1 flex items-center justify-center">
               <Typography variant="title" className="text-2xl text-text-muted text-center px-4">
                 {i18nText('kioskNoActiveMatches')}
@@ -317,8 +317,8 @@ export function KioskAllCourtsPage() {
                   fadeState === 'visible' ? 'opacity-100' : 'opacity-0'
                 }`}
               >
-                {pages[currentPage]?.map((table) => (
-                  <KioskCourtCard key={table.id} table={table} />
+                {pages[currentPage]?.map((court) => (
+                  <KioskCourtCard key={court.id} table={court} />
                 ))}
               </div>
               {/* Page indicators */}
@@ -338,8 +338,8 @@ export function KioskAllCourtsPage() {
           ) : (
             /* Static mode — all cards fit, render with tighter spacing */
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-6 flex-1 content-start">
-              {activeTables.map((table) => (
-                <KioskCourtCard key={table.id} table={table} condensed />
+              {activeCourts.map((court) => (
+                <KioskCourtCard key={court.id} table={court} condensed />
               ))}
             </div>
           )}

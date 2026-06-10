@@ -43,34 +43,34 @@ export class CourtEventHandler extends SocketHandlerBase {
         return this.emitError(socket, 'RATE_LIMITED', 'Too many tables created. Please wait a minute.');
       }
 
-      // Max table limit: prevent memory exhaustion
-      const MAX_TABLES = parseInt(process.env.MAX_TABLES || '50', 10);
-      const currentTables = this.tableManager.getAllTables().length;
-      if (currentTables >= MAX_TABLES) {
-        return this.emitError(socket, 'MAX_TABLES_REACHED', `Maximum of ${MAX_TABLES} tables reached`);
+      // Max court limit: prevent memory exhaustion
+      const MAX_COURTS = parseInt(process.env.MAX_TABLES || '50', 10);
+      const currentCourts = this.tableManager.getAllCourts().length;
+      if (currentCourts >= MAX_COURTS) {
+        return this.emitError(socket, 'MAX_TABLES_REACHED', `Maximum of ${MAX_COURTS} courts reached`);
       }
 
-      const table = this.tableManager.createTable(data?.name);
-      socket.join(table.id);
+      const court = this.tableManager.createCourt(data?.name);
+      socket.join(court.id);
       
       // POC UX: creator is trusted as initial referee
-      this.tableManager.joinTable(table.id, socket.id, 'Referee');
-      this.tableManager.setReferee(table.id, socket.id, table.pin);
+      this.tableManager.joinTable(court.id, socket.id, 'Referee');
+      this.tableManager.setReferee(court.id, socket.id, court.pin);
       
-      socket.emit(SocketEvents.SERVER.TABLE_CREATED, this.tableManager.getTableWithPin(table.id) ?? this.tableManager.tableToInfo(table));
-      socket.emit(SocketEvents.SERVER.REF_SET, { tableId: table.id });
+      socket.emit(SocketEvents.SERVER.TABLE_CREATED, this.tableManager.getCourtWithPin(court.id) ?? this.tableManager.courtToInfo(court));
+      socket.emit(SocketEvents.SERVER.REF_SET, { tableId: court.id });
 
-      const qrData = this.tableManager.generateQRData(table.id);
+      const qrData = this.tableManager.generateQRData(court.id);
       if (qrData) {
         socket.emit(SocketEvents.SERVER.QR_DATA, qrData);
       }
 
-      socket.emit(SocketEvents.SERVER.MATCH_UPDATE, this.tableManager.getMatchState(table.id));
+      socket.emit(SocketEvents.SERVER.MATCH_UPDATE, this.tableManager.getMatchState(court.id));
     });
 
-    // LIST_TABLES: Get all public tables
+    // LIST_TABLES: Get all public courts
     socket.on(SocketEvents.CLIENT.LIST_TABLES, () => {
-      socket.emit(SocketEvents.SERVER.TABLE_LIST, this.getPublicTableList());
+      socket.emit(SocketEvents.SERVER.TABLE_LIST, this.getPublicCourtList());
     });
 
     // GET_TABLES_WITH_PINS: Owner only
@@ -87,8 +87,8 @@ export class CourtEventHandler extends SocketHandlerBase {
         return this.emitError(socket, 'NOT_OWNER', 'No autorizado');
       }
 
-      const tables = this.getTablesWithPins();
-      socket.emit(SocketEvents.SERVER.TABLE_LIST_WITH_PINS, { tables });
+      const courts = this.getCourtsWithPins();
+      socket.emit(SocketEvents.SERVER.TABLE_LIST_WITH_PINS, { courts });
     });
 
     // JOIN_TABLE: Join a table
@@ -112,9 +112,9 @@ export class CourtEventHandler extends SocketHandlerBase {
         socket.join(data.tableId);
         socket.emit(SocketEvents.SERVER.TABLE_JOINED, { tableId: data.tableId });
 
-        const tableInfo = this.tableManager.getAllTables().find(t => t.id === data.tableId);
-        if (tableInfo) {
-          socket.emit(SocketEvents.SERVER.TABLE_UPDATE, this.toPublicTableInfo(tableInfo));
+        const courtInfo = this.tableManager.getAllCourts().find(c => c.id === data.tableId);
+        if (courtInfo) {
+          socket.emit(SocketEvents.SERVER.TABLE_UPDATE, this.toPublicCourtInfo(courtInfo));
         }
 
         const state = this.tableManager.getMatchState(data.tableId);
@@ -122,8 +122,8 @@ export class CourtEventHandler extends SocketHandlerBase {
           socket.emit(SocketEvents.SERVER.MATCH_UPDATE, state);
         }
       } else {
-        const table = this.tableManager.getAllTables().find(t => t.id === data.tableId);
-        if (table && data.pin) {
+        const court = this.tableManager.getAllCourts().find(c => c.id === data.tableId);
+        if (court && data.pin) {
           this.emitError(socket, 'INVALID_PIN', 'PIN incorrecto');
         } else {
           this.emitError(socket, 'TABLE_NOT_FOUND', 'Mesa no encontrada');
@@ -141,10 +141,10 @@ export class CourtEventHandler extends SocketHandlerBase {
       
       socket.leave(data.tableId);
       
-      const table = this.tableManager.getTable(data.tableId);
-      if (!table) return;
+      const court = this.tableManager.getCourt(data.tableId);
+      if (!court) return;
       
-      const player = table.players.find(p => p.socketId === socket.id);
+      const player = court.players.find(p => p.socketId === socket.id);
       if (player) {
         this.tableManager.leaveTable(data.tableId, socket.id);
         this.io.to(data.tableId).emit(SocketEvents.SERVER.PLAYER_LEFT, { tableId: data.tableId, socketId: socket.id });
@@ -171,8 +171,8 @@ export class CourtEventHandler extends SocketHandlerBase {
         return this.emitError(socket, 'RATE_LIMITED', 'Too many attempts. Please wait a minute before trying again.');
       }
 
-      const table = this.tableManager.getTable(data.tableId);
-      if (!table) {
+      const court = this.tableManager.getCourt(data.tableId);
+      if (!court) {
         return this.emitError(socket, 'TABLE_NOT_FOUND', 'Cancha no encontrada');
       }
 
@@ -196,11 +196,11 @@ export class CourtEventHandler extends SocketHandlerBase {
       this.io.to(data.tableId).emit(SocketEvents.SERVER.TABLE_DELETED, { tableId: data.tableId });
       this.io.in(data.tableId).socketsLeave(data.tableId);
 
-      const success = this.tableManager.deleteTable(data.tableId);
+      const success = this.tableManager.deleteCourt(data.tableId);
 
       if (success) {
-        logger.info({ tableId: data.tableId, socketId: socket.id }, 'Table deleted successfully');
-        this.io.emit(SocketEvents.SERVER.TABLE_LIST, this.getPublicTableList());
+        logger.info({ courtId: data.tableId, socketId: socket.id }, 'Court deleted successfully');
+        this.io.emit(SocketEvents.SERVER.TABLE_LIST, this.getPublicCourtList());
       }
     });
   }

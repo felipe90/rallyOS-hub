@@ -19,9 +19,9 @@ export const DefaultScoreboardMode: ScoreboardMode = 'view'
 
 export interface AuthContextValue {
   role: UserRole
-  tableId: string | null
+  courtId: string | null
   ownerPin: string | null
-  tablePin: string | null
+  courtPin: string | null
   tournamentToken: string | null
   isOwner: boolean
   isReferee: boolean
@@ -31,7 +31,7 @@ export interface AuthContextValue {
   login: (newRole: UserRole, tId?: string, pin?: string) => void
   logout: () => void
   setOwner: (isOwner: boolean, pin?: string) => void
-  setTablePin: (pin: string) => void
+  setCourtPin: (pin: string) => void
   setTournamentToken: (token: string) => void
 }
 

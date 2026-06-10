@@ -60,7 +60,7 @@ export function handleLoad(
     return;
   }
 
-  const restored = tableManager.getAllTables().length;
+  const restored = tableManager.getAllCourts().length;
 
   res.json({ restored });
 }

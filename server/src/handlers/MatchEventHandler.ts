@@ -109,10 +109,10 @@ export class MatchEventHandler extends SocketHandlerBase {
       });
 
       // Emit TABLE_UPDATE for dashboard
-      const table = this.tableManager.getTable(data.tableId);
-      if (table) {
-        const tableInfo = this.tableManager.tableToInfo(table);
-        this.io.emit(SocketEvents.SERVER.TABLE_UPDATE, this.toPublicTableInfo(tableInfo));
+      const court = this.tableManager.getCourt(data.tableId);
+      if (court) {
+        const courtInfo = this.tableManager.courtToInfo(court);
+        this.io.emit(SocketEvents.SERVER.TABLE_UPDATE, this.toPublicCourtInfo(courtInfo));
       }
 
       const state = this.tableManager.getMatchState(data.tableId);
@@ -159,10 +159,10 @@ export class MatchEventHandler extends SocketHandlerBase {
       logger.debug({ tableId: data.tableId, state }, 'START_MATCH: Result state');
 
       // Emit TABLE_UPDATE for dashboard
-      const table = this.tableManager.getTable(data.tableId);
-      if (table) {
-        const tableInfo = this.tableManager.tableToInfo(table);
-        this.io.emit(SocketEvents.SERVER.TABLE_UPDATE, this.toPublicTableInfo(tableInfo));
+      const court = this.tableManager.getCourt(data.tableId);
+      if (court) {
+        const courtInfo = this.tableManager.courtToInfo(court);
+        this.io.emit(SocketEvents.SERVER.TABLE_UPDATE, this.toPublicCourtInfo(courtInfo));
       }
 
       if (state) {
@@ -300,10 +300,10 @@ export class MatchEventHandler extends SocketHandlerBase {
 
       this.tableManager.resetTable(data.tableId, data.config);
 
-      const table = this.tableManager.getTable(data.tableId);
-      if (table) {
-        const tableInfo = this.tableManager.tableToInfo(table);
-        this.io.to(data.tableId).emit(SocketEvents.SERVER.TABLE_UPDATE, this.toPublicTableInfo(tableInfo));
+      const court = this.tableManager.getCourt(data.tableId);
+      if (court) {
+        const courtInfo = this.tableManager.courtToInfo(court);
+        this.io.to(data.tableId).emit(SocketEvents.SERVER.TABLE_UPDATE, this.toPublicCourtInfo(courtInfo));
       }
     });
 

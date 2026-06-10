@@ -43,8 +43,8 @@ function createMockTableManager(): CourtManager {
   const tm: any = {
     onTableUpdate: () => {},
     onMatchEvent: () => {},
-    getAllTables: () => [],
-    getTable: (id: string) => ({
+    getAllCourts: () => [],
+    getCourt: (id: string) => ({
       id,
       number: 1,
       name: 'Cancha 1',
@@ -78,7 +78,7 @@ function createMockTableManager(): CourtManager {
     configureMatch: jest.fn(),
     startMatch: jest.fn(() => matchState),
     recordPoint: jest.fn(() => matchState),
-    tableToInfo: jest.fn((t) => ({ id: t.id, status: t.status, name: t.name })),
+    courtToInfo: jest.fn((c) => ({ id: c.id, status: c.status, name: c.name })),
     isReferee: jest.fn(() => true),
   };
 

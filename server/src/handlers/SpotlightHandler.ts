@@ -33,44 +33,44 @@ export class SpotlightHandler extends SocketHandlerBase {
         return this.emitError(socket, 'UNAUTHORIZED', 'Solo el organizador puede destacar una cancha');
       }
 
-      // Clear all featured if targetTableId is null/undefined/empty
+      // Clear all featured if targetCourtId is null/undefined/empty
       if (!data?.targetTableId) {
-        const allTables = this.tableManager.getAllTables();
-        for (const t of allTables) {
-          const court = this.tableManager.getTable(t.id);
+        const allCourts = this.tableManager.getAllCourts();
+        for (const t of allCourts) {
+          const court = this.tableManager.getCourt(t.id);
           if (court && court.featured) {
             court.featured = false;
-            const tableInfo = this.tableManager.tableToInfo(court);
-            this.io.emit(SocketEvents.SERVER.TABLE_UPDATE, tableInfo);
-            logger.debug({ tableId: court.id }, 'Featured cleared via SET_FEATURED(null)');
+            const courtInfo = this.tableManager.courtToInfo(court);
+            this.io.emit(SocketEvents.SERVER.TABLE_UPDATE, courtInfo);
+            logger.debug({ courtId: court.id }, 'Featured cleared via SET_FEATURED(null)');
           }
         }
         return;
       }
 
-      // Validate target table exists
-      const targetTable = this.tableManager.getTable(data.targetTableId);
-      if (!targetTable) {
+      // Validate target court exists
+      const targetCourt = this.tableManager.getCourt(data.targetTableId);
+      if (!targetCourt) {
         return this.emitError(socket, 'TABLE_NOT_FOUND', 'Cancha no encontrada');
       }
 
       // Single-featured invariant: clear any previously featured court
-      const allTables = this.tableManager.getAllTables();
-      for (const t of allTables) {
-        const court = this.tableManager.getTable(t.id);
+      const allCourts = this.tableManager.getAllCourts();
+      for (const t of allCourts) {
+        const court = this.tableManager.getCourt(t.id);
         if (court && court.featured && court.id !== data.targetTableId) {
           court.featured = false;
-          const tableInfo = this.tableManager.tableToInfo(court);
-          this.io.emit(SocketEvents.SERVER.TABLE_UPDATE, tableInfo);
-          logger.debug({ tableId: court.id }, 'Previous featured court cleared');
+          const courtInfo = this.tableManager.courtToInfo(court);
+          this.io.emit(SocketEvents.SERVER.TABLE_UPDATE, courtInfo);
+          logger.debug({ courtId: court.id }, 'Previous featured court cleared');
         }
       }
 
       // Set new featured court
-      targetTable.featured = true;
-      const tableInfo = this.tableManager.tableToInfo(targetTable);
-      this.io.emit(SocketEvents.SERVER.TABLE_UPDATE, tableInfo);
-      logger.info({ tableId: targetTable.id }, 'Court set as featured');
+      targetCourt.featured = true;
+      const courtInfo = this.tableManager.courtToInfo(targetCourt);
+      this.io.emit(SocketEvents.SERVER.TABLE_UPDATE, courtInfo);
+      logger.info({ courtId: targetCourt.id }, 'Court set as featured');
     });
 
     // SUBSCRIBE_MATCH: Subscribe to match updates for a featured court
@@ -79,7 +79,7 @@ export class SpotlightHandler extends SocketHandlerBase {
         return this.emitError(socket, 'INVALID_PARAMS', 'courtId required');
       }
 
-      const court = this.tableManager.getTable(data.courtId);
+      const court = this.tableManager.getCourt(data.courtId);
       if (!court) {
         return this.emitError(socket, 'TABLE_NOT_FOUND', 'Cancha no encontrada');
       }

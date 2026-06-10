@@ -54,12 +54,12 @@ export class AuthHandler extends SocketHandlerBase {
         success = this.tableManager.setReferee(data.tableId, socket.id, data.pin);
         
         if (!success) {
-          const table = this.tableManager.getTable(data.tableId);
-          if (table) {
-            const existingRef = table.players.find(p => p.role === 'REFEREE');
+          const court = this.tableManager.getCourt(data.tableId);
+          if (court) {
+            const existingRef = court.players.find(p => p.role === 'REFEREE');
             if (existingRef) {
-              logger.info({ tableId: data.tableId, oldRefereeId: existingRef.socketId }, 'Owner taking control, removing old referee');
-              table.players = table.players.filter(p => p.role !== 'REFEREE');
+              logger.info({ courtId: data.tableId, oldRefereeId: existingRef.socketId }, 'Owner taking control, removing old referee');
+              court.players = court.players.filter(p => p.role !== 'REFEREE');
             }
           }
           success = this.tableManager.setReferee(data.tableId, socket.id, data.pin);
@@ -72,14 +72,14 @@ export class AuthHandler extends SocketHandlerBase {
         socket.join(data.tableId);
         socket.emit(SocketEvents.SERVER.REF_SET, { tableId: data.tableId });
 
-        const tableInfo = this.tableManager.getAllTables().find(t => t.id === data.tableId);
-        if (tableInfo) {
-          this.io.emit(SocketEvents.SERVER.TABLE_UPDATE, this.toPublicTableInfo(tableInfo));
+        const courtInfo = this.tableManager.getAllCourts().find(c => c.id === data.tableId);
+        if (courtInfo) {
+          this.io.emit(SocketEvents.SERVER.TABLE_UPDATE, this.toPublicCourtInfo(courtInfo));
         }
       } else {
-        const table = this.tableManager.getTable(data.tableId);
-        if (table) {
-          const existingRef = table.players.find(p => p.role === 'REFEREE');
+        const court = this.tableManager.getCourt(data.tableId);
+        if (court) {
+          const existingRef = court.players.find(p => p.role === 'REFEREE');
           if (existingRef && existingRef.socketId !== socket.id) {
             return this.emitError(socket, 'REF_ALREADY_ACTIVE', 'Ya hay un árbitro activo en esta cancha');
           }
@@ -122,7 +122,7 @@ export class AuthHandler extends SocketHandlerBase {
       }
 
       const isReferee = this.tableManager.isReferee(data.tableId, socket.id);
-      socket.emit(SocketEvents.SERVER.REF_ROLE_CHECK_RESULT, { tableId: data.tableId, isReferee });
+      socket.emit(SocketEvents.SERVER.REF_ROLE_CHECK_RESULT, { courtId: data.tableId, isReferee });
     });
   }
 }

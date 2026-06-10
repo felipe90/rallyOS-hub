@@ -165,5 +165,9 @@
   "goldenPoint": "Punto de Oro",
   "fullscreenButton": "Pantalla completa",
   "iosFullscreenTitle": "Pantalla Completa",
-  "iosFullscreenInstructions": "Tocá el ícono de compartir y elegí 'Agregar a Inicio'"
+  "iosFullscreenInstructions": "Tocá el ícono de compartir y elegí 'Agregar a Inicio'",
+  "kioskDestacado": "★ DESTACADO",
+  "kioskEnVivo": "EN VIVO",
+  "courtDestacar": "Destacar",
+  "courtQuitarDestacado": "Quitar Destacado"
 }

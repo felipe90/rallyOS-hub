@@ -149,6 +149,16 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
     clearError()
   }
 
+  /** ── Featured Court Toggle ── */
+  const handleToggleFeatured = useCallback((tableId: string) => {
+    if (!socket) return
+    const table = tables.find(t => t.id === tableId)
+    const isCurrentlyFeatured = table?.featured === true
+    socket.emit(SocketEvents.CLIENT.SET_FEATURED, {
+      targetTableId: isCurrentlyFeatured ? null : tableId,
+    })
+  }, [socket, tables])
+
   /** ── Notification Modal ── */
   const handleNotificationSubmit = ({ type, message, duration }: { type: KioskNotificationType; message: string; duration: number }) => {
     if (!socket || !ownerPin) return
@@ -385,6 +395,8 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
               addToast('success', i18nText('toastTableDeleted'));
             }}
             onDeleteTableCancel={tableMgmt.cancelDelete}
+            featuredTableId={tables.find(t => t.featured)?.id ?? null}
+            onToggleFeatured={handleToggleFeatured}
           />
         </div>
       </main>

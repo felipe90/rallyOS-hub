@@ -133,7 +133,7 @@ The fullscreen view is a **public venue display** — no controls, no header, no
 | `Court` (server) | `server/src/domain/types.ts` | Add `featured: boolean` field (default false) |
 | `TableFormatter` | `server/src/services/table/TableFormatter.ts` | Map `table.featured` → `CourtInfo.featured` |
 | `SocketHandler` | `server/src/handlers/SocketHandler.ts` | Add `SET_FEATURED` handler + auto-clear in MATCH_WON |
-| `MatchEventHandler` | `server/src/handlers/MatchEventHandler.ts` | Add `SUBSCRIBE_MATCH` handler (validates court.featured===true, joins room, emits current MATCH_UPDATE) + `UNSUBSCRIBE_MATCH` (leaves room) |
+| `SpotlightHandler` | `server/src/handlers/SpotlightHandler.ts` | **New** — SET_FEATURED + SUBSCRIBE_MATCH + UNSUBSCRIBE_MATCH |
 | `KioskAllTablesPage` | `client/src/pages/KioskAllTablesPage/` | Conditional fullscreen branch, subscription via SUBSCRIBE_MATCH/UNSUBSCRIBE_MATCH, transition logic, MATCH_UPDATE listener |
 | `TableStatusChip` | `client/src/components/molecules/TableStatusChip/` | Add `featured` prop + toggle button |
 | `TableStatusChipProps` | `client/src/components/molecules/TableStatusChip/` | Add `featured?: boolean`, `onToggleFeatured?: () => void` |
@@ -144,17 +144,17 @@ The fullscreen view is a **public venue display** — no controls, no header, no
 
 ## Data Flow
 
-### SET_DESTACADO Flow
+### SET_FEATURED Flow
 
 ```
 Owner clicks "Destacar" on court-A card
        │
        ▼
-TableStatusChip.onDestacar()
+TableStatusChip.onToggleFeatured()
        │
        ▼
 OwnerDashboardPage emits:
-  socket.emit('SET_DESTACADO', { targetTableId: "court-A" })
+  socket.emit('SET_FEATURED', { targetTableId: "court-A" })
        │
        ▼
 Server validates:
@@ -450,10 +450,8 @@ export interface Court {
 4. Update `TableFormatter.toPublicInfo()` to include `featured`
 
 ### Phase 2: Server Handler
-5. Create `AdminHandler.setFeatured()` method — validate owner, enforce single-featured invariant, broadcast updates
-6. Wire `SET_FEATURED` handler in `AdminHandler.registerHandlers()`
-7. Add `SUBSCRIBE_MATCH` handler in `MatchEventHandler` — validate court.featured===true, `socket.join(courtId)`, emit current MATCH_UPDATE to socket
-8. Add `UNSUBSCRIBE_MATCH` handler in `MatchEventHandler` — `socket.leave(courtId)`
+5. Create `SpotlightHandler` class — `SET_FEATURED` (owner-only, single-featured invariant, broadcast) + `SUBSCRIBE_MATCH` (validate, join, emit) + `UNSUBSCRIBE_MATCH` (leave)
+6. Wire `SpotlightHandler` in `SocketHandler` (or handler index)
 9. Add auto-clear logic in `SocketHandler.onMatchEvent` `MATCH_WON` branch
 
 ### Phase 3: Kiosk Fullscreen UI

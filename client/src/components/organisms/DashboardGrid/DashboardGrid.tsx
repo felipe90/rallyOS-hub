@@ -21,6 +21,10 @@ export interface DashboardGridProps {
   showDeleteConfirm?: string | null;  // Table ID being confirmed for deletion
   onDeleteTableConfirm?: () => void;  // Confirm delete
   onDeleteTableCancel?: () => void;    // Cancel delete
+  /** Currently featured court ID for spotlight toggle display */
+  featuredTableId?: string | null;
+  /** Called to toggle featured status for a court */
+  onToggleFeatured?: (tableId: string) => void;
 }
 
 export function DashboardGrid({ 
@@ -37,6 +41,8 @@ export function DashboardGrid({
   showDeleteConfirm,
   onDeleteTableConfirm,
   onDeleteTableCancel,
+  featuredTableId,
+  onToggleFeatured,
 }: DashboardGridProps) {
   const shouldReduceMotion = useReducedMotion()
 
@@ -71,6 +77,8 @@ export function DashboardGrid({
               showDeleteConfirm={showDeleteConfirm === table.id}
               onDeleteConfirm={onDeleteTableConfirm}
               onDeleteCancel={onDeleteTableCancel}
+              featured={table.featured === true}
+              onToggleFeatured={onToggleFeatured ? () => onToggleFeatured(table.id) : undefined}
             />
           </ListWrapper>
         ))}
@@ -113,6 +121,8 @@ export function DashboardGrid({
               showDeleteConfirm={showDeleteConfirm === table.id}
               onDeleteConfirm={onDeleteTableConfirm}
               onDeleteCancel={onDeleteTableCancel}
+              featured={table.featured === true}
+              onToggleFeatured={onToggleFeatured ? () => onToggleFeatured(table.id) : undefined}
             />
           </GridWrapper>
         );

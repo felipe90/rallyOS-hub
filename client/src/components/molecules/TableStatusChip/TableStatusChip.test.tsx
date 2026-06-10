@@ -10,6 +10,8 @@ vi.mock('@/i18n', () => ({
         tableStatusConfiguring: 'Configurando',
         tableStatusLive: 'En juego',
         tableStatusFinished: 'Finalizado',
+        courtDestacar: 'Destacar',
+        courtQuitarDestacado: 'Quitar Destacado',
       };
       return labels[key] || key;
     },
@@ -165,5 +167,105 @@ describe('TableStatusChip', () => {
     fireEvent.click(cardText);
 
     expect(handleClick).toHaveBeenCalledTimes(1);
+  });
+
+  describe('featured toggle button (Task 4.1 / 4.2)', () => {
+    it('renders "Destacar" button for LIVE court when not featured', () => {
+      const handleToggle = vi.fn();
+      render(
+        <TableStatusChip
+          tableNumber={1}
+          tableName="Test"
+          status="LIVE"
+          onToggleFeatured={handleToggle}
+          featured={false}
+        />
+      );
+      expect(screen.getByRole('button', { name: /Destacar/i })).toBeInTheDocument();
+    });
+
+    it('renders "Destacar" button for WAITING court when not featured', () => {
+      const handleToggle = vi.fn();
+      render(
+        <TableStatusChip
+          tableNumber={1}
+          tableName="Test"
+          status="WAITING"
+          onToggleFeatured={handleToggle}
+          featured={false}
+        />
+      );
+      expect(screen.getByRole('button', { name: /Destacar/i })).toBeInTheDocument();
+    });
+
+    it('renders "Quitar Destacado" button when featured is true', () => {
+      const handleToggle = vi.fn();
+      render(
+        <TableStatusChip
+          tableNumber={1}
+          tableName="Test"
+          status="LIVE"
+          onToggleFeatured={handleToggle}
+          featured={true}
+        />
+      );
+      expect(screen.getByRole('button', { name: /Quitar Destacado/i })).toBeInTheDocument();
+    });
+
+    it('does NOT render featured button for FINISHED court', () => {
+      const handleToggle = vi.fn();
+      render(
+        <TableStatusChip
+          tableNumber={1}
+          tableName="Test"
+          status="FINISHED"
+          onToggleFeatured={handleToggle}
+          featured={false}
+        />
+      );
+      expect(screen.queryByRole('button', { name: /Destacar|Quitar Destacado/i })).not.toBeInTheDocument();
+    });
+
+    it('calls onToggleFeatured when "Destacar" button is clicked', () => {
+      const handleToggle = vi.fn();
+      render(
+        <TableStatusChip
+          tableNumber={1}
+          tableName="Test"
+          status="LIVE"
+          onToggleFeatured={handleToggle}
+          featured={false}
+        />
+      );
+      fireEvent.click(screen.getByRole('button', { name: /Destacar/i }));
+      expect(handleToggle).toHaveBeenCalledTimes(1);
+    });
+
+    it('calls onToggleFeatured when "Quitar Destacado" button is clicked', () => {
+      const handleToggle = vi.fn();
+      render(
+        <TableStatusChip
+          tableNumber={1}
+          tableName="Test"
+          status="LIVE"
+          onToggleFeatured={handleToggle}
+          featured={true}
+        />
+      );
+      fireEvent.click(screen.getByRole('button', { name: /Quitar Destacado/i }));
+      expect(handleToggle).toHaveBeenCalledTimes(1);
+    });
+
+    it('does NOT render featured button when onToggleFeatured is not provided', () => {
+      render(
+        <TableStatusChip
+          tableNumber={1}
+          tableName="Test"
+          status="LIVE"
+          featured={false}
+        />
+      );
+      expect(screen.queryByRole('button', { name: /Destacar|Quitar Destacado/i })).not.toBeInTheDocument();
+    });
   });
 });

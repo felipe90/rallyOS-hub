@@ -12,6 +12,13 @@ vi.mock('@/components/organisms/KioskNotificationToast', () => ({
   )),
 }))
 
+// Mock ScoreboardMain for featured court spotlight tests
+vi.mock('@/components/organisms/ScoreboardMain/ScoreboardMain', () => ({
+  ScoreboardMain: vi.fn(({ match }: { match: { tableName: string } }) => (
+    <div data-testid="scoreboard-main">{match.tableName}</div>
+  )),
+}))
+
 // Mock SocketContext
 vi.mock('@/contexts/SocketContext', () => ({
   useSocketContext: vi.fn(),
@@ -27,6 +34,10 @@ vi.mock('@/i18n', () => ({
         'scoreboardWifiDomain': 'Abrí rallyos-hub.local',
         'scoreboardWifiQrCta': 'Paso 1: Escaneá para conectarte al WiFi',
         'scoreboardUrlQrCta': 'Paso 2: Escaneá para abrir rallyOS',
+        'kioskDestacado': '★ DESTACADO',
+        'kioskEnVivo': 'EN VIVO',
+        'kioskNoActiveMatches': 'No active matches',
+        'kioskPageTitle': 'Scoreboard',
       }
       return map[key] || key
     },
@@ -49,11 +60,16 @@ function makeTable(overrides: Partial<TableInfo> = {}): TableInfo {
   }
 }
 
-function renderPage(tables: TableInfo[] = []) {
+function renderPage(
+  tables: TableInfo[] = [],
+  socketOverrides?: { on?: ReturnType<typeof vi.fn>; off?: ReturnType<typeof vi.fn>; emit?: ReturnType<typeof vi.fn> },
+) {
+  const mockSocket = socketOverrides || { on: vi.fn(), off: vi.fn(), emit: vi.fn() }
   mockUseSocketContext.mockReturnValue({
     tables,
     connected: true,
     connecting: false,
+    socket: mockSocket,
   })
 
   return render(
@@ -322,6 +338,213 @@ describe('KioskAllTablesPage', () => {
       // Table card is still visible
       expect(screen.getByText('Mesa 1')).toBeInTheDocument()
     })
+  })
+})
+
+describe('KioskAllTablesPage — featured court spotlight', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    Object.defineProperty(window, 'innerWidth', { value: 1920, configurable: true })
+    Object.defineProperty(window, 'innerHeight', { value: 1080, configurable: true })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('emits SUBSCRIBE_MATCH when a court has featured=true', () => {
+    const mockEmit = vi.fn()
+    const tables = [
+      makeTable({ id: 't1', name: 'Normal Court', status: 'LIVE', featured: false }),
+      makeTable({ id: 't2', name: 'Featured Court', status: 'LIVE', featured: true }),
+    ]
+    renderPage(tables, { on: vi.fn(), off: vi.fn(), emit: mockEmit })
+
+    expect(mockEmit).toHaveBeenCalledWith('SUBSCRIBE_MATCH', { courtId: 't2' })
+  })
+
+  it('does NOT emit SUBSCRIBE_MATCH when no court is featured', () => {
+    const mockEmit = vi.fn()
+    const tables = [
+      makeTable({ id: 't1', name: 'Normal Court', status: 'LIVE' }),
+    ]
+    renderPage(tables, { on: vi.fn(), off: vi.fn(), emit: mockEmit })
+
+    expect(mockEmit).not.toHaveBeenCalled()
+  })
+
+  it('does not emit SUBSCRIBE_MATCH for FINISHED featured courts', () => {
+    const mockEmit = vi.fn()
+    const tables = [
+      makeTable({ id: 't1', name: 'Finished Featured', status: 'FINISHED', featured: true }),
+    ]
+    renderPage(tables, { on: vi.fn(), off: vi.fn(), emit: mockEmit })
+
+    expect(mockEmit).not.toHaveBeenCalled()
+  })
+
+  it('unsubscribes old and subscribes new when featured court changes', () => {
+    const mockEmit = vi.fn()
+    const mockOn = vi.fn()
+    const mockOff = vi.fn()
+    const socket = { on: mockOn, off: mockOff, emit: mockEmit }
+
+    const initialTables = [
+      makeTable({ id: 't1', name: 'First Featured', status: 'LIVE', featured: true }),
+      makeTable({ id: 't2', name: 'Second Court', status: 'LIVE' }),
+    ]
+
+    const { rerender } = renderPage(initialTables, socket)
+    expect(mockEmit).toHaveBeenCalledWith('SUBSCRIBE_MATCH', { courtId: 't1' })
+
+    // Change featured court
+    const updatedTables = [
+      makeTable({ id: 't1', name: 'First Featured', status: 'LIVE', featured: false }),
+      makeTable({ id: 't2', name: 'Second Court', status: 'LIVE', featured: true }),
+    ]
+
+    // Update mock context and re-render
+    mockUseSocketContext.mockReturnValue({
+      tables: updatedTables,
+      connected: true,
+      connecting: false,
+      socket,
+    })
+    rerender(
+      <MemoryRouter>
+        <KioskAllTablesPage />
+      </MemoryRouter>,
+    )
+
+    expect(mockEmit).toHaveBeenCalledWith('UNSUBSCRIBE_MATCH', { courtId: 't1' })
+    expect(mockEmit).toHaveBeenCalledWith('SUBSCRIBE_MATCH', { courtId: 't2' })
+  })
+
+  it('unsubscribes on unmount when featured court active', () => {
+    const mockEmit = vi.fn()
+    const tables = [
+      makeTable({ id: 't1', name: 'Featured', status: 'LIVE', featured: true }),
+    ]
+
+    const { unmount } = renderPage(tables, { on: vi.fn(), off: vi.fn(), emit: mockEmit })
+
+    unmount()
+
+    expect(mockEmit).toHaveBeenCalledWith('UNSUBSCRIBE_MATCH', { courtId: 't1' })
+  })
+
+  it('does not unsubscribe on unmount when no featured court', () => {
+    const mockEmit = vi.fn()
+    const tables = [makeTable({ id: 't1', name: 'Normal', status: 'LIVE' })]
+
+    const { unmount } = renderPage(tables, { on: vi.fn(), off: vi.fn(), emit: mockEmit })
+
+    unmount()
+
+    expect(mockEmit).not.toHaveBeenCalled()
+  })
+
+  it('listens for MATCH_UPDATE on the socket when featured court is active', () => {
+    const mockOn = vi.fn()
+    const tables = [
+      makeTable({ id: 't1', name: 'Featured', status: 'LIVE', featured: true }),
+    ]
+    renderPage(tables, { on: mockOn, off: vi.fn(), emit: vi.fn() })
+
+    expect(mockOn).toHaveBeenCalledWith('MATCH_UPDATE', expect.any(Function))
+  })
+
+  it('renders ScoreboardMain when featured court is active (Task 3.2)', () => {
+    let matchUpdateHandler: (...args: unknown[]) => void = () => {}
+    const mockOn = vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+      if (event === 'MATCH_UPDATE') matchUpdateHandler = handler
+    })
+    const tables = [
+      makeTable({ id: 't1', name: 'Featured Court', status: 'LIVE', featured: true }),
+    ]
+    renderPage(tables, { on: mockOn, off: vi.fn(), emit: vi.fn() })
+
+    // Simulate receiving MATCH_UPDATE
+    act(() => {
+      matchUpdateHandler({
+        tableId: 't1',
+        tableName: 'Featured Court',
+        status: 'LIVE',
+        sport: 'tableTennis',
+        playerNames: { a: 'Alice', b: 'Bob' },
+        config: { bestOf: 5, pointsPerSet: 11, minDifference: 2, sport: 'tableTennis' },
+        score: { sets: { a: 0, b: 0 }, currentSet: { a: 0, b: 0 }, serving: 'A' },
+        setHistory: [],
+        history: [],
+        undoAvailable: false,
+        winner: null,
+        swappedSides: false,
+        midSetSwapped: false,
+      })
+    })
+
+    expect(screen.getByTestId('scoreboard-main')).toBeInTheDocument()
+    // Text appears in both Destacado bar AND ScoreboardMain mock
+    expect(screen.getAllByText('Featured Court')).toHaveLength(2)
+  })
+
+  it('does NOT render ScoreboardMain when no featured court (Task 3.2)', () => {
+    const tables = [
+      makeTable({ id: 't1', name: 'Normal Court', status: 'LIVE' }),
+    ]
+    renderPage(tables, { on: vi.fn(), off: vi.fn(), emit: vi.fn() })
+
+    expect(screen.queryByTestId('scoreboard-main')).not.toBeInTheDocument()
+  })
+
+  it('shows empty grid when featured court is the only court but has no active status (FINISHED)', () => {
+    const tables = [
+      makeTable({ id: 't1', name: 'Finished Featured', status: 'FINISHED', featured: true }),
+    ]
+    renderPage(tables, { on: vi.fn(), off: vi.fn(), emit: vi.fn() })
+
+    // No ScoreboardMain and empty state visible
+    expect(screen.queryByTestId('scoreboard-main')).not.toBeInTheDocument()
+    expect(screen.getByText('No active matches')).toBeInTheDocument()
+  })
+
+  it('renders Destacado bar with all elements when featured court active (Task 3.3)', () => {
+    let matchUpdateHandler: (...args: unknown[]) => void = () => {}
+    const mockOn = vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+      if (event === 'MATCH_UPDATE') matchUpdateHandler = handler
+    })
+    const tables = [
+      makeTable({ id: 't1', name: 'Court 5', status: 'LIVE', featured: true }),
+    ]
+    renderPage(tables, { on: mockOn, off: vi.fn(), emit: vi.fn() })
+
+    // Destacado bar elements visible even before MATCH_UPDATE
+    expect(screen.getByText('★ DESTACADO')).toBeInTheDocument()
+    expect(screen.getByText('Court 5')).toBeInTheDocument()
+    expect(screen.getByText('EN VIVO')).toBeInTheDocument()
+  })
+
+  it('does NOT render header (logo, QR) when in spotlight mode', () => {
+    const tables = [
+      makeTable({ id: 't1', name: 'Featured', status: 'LIVE', featured: true }),
+    ]
+    renderPage(tables, { on: vi.fn(), off: vi.fn(), emit: vi.fn() })
+
+    // Logo should not be visible in spotlight mode
+    expect(screen.queryByAltText('RallyOS')).not.toBeInTheDocument()
+  })
+
+  it('does not activate spotlight for CONFIGURING featured court', () => {
+    const mockEmit = vi.fn()
+    const tables = [
+      makeTable({ id: 't1', name: 'Config Court', status: 'CONFIGURING', featured: true }),
+    ]
+    renderPage(tables, { on: vi.fn(), off: vi.fn(), emit: mockEmit })
+
+    // No subscription
+    expect(mockEmit).not.toHaveBeenCalled()
+    // No ScoreboardMain
+    expect(screen.queryByTestId('scoreboard-main')).not.toBeInTheDocument()
   })
 })
 

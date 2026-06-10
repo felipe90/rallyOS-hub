@@ -165,5 +165,9 @@
   "goldenPoint": "Golden Point",
   "fullscreenButton": "Fullscreen",
   "iosFullscreenTitle": "Fullscreen",
-  "iosFullscreenInstructions": "Tap the share icon and choose 'Add to Home Screen'"
+  "iosFullscreenInstructions": "Tap the share icon and choose 'Add to Home Screen'",
+  "kioskDestacado": "★ SPOTLIGHT",
+  "kioskEnVivo": "LIVE",
+  "courtDestacar": "Feature",
+  "courtQuitarDestacado": "Remove Spotlight"
 }

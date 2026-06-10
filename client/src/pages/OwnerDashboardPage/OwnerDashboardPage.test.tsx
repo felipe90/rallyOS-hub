@@ -90,6 +90,8 @@ vi.mock('@/i18n', () => ({
         'finishTournamentExportCsv': 'Export CSV before finishing',
         'exportCsv': 'Export CSV',
         'tournamentFinishSuccess': 'Tournament finished and archived',
+        'courtDestacar': 'Feature',
+        'courtQuitarDestacado': 'Remove Spotlight',
       }
       return map[key] || key
     },
@@ -393,5 +395,52 @@ describe('OwnerDashboardPage – appError display', () => {
     // AlertTriangle icon should be rendered as SVG inside the alert
     const alertIcon = alert.querySelector('svg')
     expect(alertIcon).toBeInTheDocument()
+  })
+})
+
+describe('OwnerDashboardPage — featured court toggle (Task 4.3)', () => {
+  it('emits SET_FEATURED with targetTableId when "Feature" is clicked on a non-featured LIVE court', () => {
+    const mockEmit = vi.fn()
+    renderPage({
+      customSocket: {
+        tables: [createTable({ id: 'court-1', status: 'LIVE', featured: false })],
+        socket: { on: vi.fn(), off: vi.fn(), emit: mockEmit },
+      },
+    })
+
+    // The "Feature" button should be visible for a non-featured LIVE court
+    const featureBtn = screen.getByRole('button', { name: /^Feature$/i })
+    expect(featureBtn).toBeInTheDocument()
+
+    fireEvent.click(featureBtn)
+
+    expect(mockEmit).toHaveBeenCalledWith('SET_FEATURED', { targetTableId: 'court-1' })
+  })
+
+  it('emits SET_FEATURED with null when "Remove Spotlight" is clicked on a featured court', () => {
+    const mockEmit = vi.fn()
+    renderPage({
+      customSocket: {
+        tables: [createTable({ id: 'court-2', status: 'LIVE', featured: true })],
+        socket: { on: vi.fn(), off: vi.fn(), emit: mockEmit },
+      },
+    })
+
+    const removeBtn = screen.getByRole('button', { name: /Remove Spotlight/i })
+    expect(removeBtn).toBeInTheDocument()
+
+    fireEvent.click(removeBtn)
+
+    expect(mockEmit).toHaveBeenCalledWith('SET_FEATURED', { targetTableId: null })
+  })
+
+  it('does not render featured toggle for FINISHED courts', () => {
+    renderPage({
+      customSocket: {
+        tables: [createTable({ id: 'court-3', status: 'FINISHED', featured: false })],
+      },
+    })
+
+    expect(screen.queryByRole('button', { name: /Feature|Remove Spotlight/i })).not.toBeInTheDocument()
   })
 })

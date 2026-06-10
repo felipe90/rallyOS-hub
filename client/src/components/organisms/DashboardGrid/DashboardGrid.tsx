@@ -144,7 +144,7 @@ export interface DashboardHeaderProps {
     jugadores?: ReactNode;
   };
   statLabels?: {
-    tables?: string;
+    courts?: string;
     matches?: string;
     players?: string;
   };
@@ -219,7 +219,7 @@ export function DashboardHeader({
       <div className="flex items-center gap-4 flex-wrap">
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-surface shadow-sm">
           {statIcons?.canchas}
-          <Body className="text-text-muted text-xs">{statLabels.tables || ''}</Body>
+          <Body className="text-text-muted text-xs">{statLabels.courts || ''}</Body>
           <Title className="text-text-h text-lg">{totalTables ?? 0}</Title>
         </div>
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-surface shadow-sm">

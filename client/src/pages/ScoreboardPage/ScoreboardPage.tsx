@@ -165,7 +165,7 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
       {/* Match Config Modal */}
       <MatchConfigModal
         isOpen={canConfigure && currentMatch.status === 'WAITING'}
-        tableId={tableId}
+        courtId={tableId}
         courtName={currentMatch.courtName || ''}
         initialBestOf={(currentMatch.config?.bestOf as 1 | 3 | 5) || 3}
         initialHandicapA={((currentMatch.config) as any)?.handicapA || 0}

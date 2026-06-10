@@ -87,7 +87,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
     if (session) {
       sessionStorage.setItem('rallyos-owner-restored', '1')
       setCourtPin(session.pin)
-      navigate(buildScoreboardRoute(session.courtId, 'referee'))
+      navigate(buildScoreboardRoute(session.tableId, 'referee'))
     } else {
       sessionStorage.removeItem('rallyos-owner-restored')
     }

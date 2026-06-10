@@ -25,8 +25,8 @@ export interface MatchSubmitPayload {
 
 export interface MatchConfigModalProps {
   isOpen: boolean
-  tableId: string
-  tableName: string
+  courtId: string
+  courtName: string
   initialBestOf?: 1 | 3 | 5
   initialHandicapA?: number
   initialHandicapB?: number
@@ -51,7 +51,7 @@ export interface MatchConfigModalProps {
 
 export function MatchConfigModal({
   isOpen,
-  tableName,
+  courtName,
   initialBestOf = 3,
   initialHandicapA = 0,
   initialHandicapB = 0,
@@ -61,7 +61,7 @@ export function MatchConfigModal({
   isLoading = false,
   error,
   title = 'Configurar Partido',
-  forTableLabel = 'para {{tableName}}',
+  forTableLabel = 'para {{courtName}}',
   playersLabel = 'Jugadores',
   playerAPlaceholder = 'Jugador A',
   playerBPlaceholder = 'Jugador B',
@@ -251,7 +251,7 @@ export function MatchConfigModal({
         <Title id="match-config-modal-title" className="text-center mb-2">{title}</Title>
 
         <Body className="text-center text-text/70 mb-6">
-          {forTableLabel.replace('{{tableName}}', tableName)}
+          {forTableLabel.replace('{{courtName}}', courtName)}
         </Body>
 
         {/* Player Names */}

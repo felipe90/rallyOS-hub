@@ -104,7 +104,7 @@ export type MatchConfig = TableTennisMatchConfig | PadelMatchConfig;
 ```typescript
 interface MatchStateBase {
   config: MatchConfig;
-  status: TableStatus;
+  status: CourtStatus;
   winner: Player | null;
   swappedSides: boolean;
   midSetSwapped: boolean;

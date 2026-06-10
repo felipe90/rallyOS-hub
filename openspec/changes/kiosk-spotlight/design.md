@@ -21,10 +21,10 @@ Add a `featured` field to `CourtInfo`, a new `SET_FEATURED` socket event (owner-
 
 | Option | Tradeoff | Decision |
 |--------|----------|----------|
-| Conditional render in KioskAllTablesPage | Same URL, single component, minimal changes | **CHOSEN** |
+| Conditional render in KioskAllCourtsPage | Same URL, single component, minimal changes | **CHOSEN** |
 | New route `/scoreboard/all/kiosk/spotlight` | Separate URL, can be linked directly | Rejected — spec says "no new route" |
 
-**Rationale**: Matches the out-of-scope spec. The existing `KioskAllTablesPage` already handles rotation state — adding a `isFeatured` branch is natural.
+**Rationale**: Matches the out-of-scope spec. The existing `KioskAllCourtsPage` already handles rotation state — adding a `isFeatured` branch is natural.
 
 ### Decision: Transition Mechanism
 
@@ -39,10 +39,10 @@ Add a `featured` field to `CourtInfo`, a new `SET_FEATURED` socket event (owner-
 
 | Option | Tradeoff | Decision |
 |--------|----------|----------|
-| Add to `TableStatusChip` | Single component change, reuses existing button pattern | **CHOSEN** |
-| New component wrapping TableStatusChip | More files, indirection | Rejected |
+| Add to `CourtStatusChip` | Single component change, reuses existing button pattern | **CHOSEN** |
+| New component wrapping CourtStatusChip | More files, indirection | Rejected |
 
-**Rationale**: `TableStatusChip` already has action buttons (Clean, Delete) for owner mode. Adding a Destacar toggle alongside them is natural and consistent.
+**Rationale**: `CourtStatusChip` already has action buttons (Clean, Delete) for owner mode. Adding a Destacar toggle alongside them is natural and consistent.
 
 ### Decision: Server Auto-Clear Hook Point
 
@@ -131,16 +131,16 @@ The fullscreen view is a **public venue display** — no controls, no header, no
 | `CourtInfo` (shared) | `shared/types.ts` | Add `featured?: boolean` field |
 | `SocketEvents` (shared) | `shared/events.ts` | Add `SET_FEATURED`, `SUBSCRIBE_MATCH`, `UNSUBSCRIBE_MATCH` to CLIENT events |
 | `Court` (server) | `server/src/domain/types.ts` | Add `featured: boolean` field (default false) |
-| `TableFormatter` | `server/src/services/table/TableFormatter.ts` | Map `table.featured` → `CourtInfo.featured` |
+| `CourtFormatter` | `server/src/services/table/CourtFormatter.ts` | Map `table.featured` → `CourtInfo.featured` |
 | `SocketHandler` | `server/src/handlers/SocketHandler.ts` | Add `SET_FEATURED` handler + auto-clear in MATCH_WON |
 | `SpotlightHandler` | `server/src/handlers/SpotlightHandler.ts` | **New** — SET_FEATURED + SUBSCRIBE_MATCH + UNSUBSCRIBE_MATCH |
-| `KioskAllTablesPage` | `client/src/pages/KioskAllTablesPage/` | Conditional fullscreen branch, subscription via SUBSCRIBE_MATCH/UNSUBSCRIBE_MATCH, transition logic, MATCH_UPDATE listener |
-| `TableStatusChip` | `client/src/components/molecules/TableStatusChip/` | Add `featured` prop + toggle button |
-| `TableStatusChipProps` | `client/src/components/molecules/TableStatusChip/` | Add `featured?: boolean`, `onToggleFeatured?: () => void` |
+| `KioskAllCourtsPage` | `client/src/pages/` | Conditional fullscreen branch, subscription via SUBSCRIBE_MATCH/UNSUBSCRIBE_MATCH, transition logic, MATCH_UPDATE listener |
+| `CourtStatusChip` | `client/src/components/molecules/TableStatusChip/` | Add `featured` prop + toggle button |
+| `CourtStatusChipProps` | `client/src/components/molecules/TableStatusChip/` | Add `featured?: boolean`, `onToggleFeatured?: () => void` |
 
 ### Created Components
 
-*None.* The subscription logic is handled inline in `KioskAllTablesPage` via `useEffect` — no new hook needed.
+*None.* The subscription logic is handled inline in `KioskAllCourtsPage` via `useEffect` — no new hook needed.
 
 ## Data Flow
 
@@ -150,7 +150,7 @@ The fullscreen view is a **public venue display** — no controls, no header, no
 Owner clicks "Destacar" on court-A card
        │
        ▼
-TableStatusChip.onToggleFeatured()
+CourtStatusChip.onToggleFeatured()
        │
        ▼
 OwnerDashboardPage emits:
@@ -180,7 +180,7 @@ All clients receive:
   TABLE_UPDATE(court-B) → room "court-B"
        │
        ▼
-KioskAllTablesPage recalculates:
+KioskAllCourtsPage recalculates:
   activeTables.filter(t => t.featured && ACTIVE_STATUSES.includes(t.status))
   → found court-A → enter fullscreen mode
        │
@@ -338,7 +338,7 @@ MatchEngine       Server                Kiosk
 ### Grid → Fullscreen
 
 ```
-KioskAllTablesPage state:
+KioskAllCourtsPage state:
 
 isFeatured = false → true (court-A detected as featured)
 
@@ -447,7 +447,7 @@ export interface Court {
 1. Add `featured?: boolean` to `CourtInfo` in `shared/types.ts`
 2. Add `SET_FEATURED`, `SUBSCRIBE_MATCH`, `UNSUBSCRIBE_MATCH` to `SocketEvents.CLIENT` in `shared/events.ts`
 3. Add `featured: boolean` to `Court` in `server/src/domain/types.ts`
-4. Update `TableFormatter.toPublicInfo()` to include `featured`
+4. Update `CourtFormatter.toPublicInfo()` to include `featured`
 
 ### Phase 2: Server Handler
 5. Create `SpotlightHandler` class — `SET_FEATURED` (owner-only, single-featured invariant, broadcast) + `SUBSCRIBE_MATCH` (validate, join, emit) + `UNSUBSCRIBE_MATCH` (leave)
@@ -455,13 +455,13 @@ export interface Court {
 9. Add auto-clear logic in `SocketHandler.onMatchEvent` `MATCH_WON` branch
 
 ### Phase 3: Kiosk Fullscreen UI
-10. Update `KioskAllTablesPage` with `isFeatured` detection, subscription logic (SUBSCRIBE_MATCH/UNSUBSCRIBE_MATCH), and local MATCH_UPDATE listener
+10. Update `KioskAllCourtsPage` with `isFeatured` detection, subscription logic (SUBSCRIBE_MATCH/UNSUBSCRIBE_MATCH), and local MATCH_UPDATE listener
 11. Add transition logic (CSS opacity fades, timeouts, cleanup on unmount/switch)
 12. Style "Destacado" bar (★ DESTACADO badge, court name, EN VIVO — i18n)
 
 ### Phase 4: Owner Dashboard
-13. Add `featured` prop and `onToggleFeatured` callback to `TableStatusChipProps`
-14. Render "Destacar" / "Quitar Destacado" button in `TableStatusChip` (i18n labels)
+13. Add `featured` prop and `onToggleFeatured` callback to `CourtStatusChipProps`
+14. Render "Destacar" / "Quitar Destacado" button in `CourtStatusChip` (i18n labels)
 15. Wire `SET_FEATURED` emit in `OwnerDashboardPage`
 
 ### Phase 5: Testing

@@ -156,7 +156,7 @@ The kiosk MUST apply a 500ms CSS opacity fade when transitioning between grid↔
 
 ## ADDED Capability: owner-dashboard
 
-### Requirement: Destacar Toggle in TableStatusChip
+### Requirement: Destacar Toggle in CourtStatusChip
 
 Each LIVE or WAITING court card in `OwnerDashboardPage` MUST display a "Destacar" / "Quitar Destacado" toggle button (i18n labels mapped to `featured` field). The button SHALL emit `SET_FEATURED` on click. FINISHED courts SHALL NOT show the button.
 

@@ -48,8 +48,8 @@ Tests       861 passed | 5 skipped (866)
 
 | Requirement | Scenario | Test | Result |
 |---|---|---|---|
-| CourtInfo.featured Field | Default is false | `TableFormatter.test.ts > toPublicInfo > should include featured: false when court is not featured` | ✅ COMPLIANT |
-| CourtInfo.featured Field | Set to true via TABLE_UPDATE | `TableFormatter.test.ts > toPublicInfo > should include featured: true when court is featured` | ✅ COMPLIANT |
+| CourtInfo.featured Field | Default is false | `CourtFormatter.test.ts > toPublicInfo > should include featured: false when court is not featured` | ✅ COMPLIANT |
+| CourtInfo.featured Field | Set to true via TABLE_UPDATE | `CourtFormatter.test.ts > toPublicInfo > should include featured: true when court is featured` | ✅ COMPLIANT |
 | SET_FEATURED Socket Event | Owner sets featured | `SpotlightHandler.test.ts > SET_FEATURED > single-featured invariant > should set a court as featured when no court is currently featured` | ✅ COMPLIANT |
 | SET_FEATURED Socket Event | Null clears all | `SpotlightHandler.test.ts > SET_FEATURED > clear all featured > should set all courts to non-featured when targetTableId is null or empty` | ✅ COMPLIANT |
 | SET_FEATURED Socket Event | Non-owner rejected | `SpotlightHandler.test.ts > SET_FEATURED > owner validation > should reject SET_FEATURED when socket is not owner` | ✅ COMPLIANT |
@@ -88,7 +88,7 @@ Tests       861 passed | 5 skipped (866)
 | SocketEvents.CLIENT.SUBSCRIBE_MATCH | ✅ Implemented | `shared/events.ts:41` — registered in CLIENT events |
 | SocketEvents.CLIENT.UNSUBSCRIBE_MATCH | ✅ Implemented | `shared/events.ts:42` — registered in CLIENT events |
 | Court.featured server field | ✅ Implemented | `server/src/domain/types.ts:109` — `featured: boolean` (defaults `false`) |
-| TableFormatter maps featured | ✅ Implemented | `TableFormatter.ts:26` — `featured: table.featured` |
+| CourtFormatter maps featured | ✅ Implemented | `CourtFormatter.ts:26` — `featured: table.featured` |
 | SET_FEATURED handler (owner, table, invariant) | ✅ Implemented | `SpotlightHandler.ts:30-73` — owner check, table validation, single-featured invariant, broadcast |
 | SUBSCRIBE_MATCH handler | ✅ Implemented | `SpotlightHandler.ts:77-100` — validates featured, socket.join, emit MATCH_UPDATE |
 | UNSUBSCRIBE_MATCH handler | ✅ Implemented | `SpotlightHandler.ts:103-110` — socket.leave(courtId) |
@@ -117,10 +117,10 @@ Tests       861 passed | 5 skipped (866)
 |---|---|---|
 | TDD Evidence reported | ❌ Missing | No `apply-progress` artifact found in repo |
 | All tasks have tests | ✅ Yes | 12/12 PR #1 tasks have covering tests |
-| RED confirmed (tests exist) | ✅ Yes | All test files exist: `SpotlightHandler.test.ts` (460 lines), `TableFormatter.test.ts` (114 lines) |
+| RED confirmed (tests exist) | ✅ Yes | All test files exist: `SpotlightHandler.test.ts` (460 lines), `CourtFormatter.test.ts` (114 lines) |
 | GREEN confirmed (tests pass) | ✅ Yes | 377 server tests pass, 861 client tests pass |
 | Triangulation adequate | ✅ Yes | Multiple test cases per behavior (e.g., 4 tests for single-featured invariant) |
-| Safety Net for modified files | ⚠️ N/A (new files) | `SpotlightHandler.ts`, `SpotlightHandler.test.ts`, `TableFormatter.test.ts` are new; existing test files updated with `featured: false` field (defensive) |
+| Safety Net for modified files | ⚠️ N/A (new files) | `SpotlightHandler.ts`, `SpotlightHandler.test.ts`, `CourtFormatter.test.ts` are new; existing test files updated with `featured: false` field (defensive) |
 
 **Note**: No `apply-progress` artifact was produced by the apply phase. Strict TDD Cycle Evidence table is unavailable for cross-reference. However, all test files exist, all tests pass on execution, and the spec compliance matrix is fully covered.
 
@@ -130,12 +130,12 @@ Tests       861 passed | 5 skipped (866)
 
 | Layer | Tests | Files | Tools |
 |---|---|---|---|
-| Unit | ~30 (SpotlightHandler) + ~16 (TableFormatter) | 2 | Jest (mocks, spies) |
+| Unit | ~30 (SpotlightHandler) + ~16 (CourtFormatter) | 2 | Jest (mocks, spies) |
 | Integration | 0 (PR #1 scope) | 0 | — |
 | E2E | 0 (PR #1 scope) | 0 | — |
 | **Total** | **~46** | **2** | |
 
-All tests are isolated unit tests with mocked Socket.io and TableManager dependencies. Appropriate for server handler logic.
+All tests are isolated unit tests with mocked Socket.io and CourtManager dependencies. Appropriate for server handler logic.
 
 ---
 

@@ -28,7 +28,7 @@ Chain strategy: stacked-to-main
 - [x] 1.1 Add `featured?: boolean` to `CourtInfo` in `shared/types.ts` (~line 219)
 - [x] 1.2 Add `SET_FEATURED`, `SUBSCRIBE_MATCH`, `UNSUBSCRIBE_MATCH` + payload types to `shared/events.ts` CLIENT
 - [x] 1.3 Add `featured: boolean` (default false) to `Court` in `server/src/domain/types.ts`
-- [x] 1.4 Update `TableFormatter.toPublicInfo()` to map `table.featured` → output
+- [x] 1.4 Update `CourtFormatter.toPublicInfo()` to map `table.featured` → output
 
 ## Phase 2: Server Handler (Core Logic)
 
@@ -46,8 +46,8 @@ Chain strategy: stacked-to-main
 
 ## Phase 4: Owner Dashboard
 
-- [ ] 4.1 Add `featured?: boolean` + `onToggleFeatured?: () => void` to `TableStatusChipProps`
-- [ ] 4.2 Render "Destacar" / "Quitar Destacado" toggle button in `TableStatusChip` (i18n), hidden for FINISHED
+- [ ] 4.1 Add `featured?: boolean` + `onToggleFeatured?: () => void` to `CourtStatusChipProps`
+- [ ] 4.2 Render "Destacar" / "Quitar Destacado" toggle button in `CourtStatusChip` (i18n), hidden for FINISHED
 - [ ] 4.3 Wire `SET_FEATURED` emit in `OwnerDashboardPage` via `onToggleFeatured`
 
 ## Phase 5: Testing

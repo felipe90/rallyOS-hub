@@ -2,17 +2,17 @@ import { useState, useEffect, useMemo } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { Typography } from '../../atoms/Typography'
 import { HistoryList } from '../HistoryList/HistoryList'
-import type { HistoryTableSectionProps } from './HistoryTableSection.types'
+import type { HistoryCourtSectionProps } from './HistoryCourtSection.types'
 import type { ScoreChange } from '@shared/types'
 
-export function HistoryTableSection({
+export function HistoryCourtSection({
   tableId,
   tableName,
   playerNames,
   history,
   handicap,
   defaultExpanded = false,
-}: HistoryTableSectionProps) {
+}: HistoryCourtSectionProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
 
   // Sync with defaultExpanded prop changes (for expand all / collapse all)

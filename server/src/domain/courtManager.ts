@@ -16,11 +16,11 @@ import { Court, TableInfo, TableInfoWithPin, Player, MatchConfig, MatchStateExte
 import { AllHistoryEntry } from '../../../shared/types';
 import { logger } from '../utils/logger';
 import { sanitizeInput } from '../utils/validation';
-import { CourtRepository } from '../services/table/TableRepository';
+import { CourtRepository } from '../services/table/CourtRepository';
 import { PlayerService } from '../services/table/PlayerService';
 import { MatchOrchestrator } from '../services/table/MatchOrchestrator';
 import { SportRegistry } from './sports/sport.registry';
-import { CourtFormatter } from '../services/table/TableFormatter';
+import { CourtFormatter } from '../services/table/CourtFormatter';
 import { PinService } from '../services/security/PinService';
 import { QRService } from '../services/qr/QRService';
 import { StateStore } from '../services/store/StateStore';

@@ -1,6 +1,6 @@
 import type { ScoreChange } from '@shared/types'
 
-export interface HistoryTableSectionProps {
+export interface HistoryCourtSectionProps {
   tableId: string
   tableName: string
   playerNames: { a: string; b: string }

@@ -5,7 +5,7 @@
  * including the featured field.
  */
 
-import { CourtFormatter } from './TableFormatter';
+import { CourtFormatter } from './CourtFormatter';
 import { Court } from '../../domain/types';
 
 function createMockCourt(overrides: Partial<Court> = {}): Court {

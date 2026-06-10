@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { KioskAllTablesPage, calculatePages } from './KioskAllTablesPage'
+import { KioskAllCourtsPage, calculatePages } from './KioskAllCourtsPage'
 import { useSocketContext } from '@/contexts/SocketContext'
 import type { TableInfo, KioskNotificationData } from '@shared/types'
 
@@ -74,12 +74,12 @@ function renderPage(
 
   return render(
     <MemoryRouter>
-      <KioskAllTablesPage />
+      <KioskAllCourtsPage />
     </MemoryRouter>
   )
 }
 
-describe('KioskAllTablesPage', () => {
+describe('KioskAllCourtsPage', () => {
   it('renders empty state when no active tables', () => {
     renderPage([{ ...makeTable(), status: 'FINISHED' }])
     expect(screen.getByText('No active matches')).toBeInTheDocument()
@@ -142,7 +142,7 @@ describe('KioskAllTablesPage', () => {
 
     render(
       <MemoryRouter>
-        <KioskAllTablesPage />
+        <KioskAllCourtsPage />
       </MemoryRouter>
     )
 
@@ -161,7 +161,7 @@ describe('KioskAllTablesPage', () => {
 
     render(
       <MemoryRouter>
-        <KioskAllTablesPage />
+        <KioskAllCourtsPage />
       </MemoryRouter>
     )
 
@@ -185,7 +185,7 @@ describe('KioskAllTablesPage', () => {
 
     render(
       <MemoryRouter>
-        <KioskAllTablesPage />
+        <KioskAllCourtsPage />
       </MemoryRouter>
     )
 
@@ -207,7 +207,7 @@ describe('KioskAllTablesPage', () => {
 
     render(
       <MemoryRouter>
-        <KioskAllTablesPage />
+        <KioskAllCourtsPage />
       </MemoryRouter>
     )
 
@@ -232,7 +232,7 @@ describe('KioskAllTablesPage', () => {
 
     render(
       <MemoryRouter>
-        <KioskAllTablesPage />
+        <KioskAllCourtsPage />
       </MemoryRouter>
     )
 
@@ -277,7 +277,7 @@ describe('KioskAllTablesPage', () => {
 
       render(
         <MemoryRouter>
-          <KioskAllTablesPage />
+          <KioskAllCourtsPage />
         </MemoryRouter>,
       )
 
@@ -295,7 +295,7 @@ describe('KioskAllTablesPage', () => {
 
       render(
         <MemoryRouter>
-          <KioskAllTablesPage />
+          <KioskAllCourtsPage />
         </MemoryRouter>,
       )
 
@@ -311,7 +311,7 @@ describe('KioskAllTablesPage', () => {
 
       render(
         <MemoryRouter>
-          <KioskAllTablesPage />
+          <KioskAllCourtsPage />
         </MemoryRouter>,
       )
 
@@ -329,7 +329,7 @@ describe('KioskAllTablesPage', () => {
 
       render(
         <MemoryRouter>
-          <KioskAllTablesPage />
+          <KioskAllCourtsPage />
         </MemoryRouter>,
       )
 
@@ -341,7 +341,7 @@ describe('KioskAllTablesPage', () => {
   })
 })
 
-describe('KioskAllTablesPage — featured court spotlight', () => {
+describe('KioskAllCourtsPage — featured court spotlight', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     Object.defineProperty(window, 'innerWidth', { value: 1920, configurable: true })
@@ -412,7 +412,7 @@ describe('KioskAllTablesPage — featured court spotlight', () => {
     })
     rerender(
       <MemoryRouter>
-        <KioskAllTablesPage />
+        <KioskAllCourtsPage />
       </MemoryRouter>,
     )
 
@@ -601,7 +601,7 @@ describe('calculatePages', () => {
   })
 })
 
-describe('KioskAllTablesPage — rotation behavior', () => {
+describe('KioskAllCourtsPage — rotation behavior', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     // Large viewport: 1920×1080, 3 columns, ~12 cards per page
@@ -629,7 +629,7 @@ describe('KioskAllTablesPage — rotation behavior', () => {
 
     render(
       <MemoryRouter>
-        <KioskAllTablesPage />
+        <KioskAllCourtsPage />
       </MemoryRouter>,
     )
 
@@ -655,7 +655,7 @@ describe('KioskAllTablesPage — rotation behavior', () => {
 
     render(
       <MemoryRouter>
-        <KioskAllTablesPage />
+        <KioskAllCourtsPage />
       </MemoryRouter>,
     )
 
@@ -688,7 +688,7 @@ describe('KioskAllTablesPage — rotation behavior', () => {
 
     render(
       <MemoryRouter>
-        <KioskAllTablesPage />
+        <KioskAllCourtsPage />
       </MemoryRouter>,
     )
 
@@ -727,7 +727,7 @@ describe('KioskAllTablesPage — rotation behavior', () => {
 
     const { rerender } = render(
       <MemoryRouter>
-        <KioskAllTablesPage />
+        <KioskAllCourtsPage />
       </MemoryRouter>,
     )
 
@@ -747,7 +747,7 @@ describe('KioskAllTablesPage — rotation behavior', () => {
 
     rerender(
       <MemoryRouter>
-        <KioskAllTablesPage />
+        <KioskAllCourtsPage />
       </MemoryRouter>,
     )
 
@@ -766,7 +766,7 @@ describe('KioskAllTablesPage — rotation behavior', () => {
 
     render(
       <MemoryRouter>
-        <KioskAllTablesPage />
+        <KioskAllCourtsPage />
       </MemoryRouter>,
     )
 
@@ -786,7 +786,7 @@ describe('KioskAllTablesPage — rotation behavior', () => {
 
     render(
       <MemoryRouter>
-        <KioskAllTablesPage />
+        <KioskAllCourtsPage />
       </MemoryRouter>,
     )
 
@@ -808,7 +808,7 @@ describe('KioskAllTablesPage — rotation behavior', () => {
 
     const { rerender } = render(
       <MemoryRouter>
-        <KioskAllTablesPage />
+        <KioskAllCourtsPage />
       </MemoryRouter>,
     )
 
@@ -827,7 +827,7 @@ describe('KioskAllTablesPage — rotation behavior', () => {
 
     rerender(
       <MemoryRouter>
-        <KioskAllTablesPage />
+        <KioskAllCourtsPage />
       </MemoryRouter>,
     )
 
@@ -847,7 +847,7 @@ describe('KioskAllTablesPage — rotation behavior', () => {
 
     render(
       <MemoryRouter>
-        <KioskAllTablesPage />
+        <KioskAllCourtsPage />
       </MemoryRouter>,
     )
 
@@ -879,7 +879,7 @@ describe('KioskAllTablesPage — rotation behavior', () => {
 
     const { rerender } = render(
       <MemoryRouter>
-        <KioskAllTablesPage />
+        <KioskAllCourtsPage />
       </MemoryRouter>,
     )
 
@@ -901,7 +901,7 @@ describe('KioskAllTablesPage — rotation behavior', () => {
 
     rerender(
       <MemoryRouter>
-        <KioskAllTablesPage />
+        <KioskAllCourtsPage />
       </MemoryRouter>,
     )
 
@@ -929,7 +929,7 @@ describe('KioskAllTablesPage — rotation behavior', () => {
 
     render(
       <MemoryRouter>
-        <KioskAllTablesPage />
+        <KioskAllCourtsPage />
       </MemoryRouter>,
     )
 

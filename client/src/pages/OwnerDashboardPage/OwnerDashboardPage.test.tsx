@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { OwnerDashboardPage } from './OwnerDashboardPage'
 import { useSocketContext } from '@/contexts/SocketContext'
 import { useAuthContext } from '@/contexts/AuthContext'
-import { useTableManagement } from '@/hooks/useTableManagement'
+import { useCourtManagement } from '@/hooks/useCourtManagement'
 
 // Mock SocketContext
 vi.mock('@/contexts/SocketContext', () => ({
@@ -42,8 +42,8 @@ vi.mock('@/hooks/useRefereeSession', () => ({
   }),
 }))
 
-vi.mock('@/hooks/useTableManagement', () => ({
-  useTableManagement: vi.fn(() => ({
+vi.mock('@/hooks/useCourtManagement', () => ({
+  useCourtManagement: vi.fn(() => ({
     isCreatingTable: false,
     tableName: '',
     setTableName: vi.fn(),
@@ -363,7 +363,7 @@ describe('OwnerDashboardPage — Export CSV Button', () => {
 describe('OwnerDashboardPage – appError display', () => {
   it('shows appError with role="alert" and AlertTriangle icon when creating table', () => {
     // Override useTableManagement to show creation mode
-    vi.mocked(useTableManagement).mockReturnValue({
+    vi.mocked(useCourtManagement).mockReturnValue({
       isCreatingTable: true,
       tableName: 'Test Table',
       setTableName: vi.fn(),

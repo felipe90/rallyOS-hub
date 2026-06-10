@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { HistoryTableSection } from './HistoryTableSection'
+import { HistoryCourtSection } from './HistoryCourtSection'
 import type { ScoreChange } from '@shared/types'
 
 const mockHistory: ScoreChange[] = [
@@ -29,9 +29,9 @@ const defaultProps = {
   history: mockHistory,
 }
 
-describe('HistoryTableSection', () => {
+describe('HistoryCourtSection', () => {
   it('renders header with table name and set summary', () => {
-    render(<HistoryTableSection {...defaultProps} />)
+    render(<HistoryCourtSection {...defaultProps} />)
     expect(screen.getByText('Mesa 1')).toBeInTheDocument()
     // Should show set summary: "Juan {setsA}-{setsB} María"
     expect(screen.getByText('Juan 0-0 María')).toBeInTheDocument()
@@ -70,7 +70,7 @@ describe('HistoryTableSection', () => {
     ]
 
     render(
-      <HistoryTableSection
+      <HistoryCourtSection
         {...defaultProps}
         history={historyWithSets}
         defaultExpanded={true}
@@ -103,7 +103,7 @@ describe('HistoryTableSection', () => {
     ]
 
     render(
-      <HistoryTableSection
+      <HistoryCourtSection
         {...defaultProps}
         history={historyWithSets}
         defaultExpanded={true}
@@ -113,13 +113,13 @@ describe('HistoryTableSection', () => {
   })
 
   it('shows entry count badge', () => {
-    render(<HistoryTableSection {...defaultProps} />)
+    render(<HistoryCourtSection {...defaultProps} />)
     expect(screen.getByText('2 eventos')).toBeInTheDocument()
   })
 
   it('shows singular badge for single entry', () => {
     render(
-      <HistoryTableSection
+      <HistoryCourtSection
         {...defaultProps}
         history={[mockHistory[0]]}
       />
@@ -128,20 +128,20 @@ describe('HistoryTableSection', () => {
   })
 
   it('collapsed by default (no history items shown)', () => {
-    render(<HistoryTableSection {...defaultProps} />)
+    render(<HistoryCourtSection {...defaultProps} />)
     // History items should NOT be visible when collapsed
     expect(screen.queryByText(/Punto/)).not.toBeInTheDocument()
   })
 
   it('expands on header click', () => {
-    render(<HistoryTableSection {...defaultProps} />)
+    render(<HistoryCourtSection {...defaultProps} />)
     const header = screen.getByText('Mesa 1').closest('button')!
     fireEvent.click(header)
     expect(screen.getByText(/Punto/)).toBeInTheDocument()
   })
 
   it('collapses on second header click', () => {
-    render(<HistoryTableSection {...defaultProps} />)
+    render(<HistoryCourtSection {...defaultProps} />)
     const header = screen.getByText('Mesa 1').closest('button')!
 
     fireEvent.click(header)
@@ -152,27 +152,27 @@ describe('HistoryTableSection', () => {
   })
 
   it('starts expanded when defaultExpanded is true', () => {
-    render(<HistoryTableSection {...defaultProps} defaultExpanded={true} />)
+    render(<HistoryCourtSection {...defaultProps} defaultExpanded={true} />)
     expect(screen.getByText(/Punto/)).toBeInTheDocument()
     expect(screen.getByText(/Corrección/)).toBeInTheDocument()
   })
 
   it('resolves player A name via HistoryList', () => {
-    render(<HistoryTableSection {...defaultProps} defaultExpanded={true} />)
+    render(<HistoryCourtSection {...defaultProps} defaultExpanded={true} />)
     // Player A should resolve to 'Juan' (in compact mode, spans are separate)
     expect(screen.getByText('Juan')).toBeInTheDocument()
     expect(screen.getByText('Punto')).toBeInTheDocument()
   })
 
   it('resolves player B name via HistoryList', () => {
-    render(<HistoryTableSection {...defaultProps} defaultExpanded={true} />)
+    render(<HistoryCourtSection {...defaultProps} defaultExpanded={true} />)
     // Player B should resolve to 'María'
     expect(screen.getByText('María')).toBeInTheDocument()
     expect(screen.getByText('Corrección')).toBeInTheDocument()
   })
 
   it('displays score transitions', () => {
-    render(<HistoryTableSection {...defaultProps} defaultExpanded={true} />)
+    render(<HistoryCourtSection {...defaultProps} defaultExpanded={true} />)
     expect(screen.getByText('0-0 → 1-0')).toBeInTheDocument()
     expect(screen.getByText('1-0 → 1-1')).toBeInTheDocument()
   })
@@ -181,7 +181,7 @@ describe('HistoryTableSection', () => {
 
   it('accepts handicap prop without crashing', () => {
     render(
-      <HistoryTableSection
+      <HistoryCourtSection
         {...defaultProps}
         handicap={{ a: 2, b: 0 }}
         defaultExpanded={true}
@@ -193,7 +193,7 @@ describe('HistoryTableSection', () => {
 
   it('displays handicap information when provided', () => {
     render(
-      <HistoryTableSection
+      <HistoryCourtSection
         {...defaultProps}
         handicap={{ a: 2, b: 0 }}
         defaultExpanded={true}
@@ -207,7 +207,7 @@ describe('HistoryTableSection', () => {
 
   it('does not display handicap when not provided', () => {
     render(
-      <HistoryTableSection
+      <HistoryCourtSection
         {...defaultProps}
         defaultExpanded={true}
       />
@@ -218,7 +218,7 @@ describe('HistoryTableSection', () => {
 
   it('handles partial handicap (only one player)', () => {
     render(
-      <HistoryTableSection
+      <HistoryCourtSection
         {...defaultProps}
         handicap={{ a: 3 }}
         defaultExpanded={true}

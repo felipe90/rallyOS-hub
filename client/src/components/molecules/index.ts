@@ -15,8 +15,8 @@ export { HistoryList } from './HistoryList'
 export type { HistoryListProps } from './HistoryList'
 export type { ScoreChange } from '@shared/types'
 
-export { HistoryTableSection } from './HistoryTableSection'
-export type { HistoryTableSectionProps } from './HistoryTableSection'
+export { HistoryCourtSection } from './HistoryCourtSection'
+export type { HistoryCourtSectionProps } from './HistoryCourtSection'
 
 export { HistoryAccordion } from './HistoryAccordion'
 export type { HistoryAccordionProps } from './HistoryAccordion'

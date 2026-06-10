@@ -1,5 +1,5 @@
 /**
- * useTableManagement - Table lifecycle operations for the Owner dashboard
+ * useCourtManagement - Court lifecycle operations for the Owner dashboard
  *
  * Manages table creation, cleaning (PIN regeneration), and deletion.
  * Extracted from OwnerDashboardPage to keep the page focused on layout.
@@ -15,7 +15,7 @@ export interface TableManagementConfig {
   connected: boolean
 }
 
-export function useTableManagement({ socket, connected }: TableManagementConfig) {
+export function useCourtManagement({ socket, connected }: TableManagementConfig) {
   /** ── Table Creation ── */
   const [isCreatingTable, setIsCreatingTable] = useState(false)
   const [isCreating, setIsCreating] = useState(false)

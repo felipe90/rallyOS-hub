@@ -18,7 +18,7 @@ import { useAuthContext } from '@/contexts/AuthContext'
 import { useDashboardStats } from '@/hooks/useDashboardStats'
 import { usePinSubmission } from '@/hooks/usePinSubmission'
 import { useRefereeSession } from '@/hooks/useRefereeSession'
-import { useTableManagement } from '@/hooks/useTableManagement'
+import { useCourtManagement } from '@/hooks/useCourtManagement'
 import { useToast } from '@/components/molecules/Toast'
 import { Button } from '@/components/atoms/Button'
 import { Body } from '@/components/atoms/Typography'
@@ -47,7 +47,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
   const { submitPin, loading: pinLoading, error: pinError, clearError } = usePinSubmission(socket)
   const { saveSession, findAnyValidSession, clearSession } = useRefereeSession()
 
-  const tableMgmt = useTableManagement({ socket, connected })
+  const tableMgmt = useCourtManagement({ socket, connected })
   const { addToast } = useToast()
 
   // Track previous creating state to detect table creation completion

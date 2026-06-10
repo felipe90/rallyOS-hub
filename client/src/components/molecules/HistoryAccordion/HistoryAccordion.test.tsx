@@ -21,7 +21,7 @@ const createEntry = (id: string, name: string, playerA: string, playerB: string)
 })
 
 describe('HistoryAccordion', () => {
-  it('renders one HistoryTableSection per entry', () => {
+  it('renders one HistoryCourtSection per entry', () => {
     const entries: AllHistoryEntry[] = [
       createEntry('table-1', 'Mesa 1', 'Juan', 'María'),
       createEntry('table-2', 'Mesa 2', 'Carlos', 'Ana'),

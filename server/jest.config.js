@@ -12,7 +12,7 @@ module.exports = {
     '**/src/**/*.test.ts',
     '!**/tests/**/security.spec.ts',
     '!**/tests/**/match-logic.spec.ts',
-    '!**/tests/**/multi-table.spec.ts',
+    '!**/tests/**/multi-court.spec.ts',
   ],
   rootDir: '.',
 };

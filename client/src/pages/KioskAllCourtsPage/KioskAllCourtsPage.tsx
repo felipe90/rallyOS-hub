@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useI18n, changeLanguage } from '@/i18n'
 import { useSocketContext } from '@/contexts/SocketContext'
 import { ConnectionStatus, Typography, LiveBadge } from '@/components/atoms'
-import { KioskTableCard } from '@/components/organisms/KioskTableCard'
+import { KioskCourtCard } from '@/components/organisms/KioskCourtCard'
 import { KioskNotificationToast } from '@/components/organisms/KioskNotificationToast'
 import { ScoreboardMain } from '@/components/organisms/ScoreboardMain/ScoreboardMain'
 import { QRCodeSVG } from 'qrcode.react'
@@ -45,7 +45,7 @@ export function calculatePages(
   return pages
 }
 
-export function KioskAllTablesPage() {
+export function KioskAllCourtsPage() {
   const { tables, connected, connecting, hubConfig, kioskNotification, socket } = useSocketContext()
   const { i18nText } = useI18n()
 
@@ -318,7 +318,7 @@ export function KioskAllTablesPage() {
                 }`}
               >
                 {pages[currentPage]?.map((table) => (
-                  <KioskTableCard key={table.id} table={table} />
+                  <KioskCourtCard key={table.id} table={table} />
                 ))}
               </div>
               {/* Page indicators */}
@@ -339,7 +339,7 @@ export function KioskAllTablesPage() {
             /* Static mode — all cards fit, render with tighter spacing */
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-6 flex-1 content-start">
               {activeTables.map((table) => (
-                <KioskTableCard key={table.id} table={table} condensed />
+                <KioskCourtCard key={table.id} table={table} condensed />
               ))}
             </div>
           )}

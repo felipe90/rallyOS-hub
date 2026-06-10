@@ -83,7 +83,7 @@ export function useCourtManagement({ socket, connected }: CourtManagementConfig)
 
   const confirmClean = useCallback(() => {
     if (cleanConfirmCourtId && socket && connected) {
-      socket.emit(SocketEvents.CLIENT.REGENERATE_PIN, { tableId: cleanConfirmCourtId })
+      socket.emit(SocketEvents.CLIENT.REGENERATE_PIN, { courtId: cleanConfirmCourtId })
     }
     setCleanConfirmCourtId(null)
   }, [cleanConfirmCourtId, socket, connected])
@@ -101,7 +101,7 @@ export function useCourtManagement({ socket, connected }: CourtManagementConfig)
 
   const confirmDelete = useCallback(() => {
     if (deleteConfirmCourtId && socket && connected) {
-      socket.emit(SocketEvents.CLIENT.DELETE_COURT, { tableId: deleteConfirmCourtId })
+      socket.emit(SocketEvents.CLIENT.DELETE_COURT, { courtId: deleteConfirmCourtId })
     }
     setDeleteConfirmCourtId(null)
   }, [deleteConfirmCourtId, socket, connected])

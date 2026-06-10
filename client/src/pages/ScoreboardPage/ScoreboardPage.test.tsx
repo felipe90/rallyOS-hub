@@ -177,7 +177,7 @@ describe('ScoreboardPage', () => {
     renderWithRouter(<ScoreboardPage />)
 
     await waitFor(() => {
-      expect(mockEmit).toHaveBeenCalledWith('GET_MATCH_STATE', { tableId: 'table-1' })
+      expect(mockEmit).toHaveBeenCalledWith('GET_MATCH_STATE', { courtId: 'table-1' })
     })
   })
 
@@ -200,7 +200,7 @@ describe('ScoreboardPage', () => {
     renderWithRouter(<ScoreboardPage />)
 
     await waitFor(() => {
-      expect(mockEmit).toHaveBeenCalledWith('SET_REF', { tableId: 'table-1', pin: '12345' })
+      expect(mockEmit).toHaveBeenCalledWith('SET_REF', { courtId: 'table-1', pin: '12345' })
     })
   })
 

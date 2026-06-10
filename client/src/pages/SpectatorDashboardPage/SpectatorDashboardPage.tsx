@@ -26,7 +26,7 @@ export function SpectatorDashboardPage(_props: SpectatorDashboardPageProps) {
   // Espectador entra directo sin PIN ni nombre
   const handleJoinTable = (tableId: string) => {
     // Emit JOIN_TABLE as spectator (no PIN needed)
-    emit(SocketEvents.CLIENT.JOIN_COURT, { tableId, name: 'Espectador', role: 'viewer' })
+    emit(SocketEvents.CLIENT.JOIN_COURT, { courtId: tableId, name: 'Espectador', role: 'viewer' })
     
     // Store table info
     login('viewer', tableId)

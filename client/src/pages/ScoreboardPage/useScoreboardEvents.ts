@@ -61,28 +61,28 @@ export function useScoreboardEvents({
 
   const handleScorePoint = (player: 'A' | 'B') => {
     if (!connected || !canEdit) return
-    emit(SocketEvents.CLIENT.RECORD_POINT, { player, tableId })
+    emit(SocketEvents.CLIENT.RECORD_POINT, { player, courtId })
   }
 
   const handleSubtractPoint = (player: 'A' | 'B') => {
     if (!connected || !canEdit) return
-    emit(SocketEvents.CLIENT.SUBTRACT_POINT, { player, tableId })
+    emit(SocketEvents.CLIENT.SUBTRACT_POINT, { player, courtId })
   }
 
   const handleUndo = () => {
     if (!connected || !canEdit) return
-    emit(SocketEvents.CLIENT.UNDO_LAST, { tableId })
+    emit(SocketEvents.CLIENT.UNDO_LAST, { courtId })
   }
 
   const handleSetServer = (player: 'A' | 'B') => {
     if (!connected || !canEdit) return
     const playerKey = player.toLowerCase() as 'a' | 'b'
-    emit(SocketEvents.CLIENT.SET_SERVER, { player: playerKey, tableId })
+    emit(SocketEvents.CLIENT.SET_SERVER, { player: playerKey, courtId })
   }
 
   const handleSwapSides = () => {
     if (!connected || !canEdit) return
-    emit(SocketEvents.CLIENT.SWAP_SIDES, { tableId })
+    emit(SocketEvents.CLIENT.SWAP_SIDES, { courtId })
   }
 
   const handleStartMatch = (config: MatchStartConfig) => {

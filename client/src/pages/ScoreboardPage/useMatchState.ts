@@ -14,7 +14,7 @@ export function useMatchState(
 ) {
   useEffect(() => {
     if (connected && tableId) {
-      emit(SocketEvents.CLIENT.GET_MATCH_STATE, { tableId })
+      emit(SocketEvents.CLIENT.GET_MATCH_STATE, { courtId: tableId })
     }
   }, [tableId, connected, emit])
 }

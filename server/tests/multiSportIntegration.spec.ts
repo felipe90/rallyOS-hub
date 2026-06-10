@@ -38,6 +38,7 @@ function makeCourt(overrides: Partial<Court> = {}): Court {
     history: [],
     players: [],
     createdAt: Date.now(),
+    featured: false,
     ...overrides,
   };
 }

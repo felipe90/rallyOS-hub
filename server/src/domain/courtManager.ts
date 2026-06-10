@@ -67,7 +67,8 @@ export class TableManager {
       playerNames: { a: 'Player A', b: 'Player B' },
       history: [],
       players: [],
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      featured: false,
     };
 
     table.sportRules.setTableId(id, tableName);
@@ -473,6 +474,7 @@ export class TableManager {
           history: [],
           players: [],
           createdAt: pt.createdAt,
+          featured: false,
         };
 
         // Wire callbacks so Socket.io events work after restoration

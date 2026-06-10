@@ -18,6 +18,7 @@ function createMockTable(pin: string): Table {
     history: [],
     players: [],
     createdAt: Date.now(),
+    featured: false,
   };
 }
 

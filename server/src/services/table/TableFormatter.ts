@@ -22,7 +22,8 @@ export class TableFormatter {
       playerNames: s.playerNames ?? { a: 'Player A', b: 'Player B' },
       currentScore,
       currentSets,
-      winner: state.winner
+      winner: state.winner,
+      featured: table.featured,
     };
   }
 

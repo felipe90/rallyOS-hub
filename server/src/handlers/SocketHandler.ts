@@ -20,7 +20,8 @@ import {
   TableEventHandler, 
   MatchEventHandler, 
   AuthHandler, 
-  AdminHandler 
+  AdminHandler,
+  SpotlightHandler,
 } from './index';
 
 export class SocketHandler {
@@ -35,6 +36,7 @@ export class SocketHandler {
   private matchHandler: MatchEventHandler;
   private authHandler: AuthHandler;
   private adminHandler: AdminHandler;
+  private spotlightHandler: SpotlightHandler;
 
   constructor(io: Server, tableManager: TableManager, ownerPin: string, hubConfig: HubConfig) {
     this.io = io;
@@ -48,6 +50,7 @@ export class SocketHandler {
     this.matchHandler = new MatchEventHandler(io, tableManager, ownerPin);
     this.authHandler = new AuthHandler(io, tableManager, ownerPin);
     this.adminHandler = new AdminHandler(io, tableManager, ownerPin);
+    this.spotlightHandler = new SpotlightHandler(io, tableManager, ownerPin);
     
     // Set up global table update listener once
     this.tableManager.onTableUpdate = (tableInfo) => {
@@ -67,6 +70,15 @@ export class SocketHandler {
         this.io.to(tableId).emit(SocketEvents.SERVER.SET_WON, { tableId, ...event });
       } else if (event.type === 'MATCH_WON') {
         this.io.to(tableId).emit(SocketEvents.SERVER.MATCH_WON, { tableId, ...event });
+
+        // Auto-clear featured when match ends on a featured court
+        const court = this.tableManager.getTable(tableId);
+        if (court && court.featured) {
+          court.featured = false;
+          const updatedInfo = this.tableManager.tableToInfo(court);
+          this.io.emit(SocketEvents.SERVER.TABLE_UPDATE, updatedInfo);
+          logger.info({ tableId }, 'Featured auto-cleared on match end');
+        }
 
         // Auto-notify kiosk clients on match won (server-sourced, bypasses rate limit)
         const ms = this.tableManager.getMatchState(tableId);
@@ -135,6 +147,7 @@ export class SocketHandler {
       this.matchHandler.registerHandlers(socket);
       this.authHandler.registerHandlers(socket);
       this.adminHandler.registerHandlers(socket);
+      this.spotlightHandler.registerHandlers(socket);
 
       // Handle disconnection
       socket.on('disconnect', (reason) => {

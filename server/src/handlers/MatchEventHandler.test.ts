@@ -70,6 +70,7 @@ function createMockTableManager(): TableManager {
       history: [],
       players: [],
       createdAt: Date.now(),
+      featured: false,
       onTableUpdate: undefined,
       onMatchEvent: undefined,
     }),

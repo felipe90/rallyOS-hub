@@ -226,6 +226,8 @@ export interface CourtInfo {
   currentScore?: Score;
   currentSets?: Score;
   winner?: Player | null;
+  /** Whether this court is the featured/spotlight court for the kiosk */
+  featured?: boolean;
 }
 
 export interface CourtInfoWithPin extends CourtInfo {

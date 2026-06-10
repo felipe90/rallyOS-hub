@@ -105,6 +105,8 @@ export interface Court {
   history: MatchEvent[];
   players: PlayerConnection[];
   createdAt: number;
+  /** Whether this court is currently featured/spotlight on the kiosk */
+  featured: boolean;
   // Event callbacks — internal wiring, never exposed to client
   onTableUpdate?: () => void;
   onMatchEvent?: (event: MatchEvent) => void;

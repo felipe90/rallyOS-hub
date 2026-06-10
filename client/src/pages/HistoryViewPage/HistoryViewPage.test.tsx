@@ -29,8 +29,8 @@ const mockUseAuthContext = useAuthContext as ReturnType<typeof vi.fn>
 const createMockSocketEmit = () => vi.fn()
 
 const createAllHistoryEntry = (overrides: Partial<AllHistoryEntry> = {}): AllHistoryEntry => ({
-  tableId: 'table-1',
-  tableName: 'Mesa 1',
+  courtId: 'table-1',
+  courtName: 'Mesa 1',
   status: 'LIVE',
   playerNames: { a: 'Juan', b: 'María' },
   history: [
@@ -55,10 +55,10 @@ const createAllHistoryEntry = (overrides: Partial<AllHistoryEntry> = {}): AllHis
 })
 
 const createMultiTableEntries = (): AllHistoryEntry[] => [
-  createAllHistoryEntry({ tableId: 'table-1', tableName: 'Mesa 1' }),
+  createAllHistoryEntry({ courtId: 'table-1', courtName: 'Mesa 1' }),
   createAllHistoryEntry({
-    tableId: 'table-2',
-    tableName: 'Mesa 2',
+    courtId: 'table-2',
+    courtName: 'Mesa 2',
     playerNames: { a: 'Carlos', b: 'Ana' },
     history: [
       {

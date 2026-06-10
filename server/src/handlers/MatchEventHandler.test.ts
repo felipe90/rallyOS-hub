@@ -55,7 +55,7 @@ function createMockTableManager(): CourtManager {
         getConfig: () => ({ sport: SPORT.TABLE_TENNIS, pointsPerSet: 11, bestOf: 3, minDifference: 2 }),
         setPlayerNames: jest.fn(),
         setEventCallback: jest.fn(),
-        setTableId: jest.fn(),
+        setCourtId: jest.fn(),
         startMatch: jest.fn(() => (matchState = { ...matchState, status: 'LIVE' } as any)),
         recordPoint: jest.fn((player) => {
           if (!matchState) return null;
@@ -129,7 +129,7 @@ describe('MatchEventHandler — Phase 5.2 (Sport-aware CONFIGURE_MATCH)', () => 
         playerNames: { a: 'Alice', b: 'Bob' },
       });
 
-      handler({ tableId: 'court-1', player: 'A' });
+      handler({ courtId: 'court-1', player: 'A' });
 
       expect(tableManager.recordPoint).toHaveBeenCalledWith('court-1', 'A');
     });
@@ -142,7 +142,7 @@ describe('MatchEventHandler — Phase 5.2 (Sport-aware CONFIGURE_MATCH)', () => 
       const handler = getHandler(SocketEvents.CLIENT.CONFIGURE_MATCH);
 
       handler({
-        tableId: 'court-1',
+        courtId: 'court-1',
         playerNames: { a: 'Alice', b: 'Bob' },
         sport: SPORT.PADEL,
         tiebreakPoints: 7,
@@ -156,7 +156,7 @@ describe('MatchEventHandler — Phase 5.2 (Sport-aware CONFIGURE_MATCH)', () => 
       const handler = getHandler(SocketEvents.CLIENT.CONFIGURE_MATCH);
 
       handler({
-        tableId: 'court-1',
+        courtId: 'court-1',
         playerNames: { a: 'Alice', b: 'Bob' },
         sport: SPORT.PADEL,
         tiebreakPoints: 10,
@@ -171,7 +171,7 @@ describe('MatchEventHandler — Phase 5.2 (Sport-aware CONFIGURE_MATCH)', () => 
       const handler = getHandler(SocketEvents.CLIENT.CONFIGURE_MATCH);
 
       handler({
-        tableId: 'court-1',
+        courtId: 'court-1',
         playerNames: { a: 'Alice', b: 'Bob' },
         sport: SPORT.PADEL,
         tiebreakPoints: 7,
@@ -189,7 +189,7 @@ describe('MatchEventHandler — Phase 5.2 (Sport-aware CONFIGURE_MATCH)', () => 
       const handler = getHandler(SocketEvents.CLIENT.CONFIGURE_MATCH);
 
       handler({
-        tableId: 'court-1',
+        courtId: 'court-1',
         playerNames: { a: 'Alice', b: 'Bob' },
         format: 5,
         ptsPerSet: 11,
@@ -202,7 +202,7 @@ describe('MatchEventHandler — Phase 5.2 (Sport-aware CONFIGURE_MATCH)', () => 
       const handler = getHandler(SocketEvents.CLIENT.CONFIGURE_MATCH);
 
       handler({
-        tableId: 'court-1',
+        courtId: 'court-1',
         playerNames: { a: 'Alice', b: 'Bob' },
         format: 3,
         ptsPerSet: 21,

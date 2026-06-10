@@ -14,8 +14,8 @@ vi.mock('@/components/organisms/KioskNotificationToast', () => ({
 
 // Mock ScoreboardMain for featured court spotlight tests
 vi.mock('@/components/organisms/ScoreboardMain/ScoreboardMain', () => ({
-  ScoreboardMain: vi.fn(({ match }: { match: { tableName: string } }) => (
-    <div data-testid="scoreboard-main">{match.tableName}</div>
+  ScoreboardMain: vi.fn(({ match }: { match: { courtName: string } }) => (
+    <div data-testid="scoreboard-main">{match.courtName}</div>
   )),
 }))
 
@@ -468,7 +468,7 @@ describe('KioskAllCourtsPage — featured court spotlight', () => {
     act(() => {
       matchUpdateHandler({
         tableId: 't1',
-        tableName: 'Featured Court',
+        courtName: 'Featured Court',
         status: 'LIVE',
         sport: 'tableTennis',
         playerNames: { a: 'Alice', b: 'Bob' },

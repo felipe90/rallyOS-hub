@@ -6,8 +6,8 @@ import type { HistoryCourtSectionProps } from './HistoryCourtSection.types'
 import type { ScoreChange } from '@shared/types'
 
 export function HistoryCourtSection({
-  tableId,
-  tableName,
+  courtId,
+  courtName,
   playerNames,
   history,
   handicap,
@@ -47,7 +47,7 @@ export function HistoryCourtSection({
         onClick={() => setIsExpanded(!isExpanded)}
         className="w-full flex items-center justify-between px-3 py-2 hover:bg-surface-hover transition-colors text-left"
         aria-expanded={isExpanded}
-        aria-controls={`history-section-${tableId}`}
+        aria-controls={`history-section-${courtId}`}
       >
         <div className="flex items-center gap-2 min-w-0">
           <ChevronRight
@@ -57,7 +57,7 @@ export function HistoryCourtSection({
           />
           <div className="min-w-0">
             <Typography variant="body" className="font-semibold truncate text-sm">
-              {tableName}
+              {courtName}
             </Typography>
             <Typography variant="caption" className="text-text-muted text-xs">
               {playerNames.a} {setSummary.a}-{setSummary.b} {playerNames.b}
@@ -76,7 +76,7 @@ export function HistoryCourtSection({
       </button>
 
       <div
-        id={`history-section-${tableId}`}
+        id={`history-section-${courtId}`}
         className={`overflow-hidden transition-all duration-300 ease-in-out ${
           isExpanded ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
         }`}

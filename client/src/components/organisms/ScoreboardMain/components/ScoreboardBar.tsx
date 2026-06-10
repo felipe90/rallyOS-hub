@@ -3,7 +3,7 @@ import { SetScore } from '../../../molecules/MatchContext';
 import type { FormattedSet } from '../../../../adapters/SportDisplayAdapter';
 
 export interface ScoreboardBarProps {
-  tableName: string;
+  courtName: string;
   isConnected: boolean;
   status: string;
   /** Pre-formatted set history from adapter.formatSetHistory() */

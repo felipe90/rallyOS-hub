@@ -195,8 +195,8 @@ export interface PadelMatchState extends MatchStateBase {
 export type MatchState = TableTennisMatchState | PadelMatchState;
 
 export type MatchStateExtended = MatchState & {
-  tableId: string;
-  tableName: string;
+  courtId: string;
+  courtName: string;
   playerNames: { a: string; b: string };
   history: ScoreChange[];
   undoAvailable: boolean;
@@ -205,8 +205,8 @@ export type MatchStateExtended = MatchState & {
 // ── Aggregated History (ALL_HISTORY event) ────────────────────────
 
 export interface AllHistoryEntry {
-  tableId: string;
-  tableName: string;
+  courtId: string;
+  courtName: string;
   status: string;
   playerNames: { a: string; b: string };
   history: ScoreChange[];
@@ -248,8 +248,8 @@ export interface QRData {
   hubSsid: string;
   hubIp: string;
   hubPort: number;
-  tableId: string;
-  tableName: string;
+  courtId: string;
+  courtName: string;
   pin: string;
   encryptedPin: string;  // required: format {iv}:{ciphertext}:{authTag}:{timestamp}
   url: string;           // rallyhub://join/{tableId}?ePin={encryptedPin}
@@ -273,7 +273,7 @@ export interface ValidationError {
 // ── Referee Revoked Event ───────────────────────────────────────────
 
 export interface RefRevokedEvent {
-  tableId: string;
+  courtId: string;
   reason: 'Regenerado' | 'Expulsado' | 'Eliminada';
 }
 

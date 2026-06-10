@@ -4,8 +4,8 @@ import { HistoryAccordion } from './HistoryAccordion'
 import type { AllHistoryEntry } from '@shared/types'
 
 const createEntry = (id: string, name: string, playerA: string, playerB: string): AllHistoryEntry => ({
-  tableId: id,
-  tableName: name,
+  courtId: id,
+  courtName: name,
   status: 'LIVE',
   playerNames: { a: playerA, b: playerB },
   history: [
@@ -107,8 +107,8 @@ describe('HistoryAccordion', () => {
 
   it('displays set summary in header (e.g., "Juan 2-1 María")', () => {
     const entry: AllHistoryEntry = {
-      tableId: 'table-1',
-      tableName: 'Mesa 1',
+      courtId: 'table-1',
+      courtName: 'Mesa 1',
       status: 'LIVE',
       playerNames: { a: 'Juan', b: 'María' },
       history: [
@@ -152,8 +152,8 @@ describe('HistoryAccordion', () => {
 
   it('displays handicap when provided in AllHistoryEntry', () => {
     const entry: AllHistoryEntry = {
-      tableId: 'table-1',
-      tableName: 'Mesa 1',
+      courtId: 'table-1',
+      courtName: 'Mesa 1',
       status: 'LIVE',
       playerNames: { a: 'Juan', b: 'María' },
       history: [],

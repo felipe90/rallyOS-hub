@@ -26,7 +26,7 @@ function createMockCourt(overrides: Partial<Court> = {}): Court {
       getConfig: jest.fn(),
       setPlayerNames: jest.fn(),
       setEventCallback: jest.fn(),
-      setTableId: jest.fn(),
+      setCourtId: jest.fn(),
       startMatch: jest.fn(),
       recordPoint: jest.fn(),
       undoLast: jest.fn(),

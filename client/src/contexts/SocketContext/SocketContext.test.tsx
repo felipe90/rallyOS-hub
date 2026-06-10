@@ -19,7 +19,7 @@ const TestConsumer = () => {
       <button data-testid="emit-btn" onClick={() => context.emit('test-event', { foo: 'bar' })}>Emit</button>
       <button data-testid="createCourt-btn" onClick={() => context.createCourt('test-court')}>Create Court</button>
       <button data-testid="joinCourt-btn" onClick={() => context.joinCourt('court-1', '1234', 'referee')}>Join Court</button>
-      <button data-testid="leaveTable-btn" onClick={() => context.emit('LEAVE_TABLE')}>Leave Table</button>
+      <button data-testid="leaveTable-btn" onClick={() => context.emit('LEAVE_COURT')}>Leave Court</button>
       <button data-testid="disconnect-btn" onClick={() => context.disconnect()}>Disconnect</button>
     </div>
   )
@@ -249,7 +249,7 @@ describe('SocketContext', () => {
 
     screen.getByTestId('leaveTable-btn').click()
 
-    expect(emitFn).toHaveBeenCalledWith('LEAVE_TABLE')
+    expect(emitFn).toHaveBeenCalledWith('LEAVE_COURT')
   })
 
   it('disconnect() works correctly', () => {

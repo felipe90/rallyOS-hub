@@ -23,8 +23,8 @@ const mockHistory: ScoreChange[] = [
 ]
 
 const defaultProps = {
-  tableId: 'table-1',
-  tableName: 'Mesa 1',
+  courtId: 'table-1',
+  courtName: 'Mesa 1',
   playerNames: { a: 'Juan', b: 'María' },
   history: mockHistory,
 }

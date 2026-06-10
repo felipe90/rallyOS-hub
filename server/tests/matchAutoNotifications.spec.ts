@@ -87,7 +87,7 @@ describe('START_MATCH auto-notification', () => {
     expect(handlerFn).toBeDefined();
 
     mockIo.emit.mockClear();
-    handlerFn({ tableId: 'table-1' });
+    handlerFn({ courtId: 'table-1' });
 
     expect(mockIo.emit).toHaveBeenCalledWith(
       SocketEvents.SERVER.KIOSK_NOTIFICATION,
@@ -149,7 +149,7 @@ describe('Fallback names', () => {
 
     const handlerFn = mockSocket._handlers[SocketEvents.CLIENT.START_MATCH];
     mockIo.emit.mockClear();
-    handlerFn({ tableId: 'table-1' });
+    handlerFn({ courtId: 'table-1' });
 
     expect(mockIo.emit).toHaveBeenCalledWith(
       SocketEvents.SERVER.KIOSK_NOTIFICATION,
@@ -201,11 +201,11 @@ describe('Existing emissions unchanged', () => {
     handler.registerHandlers(mockSocket);
 
     const handlerFn = mockSocket._handlers[SocketEvents.CLIENT.START_MATCH];
-    handlerFn({ tableId: 'table-1' });
+    handlerFn({ courtId: 'table-1' });
 
     // Existing events still emitted
     expect(mockIo.emit).toHaveBeenCalledWith(
-      SocketEvents.SERVER.TABLE_UPDATE,
+      SocketEvents.SERVER.COURT_UPDATE,
       expect.any(Object),
     );
     expect(mockIo.emit).toHaveBeenCalledWith(
@@ -232,7 +232,7 @@ describe('Existing emissions unchanged', () => {
     // Original MATCH_WON still emitted
     expect(mockIo.emit).toHaveBeenCalledWith(
       SocketEvents.SERVER.MATCH_WON,
-      expect.objectContaining({ tableId: 'table-1', winner: 'A' }),
+      expect.objectContaining({ courtId: 'table-1', winner: 'A' }),
     );
   });
 });

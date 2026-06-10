@@ -71,7 +71,7 @@ export class CourtManager {
       featured: false,
     };
 
-    court.sportRules.setTableId(id, courtName);
+    court.sportRules.setCourtId(id, courtName);
     court.sportRules.setEventCallback((event: any) => {
       this.onMatchEvent(id, event);
     });
@@ -284,8 +284,8 @@ export class CourtManager {
         : undefined;
 
       return {
-        tableId: court.id,
-        tableName: court.name,
+        courtId: court.id,
+        courtName: court.name,
         status: court.status,
         playerNames,
         history,
@@ -305,7 +305,7 @@ export class CourtManager {
     court.players = [];
     court.playerNames = { a: 'Player A', b: 'Player B' };
     this.matchOrchestrator.resetTable(court);
-    court.sportRules.setTableId(court.id, court.name);
+    court.sportRules.setCourtId(court.id, court.name);
     court.sportRules.setPlayerNames({ a: 'Player A', b: 'Player B' });
 
     // Rewire callback: MatchOrchestrator creates new matchEngine routing to undefined court.onMatchEvent
@@ -461,7 +461,7 @@ export class CourtManager {
           undoAvailable: (pt.matchState.history || []).length > 0,
         } as MatchStateExtended);
 
-        engine.setTableId(pt.id, pt.name);
+        engine.setCourtId(pt.id, pt.name);
 
     const court: Court = {
           id: pt.id,

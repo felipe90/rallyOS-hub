@@ -42,7 +42,7 @@ export class MatchOrchestrator {
     const sport = (config as any).sport;
     const rules = this.resolveRules(sport);
     const engine = new MatchEngine(config, rules);
-    engine.setTableId(court.id, court.name);
+    engine.setCourtId(court.id, court.name);
     if (playerNames) {
       engine.setPlayerNames(playerNames);
     }

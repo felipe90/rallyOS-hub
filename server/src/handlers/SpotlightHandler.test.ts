@@ -63,7 +63,7 @@ function createCourt(overrides: Record<string, any> = {}): any {
       getConfig: jest.fn(),
       setPlayerNames: jest.fn(),
       setEventCallback: jest.fn(),
-      setTableId: jest.fn(),
+      setCourtId: jest.fn(),
       startMatch: jest.fn(),
       recordPoint: jest.fn(),
       undoLast: jest.fn(),
@@ -164,11 +164,11 @@ describe('SET_FEATURED', () => {
   describe('table validation', () => {
     it('should emit TABLE_NOT_FOUND error when target table does not exist', () => {
       const handlerFn = getHandler(SocketEvents.CLIENT.SET_FEATURED);
-      handlerFn({ targetTableId: 'nonexistent' });
+      handlerFn({ targetCourtId: 'nonexistent' });
       expect(mockSocket.emit).toHaveBeenCalledWith('ERROR', expect.objectContaining({ code: 'TABLE_NOT_FOUND' }));
     });
 
-    it('should clear all featured when targetTableId is missing (null/empty)', () => {
+    it('should clear all featured when targetCourtId is missing (null/empty)', () => {
       const court1 = tableManager.getCourt('court-1');
       const court2 = tableManager.getCourt('court-2');
       court1.featured = true;
@@ -184,7 +184,7 @@ describe('SET_FEATURED', () => {
   describe('single-featured invariant', () => {
     it('should set a court as featured when no court is currently featured', () => {
       const handlerFn = getHandler(SocketEvents.CLIENT.SET_FEATURED);
-      handlerFn({ targetTableId: 'court-1' });
+      handlerFn({ targetCourtId: 'court-1' });
 
       const court1 = tableManager.getCourt('court-1');
       expect(court1.featured).toBe(true);
@@ -196,7 +196,7 @@ describe('SET_FEATURED', () => {
       court2.featured = true;
 
       const handlerFn = getHandler(SocketEvents.CLIENT.SET_FEATURED);
-      handlerFn({ targetTableId: 'court-1' });
+      handlerFn({ targetCourtId: 'court-1' });
 
       const court1 = tableManager.getCourt('court-1');
       const updatedCourt2 = tableManager.getCourt('court-2');
@@ -209,22 +209,22 @@ describe('SET_FEATURED', () => {
       court2.featured = true;
 
       const handlerFn = getHandler(SocketEvents.CLIENT.SET_FEATURED);
-      handlerFn({ targetTableId: 'court-1' });
+      handlerFn({ targetCourtId: 'court-1' });
 
-      expect(mockIo.emit).toHaveBeenCalledWith(SocketEvents.SERVER.TABLE_UPDATE, expect.objectContaining({ id: 'court-1', featured: true }));
-      expect(mockIo.emit).toHaveBeenCalledWith(SocketEvents.SERVER.TABLE_UPDATE, expect.objectContaining({ id: 'court-2', featured: false }));
+      expect(mockIo.emit).toHaveBeenCalledWith(SocketEvents.SERVER.COURT_UPDATE, expect.objectContaining({ id: 'court-1', featured: true }));
+      expect(mockIo.emit).toHaveBeenCalledWith(SocketEvents.SERVER.COURT_UPDATE, expect.objectContaining({ id: 'court-2', featured: false }));
     });
   });
 
   describe('clear all featured', () => {
-    it('should set all courts to non-featured when targetTableId is null or empty', () => {
+    it('should set all courts to non-featured when targetCourtId is null or empty', () => {
       const court1 = tableManager.getCourt('court-1');
       const court2 = tableManager.getCourt('court-2');
       court1.featured = true;
       court2.featured = true;
 
       const handlerFn = getHandler(SocketEvents.CLIENT.SET_FEATURED);
-      handlerFn({ targetTableId: null });
+      handlerFn({ targetCourtId: null });
 
       expect(court1.featured).toBe(false);
       expect(court2.featured).toBe(false);
@@ -235,9 +235,9 @@ describe('SET_FEATURED', () => {
       court1.featured = true;
 
       const handlerFn = getHandler(SocketEvents.CLIENT.SET_FEATURED);
-      handlerFn({ targetTableId: null });
+      handlerFn({ targetCourtId: null });
 
-      expect(mockIo.emit).toHaveBeenCalledWith(SocketEvents.SERVER.TABLE_UPDATE, expect.objectContaining({ id: 'court-1', featured: false }));
+      expect(mockIo.emit).toHaveBeenCalledWith(SocketEvents.SERVER.COURT_UPDATE, expect.objectContaining({ id: 'court-1', featured: false }));
     });
   });
 });
@@ -444,7 +444,7 @@ describe('MATCH_WON auto-clear featured', () => {
     // Simulate MATCH_WON event on featured court
     tableManager.onMatchEvent('court-1', { type: 'MATCH_WON', winner: 'A', finalScore: [], sets: { a: 0, b: 0 } });
 
-    expect(mockIo.emit).toHaveBeenCalledWith(SocketEvents.SERVER.TABLE_UPDATE, expect.objectContaining({ id: 'court-1', featured: false }));
+    expect(mockIo.emit).toHaveBeenCalledWith(SocketEvents.SERVER.COURT_UPDATE, expect.objectContaining({ id: 'court-1', featured: false }));
   });
 
   it('should not affect non-MATCH_WON events on featured court', () => {

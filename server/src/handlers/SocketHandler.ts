@@ -55,28 +55,28 @@ export class SocketHandler {
     // Set up global court update listener once
     this.tableManager.onTableUpdate = (tableInfo) => {
       // TABLE_UPDATE goes only to clients in the court's room
-      this.io.to(tableInfo.id).emit(SocketEvents.SERVER.TABLE_UPDATE, tableInfo);
+      this.io.to(tableInfo.id).emit(SocketEvents.SERVER.COURT_UPDATE, tableInfo);
       // TABLE_LIST goes to ALL clients (global)
-      this.io.emit(SocketEvents.SERVER.TABLE_LIST, this.getPublicCourtList());
+      this.io.emit(SocketEvents.SERVER.COURT_LIST, this.getPublicCourtList());
     };
 
     // On tournament finish, broadcast empty table list to all clients
     this.tableManager.onTournamentFinish = () => {
-      this.io.emit(SocketEvents.SERVER.TABLE_LIST, []);
+      this.io.emit(SocketEvents.SERVER.COURT_LIST, []);
     };
 
     this.tableManager.onMatchEvent = (courtId, event) => {
       if (event.type === 'SET_WON') {
-        this.io.to(courtId).emit(SocketEvents.SERVER.SET_WON, { tableId: courtId, ...event });
+        this.io.to(courtId).emit(SocketEvents.SERVER.SET_WON, { courtId: courtId, ...event });
       } else if (event.type === 'MATCH_WON') {
-        this.io.to(courtId).emit(SocketEvents.SERVER.MATCH_WON, { tableId: courtId, ...event });
+        this.io.to(courtId).emit(SocketEvents.SERVER.MATCH_WON, { courtId: courtId, ...event });
 
         // Auto-clear featured when match ends on a featured court
         const court = this.tableManager.getCourt(courtId);
         if (court && court.featured) {
           court.featured = false;
           const updatedInfo = this.tableManager.courtToInfo(court);
-          this.io.emit(SocketEvents.SERVER.TABLE_UPDATE, updatedInfo);
+          this.io.emit(SocketEvents.SERVER.COURT_UPDATE, updatedInfo);
           logger.info({ courtId }, 'Featured auto-cleared on match end');
         }
 
@@ -91,11 +91,11 @@ export class SocketHandler {
           timestamp: Date.now(),
         });
       } else if (event.type === 'GAME_WON') {
-        this.io.to(courtId).emit(SocketEvents.SERVER.GAME_WON, { tableId: courtId, ...event });
+        this.io.to(courtId).emit(SocketEvents.SERVER.GAME_WON, { courtId: courtId, ...event });
       } else if (event.type === 'DEUCE') {
-        this.io.to(courtId).emit(SocketEvents.SERVER.DEUCE, { tableId: courtId, ...event });
+        this.io.to(courtId).emit(SocketEvents.SERVER.DEUCE, { courtId: courtId, ...event });
       } else if (event.type === 'TIEBREAK_START') {
-        this.io.to(courtId).emit(SocketEvents.SERVER.TIEBREAK_START, { tableId: courtId, ...event });
+        this.io.to(courtId).emit(SocketEvents.SERVER.TIEBREAK_START, { courtId: courtId, ...event });
       }
     };
     
@@ -131,7 +131,7 @@ export class SocketHandler {
       logger.debug({ socketId: socket.id, count: this.io.engine.clientsCount }, 'Connected clients');
 
       // Send current courts to new client
-      socket.emit(SocketEvents.SERVER.TABLE_LIST, this.getPublicCourtList());
+      socket.emit(SocketEvents.SERVER.COURT_LIST, this.getPublicCourtList());
 
       // Send hub config to new client (WiFi QR credentials + domain)
       socket.emit(SocketEvents.SERVER.HUB_CONFIG, {

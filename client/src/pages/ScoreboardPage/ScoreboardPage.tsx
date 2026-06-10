@@ -166,7 +166,7 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
       <MatchConfigModal
         isOpen={canConfigure && currentMatch.status === 'WAITING'}
         tableId={tableId}
-        tableName={currentMatch.tableName || ''}
+        courtName={currentMatch.courtName || ''}
         initialBestOf={(currentMatch.config?.bestOf as 1 | 3 | 5) || 3}
         initialHandicapA={((currentMatch.config) as any)?.handicapA || 0}
         initialHandicapB={((currentMatch.config) as any)?.handicapB || 0}
@@ -174,7 +174,7 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
         onSubmit={(config) => handleStartMatch({ ...config, pointsPerSet: 11 })}
         onClose={handleCancelMatch}
         title={i18nText('matchConfigTitle')}
-        forTableLabel={i18nText('matchConfigForTable', { tableName: currentMatch.tableName || '' })}
+        forTableLabel={i18nText('matchConfigForTable', { courtName: currentMatch.courtName || '' })}
         playersLabel={i18nText('matchConfigPlayers')}
         playerAPlaceholder={i18nText('matchConfigPlayerAPlaceholder')}
         playerBPlaceholder={i18nText('matchConfigPlayerBPlaceholder')}

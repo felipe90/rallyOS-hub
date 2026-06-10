@@ -26,7 +26,7 @@ export class AdminHandler extends SocketHandlerBase {
    */
   public registerHandlers(socket: Socket): void {
     // REGENERATE_PIN: Regenerate table PIN and revoke previous referee (kill-switch)
-    socket.on(SocketEvents.CLIENT.REGENERATE_PIN, (data: { tableId: string; pin?: string }) => {
+    socket.on(SocketEvents.CLIENT.REGENERATE_PIN, (data: { courtId: string; pin?: string }) => {
       if (!validateSocketPayload(socket, data, { 
         tableId: { required: true, type: 'string', maxLength: 36 }, 
         pin: { required: false, type: 'string', pattern: /^\d{4,8}$/ } 
@@ -34,11 +34,11 @@ export class AdminHandler extends SocketHandlerBase {
         return;
       }
 
-      if (!data?.tableId) {
+      if (!data?.courtId) {
         return this.emitError(socket, 'INVALID_PARAMS', 'courtId required');
       }
 
-      const court = this.tableManager.getCourt(data.tableId);
+      const court = this.tableManager.getCourt(data.courtId);
       if (!court) {
         return this.emitError(socket, 'TABLE_NOT_FOUND', 'Cancha no encontrada');
       }
@@ -51,10 +51,10 @@ export class AdminHandler extends SocketHandlerBase {
       }
 
       // Get old referee before regenerating
-      const oldRefereeSocketId = this.tableManager.getRefereeSocketId(data.tableId);
+      const oldRefereeSocketId = this.tableManager.getRefereeSocketId(data.courtId);
 
       // Regenerate PIN
-      const newPin = this.tableManager.regeneratePin(data.tableId);
+      const newPin = this.tableManager.regeneratePin(data.courtId);
       if (!newPin) {
         return this.emitError(socket, 'PIN_REGEN_FAILED', 'Error al regenerar PIN');
       }
@@ -62,25 +62,25 @@ export class AdminHandler extends SocketHandlerBase {
       // Emit REF_REVOKED to old referee if exists
       if (oldRefereeSocketId) {
         this.io.to(oldRefereeSocketId).emit(SocketEvents.SERVER.REF_REVOKED, {
-          tableId: data.tableId,
+          tableId: data.courtId,
           reason: 'Regenerado'
         });
-        this.io.in(oldRefereeSocketId).socketsLeave(data.tableId);
-        logger.info({ courtId: data.tableId, oldRefereeId: oldRefereeSocketId }, 'Old referee disconnected from court');
+        this.io.in(oldRefereeSocketId).socketsLeave(data.courtId);
+        logger.info({ courtId: data.courtId, oldRefereeId: oldRefereeSocketId }, 'Old referee disconnected from court');
       }
 
       // Send new QR to the owner who requested regeneration
-      const qrData = this.tableManager.generateQRData(data.tableId);
+      const qrData = this.tableManager.generateQRData(data.courtId);
       if (qrData) {
         socket.emit(SocketEvents.SERVER.QR_DATA, qrData);
       }
 
-      socket.emit(SocketEvents.SERVER.PIN_REGENERATED, { tableId: data.tableId, newPin });
+      socket.emit(SocketEvents.SERVER.PIN_REGENERATED, { courtId: data.courtId, newPin });
 
       // NOTE: Don't emit TABLE_UPDATE here - client will fetch TABLE_LIST_WITH_PINS after PIN_REGENERATED
       // This avoids UI flicker from TABLE_UPDATE (no PIN) followed by TABLE_LIST_WITH_PINS (with PIN)
 
-      logger.info({ courtId: data.tableId }, 'PIN regenerated for court');
+      logger.info({ courtId: data.courtId }, 'PIN regenerated for court');
     });
 
     // SEND_NOTIFICATION: Send typed notification to all kiosk clients

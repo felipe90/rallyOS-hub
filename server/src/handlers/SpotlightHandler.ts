@@ -27,21 +27,21 @@ export class SpotlightHandler extends SocketHandlerBase {
    */
   public registerHandlers(socket: Socket): void {
     // SET_FEATURED: Owner-only — set or clear the featured court
-    socket.on(SocketEvents.CLIENT.SET_FEATURED, (data: { targetTableId?: string | null }) => {
+    socket.on(SocketEvents.CLIENT.SET_FEATURED, (data: { targetCourtId?: string | null }) => {
       const socketData = socket.data as SocketData;
       if (!socketData.isOwner) {
         return this.emitError(socket, 'UNAUTHORIZED', 'Solo el organizador puede destacar una cancha');
       }
 
       // Clear all featured if targetCourtId is null/undefined/empty
-      if (!data?.targetTableId) {
+      if (!data?.targetCourtId) {
         const allCourts = this.tableManager.getAllCourts();
         for (const t of allCourts) {
           const court = this.tableManager.getCourt(t.id);
           if (court && court.featured) {
             court.featured = false;
             const courtInfo = this.tableManager.courtToInfo(court);
-            this.io.emit(SocketEvents.SERVER.TABLE_UPDATE, courtInfo);
+            this.io.emit(SocketEvents.SERVER.COURT_UPDATE, courtInfo);
             logger.debug({ courtId: court.id }, 'Featured cleared via SET_FEATURED(null)');
           }
         }
@@ -49,7 +49,7 @@ export class SpotlightHandler extends SocketHandlerBase {
       }
 
       // Validate target court exists
-      const targetCourt = this.tableManager.getCourt(data.targetTableId);
+      const targetCourt = this.tableManager.getCourt(data.targetCourtId);
       if (!targetCourt) {
         return this.emitError(socket, 'TABLE_NOT_FOUND', 'Cancha no encontrada');
       }
@@ -58,10 +58,10 @@ export class SpotlightHandler extends SocketHandlerBase {
       const allCourts = this.tableManager.getAllCourts();
       for (const t of allCourts) {
         const court = this.tableManager.getCourt(t.id);
-        if (court && court.featured && court.id !== data.targetTableId) {
+        if (court && court.featured && court.id !== data.targetCourtId) {
           court.featured = false;
           const courtInfo = this.tableManager.courtToInfo(court);
-          this.io.emit(SocketEvents.SERVER.TABLE_UPDATE, courtInfo);
+          this.io.emit(SocketEvents.SERVER.COURT_UPDATE, courtInfo);
           logger.debug({ courtId: court.id }, 'Previous featured court cleared');
         }
       }
@@ -69,7 +69,7 @@ export class SpotlightHandler extends SocketHandlerBase {
       // Set new featured court
       targetCourt.featured = true;
       const courtInfo = this.tableManager.courtToInfo(targetCourt);
-      this.io.emit(SocketEvents.SERVER.TABLE_UPDATE, courtInfo);
+      this.io.emit(SocketEvents.SERVER.COURT_UPDATE, courtInfo);
       logger.info({ courtId: targetCourt.id }, 'Court set as featured');
     });
 

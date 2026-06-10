@@ -399,7 +399,7 @@ describe('OwnerDashboardPage – appError display', () => {
 })
 
 describe('OwnerDashboardPage — featured court toggle (Task 4.3)', () => {
-  it('emits SET_FEATURED with targetTableId when "Feature" is clicked on a non-featured LIVE court', () => {
+  it('emits SET_FEATURED with targetCourtId when "Feature" is clicked on a non-featured LIVE court', () => {
     const mockEmit = vi.fn()
     renderPage({
       customSocket: {
@@ -414,7 +414,7 @@ describe('OwnerDashboardPage — featured court toggle (Task 4.3)', () => {
 
     fireEvent.click(featureBtn)
 
-    expect(mockEmit).toHaveBeenCalledWith('SET_FEATURED', { targetTableId: 'court-1' })
+    expect(mockEmit).toHaveBeenCalledWith('SET_FEATURED', { targetCourtId: 'court-1' })
   })
 
   it('emits SET_FEATURED with null when "Remove Spotlight" is clicked on a featured court', () => {
@@ -431,7 +431,7 @@ describe('OwnerDashboardPage — featured court toggle (Task 4.3)', () => {
 
     fireEvent.click(removeBtn)
 
-    expect(mockEmit).toHaveBeenCalledWith('SET_FEATURED', { targetTableId: null })
+    expect(mockEmit).toHaveBeenCalledWith('SET_FEATURED', { targetCourtId: null })
   })
 
   it('does not render featured toggle for FINISHED courts', () => {

@@ -23,8 +23,8 @@ export class QRService {
       hubSsid: this.hubConfig.ssid,
       hubIp: this.hubConfig.ip,
       hubPort: this.hubConfig.port,
-      tableId: court.id,
-      tableName: court.name,
+      courtId: court.id,
+      courtName: court.name,
       pin: court.pin,
       encryptedPin,
       url: `rallyhub://join/${court.id}?ePin=${encodeURIComponent(encryptedPin)}`

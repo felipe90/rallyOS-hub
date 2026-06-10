@@ -145,8 +145,8 @@ describe('MatchEngine.fromState', () => {
       status: 'WAITING',
       winner: null,
       sport: SPORT.TABLE_TENNIS,
-      tableId: '',
-      tableName: '',
+      courtId: '',
+      courtName: '',
       playerNames: { a: 'Player A', b: 'Player B' },
       history: [],
       undoAvailable: false,
@@ -213,8 +213,8 @@ describe('MatchEngine.fromState', () => {
         ],
         status: 'FINISHED',
         winner: 'A',
-        tableId: 'table-xyz',
-        tableName: 'Final Match',
+        courtId: 'table-xyz',
+        courtName: 'Final Match',
         playerNames: { a: 'Champion', b: 'Runner-up' },
         history: [
           {
@@ -237,8 +237,8 @@ describe('MatchEngine.fromState', () => {
       expect(result.winner).toBe('A');
       expect(result.score.sets.a).toBe(2);
       expect(result.score.sets.b).toBe(0);
-      expect(result.tableId).toBe('table-xyz');
-      expect(result.tableName).toBe('Final Match');
+      expect(result.courtId).toBe('table-xyz');
+      expect(result.courtName).toBe('Final Match');
       expect(result.playerNames.a).toBe('Champion');
       expect(result.playerNames.b).toBe('Runner-up');
       expect(result.setHistory).toEqual([

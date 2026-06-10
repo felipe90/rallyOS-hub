@@ -22,7 +22,7 @@ vi.mock('@/i18n', () => ({
         'scoreboardWinnerDialogContinue': 'Continuar',
         'scoreboardCoachmarkMessage': 'Tocá cualquier lado del marcador para sumar un punto',
         'matchConfigTitle': 'Configurar Partido',
-        'matchConfigForTable': `para ${(params as any)?.tableName || ''}`,
+        'matchConfigForTable': `para ${(params as any)?.courtName || ''}`,
         'matchConfigPlayers': 'Jugadores',
         'matchConfigPlayerAPlaceholder': 'Jugador A',
         'matchConfigPlayerBPlaceholder': 'Jugador B',

@@ -119,7 +119,7 @@ describe('SocketHandler Match Event Broadcasting (Phase 5.3)', () => {
     expect(mockIo.emit).toHaveBeenCalledWith(
       SocketEvents.SERVER.GAME_WON,
       expect.objectContaining({
-        tableId: 'court-1',
+        courtId: 'court-1',
         type: 'GAME_WON',
         winner: 'A',
         gameNumber: 3,
@@ -141,7 +141,7 @@ describe('SocketHandler Match Event Broadcasting (Phase 5.3)', () => {
     expect(mockIo.emit).toHaveBeenCalledWith(
       SocketEvents.SERVER.DEUCE,
       expect.objectContaining({
-        tableId: 'court-1',
+        courtId: 'court-1',
         type: 'DEUCE',
       }),
     );
@@ -161,7 +161,7 @@ describe('SocketHandler Match Event Broadcasting (Phase 5.3)', () => {
     expect(mockIo.emit).toHaveBeenCalledWith(
       SocketEvents.SERVER.TIEBREAK_START,
       expect.objectContaining({
-        tableId: 'court-1',
+        courtId: 'court-1',
         type: 'TIEBREAK_START',
         targetPoints: 7,
       }),
@@ -192,7 +192,7 @@ describe('SocketHandler Match Event Broadcasting (Phase 5.3)', () => {
     expect(mockIo.to).toHaveBeenCalledWith('court-1');
     expect(mockIo.emit).toHaveBeenCalledWith(
       SocketEvents.SERVER.SET_WON,
-      expect.objectContaining({ type: 'SET_WON', tableId: 'court-1' }),
+      expect.objectContaining({ type: 'SET_WON', courtId: 'court-1' }),
     );
   });
 

@@ -42,7 +42,7 @@ export function useCourtManagement({ socket, connected }: CourtManagementConfig)
   const createCourt = useCallback(() => {
     const name = courtNameRef.current.trim() || undefined
     if (!validateCourtName(name)) return
-    socket?.emit(SocketEvents.CLIENT.CREATE_TABLE, { name })
+    socket?.emit(SocketEvents.CLIENT.CREATE_COURT, { name })
     setIsCreating(true)
     // Name preserved so user can edit and retry on ERROR (SC-TC-02)
     // Name cleared in handleCourtCreated (happy path) and cancelCreating (cancel)
@@ -65,11 +65,11 @@ export function useCourtManagement({ socket, connected }: CourtManagementConfig)
       // Keep courtName (user can edit and retry)
     }
 
-    socket.on(SocketEvents.SERVER.TABLE_CREATED, handleCourtCreated)
+    socket.on(SocketEvents.SERVER.COURT_CREATED, handleCourtCreated)
     socket.on(SocketEvents.SERVER.ERROR, handleError)
 
     return () => {
-      socket.off(SocketEvents.SERVER.TABLE_CREATED, handleCourtCreated)
+      socket.off(SocketEvents.SERVER.COURT_CREATED, handleCourtCreated)
       socket.off(SocketEvents.SERVER.ERROR, handleError)
     }
   }, [socket])
@@ -101,7 +101,7 @@ export function useCourtManagement({ socket, connected }: CourtManagementConfig)
 
   const confirmDelete = useCallback(() => {
     if (deleteConfirmCourtId && socket && connected) {
-      socket.emit(SocketEvents.CLIENT.DELETE_TABLE, { tableId: deleteConfirmCourtId })
+      socket.emit(SocketEvents.CLIENT.DELETE_COURT, { tableId: deleteConfirmCourtId })
     }
     setDeleteConfirmCourtId(null)
   }, [deleteConfirmCourtId, socket, connected])

@@ -78,11 +78,11 @@ export function useSocketState(socket: Socket | null) {
     }
 
     socket.on(SocketEvents.SERVER.ERROR, handleError)
-    socket.on(SocketEvents.SERVER.TABLE_UPDATE, handleCourtUpdate)
-    socket.on(SocketEvents.SERVER.TABLE_LIST, handleCourtList)
-    socket.on(SocketEvents.SERVER.TABLE_LIST_WITH_PINS, handleCourtListWithPins)
-    socket.on(SocketEvents.SERVER.TABLE_DELETED, handleCourtDeleted)
-    socket.on(SocketEvents.SERVER.TABLE_CREATED, handleCourtCreated)
+    socket.on(SocketEvents.SERVER.COURT_UPDATE, handleCourtUpdate)
+    socket.on(SocketEvents.SERVER.COURT_LIST, handleCourtList)
+    socket.on(SocketEvents.SERVER.COURT_LIST_WITH_PINS, handleCourtListWithPins)
+    socket.on(SocketEvents.SERVER.COURT_DELETED, handleCourtDeleted)
+    socket.on(SocketEvents.SERVER.COURT_CREATED, handleCourtCreated)
     socket.on(SocketEvents.SERVER.MATCH_UPDATE, handleMatchUpdate)
     socket.on(SocketEvents.SERVER.ALL_HISTORY, handleAllHistory)
     socket.on(SocketEvents.SERVER.HUB_CONFIG, handleHubConfig)
@@ -90,11 +90,11 @@ export function useSocketState(socket: Socket | null) {
 
     return () => {
       socket.off(SocketEvents.SERVER.ERROR, handleError)
-      socket.off(SocketEvents.SERVER.TABLE_UPDATE, handleCourtUpdate)
-      socket.off(SocketEvents.SERVER.TABLE_LIST, handleCourtList)
-      socket.off(SocketEvents.SERVER.TABLE_LIST_WITH_PINS, handleCourtListWithPins)
-      socket.off(SocketEvents.SERVER.TABLE_DELETED, handleCourtDeleted)
-      socket.off(SocketEvents.SERVER.TABLE_CREATED, handleCourtCreated)
+      socket.off(SocketEvents.SERVER.COURT_UPDATE, handleCourtUpdate)
+      socket.off(SocketEvents.SERVER.COURT_LIST, handleCourtList)
+      socket.off(SocketEvents.SERVER.COURT_LIST_WITH_PINS, handleCourtListWithPins)
+      socket.off(SocketEvents.SERVER.COURT_DELETED, handleCourtDeleted)
+      socket.off(SocketEvents.SERVER.COURT_CREATED, handleCourtCreated)
       socket.off(SocketEvents.SERVER.MATCH_UPDATE, handleMatchUpdate)
       socket.off(SocketEvents.SERVER.ALL_HISTORY, handleAllHistory)
       socket.off(SocketEvents.SERVER.HUB_CONFIG, handleHubConfig)

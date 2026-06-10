@@ -39,9 +39,9 @@ export function HistoryAccordion({ entries }: HistoryAccordionProps) {
 
       {entries.map((entry, idx) => (
         <HistoryCourtSection
-          key={entry.tableId}
-          tableId={entry.tableId}
-          tableName={entry.tableName}
+          key={entry.courtId}
+          courtId={entry.courtId}
+          courtName={entry.courtName}
           playerNames={entry.playerNames}
           history={entry.history}
           handicap={entry.handicap}

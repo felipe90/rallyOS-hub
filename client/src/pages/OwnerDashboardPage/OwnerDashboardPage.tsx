@@ -155,7 +155,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
     const court = courts.find(t => t.id === courtId)
     const isCurrentlyFeatured = court?.featured === true
     socket.emit(SocketEvents.CLIENT.SET_FEATURED, {
-      targetTableId: isCurrentlyFeatured ? null : courtId,
+      targetCourtId: isCurrentlyFeatured ? null : courtId,
     })
   }, [socket, courts])
 

@@ -23,15 +23,15 @@ export function useSocketActions(socket: Socket | null, currentCourt: TableInfo 
   const createCourt = useCallback(
     (name?: string) => {
       if (!validateCourtName(name)) return
-      emit(SocketEvents.CLIENT.CREATE_TABLE, { name })
+      emit(SocketEvents.CLIENT.CREATE_COURT, { name })
     },
     [emit],
   )
 
-  const requestCourts = useCallback(() => emit(SocketEvents.CLIENT.LIST_TABLES), [emit])
+  const requestCourts = useCallback(() => emit(SocketEvents.CLIENT.LIST_COURTS), [emit])
 
   const requestCourtsWithPins = useCallback(
-    (ownerPin: string) => emit(SocketEvents.CLIENT.GET_TABLES_WITH_PINS, { ownerPin }),
+    (ownerPin: string) => emit(SocketEvents.CLIENT.GET_COURTS_WITH_PINS, { ownerPin }),
     [emit],
   )
 

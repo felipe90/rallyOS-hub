@@ -6,7 +6,7 @@
  * by MatchEngine via the onMatchEvent callback chain.
  */
 
-import { TableManager } from '../src/domain/courtManager';
+import { CourtManager } from '../src/domain/courtManager';
 import { SocketHandler } from '../src/handlers/SocketHandler';
 import { SocketEvents } from '../../shared/events';
 import type { HubConfig } from '../src/domain/types';
@@ -73,14 +73,14 @@ function createMockIo() {
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
-function createMockTableManager(): TableManager {
+function createMockTableManager(): CourtManager {
   return {
     onTableUpdate: () => {},
     onMatchEvent: () => {},
     getAllTables: () => [],
     getTable: () => undefined,
     getMatchState: () => null,
-  } as unknown as TableManager;
+  } as unknown as CourtManager;
 }
 
 const mockHubConfig: HubConfig = {

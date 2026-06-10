@@ -1,12 +1,12 @@
 /**
- * TableFormatter - Transform Table to TableInfo
+ * CourtFormatter - Transform Table to TableInfo
  *
  * Responsibility: Format tables for public/owner consumption.
  */
 
 import { Court, TableInfo, TableInfoWithPin } from '../../domain/types';
 
-export class TableFormatter {
+export class CourtFormatter {
   toPublicInfo(table: Court): TableInfo {
     const state = table.sportRules.getState();
     const s = state as any;
@@ -43,3 +43,7 @@ export class TableFormatter {
     return tables.map(t => this.toInfoWithPin(t));
   }
 }
+/** @deprecated Use CourtFormatter instead */
+export type TableFormatter = CourtFormatter;
+/** @deprecated Use CourtFormatter instead */
+export const TableFormatter = CourtFormatter;

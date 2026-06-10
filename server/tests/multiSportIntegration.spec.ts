@@ -8,7 +8,7 @@
  * 4. MatchEngine resolves correct SportRules from registry
  */
 
-import { TableManager } from '../src/domain/courtManager';
+import { CourtManager } from '../src/domain/courtManager';
 import { MatchOrchestrator } from '../src/services/table/MatchOrchestrator';
 import { SportRegistry } from '../src/domain/sports/sport.registry';
 import { MatchEngine } from '../src/domain/matchEngine';

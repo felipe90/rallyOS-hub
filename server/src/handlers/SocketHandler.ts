@@ -2,7 +2,7 @@
  * SocketHandler - Orchestrator for all socket event handlers
  * 
  * Delegates events to specialized handlers:
- * - TableEventHandler: CREATE_TABLE, LIST_TABLES, JOIN_TABLE, LEAVE_TABLE, DELETE_TABLE
+ * - CourtEventHandler: CREATE_TABLE, LIST_TABLES, JOIN_TABLE, LEAVE_TABLE, DELETE_TABLE
  * - MatchEventHandler: GET_MATCH_STATE, CONFIGURE_MATCH, START_MATCH, RECORD_POINT, etc.
  * - AuthHandler: SET_REF, VERIFY_OWNER, REF_ROLE_CHECK
  * - AdminHandler: REGENERATE_PIN, GET_RATE_LIMIT_STATUS
@@ -11,13 +11,13 @@
  */
 
 import { Server, Socket } from 'socket.io';
-import { TableManager } from '../domain/courtManager';
+import { CourtManager } from '../domain/courtManager';
 import { TableInfo, HubConfig } from '../domain/types';
 import { logger } from '../utils/logger';
 import { RateLimiter } from '../services/security/RateLimiter';
 import { SocketEvents } from '../../../shared/events';
 import { 
-  TableEventHandler, 
+  CourtEventHandler, 
   MatchEventHandler, 
   AuthHandler, 
   AdminHandler,
@@ -26,19 +26,19 @@ import {
 
 export class SocketHandler {
   private io: Server;
-  private tableManager: TableManager;
+  private tableManager: CourtManager;
   private ownerPin: string;
   private hubConfig: HubConfig;
   private connectionRateLimiter: RateLimiter;
   
   // Handler instances
-  private tableHandler: TableEventHandler;
+  private tableHandler: CourtEventHandler;
   private matchHandler: MatchEventHandler;
   private authHandler: AuthHandler;
   private adminHandler: AdminHandler;
   private spotlightHandler: SpotlightHandler;
 
-  constructor(io: Server, tableManager: TableManager, ownerPin: string, hubConfig: HubConfig) {
+  constructor(io: Server, tableManager: CourtManager, ownerPin: string, hubConfig: HubConfig) {
     this.io = io;
     this.tableManager = tableManager;
     this.ownerPin = ownerPin;
@@ -46,7 +46,7 @@ export class SocketHandler {
     this.connectionRateLimiter = new RateLimiter(60_000, 20); // 20 connections per 60s per IP
     
     // Initialize handlers
-    this.tableHandler = new TableEventHandler(io, tableManager, ownerPin);
+    this.tableHandler = new CourtEventHandler(io, tableManager, ownerPin);
     this.matchHandler = new MatchEventHandler(io, tableManager, ownerPin);
     this.authHandler = new AuthHandler(io, tableManager, ownerPin);
     this.adminHandler = new AdminHandler(io, tableManager, ownerPin);

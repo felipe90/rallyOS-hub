@@ -9,7 +9,7 @@
  */
 
 import { Server, Socket } from 'socket.io';
-import { TableManager } from '../domain/courtManager';
+import { CourtManager } from '../domain/courtManager';
 import { validateSocketPayload } from '../utils/validation';
 import { logger, maskIp } from '../utils/logger';
 import { SocketEvents } from '../../../shared/events';
@@ -17,7 +17,7 @@ import { sanitizeMessage } from '../../../shared/validation';
 import { SocketHandlerBase } from './SocketHandlerBase';
 
 export class AdminHandler extends SocketHandlerBase {
-  constructor(io: Server, tableManager: TableManager, ownerPin: string) {
+  constructor(io: Server, tableManager: CourtManager, ownerPin: string) {
     super(io, tableManager, ownerPin);
   }
 

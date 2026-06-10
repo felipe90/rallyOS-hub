@@ -13,7 +13,7 @@
  */
 
 import { Server, Socket } from 'socket.io';
-import { TableManager } from '../domain/courtManager';
+import { CourtManager } from '../domain/courtManager';
 import { validateSocketPayload, sanitizeInput } from '../utils/validation';
 import { logger } from '../utils/logger';
 import { SocketEvents } from '../../../shared/events';
@@ -23,7 +23,7 @@ import type { Player, MatchConfig } from '../domain/matchEngine';
 import { SPORT } from '../../../shared/types';
 
 export class MatchEventHandler extends SocketHandlerBase {
-  constructor(io: Server, tableManager: TableManager, ownerPin: string) {
+  constructor(io: Server, tableManager: CourtManager, ownerPin: string) {
     super(io, tableManager, ownerPin);
   }
 

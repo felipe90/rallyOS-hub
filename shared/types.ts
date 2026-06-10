@@ -67,7 +67,9 @@ export interface Score {
 
 // ── Table Status ────────────────────────────────────────────────────
 
-export type TableStatus = 'WAITING' | 'CONFIGURING' | 'LIVE' | 'FINISHED';
+export type CourtStatus = 'WAITING' | 'CONFIGURING' | 'LIVE' | 'FINISHED';
+/** @deprecated Use CourtStatus instead */
+export type TableStatus = CourtStatus;
 
 // ── Score Change (for history / undo) ───────────────────────────────
 
@@ -152,7 +154,7 @@ export type MatchConfigExtended = MatchConfig & {
 /** Base state fields common to ALL sports */
 export interface MatchStateBase {
   config: MatchConfig;
-  status: TableStatus;
+  status: CourtStatus;
   winner: Player | null;
   swappedSides: boolean;
   midSetSwapped: boolean;
@@ -220,7 +222,7 @@ export interface CourtInfo {
   id: string;
   number: number;
   name: string;
-  status: TableStatus;
+  status: CourtStatus;
   playerCount: number;
   playerNames?: { a: string; b: string };
   currentScore?: Score;

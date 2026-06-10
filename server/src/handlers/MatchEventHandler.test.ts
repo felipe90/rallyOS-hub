@@ -7,7 +7,7 @@
  */
 
 import { Server } from 'socket.io';
-import { TableManager } from '../domain/courtManager';
+import { CourtManager } from '../domain/courtManager';
 import { MatchEventHandler } from './MatchEventHandler';
 import { SocketEvents } from '../../../shared/events';
 import type { MatchStateExtended } from '../domain/matchEngine';
@@ -37,7 +37,7 @@ function createMockIo(mockSocket: any) {
   return io;
 }
 
-function createMockTableManager(): TableManager {
+function createMockTableManager(): CourtManager {
   let matchState: MatchStateExtended | null = null;
 
   const tm: any = {
@@ -82,7 +82,7 @@ function createMockTableManager(): TableManager {
     isReferee: jest.fn(() => true),
   };
 
-  return tm as unknown as TableManager;
+  return tm as unknown as CourtManager;
 }
 
 // ── Tests ──────────────────────────────────────────────────────────────
@@ -91,7 +91,7 @@ describe('MatchEventHandler — Phase 5.2 (Sport-aware CONFIGURE_MATCH)', () => 
   let handler: MatchEventHandler;
   let mockSocket: any;
   let mockIo: any;
-  let tableManager: TableManager;
+  let tableManager: CourtManager;
   let registeredHandlers: Map<string, (...args: any[]) => void>;
 
   beforeEach(() => {

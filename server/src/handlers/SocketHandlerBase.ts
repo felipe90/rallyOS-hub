@@ -7,18 +7,18 @@
 
 import { Server, Socket } from 'socket.io';
 import crypto from 'crypto';
-import { TableManager } from '../domain/courtManager';
+import { CourtManager } from '../domain/courtManager';
 import { TableInfo, TableInfoWithPin } from '../domain/types';
 import { logger, maskIp } from '../utils/logger';
 import { RateLimiter } from '../services/security/RateLimiter';
 
 export abstract class SocketHandlerBase {
   protected io: Server;
-  protected tableManager: TableManager;
+  protected tableManager: CourtManager;
   protected ownerPin: string;
   protected rateLimiter: RateLimiter;
 
-  constructor(io: Server, tableManager: TableManager, ownerPin: string) {
+  constructor(io: Server, tableManager: CourtManager, ownerPin: string) {
     this.io = io;
     this.tableManager = tableManager;
     this.ownerPin = ownerPin;

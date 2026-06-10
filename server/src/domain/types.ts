@@ -12,7 +12,7 @@
 import {
   Player,
   Score,
-  TableStatus,
+  CourtStatus, TableStatus,
   ScoreChange,
   MatchEventType,
   SetWonEvent,
@@ -39,7 +39,7 @@ import type { MatchEngine } from './matchEngine';
 export {
   Player,
   Score,
-  TableStatus,
+  CourtStatus, TableStatus,
   ScoreChange,
   MatchEventType,
   SetWonEvent,
@@ -98,7 +98,7 @@ export interface Court {
   id: string;
   number: number;
   name: string;
-  status: TableStatus;
+  status: CourtStatus;
   pin: string;
   sportRules: MatchEngine;
   playerNames: { a: string; b: string };

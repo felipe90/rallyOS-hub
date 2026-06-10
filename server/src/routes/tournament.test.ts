@@ -2,7 +2,7 @@ import { SPORT } from '../../../shared/types';
 /**
  * Tournament route handler tests.
  *
- * Tests each handler function in isolation using fake StateStore/TableManager.
+ * Tests each handler function in isolation using fake StateStore/CourtManager.
  * The auth middleware is tested separately in ownerAuth.test.ts.
  */
 
@@ -13,7 +13,7 @@ import {
   handleFinish,
 } from './tournament';
 import { StateStore } from '../services/store/StateStore';
-import type { FileSystem, PersistedTable } from '../services/store/types';
+import type { FileSystem, PersistedCourt } from '../services/store/types';
 import type { Request, Response } from 'express';
 
 // ── Fake FileSystem ────────────────────────────────────────────────────
@@ -70,7 +70,7 @@ function mockRes(): { res: Response; status: jest.Mock; json: jest.Mock; sent: a
   };
 }
 
-// ── Fake TableManager (only loadTournament needed) ─────────────────────
+// ── Fake CourtManager (only loadTournament needed) ─────────────────────
 
 function makeFakeTableManager(restoredCount: number) {
   return {
@@ -88,7 +88,7 @@ function makeFakeTableManager(restoredCount: number) {
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
-function makeTable(overrides: Partial<PersistedTable> = {}): PersistedTable {
+function makeTable(overrides: Partial<PersistedCourt> = {}): PersistedCourt {
   return {
     id: 'table-1',
     number: 1,

@@ -1,4 +1,4 @@
-import { ScoreChange, TableStatus, Score, PadelPoint } from '../../domain/types';
+import { ScoreChange, CourtStatus, Score, PadelPoint } from '../../domain/types';
 import type { MatchConfig } from '../../domain/types';
 
 /**
@@ -6,7 +6,7 @@ import type { MatchConfig } from '../../domain/types';
  * Flat interface (not the discriminated union MatchState) to handle
  * migration from v1 (no sport field) and to keep serialization simple.
  * Excludes runtime fields (tableId, tableName, playerNames, undoAvailable)
- * which live on the PersistedTable level.
+ * which live on the PersistedCourt level.
  */
 export interface PersistedMatchState {
   config: MatchConfig;
@@ -14,7 +14,7 @@ export interface PersistedMatchState {
   swappedSides: boolean;
   midSetSwapped: boolean;
   setHistory: Score[];
-  status: TableStatus;
+  status: CourtStatus;
   winner: string | null;
   sport: string;
   history: ScoreChange[];
@@ -30,16 +30,18 @@ export interface PersistedMatchState {
  * Excludes runtime-only fields: MatchEngine instances, PlayerConnection.socketId
  * values, and Socket.io callback references.
  */
-export interface PersistedTable {
+export interface PersistedCourt {
   id: string;
   number: number;
   name: string;
-  status: TableStatus;
+  status: CourtStatus;
   pin: string;
   playerNames: { a: string; b: string };
   createdAt: number;
   matchState: PersistedMatchState;
 }
+/** @deprecated Use PersistedCourt instead */
+export type PersistedTable = PersistedCourt;
 
 /**
  * Current persistence schema version.
@@ -54,7 +56,7 @@ export const PERSISTENCE_VERSION = 2;
 export interface PersistedState {
   version: number;
   savedAt: number;
-  tables: PersistedTable[];
+  tables: PersistedCourt[];
 }
 
 /**
@@ -62,7 +64,7 @@ export interface PersistedState {
  * StateStore does NOT implement this — separate adapters do.
  */
 export interface MatchExporter {
-  export(tables: PersistedTable[]): string;
+  export(tables: PersistedCourt[]): string;
 }
 
 /**

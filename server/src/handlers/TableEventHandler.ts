@@ -1,5 +1,5 @@
 /**
- * TableEventHandler - Handles table-related socket events
+ * CourtEventHandler - Handles table-related socket events
  *
  * Events handled:
  * - CREATE_TABLE: Create a new table
@@ -11,7 +11,7 @@
  */
 
 import { Server, Socket } from 'socket.io';
-import { TableManager } from '../domain/courtManager';
+import { CourtManager } from '../domain/courtManager';
 import { validateSocketPayload } from '../utils/validation';
 import { logger } from '../utils/logger';
 import { SocketEvents } from '../../../shared/events';
@@ -19,8 +19,8 @@ import { PIN_RULES } from '../../../shared/validation';
 import { SocketHandlerBase } from './SocketHandlerBase';
 import type { SocketData } from '../domain/types';
 
-export class TableEventHandler extends SocketHandlerBase {
-  constructor(io: Server, tableManager: TableManager, ownerPin: string) {
+export class CourtEventHandler extends SocketHandlerBase {
+  constructor(io: Server, tableManager: CourtManager, ownerPin: string) {
     super(io, tableManager, ownerPin);
   }
 
@@ -205,3 +205,7 @@ export class TableEventHandler extends SocketHandlerBase {
     });
   }
 }
+/** @deprecated Use CourtEventHandler instead */
+export type TableEventHandler = CourtEventHandler;
+/** @deprecated Use CourtEventHandler instead */
+export const TableEventHandler = CourtEventHandler;

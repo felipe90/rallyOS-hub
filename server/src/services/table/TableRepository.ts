@@ -1,12 +1,12 @@
 /**
- * TableRepository - Table CRUD operations
+ * CourtRepository - Table CRUD operations
  *
  * Responsibility: Store and retrieve tables.
  */
 
 import { Court } from '../../domain/types';
 
-export class TableRepository {
+export class CourtRepository {
   private tables: Map<string, Court> = new Map();
 
   create(table: Court): Court {
@@ -43,3 +43,7 @@ export class TableRepository {
     this.tables.clear();
   }
 }
+/** @deprecated Use CourtRepository instead */
+export type TableRepository = CourtRepository;
+/** @deprecated Use CourtRepository instead */
+export const TableRepository = CourtRepository;

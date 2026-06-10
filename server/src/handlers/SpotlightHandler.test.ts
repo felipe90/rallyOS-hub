@@ -10,7 +10,7 @@
 
 import { Server } from 'socket.io';
 import { SocketHandler } from './SocketHandler';
-import { TableManager } from '../domain/courtManager';
+import { CourtManager } from '../domain/courtManager';
 import { SocketEvents } from '../../../shared/events';
 import { SpotlightHandler } from './SpotlightHandler';
 
@@ -413,7 +413,7 @@ describe('MATCH_WON auto-clear featured', () => {
       })),
     };
 
-    socketHandler = new SocketHandler(mockIo, tableManager as unknown as TableManager, '12345678', {
+    socketHandler = new SocketHandler(mockIo, tableManager as unknown as CourtManager, '12345678', {
       ssid: 'test', ip: '0.0.0.0', port: 3000, domain: 'test.local', wifiPassword: 'test',
     });
   });

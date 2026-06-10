@@ -1,11 +1,11 @@
 /**
- * TableFormatter Tests
+ * CourtFormatter Tests
  *
- * Verifies the TableFormatter properly maps Court → CourtInfo,
+ * Verifies the CourtFormatter properly maps Court → CourtInfo,
  * including the featured field.
  */
 
-import { TableFormatter } from './TableFormatter';
+import { CourtFormatter } from './TableFormatter';
 import { Court } from '../../domain/types';
 
 function createMockCourt(overrides: Partial<Court> = {}): Court {
@@ -44,11 +44,11 @@ function createMockCourt(overrides: Partial<Court> = {}): Court {
   };
 }
 
-describe('TableFormatter', () => {
-  let formatter: TableFormatter;
+describe('CourtFormatter', () => {
+  let formatter: CourtFormatter;
 
   beforeEach(() => {
-    formatter = new TableFormatter();
+    formatter = new CourtFormatter();
   });
 
   describe('toPublicInfo', () => {

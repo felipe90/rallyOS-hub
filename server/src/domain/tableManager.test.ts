@@ -1,7 +1,7 @@
 import { SPORT } from '../../../shared/types';
-import { TableManager } from './courtManager';
+import { CourtManager } from './courtManager';
 import { StateStore } from '../services/store/StateStore';
-import type { FileSystem, PersistedTable, PersistedMatchState } from '../services/store/types';
+import type { FileSystem, PersistedCourt, PersistedMatchState } from '../services/store/types';
 import type { HubConfig, MatchStateExtended, MatchEvent } from './types';
 import { MatchEngine } from './matchEngine';
 
@@ -70,9 +70,9 @@ const mockHubConfig: HubConfig = {
 };
 
 /**
- * Create a PersistedTable fixture for pre-seeding the fake FS.
+ * Create a PersistedCourt fixture for pre-seeding the fake FS.
  */
-function makePersistedTable(overrides: Partial<PersistedTable> = {}): PersistedTable {
+function makePersistedTable(overrides: Partial<PersistedCourt> = {}): PersistedCourt {
   return {
     id: 'table-1',
     number: 1,
@@ -114,7 +114,7 @@ function makePersistedTable(overrides: Partial<PersistedTable> = {}): PersistedT
  */
 function seedStateFile(
   fs: ReturnType<typeof makeFs>,
-  tables: PersistedTable[],
+  tables: PersistedCourt[],
 ): void {
   const persisted = {
     version: 1,
@@ -126,7 +126,7 @@ function seedStateFile(
 
 // ── Tests ──────────────────────────────────────────────────────────────
 
-describe('TableManager with StateStore', () => {
+describe('CourtManager with StateStore', () => {
   let fs: ReturnType<typeof makeFs>;
   let stateStore: StateStore;
 
@@ -137,17 +137,17 @@ describe('TableManager with StateStore', () => {
 
   describe('constructor', () => {
     it('should accept optional StateStore parameter', () => {
-      expect(() => new TableManager(mockHubConfig, stateStore)).not.toThrow();
+      expect(() => new CourtManager(mockHubConfig, stateStore)).not.toThrow();
     });
 
     it('should accept undefined StateStore (backward compatible)', () => {
-      expect(() => new TableManager(mockHubConfig)).not.toThrow();
-      expect(() => new TableManager(mockHubConfig, undefined)).not.toThrow();
+      expect(() => new CourtManager(mockHubConfig)).not.toThrow();
+      expect(() => new CourtManager(mockHubConfig, undefined)).not.toThrow();
     });
 
     it('should not call notifyUpdate during construction', () => {
       // Construction should be silent — no tables, no save
-      new TableManager(mockHubConfig, stateStore);
+      new CourtManager(mockHubConfig, stateStore);
       // FS should be empty since no mutations happened
       expect(fs._files.has('data/rallyos-state.json')).toBe(false);
     });
@@ -155,7 +155,7 @@ describe('TableManager with StateStore', () => {
 
   describe('notifyUpdate triggers save', () => {
     it('should save LIVE table after createTable + startMatch', () => {
-      const manager = new TableManager(mockHubConfig, stateStore);
+      const manager = new CourtManager(mockHubConfig, stateStore);
       const table = manager.createTable('Mesa Test');
 
       // createTable triggers notifyUpdate which calls save.
@@ -179,7 +179,7 @@ describe('TableManager with StateStore', () => {
     });
 
     it('should save FINISHED tables', () => {
-      const manager = new TableManager(mockHubConfig, stateStore);
+      const manager = new CourtManager(mockHubConfig, stateStore);
       const table = manager.createTable('Mesa Test');
       manager.startMatch(table.id, { playerNameA: 'Alice', playerNameB: 'Bob' });
 
@@ -197,7 +197,7 @@ describe('TableManager with StateStore', () => {
     });
 
     it('should filter out WAITING tables from save', () => {
-      const manager = new TableManager(mockHubConfig, stateStore);
+      const manager = new CourtManager(mockHubConfig, stateStore);
 
       // Create a table (WAITING) and start it (LIVE)
       const liveTable = manager.createTable('Live Table');
@@ -215,7 +215,7 @@ describe('TableManager with StateStore', () => {
     });
 
     it('should save match state with scores and history', () => {
-      const manager = new TableManager(mockHubConfig, stateStore);
+      const manager = new CourtManager(mockHubConfig, stateStore);
       const table = manager.createTable('Mesa Test');
       manager.startMatch(table.id, { playerNameA: 'Alice', playerNameB: 'Bob' });
 
@@ -236,7 +236,7 @@ describe('TableManager with StateStore', () => {
     });
 
     it('should save multiple LIVE/FINISHED tables', () => {
-      const manager = new TableManager(mockHubConfig, stateStore);
+      const manager = new CourtManager(mockHubConfig, stateStore);
 
       // Create two tables, start both
       const t1 = manager.createTable('Mesa 1');
@@ -248,9 +248,9 @@ describe('TableManager with StateStore', () => {
       const savedContent = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(savedContent!);
       expect(parsed.tables).toHaveLength(2);
-      const names = parsed.tables.map((t: PersistedTable) => t.name).sort();
+      const names = parsed.tables.map((t: PersistedCourt) => t.name).sort();
       expect(names).toEqual(['Mesa 1', 'Mesa 2']);
-      const pins = parsed.tables.map((t: PersistedTable) => t.pin);
+      const pins = parsed.tables.map((t: PersistedCourt) => t.pin);
       expect(pins).toHaveLength(2);
       // Pins should be different (random generation)
       expect(pins[0]).not.toBe(pins[1]);
@@ -258,7 +258,7 @@ describe('TableManager with StateStore', () => {
 
     it('should NOT save when stateStore is undefined', () => {
       // Backward-compatible: no StateStore → no errors
-      const manager = new TableManager(mockHubConfig); // no StateStore
+      const manager = new CourtManager(mockHubConfig); // no StateStore
       const table = manager.createTable('Mesa Test');
       manager.startMatch(table.id, { playerNameA: 'A', playerNameB: 'B' });
 
@@ -273,7 +273,7 @@ describe('TableManager with StateStore', () => {
         throw new Error('Disk full');
       };
       const brokenStore = new StateStore(brokenFs, 'data/rallyos-state.json');
-      const manager = new TableManager(mockHubConfig, brokenStore);
+      const manager = new CourtManager(mockHubConfig, brokenStore);
 
       // Should not throw — errors are swallowed
       const table = manager.createTable('Mesa Test');
@@ -284,14 +284,14 @@ describe('TableManager with StateStore', () => {
         }),
       ).not.toThrow();
 
-      // TableManager should still be functional after save error
+      // CourtManager should still be functional after save error
       const state = manager.recordPoint(table.id, 'A');
       expect(state).not.toBeNull();
       expect((state as any)!.score.currentSet.a).toBe(1);
     });
 
     it('should persist exact PIN after mutations', () => {
-      const manager = new TableManager(mockHubConfig, stateStore);
+      const manager = new CourtManager(mockHubConfig, stateStore);
       const table = manager.createTable('Mesa Test');
       const originalPin = table.pin;
 
@@ -303,7 +303,7 @@ describe('TableManager with StateStore', () => {
     });
 
     it('should persist playerNames in saved state', () => {
-      const manager = new TableManager(mockHubConfig, stateStore);
+      const manager = new CourtManager(mockHubConfig, stateStore);
       const table = manager.createTable('Mesa Test');
       manager.startMatch(table.id, { playerNameA: 'Champion', playerNameB: 'Runner-up' });
 
@@ -316,7 +316,7 @@ describe('TableManager with StateStore', () => {
     });
 
     it('should NOT persist socketId or runtime callbacks', () => {
-      const manager = new TableManager(mockHubConfig, stateStore);
+      const manager = new CourtManager(mockHubConfig, stateStore);
       const table = manager.createTable('Mesa Test');
       manager.startMatch(table.id, { playerNameA: 'Alice', playerNameB: 'Bob' });
 
@@ -333,7 +333,7 @@ describe('TableManager with StateStore', () => {
 
   describe('loadTournament', () => {
     it('should return false when no persisted state exists', () => {
-      const manager = new TableManager(mockHubConfig, stateStore);
+      const manager = new CourtManager(mockHubConfig, stateStore);
 
       const result = manager.loadTournament();
       expect(result).toBe(false);
@@ -342,14 +342,14 @@ describe('TableManager with StateStore', () => {
 
     it('should return false when state file exists but has no tables', () => {
       seedStateFile(fs, []);
-      const manager = new TableManager(mockHubConfig, stateStore);
+      const manager = new CourtManager(mockHubConfig, stateStore);
 
       const result = manager.loadTournament();
       expect(result).toBe(false);
     });
 
     it('should return false when no StateStore is configured', () => {
-      const manager = new TableManager(mockHubConfig); // no StateStore
+      const manager = new CourtManager(mockHubConfig); // no StateStore
       
       const result = manager.loadTournament();
       expect(result).toBe(false);
@@ -378,7 +378,7 @@ describe('TableManager with StateStore', () => {
       });
 
       seedStateFile(fs, [t1]);
-      const manager = new TableManager(mockHubConfig, stateStore);
+      const manager = new CourtManager(mockHubConfig, stateStore);
 
       const result = manager.loadTournament();
       expect(result).toBe(true);
@@ -435,7 +435,7 @@ describe('TableManager with StateStore', () => {
       });
 
       seedStateFile(fs, [t1, t2]);
-      const manager = new TableManager(mockHubConfig, stateStore);
+      const manager = new CourtManager(mockHubConfig, stateStore);
 
       const result = manager.loadTournament();
       expect(result).toBe(true);
@@ -501,7 +501,7 @@ describe('TableManager with StateStore', () => {
       });
 
       seedStateFile(fs, [t1]);
-      const manager = new TableManager(mockHubConfig, stateStore);
+      const manager = new CourtManager(mockHubConfig, stateStore);
 
       manager.loadTournament();
 
@@ -530,7 +530,7 @@ describe('TableManager with StateStore', () => {
       });
 
       seedStateFile(fs, [t1, t2, t3]);
-      const manager = new TableManager(mockHubConfig, stateStore);
+      const manager = new CourtManager(mockHubConfig, stateStore);
 
       const result = manager.loadTournament();
       expect(result).toBe(true);
@@ -544,14 +544,14 @@ describe('TableManager with StateStore', () => {
     it('should NOT auto-load on construction', () => {
       // Even with state in the file, construction starts empty
       seedStateFile(fs, [makePersistedTable()]);
-      const manager = new TableManager(mockHubConfig, stateStore);
+      const manager = new CourtManager(mockHubConfig, stateStore);
 
       expect(manager.getAllTables()).toHaveLength(0);
     });
 
     it('should handle all persisted tables gracefully (resilient fromState)', () => {
       // Even with a broken matchState, fromState now recovers with defaults
-      const badTable: PersistedTable = {
+      const badTable: PersistedCourt = {
         id: 'bad-table',
         number: 1,
         name: 'Bad Table',
@@ -574,7 +574,7 @@ describe('TableManager with StateStore', () => {
       const goodTable = makePersistedTable({ id: 'good-table' });
 
       seedStateFile(fs, [badTable, goodTable]);
-      const manager = new TableManager(mockHubConfig, stateStore);
+      const manager = new CourtManager(mockHubConfig, stateStore);
 
       const result = manager.loadTournament();
       // Both tables are restored — fromState recovers gracefully
@@ -591,7 +591,7 @@ describe('TableManager with StateStore', () => {
       const t2 = makePersistedTable({ id: 'live', status: 'LIVE' });
 
       seedStateFile(fs, [t1, t2]);
-      const manager = new TableManager(mockHubConfig, stateStore);
+      const manager = new CourtManager(mockHubConfig, stateStore);
 
       manager.loadTournament();
 
@@ -606,7 +606,7 @@ describe('TableManager with StateStore', () => {
       const t1 = makePersistedTable({ id: 'table-1' });
       seedStateFile(fs, [t1]);
 
-      const manager = new TableManager(mockHubConfig, stateStore);
+      const manager = new CourtManager(mockHubConfig, stateStore);
 
       // Spy on the onMatchEvent callback
       const events: { tableId: string; event: MatchEvent }[] = [];
@@ -629,7 +629,7 @@ describe('TableManager with StateStore', () => {
       const t1 = makePersistedTable({ id: 'table-1' });
       seedStateFile(fs, [t1]);
 
-      const manager = new TableManager(mockHubConfig, stateStore);
+      const manager = new CourtManager(mockHubConfig, stateStore);
 
       const updates: any[] = [];
       manager.onTableUpdate = (info) => {
@@ -647,7 +647,7 @@ describe('TableManager with StateStore', () => {
 
   describe('round-trip: save → load', () => {
     it('should restore tables with identical data after save + load', () => {
-      const manager = new TableManager(mockHubConfig, stateStore);
+      const manager = new CourtManager(mockHubConfig, stateStore);
 
       // Create and start a table
       const table = manager.createTable('Mesa Persistida');
@@ -661,9 +661,9 @@ describe('TableManager with StateStore', () => {
       const savedContent = fs._files.get('data/rallyos-state.json');
       expect(savedContent).toBeDefined();
 
-      // Create a NEW TableManager (simulating restart) and load
+      // Create a NEW CourtManager (simulating restart) and load
       const newStore = new StateStore(fs, 'data/rallyos-state.json');
-      const newManager = new TableManager(mockHubConfig, newStore);
+      const newManager = new CourtManager(mockHubConfig, newStore);
 
       const loaded = newManager.loadTournament();
       expect(loaded).toBe(true);

@@ -8,7 +8,7 @@ import { SPORT } from '../../../shared/types';
 
 import { handleExport, createExportRouter } from './export';
 import { StateStore } from '../services/store/StateStore';
-import type { FileSystem, PersistedTable } from '../services/store/types';
+import type { FileSystem, PersistedCourt } from '../services/store/types';
 import type { Request, Response } from 'express';
 import { generateToken, activeTokens } from '../middleware/ownerAuth';
 
@@ -77,7 +77,7 @@ function mockRes(): {
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
-function makeFinishedTable(overrides: Partial<PersistedTable> = {}): PersistedTable {
+function makeFinishedTable(overrides: Partial<PersistedCourt> = {}): PersistedCourt {
   return {
     id: 'table-1',
     number: 1,

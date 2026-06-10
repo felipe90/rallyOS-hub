@@ -7,13 +7,13 @@
 
 import { Server as IOServer } from 'socket.io';
 import { SocketHandler } from './handlers/SocketHandler';
-import { TableManager } from './domain/courtManager';
+import { CourtManager } from './domain/courtManager';
 import { HubConfig } from './domain/types';
 import { logger } from './utils/logger';
 
 export function createSocketServer(
   io: IOServer,
-  tableManager: TableManager,
+  tableManager: CourtManager,
   ownerPin: string,
   hubConfig: HubConfig,
 ): SocketHandler {

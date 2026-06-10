@@ -16,7 +16,7 @@
  * @returns A migrated PersistedState (always v2).
  */
 
-import type { PersistedState, PersistedTable } from './types';
+import type { PersistedState, PersistedCourt } from './types';
 import { PERSISTENCE_VERSION } from './types';
 import { SPORT } from '../../../../shared/types';
 import { logger } from '../../utils/logger';
@@ -30,7 +30,7 @@ export function migrateV1toV2(state: PersistedState): PersistedState {
   // Deep-clone to avoid mutating the input
   const cloned: PersistedState = JSON.parse(JSON.stringify(state));
 
-  const migratedTables: PersistedTable[] = [];
+  const migratedTables: PersistedCourt[] = [];
 
   for (const table of cloned.tables) {
     try {

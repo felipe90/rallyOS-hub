@@ -1,18 +1,18 @@
 /**
  * Handicap Integration Tests
  *
- * Verifies that TableManager.getAllHistories() populates the handicap field
+ * Verifies that CourtManager.getAllHistories() populates the handicap field
  * from the match configuration when handicap is set.
  */
 
-import { TableManager } from '../src/domain/courtManager';
+import { CourtManager } from '../src/domain/courtManager';
 import type { Table } from '../src/domain/types';
 
 describe('getAllHistories — handicap', () => {
-  let manager: TableManager;
+  let manager: CourtManager;
 
   beforeEach(() => {
-    manager = new TableManager({ ssid: 'TestHub', ip: '127.0.0.1', port: 3000, domain: 'localhost', wifiPassword: 'test123' });
+    manager = new CourtManager({ ssid: 'TestHub', ip: '127.0.0.1', port: 3000, domain: 'localhost', wifiPassword: 'test123' });
   });
 
   it('includes handicap in payload when config has handicapA and handicapB', () => {

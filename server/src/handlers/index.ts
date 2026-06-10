@@ -6,7 +6,7 @@
 
 export { SocketHandler } from './SocketHandler';
 export { SocketHandlerBase } from './SocketHandlerBase';
-export { TableEventHandler } from './TableEventHandler';
+export { CourtEventHandler, TableEventHandler } from './TableEventHandler';
 export { MatchEventHandler } from './MatchEventHandler';
 export { AuthHandler } from './AuthHandler';
 export { AdminHandler } from './AdminHandler';

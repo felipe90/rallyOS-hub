@@ -1,11 +1,11 @@
 /**
- * TableManager - Orchestrates tables, players, and matches
+ * CourtManager - Orchestrates tables, players, and matches
  *
  * Refactored to compose focused services:
- * - TableRepository: CRUD operations
+ * - CourtRepository: CRUD operations
  * - PlayerService: Player management
  * - MatchOrchestrator: Match lifecycle
- * - TableFormatter: Table transformations
+ * - CourtFormatter: Table transformations
  * - PinService: PIN generation
  * - QRService: QR data generation
  */
@@ -16,21 +16,21 @@ import { Court, TableInfo, TableInfoWithPin, Player, MatchConfig, MatchStateExte
 import { AllHistoryEntry } from '../../../shared/types';
 import { logger } from '../utils/logger';
 import { sanitizeInput } from '../utils/validation';
-import { TableRepository } from '../services/table/TableRepository';
+import { CourtRepository } from '../services/table/TableRepository';
 import { PlayerService } from '../services/table/PlayerService';
 import { MatchOrchestrator } from '../services/table/MatchOrchestrator';
 import { SportRegistry } from './sports/sport.registry';
-import { TableFormatter } from '../services/table/TableFormatter';
+import { CourtFormatter } from '../services/table/TableFormatter';
 import { PinService } from '../services/security/PinService';
 import { QRService } from '../services/qr/QRService';
 import { StateStore } from '../services/store/StateStore';
-import { PersistedTable } from '../services/store/types';
+import { PersistedCourt } from '../services/store/types';
 
-export class TableManager {
-  private repository: TableRepository;
+export class CourtManager {
+  private repository: CourtRepository;
   private playerService: PlayerService;
   private matchOrchestrator: MatchOrchestrator;
-  private formatter: TableFormatter;
+  private formatter: CourtFormatter;
   private pinService: PinService;
   private qrService: QRService;
   private stateStore?: StateStore;
@@ -40,12 +40,12 @@ export class TableManager {
   public onMatchEvent: (tableId: string, event: any) => void = () => {};
 
   constructor(hubConfig: HubConfig, stateStore?: StateStore) {
-    this.repository = new TableRepository();
+    this.repository = new CourtRepository();
     this.pinService = new PinService();
     this.playerService = new PlayerService(this.pinService);
     const registry = new SportRegistry();
     this.matchOrchestrator = new MatchOrchestrator(registry);
-    this.formatter = new TableFormatter();
+    this.formatter = new CourtFormatter();
     this.qrService = new QRService(hubConfig);
     this.stateStore = stateStore;
   }
@@ -367,7 +367,7 @@ export class TableManager {
   private autoSave(): void {
     try {
       const allTables = this.repository.getAll();
-      const persisted: PersistedTable[] = allTables
+      const persisted: PersistedCourt[] = allTables
         .filter((t) => t.status === 'LIVE' || t.status === 'FINISHED')
         .map((t) => this.toPersistedTable(t));
       this.stateStore!.save(persisted);
@@ -377,11 +377,11 @@ export class TableManager {
   }
 
   /**
-   * Convert a runtime Table into a serializable PersistedTable.
+   * Convert a runtime Table into a serializable PersistedCourt.
    * Excludes runtime-only fields: MatchEngine instance, PlayerConnection.socketId,
    * and Socket.io callback references.
    */
-  private toPersistedTable(table: Court): PersistedTable {
+  private toPersistedTable(table: Court): PersistedCourt {
     const state = table.sportRules.getState();
     const isPadel = state.sport === SPORT.PADEL;
     const s = state as any;
@@ -434,7 +434,7 @@ export class TableManager {
    */
   public loadTournament(): boolean {
     if (!this.stateStore) {
-      logger.warn('TableManager.loadTournament: no StateStore configured');
+      logger.warn('CourtManager.loadTournament: no StateStore configured');
       return false;
     }
 
@@ -487,12 +487,12 @@ export class TableManager {
 
         logger.info(
           { tableId: pt.id, tableName: pt.name, status: pt.status },
-          'TableManager: restored table from state',
+          'CourtManager: restored table from state',
         );
       } catch (err) {
         logger.warn(
           { err, tableId: pt.id },
-          'TableManager.loadTournament: failed to restore table, skipping',
+          'CourtManager.loadTournament: failed to restore table, skipping',
         );
       }
     }
@@ -507,3 +507,7 @@ export class TableManager {
     return restored > 0;
   }
 }
+/** @deprecated Use CourtManager instead */
+export type TableManager = CourtManager;
+/** @deprecated Use CourtManager instead */
+export const TableManager = CourtManager;

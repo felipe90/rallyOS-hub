@@ -9,7 +9,7 @@ import fs from 'fs';
 import { app, spaFallback } from './app';
 import { createSecureServer, gracefulShutdown } from './server';
 import { createSocketServer } from './socket';
-import { TableManager } from './domain/courtManager';
+import { CourtManager } from './domain/courtManager';
 import { StateStore } from './services/store/StateStore';
 import { createTournamentRouter } from './routes/tournament';
 import { createExportRouter } from './routes/export';
@@ -45,9 +45,9 @@ const hubConfig = {
   ownerPin,
 };
 
-// Create StateStore and TableManager with persistence
+// Create StateStore and CourtManager with persistence
 const stateStore = new StateStore();
-const tableManager = new TableManager(hubConfig, stateStore);
+const tableManager = new CourtManager(hubConfig, stateStore);
 createSocketServer(io, tableManager, ownerPin, hubConfig);
 
 // Mount tournament lifecycle routes (before SPA fallback)

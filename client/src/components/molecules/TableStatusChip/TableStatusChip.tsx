@@ -42,10 +42,10 @@ const statusBadge: Record<TableStatus, typeof WaitingBadge> = {
 };
 
 const statusBadgeLabelKeys: Record<TableStatus, string> = {
-  WAITING: 'tableStatusWaiting',
-  CONFIGURING: 'tableStatusConfiguring',
-  LIVE: 'tableStatusLive',
-  FINISHED: 'tableStatusFinished',
+  WAITING: 'courtStatusWaiting',
+  CONFIGURING: 'courtStatusConfiguring',
+  LIVE: 'courtStatusLive',
+  FINISHED: 'courtStatusFinished',
 };
 
 export function TableStatusChip({

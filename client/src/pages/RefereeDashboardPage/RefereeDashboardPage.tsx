@@ -147,7 +147,7 @@ export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashb
               jugadores: <Users className="text-emerald-500" size={28} />,
             }}
             statLabels={{
-              tables: i18nText('dashboardStatTables'),
+              courts: i18nText('dashboardStatCourts'),
               matches: i18nText('dashboardStatMatches'),
               players: i18nText('dashboardStatPlayers'),
             }}
@@ -172,7 +172,7 @@ export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashb
         isLoading={pinLoading}
         error={translatePinError(pinError)}
         title={i18nText('matchConfigTitle')}
-        forTableLabel={i18nText('matchConfigForTable', { tableName: selectedCourt?.name || '' })}
+        forTableLabel={i18nText('matchConfigForCourt', { courtName: selectedCourt?.name || '' })}
         cancelLabel={i18nText('commonCancel')}
         submitLabel={i18nText('authEnter')}
         submitLoadingLabel={i18nText('authVerifying')}

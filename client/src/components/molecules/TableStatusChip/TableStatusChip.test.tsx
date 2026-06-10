@@ -6,10 +6,10 @@ vi.mock('@/i18n', () => ({
   useI18n: () => ({
     i18nText: (key: string) => {
       const labels: Record<string, string> = {
-        tableStatusWaiting: 'Esperando',
-        tableStatusConfiguring: 'Configurando',
-        tableStatusLive: 'En juego',
-        tableStatusFinished: 'Finalizado',
+        courtStatusWaiting: 'Esperando',
+        courtStatusConfiguring: 'Configurando',
+        courtStatusLive: 'En juego',
+        courtStatusFinished: 'Finalizado',
         courtDestacar: 'Destacar',
         courtQuitarDestacado: 'Quitar Destacado',
       };

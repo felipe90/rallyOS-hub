@@ -60,7 +60,7 @@ export function SpectatorDashboardPage(_props: SpectatorDashboardPageProps) {
       <main id="main-content" className="flex-1 overflow-auto p-4 bg-primary/10">
         {availableTables.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full">
-            <Typography variant="title">{i18nText('spectatorNoTables')}</Typography>
+            <Typography variant="title">{i18nText('spectatorNoCourts')}</Typography>
             <Typography variant="body" className="text-text-muted">
               {i18nText('spectatorTryLater')}
             </Typography>

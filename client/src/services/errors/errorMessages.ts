@@ -20,7 +20,7 @@ export function getErrorMessage(
     INVALID_OWNER_PIN: 'errorsInvalidOwnerPin',
     RATE_LIMITED: 'errorsRateLimited',
     REF_ALREADY_ACTIVE: 'errorsRefAlreadyActive',
-    TABLE_NOT_FOUND: 'errorsTableNotFound',
+    TABLE_NOT_FOUND: 'errorsCourtNotFound',
     UNAUTHORIZED: 'errorsUnauthorized',
     VALIDATION_ERROR: 'errorsValidationError',
     NOT_OWNER: 'errorsNotOwner',

@@ -57,7 +57,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
     wasCreatingRef.current = courtMgmt.isCreating;
     // Transition: was creating → now not creating = court created successfully
     if (wasCreating && !courtMgmt.isCreating && !appError) {
-      addToast('success', i18nText('toastTableCreated'));
+      addToast('success', i18nText('toastCourtCreated'));
     }
   }, [courtMgmt.isCreating, appError, addToast, i18nText]);
 
@@ -249,7 +249,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
           icon={<Plus size={18}
           />}
         >
-          {i18nText('ownerCreateTable')}
+          {i18nText('ownerCreateCourt')}
         </Button>
         <Button
           variant="primary"
@@ -299,7 +299,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
         <div className="flex gap-2 items-center">
           <input
             type="text"
-            placeholder={i18nText('ownerTableNamePlaceholder')}
+            placeholder={i18nText('ownerCourtNamePlaceholder')}
             value={courtMgmt.courtName}
             onChange={(e) => courtMgmt.setCourtName(e.target.value)}
             onKeyDown={(e) => {
@@ -367,7 +367,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
               jugadores: <Users className="text-emerald-500" size={28} />,
             }}
             statLabels={{
-              tables: i18nText('dashboardStatTables'),
+              courts: i18nText('dashboardStatCourts'),
               matches: i18nText('dashboardStatMatches'),
               players: i18nText('dashboardStatPlayers'),
             }}
@@ -385,14 +385,14 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
             onCleanCourtConfirm={() => {
               courtMgmt.confirmClean();
               requestCourtsWithPins(ownerPin || '');
-              addToast('success', i18nText('toastTableCleaned'));
+              addToast('success', i18nText('toastCourtCleaned'));
             }}
             onCleanCourtCancel={courtMgmt.cancelClean}
             onDeleteCourt={courtMgmt.requestDelete}
             showDeleteConfirm={courtMgmt.deleteConfirmCourtId}
             onDeleteCourtConfirm={() => {
               courtMgmt.confirmDelete();
-              addToast('success', i18nText('toastTableDeleted'));
+              addToast('success', i18nText('toastCourtDeleted'));
             }}
             onDeleteCourtCancel={courtMgmt.cancelDelete}
             featuredCourtId={courts.find(t => t.featured)?.id ?? null}

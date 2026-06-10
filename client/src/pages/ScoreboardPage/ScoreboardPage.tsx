@@ -126,7 +126,7 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
     return () => { document.body.classList.remove('scoreboard-page') }
   }, [])
 
-  if (!tableId) return <div>{i18nText('scoreboardInvalidTableId')}</div>
+  if (!tableId) return <div>{i18nText('scoreboardInvalidCourtId')}</div>
   if (refRevoked) return <RefRevokedView />
   if (!currentMatch) return <LoadingView />
 
@@ -174,7 +174,7 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
         onSubmit={(config) => handleStartMatch({ ...config, pointsPerSet: 11 })}
         onClose={handleCancelMatch}
         title={i18nText('matchConfigTitle')}
-        forTableLabel={i18nText('matchConfigForTable', { courtName: currentMatch.courtName || '' })}
+        forTableLabel={i18nText('matchConfigForCourt', { courtName: currentMatch.courtName || '' })}
         playersLabel={i18nText('matchConfigPlayers')}
         playerAPlaceholder={i18nText('matchConfigPlayerAPlaceholder')}
         playerBPlaceholder={i18nText('matchConfigPlayerBPlaceholder')}

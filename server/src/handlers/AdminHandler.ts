@@ -28,7 +28,7 @@ export class AdminHandler extends SocketHandlerBase {
     // REGENERATE_PIN: Regenerate table PIN and revoke previous referee (kill-switch)
     socket.on(SocketEvents.CLIENT.REGENERATE_PIN, (data: { courtId: string; pin?: string }) => {
       if (!validateSocketPayload(socket, data, { 
-        tableId: { required: true, type: 'string', maxLength: 36 }, 
+        courtId: { required: true, type: 'string', maxLength: 36 }, 
         pin: { required: false, type: 'string', pattern: /^\d{4,8}$/ } 
       }, 'REGENERATE_PIN')) {
         return;
@@ -62,7 +62,7 @@ export class AdminHandler extends SocketHandlerBase {
       // Emit REF_REVOKED to old referee if exists
       if (oldRefereeSocketId) {
         this.io.to(oldRefereeSocketId).emit(SocketEvents.SERVER.REF_REVOKED, {
-          tableId: data.courtId,
+          courtId: data.courtId,
           reason: 'Regenerado'
         });
         this.io.in(oldRefereeSocketId).socketsLeave(data.courtId);

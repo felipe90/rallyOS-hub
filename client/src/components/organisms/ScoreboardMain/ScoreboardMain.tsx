@@ -90,9 +90,9 @@ export function ScoreboardMain({
 
         {/* Main Score Display */}
         <div className={`
-          flex-1 flex items-center justify-center
-          p-4 ${isLandscape ? 'py-2' : 'landscape:p-8'} bg-surface
-          ${isLandscape ? 'min-h-0' : 'min-h-[180px]'}
+          flex-1 flex justify-center
+          p-4 ${isLandscape ? 'py-2 items-center' : 'landscape:p-8'} bg-surface
+          ${isLandscape ? 'min-h-0' : ''}
         `}>
           <SportDisplaySelector
             match={match}

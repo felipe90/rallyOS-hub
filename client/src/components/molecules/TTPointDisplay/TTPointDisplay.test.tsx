@@ -179,6 +179,25 @@ describe('TTPointDisplay', () => {
       const filledDots = document.querySelectorAll('.bg-amber');
       expect(filledDots.length).toBe(0);
     });
+
+    it('renders set indicators when isReferee is false (kiosk/spectator)', () => {
+      const data = createTTSportDisplay({ leftSets: 1, rightSets: 0 });
+
+      render(
+        <TTPointDisplay
+          sportDisplay={data}
+          leftPlayerName="Alice"
+          rightPlayerName="Bob"
+          totalSets={3}
+          leftServing={false}
+          rightServing={false}
+          isReferee={false}
+        />
+      );
+
+      const dots = document.querySelectorAll('.bg-amber');
+      expect(dots.length).toBe(1);
+    });
   });
 
   describe('referee interactions', () => {

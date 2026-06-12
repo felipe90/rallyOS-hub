@@ -215,7 +215,7 @@ export function KioskAllCourtsPage() {
   const featuredCourt = inSpotlight ? courts.find((t) => t.id === featuredCourtId) : null
 
   return (
-    <div className="min-h-dvh bg-surface flex flex-col">
+    <div className="h-dvh bg-surface flex flex-col">
       {/* Spotlight mode: Destacado bar + KioskScoreboard (no header) */}
       {inSpotlight ? (
         <>

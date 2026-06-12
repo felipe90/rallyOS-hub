@@ -31,7 +31,7 @@ export function KioskScoreboard({ match, className = '' }: KioskScoreboardProps)
   } = useMatchDisplay(match);
 
   return (
-    <div className={`flex-1 flex ${className}`}>
+    <div className={`flex-1 w-full h-full ${className}`}>
       <SportDisplaySelector
         match={match}
         leftPlayerName={leftName || i18nText('commonPlayerA')}

@@ -40,12 +40,12 @@ export function useSocketState(socket: Socket | null) {
 
     const handleCourtList = (list: TableInfo[]) => setCourts(list)
 
-    const handleCourtListWithPins = (data: { tables: TableInfoWithPin[] }) => {
-      setCourts(data.tables as TableInfo[])
+    const handleCourtListWithPins = (data: { courts?: TableInfoWithPin[]; tables?: TableInfoWithPin[] }) => {
+      setCourts((data.courts || data.tables || []) as TableInfo[])
     }
 
-    const handleCourtDeleted = ({ tableId: courtId }: { tableId: string }) => {
-      setCourts(prev => prev.filter(t => t.id !== courtId))
+    const handleCourtDeleted = (data: { courtId?: string; tableId?: string }) => {
+      setCourts(prev => prev.filter(t => t.id !== (data.courtId || data.tableId)))
     }
 
     const handleCourtCreated = (court: TableInfo) => {

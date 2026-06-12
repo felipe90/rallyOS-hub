@@ -4,7 +4,7 @@ import { useSocketContext } from '@/contexts/SocketContext'
 import { ConnectionStatus, Typography, LiveBadge } from '@/components/atoms'
 import { KioskCourtCard } from '@/components/organisms/KioskCourtCard'
 import { KioskNotificationToast } from '@/components/organisms/KioskNotificationToast'
-import { ScoreboardMain } from '@/components/organisms/ScoreboardMain/ScoreboardMain'
+import { KioskScoreboard } from '@/components/organisms/KioskScoreboard'
 import { QRCodeSVG } from 'qrcode.react'
 import logoBig from '@/assets/logo-big.png'
 import { SocketEvents } from '@shared/events'
@@ -216,7 +216,7 @@ export function KioskAllCourtsPage() {
 
   return (
     <div className="min-h-dvh bg-surface flex flex-col">
-      {/* Spotlight mode: Destacado bar + ScoreboardMain (no header) */}
+      {/* Spotlight mode: Destacado bar + KioskScoreboard (no header) */}
       {inSpotlight ? (
         <>
           {/* Destacado Bar (Task 3.3) */}
@@ -232,7 +232,7 @@ export function KioskAllCourtsPage() {
             <LiveBadge label={i18nText('kioskEnVivo')} />
           </div>
 
-          {/* Spotlight ScoreboardMain with fade */}
+          {/* Spotlight KioskScoreboard with fade */}
           <main
             id="main-content"
             className={`flex-1 flex flex-col transition-opacity duration-500 ${
@@ -240,7 +240,7 @@ export function KioskAllCourtsPage() {
             }`}
           >
             {spotlightMatch ? (
-              <ScoreboardMain match={spotlightMatch} onScorePoint={() => {}} />
+              <KioskScoreboard match={spotlightMatch} />
             ) : (
               <div className="flex-1 flex items-center justify-center">
                 <Typography variant="title" className="text-2xl text-text-muted text-center px-4">

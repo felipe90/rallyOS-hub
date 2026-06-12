@@ -156,7 +156,7 @@ export function TTPointDisplay({
   onSwapSides,
 }: TTPointDisplayProps) {
   return (
-    <div className="flex w-full flex-1">
+    <div className="flex w-full h-full">
       <PlayerSide
         side="A"
         playerName={leftPlayerName}

@@ -12,9 +12,9 @@ vi.mock('@/components/organisms/KioskNotificationToast', () => ({
   )),
 }))
 
-// Mock ScoreboardMain for featured court spotlight tests
-vi.mock('@/components/organisms/ScoreboardMain/ScoreboardMain', () => ({
-  ScoreboardMain: vi.fn(({ match }: { match: { courtName: string } }) => (
+// Mock KioskScoreboard for featured court spotlight tests
+vi.mock('@/components/organisms/KioskScoreboard', () => ({
+  KioskScoreboard: vi.fn(({ match }: { match: { courtName: string } }) => (
     <div data-testid="scoreboard-main">{match.courtName}</div>
   )),
 }))
@@ -454,7 +454,7 @@ describe('KioskAllCourtsPage — featured court spotlight', () => {
     expect(mockOn).toHaveBeenCalledWith('MATCH_UPDATE', expect.any(Function))
   })
 
-  it('renders ScoreboardMain when featured court is active (Task 3.2)', () => {
+  it('renders KioskScoreboard when featured court is active (Task 3.2)', () => {
     let matchUpdateHandler: (...args: unknown[]) => void = () => {}
     const mockOn = vi.fn((event: string, handler: (...args: unknown[]) => void) => {
       if (event === 'MATCH_UPDATE') matchUpdateHandler = handler
@@ -484,11 +484,11 @@ describe('KioskAllCourtsPage — featured court spotlight', () => {
     })
 
     expect(screen.getByTestId('scoreboard-main')).toBeInTheDocument()
-    // Text appears in both Destacado bar AND ScoreboardMain mock
+    // Text appears in both Destacado bar AND KioskScoreboard mock
     expect(screen.getAllByText('Featured Court')).toHaveLength(2)
   })
 
-  it('does NOT render ScoreboardMain when no featured court (Task 3.2)', () => {
+  it('does NOT render KioskScoreboard when no featured court (Task 3.2)', () => {
     const tables = [
       makeTable({ id: 't1', name: 'Normal Court', status: 'LIVE' }),
     ]
@@ -503,7 +503,7 @@ describe('KioskAllCourtsPage — featured court spotlight', () => {
     ]
     renderPage(tables, { on: vi.fn(), off: vi.fn(), emit: vi.fn() })
 
-    // No ScoreboardMain and empty state visible
+    // No KioskScoreboard and empty state visible
     expect(screen.queryByTestId('scoreboard-main')).not.toBeInTheDocument()
     expect(screen.getByText('No active matches')).toBeInTheDocument()
   })
@@ -543,7 +543,7 @@ describe('KioskAllCourtsPage — featured court spotlight', () => {
 
     // No subscription
     expect(mockEmit).not.toHaveBeenCalled()
-    // No ScoreboardMain
+    // No KioskScoreboard
     expect(screen.queryByTestId('scoreboard-main')).not.toBeInTheDocument()
   })
 })

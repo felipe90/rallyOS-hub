@@ -2,7 +2,7 @@ import { useI18n } from '@/i18n'
 import { LiveBadge, WaitingBadge, FinishedBadge, Typography } from '@/components/atoms'
 import type { TableInfo } from '@shared/types'
 
-export interface KioskTableCardProps {
+export interface KioskCourtCardProps {
   table: TableInfo
   className?: string
   condensed?: boolean
@@ -29,7 +29,7 @@ function KioskStatusBadge({
   }
 }
 
-export function KioskTableCard({ table, className = '', condensed = false }: KioskTableCardProps) {
+export function KioskCourtCard({ table, className = '', condensed = false }: KioskCourtCardProps) {
   const { i18nText } = useI18n()
   const scoreA = table.currentScore?.a ?? 0
   const scoreB = table.currentScore?.b ?? 0

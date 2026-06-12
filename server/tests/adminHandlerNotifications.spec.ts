@@ -31,9 +31,9 @@ function createMockIo() {
 
 function createMockTableManager() {
   return {
-    getTable: jest.fn(),
-    getAllTables: jest.fn(() => []),
-    getAllTablesWithPins: jest.fn(() => []),
+    getCourt: jest.fn(),
+    getAllCourts: jest.fn(() => []),
+    getAllCourtsWithPins: jest.fn(() => []),
     isReferee: jest.fn(() => false),
     getRefereeSocketId: jest.fn(() => undefined),
   } as any;

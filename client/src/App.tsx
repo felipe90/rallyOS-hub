@@ -14,7 +14,7 @@ import { SpectatorDashboardPage } from './pages/SpectatorDashboardPage'
 import { ScoreboardPage } from './pages/ScoreboardPage'
 import { HistoryViewPage } from './pages/HistoryViewPage'
 import { NotFoundPage } from './pages/NotFoundPage'
-import { KioskAllTablesPage } from './pages/KioskAllTablesPage'
+import { KioskAllCourtsPage } from './pages/KioskAllCourtsPage'
 import { useAutoUpdateBanner } from './hooks/useAutoUpdate'
 import { LanguageSwitcher } from './components/atoms'
 import { useI18n } from './i18n'
@@ -25,7 +25,7 @@ function AppRoutes() {
       <ReactRoutes>
         {/* Public routes */}
         <Route path={Routes.AUTH} element={<AuthPage />} />
-        <Route path={Routes.SCOREBOARD_KIOSK} element={<KioskAllTablesPage />} />
+        <Route path={Routes.SCOREBOARD_KIOSK} element={<KioskAllCourtsPage />} />
 
         {/* Protected routes (require authentication) */}
         <Route element={<PrivateRoute />}>

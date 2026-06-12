@@ -8,9 +8,9 @@
 import type { UserRole } from '@/contexts/AuthContext/AuthContext.types'
 
 const ROLE_KEY = 'role'
-const TABLE_ID_KEY = 'tableId'
+const COURT_ID_KEY = 'tableId'
 const OWNER_PIN_KEY = 'ownerPin'
-const TABLE_PIN_KEY = 'tablePin'
+const COURT_PIN_KEY = 'tablePin'
 const TOURNAMENT_TOKEN_KEY = 'tournamentToken'
 
 export const authStorage = {
@@ -28,17 +28,17 @@ export const authStorage = {
     }
   },
 
-  getTableId: (): string | null => {
+  getCourtId: (): string | null => {
     if (typeof window === 'undefined') return null
-    return localStorage.getItem(TABLE_ID_KEY)
+    return localStorage.getItem(COURT_ID_KEY)
   },
 
-  setTableId: (tableId: string | null): void => {
+  setCourtId: (courtId: string | null): void => {
     if (typeof window === 'undefined') return
-    if (tableId) {
-      localStorage.setItem(TABLE_ID_KEY, tableId)
+    if (courtId) {
+      localStorage.setItem(COURT_ID_KEY, courtId)
     } else {
-      localStorage.removeItem(TABLE_ID_KEY)
+      localStorage.removeItem(COURT_ID_KEY)
     }
   },
 
@@ -56,13 +56,13 @@ export const authStorage = {
     }
   },
 
-  getTablePin: (): string | null => {
+  getCourtPin: (): string | null => {
     // PINs are no longer persisted — always return null
     // PINs are stored in memory only (React state)
     return null
   },
 
-  setTablePin: (_pin: string | null): void => {
+  setCourtPin: (_pin: string | null): void => {
     // PINs are no longer persisted to browser storage
     // This is a no-op — PINs are stored in memory only (React state)
   },
@@ -84,8 +84,8 @@ export const authStorage = {
   clear: (): void => {
     if (typeof window === 'undefined') return
     localStorage.removeItem(ROLE_KEY)
-    localStorage.removeItem(TABLE_ID_KEY)
-    // tablePin is no longer persisted — no need to remove from localStorage
+    localStorage.removeItem(COURT_ID_KEY)
+    // courtPin is no longer persisted — no need to remove from localStorage
     sessionStorage.removeItem(OWNER_PIN_KEY)
     localStorage.removeItem(TOURNAMENT_TOKEN_KEY)
   },

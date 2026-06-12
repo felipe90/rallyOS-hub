@@ -60,7 +60,7 @@ export function ScoreboardMain({
     `}>
       {/* ScoreboardBar - responsive based on orientation */}
       <ScoreboardBar 
-        tableName={match.tableName}
+        courtName={match.courtName}
         isConnected={isConnected}
         status={status}
         formattedSets={formattedSets}

@@ -16,14 +16,14 @@ export class PlayerService {
     this.pinService = pinService;
   }
 
-  joinTable(table: Court, socketId: string, name: string, pin?: string): boolean {
-    if (pin && !this.pinService.validatePin(table, pin)) {
-      logger.warn({ tableId: table.id, tableName: table.name }, 'Invalid PIN attempt');
+  joinCourt(court: Court, socketId: string, name: string, pin?: string): boolean {
+    if (pin && !this.pinService.validatePin(court, pin)) {
+      logger.warn({ courtId: court.id, courtName: court.name }, 'Invalid PIN attempt');
       return false;
     }
 
     const sanitizedName = sanitizeInput(name, 100);
-    const existing = table.players.find(p => p.socketId === socketId);
+    const existing = court.players.find(p => p.socketId === socketId);
     if (existing) {
       existing.name = sanitizedName;
       return true;
@@ -36,34 +36,34 @@ export class PlayerService {
       joinedAt: Date.now()
     };
 
-    table.players.push(player);
-    logger.info({ tableId: table.id, tableName: table.name, playerName: sanitizedName }, 'Player joined table');
+    court.players.push(player);
+    logger.info({ courtId: court.id, courtName: court.name, playerName: sanitizedName }, 'Player joined court');
     return true;
   }
 
-  leaveTable(table: Court, socketId: string): void {
-    const index = table.players.findIndex(p => p.socketId === socketId);
+  leaveCourt(court: Court, socketId: string): void {
+    const index = court.players.findIndex(p => p.socketId === socketId);
     if (index === -1) return;
 
-    const player = table.players[index];
-    table.players.splice(index, 1);
-    logger.info({ tableId: table.id, tableName: table.name, playerName: player.name }, 'Player left table');
+    const player = court.players[index];
+    court.players.splice(index, 1);
+    logger.info({ courtId: court.id, courtName: court.name, playerName: player.name }, 'Player left court');
   }
 
-  setReferee(table: Court, socketId: string, pin: string): boolean {
-    if (!this.pinService.validatePin(table, pin)) return false;
+  setReferee(court: Court, socketId: string, pin: string): boolean {
+    if (!this.pinService.validatePin(court, pin)) return false;
 
-    const existingReferee = table.players.find(p => p.role === 'REFEREE');
+    const existingReferee = court.players.find(p => p.role === 'REFEREE');
     if (existingReferee && existingReferee.socketId !== socketId) {
-      table.players = table.players.filter(p => p.socketId !== existingReferee.socketId);
-      logger.info({ tableId: table.id, tableName: table.name, oldReferee: existingReferee.socketId, newReferee: socketId }, 'Replacing existing referee');
+      court.players = court.players.filter(p => p.socketId !== existingReferee.socketId);
+      logger.info({ courtId: court.id, courtName: court.name, oldReferee: existingReferee.socketId, newReferee: socketId }, 'Replacing existing referee');
     }
 
-    const player = table.players.find(p => p.socketId === socketId);
+    const player = court.players.find(p => p.socketId === socketId);
     if (player) {
       player.role = 'REFEREE';
     } else {
-      table.players.push({
+      court.players.push({
         socketId,
         name: 'Referee',
         role: 'REFEREE',
@@ -71,17 +71,17 @@ export class PlayerService {
       });
     }
 
-    logger.info({ tableId: table.id, tableName: table.name, socketId }, 'Referee authenticated');
+    logger.info({ courtId: court.id, courtName: court.name, socketId }, 'Referee authenticated');
     return true;
   }
 
-  isReferee(table: Court, socketId: string): boolean {
-    const player = table.players.find(p => p.socketId === socketId);
+  isReferee(court: Court, socketId: string): boolean {
+    const player = court.players.find(p => p.socketId === socketId);
     return player?.role === 'REFEREE';
   }
 
-  getRefereeSocketId(table: Court): string | null {
-    const referee = table.players.find(p => p.role === 'REFEREE');
+  getRefereeSocketId(court: Court): string | null {
+    const referee = court.players.find(p => p.role === 'REFEREE');
     return referee?.socketId || null;
   }
 }

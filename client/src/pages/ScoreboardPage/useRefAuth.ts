@@ -17,7 +17,7 @@ export function useRefAuth(
 ) {
   useEffect(() => {
     if (connected && tableId && canEdit && tablePin) {
-      emit(SocketEvents.CLIENT.SET_REF, { tableId, pin: tablePin })
+      emit(SocketEvents.CLIENT.SET_REF, { courtId: tableId, pin: tablePin })
     }
   }, [tableId, connected, canEdit, tablePin, emit])
 }

@@ -47,9 +47,9 @@ export function usePinSubmission(socket: Socket | null) {
         setLoading(true)
         setError(null)
 
-        const handleResponse = (response: { success?: boolean; tableId?: string }) => {
+        const handleResponse = (response: { success?: boolean; courtId?: string }) => {
           cleanup()
-          if (response.success || response.tableId) {
+          if (response.success || response.courtId) {
             resolve({ success: true })
           } else {
             const code: PinErrorCode = 'REF_ASSIGN_FAILED'
@@ -78,7 +78,7 @@ export function usePinSubmission(socket: Socket | null) {
         socket.once(SocketEvents.SERVER.REF_SET, handleResponse)
         socket.once(SocketEvents.SERVER.ERROR, handleError)
 
-        socket.emit(SocketEvents.CLIENT.SET_REF, { tableId, pin })
+        socket.emit(SocketEvents.CLIENT.SET_REF, { courtId: tableId, pin })
 
         // Timeout fallback — resolve as FAILURE, never assume success
         const timeoutId = setTimeout(() => {

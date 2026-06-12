@@ -177,6 +177,23 @@ describe('PadelPointDisplay', () => {
       const filledDots = document.querySelectorAll('.bg-amber');
       expect(filledDots.length).toBe(0);
     });
+
+    it('renders set indicators when isReferee is false (kiosk/spectator)', () => {
+      const data = createPadelDisplay({ leftSets: 2, rightSets: 1 });
+
+      render(
+        <PadelPointDisplay
+          sportDisplay={data}
+          leftPlayerName="Alice"
+          rightPlayerName="Bob"
+          totalSets={3}
+          isReferee={false}
+        />
+      );
+
+      const dots = document.querySelectorAll('.bg-amber');
+      expect(dots.length).toBe(3);
+    });
   });
 
   describe('player names', () => {

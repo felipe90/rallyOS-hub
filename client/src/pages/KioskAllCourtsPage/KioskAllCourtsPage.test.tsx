@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { KioskAllTablesPage, calculatePages } from './KioskAllTablesPage'
+import { KioskAllCourtsPage, calculatePages } from './KioskAllCourtsPage'
 import { useSocketContext } from '@/contexts/SocketContext'
 import type { TableInfo, KioskNotificationData } from '@shared/types'
 
@@ -9,6 +9,13 @@ import type { TableInfo, KioskNotificationData } from '@shared/types'
 vi.mock('@/components/organisms/KioskNotificationToast', () => ({
   KioskNotificationToast: vi.fn(({ notification }: { notification: KioskNotificationData }) => (
     <div data-testid="kiosk-notification-toast">{notification.message}</div>
+  )),
+}))
+
+// Mock KioskScoreboard for featured court spotlight tests
+vi.mock('@/components/organisms/KioskScoreboard', () => ({
+  KioskScoreboard: vi.fn(({ match }: { match: { courtName: string } }) => (
+    <div data-testid="scoreboard-main">{match.courtName}</div>
   )),
 }))
 
@@ -27,6 +34,10 @@ vi.mock('@/i18n', () => ({
         'scoreboardWifiDomain': 'Abrí rallyos-hub.local',
         'scoreboardWifiQrCta': 'Paso 1: Escaneá para conectarte al WiFi',
         'scoreboardUrlQrCta': 'Paso 2: Escaneá para abrir rallyOS',
+        'kioskDestacado': '★ DESTACADO',
+        'kioskEnVivo': 'EN VIVO',
+        'kioskNoActiveMatches': 'No active matches',
+        'kioskPageTitle': 'Scoreboard',
       }
       return map[key] || key
     },
@@ -49,21 +60,26 @@ function makeTable(overrides: Partial<TableInfo> = {}): TableInfo {
   }
 }
 
-function renderPage(tables: TableInfo[] = []) {
+function renderPage(
+  courts: TableInfo[] = [],
+  socketOverrides?: { on?: ReturnType<typeof vi.fn>; off?: ReturnType<typeof vi.fn>; emit?: ReturnType<typeof vi.fn> },
+) {
+  const mockSocket = socketOverrides || { on: vi.fn(), off: vi.fn(), emit: vi.fn() }
   mockUseSocketContext.mockReturnValue({
-    tables,
+    courts,
     connected: true,
     connecting: false,
+    socket: mockSocket,
   })
 
   return render(
     <MemoryRouter>
-      <KioskAllTablesPage />
+      <KioskAllCourtsPage />
     </MemoryRouter>
   )
 }
 
-describe('KioskAllTablesPage', () => {
+describe('KioskAllCourtsPage', () => {
   it('renders empty state when no active tables', () => {
     renderPage([{ ...makeTable(), status: 'FINISHED' }])
     expect(screen.getByText('No active matches')).toBeInTheDocument()
@@ -118,7 +134,7 @@ describe('KioskAllTablesPage', () => {
 
   it('shows QR code when hubConfig is available', () => {
     mockUseSocketContext.mockReturnValue({
-      tables: [makeTable({ status: 'LIVE' })],
+      courts: [makeTable({ status: 'LIVE' })],
       connected: true,
       connecting: false,
       hubConfig: { ssid: 'RallyOS', wifiPassword: 'test1234', domain: 'rallyos-hub.local' },
@@ -126,7 +142,7 @@ describe('KioskAllTablesPage', () => {
 
     render(
       <MemoryRouter>
-        <KioskAllTablesPage />
+        <KioskAllCourtsPage />
       </MemoryRouter>
     )
 
@@ -137,7 +153,7 @@ describe('KioskAllTablesPage', () => {
 
   it('WiFi QR encodes WPA2 with H:false in value string', () => {
     mockUseSocketContext.mockReturnValue({
-      tables: [makeTable({ status: 'LIVE' })],
+      courts: [makeTable({ status: 'LIVE' })],
       connected: true,
       connecting: false,
       hubConfig: { ssid: 'RallyOS', wifiPassword: 'test1234', domain: 'rallyos-hub.local' },
@@ -145,7 +161,7 @@ describe('KioskAllTablesPage', () => {
 
     render(
       <MemoryRouter>
-        <KioskAllTablesPage />
+        <KioskAllCourtsPage />
       </MemoryRouter>
     )
 
@@ -161,7 +177,7 @@ describe('KioskAllTablesPage', () => {
 
   it('URL QR encodes hub domain and port', () => {
     mockUseSocketContext.mockReturnValue({
-      tables: [makeTable({ status: 'LIVE' })],
+      courts: [makeTable({ status: 'LIVE' })],
       connected: true,
       connecting: false,
       hubConfig: { ssid: 'RallyOS', wifiPassword: 'test1234', domain: 'rallyos-hub.local', port: 3001 },
@@ -169,7 +185,7 @@ describe('KioskAllTablesPage', () => {
 
     render(
       <MemoryRouter>
-        <KioskAllTablesPage />
+        <KioskAllCourtsPage />
       </MemoryRouter>
     )
 
@@ -183,7 +199,7 @@ describe('KioskAllTablesPage', () => {
 
   it('hides WiFi QR when wifiPassword is absent but shows URL QR', () => {
     mockUseSocketContext.mockReturnValue({
-      tables: [makeTable({ status: 'LIVE' })],
+      courts: [makeTable({ status: 'LIVE' })],
       connected: true,
       connecting: false,
       hubConfig: { domain: 'rallyos-hub.local', port: 3001 },
@@ -191,7 +207,7 @@ describe('KioskAllTablesPage', () => {
 
     render(
       <MemoryRouter>
-        <KioskAllTablesPage />
+        <KioskAllCourtsPage />
       </MemoryRouter>
     )
 
@@ -208,7 +224,7 @@ describe('KioskAllTablesPage', () => {
 
   it('renders WiFi and URL step labels in horizontal layout', () => {
     mockUseSocketContext.mockReturnValue({
-      tables: [makeTable({ status: 'LIVE' })],
+      courts: [makeTable({ status: 'LIVE' })],
       connected: true,
       connecting: false,
       hubConfig: { ssid: 'RallyOS', wifiPassword: 'test1234', domain: 'rallyos-hub.local', port: 3001 },
@@ -216,7 +232,7 @@ describe('KioskAllTablesPage', () => {
 
     render(
       <MemoryRouter>
-        <KioskAllTablesPage />
+        <KioskAllCourtsPage />
       </MemoryRouter>
     )
 
@@ -253,7 +269,7 @@ describe('KioskAllTablesPage', () => {
 
     it('renders KioskNotificationToast when kioskNotification is non-null', () => {
       mockUseSocketContext.mockReturnValue({
-        tables: [makeTable({ status: 'LIVE' })],
+        courts: [makeTable({ status: 'LIVE' })],
         connected: true,
         connecting: false,
         kioskNotification: mockNotification,
@@ -261,7 +277,7 @@ describe('KioskAllTablesPage', () => {
 
       render(
         <MemoryRouter>
-          <KioskAllTablesPage />
+          <KioskAllCourtsPage />
         </MemoryRouter>,
       )
 
@@ -271,7 +287,7 @@ describe('KioskAllTablesPage', () => {
 
     it('does NOT render KioskNotificationToast when kioskNotification is null', () => {
       mockUseSocketContext.mockReturnValue({
-        tables: [makeTable({ status: 'LIVE' })],
+        courts: [makeTable({ status: 'LIVE' })],
         connected: true,
         connecting: false,
         kioskNotification: null,
@@ -279,7 +295,7 @@ describe('KioskAllTablesPage', () => {
 
       render(
         <MemoryRouter>
-          <KioskAllTablesPage />
+          <KioskAllCourtsPage />
         </MemoryRouter>,
       )
 
@@ -288,14 +304,14 @@ describe('KioskAllTablesPage', () => {
 
     it('does NOT render KioskNotificationToast when kioskNotification is undefined', () => {
       mockUseSocketContext.mockReturnValue({
-        tables: [makeTable({ status: 'LIVE' })],
+        courts: [makeTable({ status: 'LIVE' })],
         connected: true,
         connecting: false,
       })
 
       render(
         <MemoryRouter>
-          <KioskAllTablesPage />
+          <KioskAllCourtsPage />
         </MemoryRouter>,
       )
 
@@ -305,7 +321,7 @@ describe('KioskAllTablesPage', () => {
     it('renders toast with tables still visible (does not obscure scores)', () => {
       const table1 = makeTable({ id: 't1', name: 'Mesa 1', status: 'LIVE' })
       mockUseSocketContext.mockReturnValue({
-        tables: [table1],
+        courts: [table1],
         connected: true,
         connecting: false,
         kioskNotification: { ...mockNotification, message: 'Break time!' },
@@ -313,7 +329,7 @@ describe('KioskAllTablesPage', () => {
 
       render(
         <MemoryRouter>
-          <KioskAllTablesPage />
+          <KioskAllCourtsPage />
         </MemoryRouter>,
       )
 
@@ -322,6 +338,213 @@ describe('KioskAllTablesPage', () => {
       // Table card is still visible
       expect(screen.getByText('Mesa 1')).toBeInTheDocument()
     })
+  })
+})
+
+describe('KioskAllCourtsPage — featured court spotlight', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    Object.defineProperty(window, 'innerWidth', { value: 1920, configurable: true })
+    Object.defineProperty(window, 'innerHeight', { value: 1080, configurable: true })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('emits SUBSCRIBE_MATCH when a court has featured=true', () => {
+    const mockEmit = vi.fn()
+    const tables = [
+      makeTable({ id: 't1', name: 'Normal Court', status: 'LIVE', featured: false }),
+      makeTable({ id: 't2', name: 'Featured Court', status: 'LIVE', featured: true }),
+    ]
+    renderPage(tables, { on: vi.fn(), off: vi.fn(), emit: mockEmit })
+
+    expect(mockEmit).toHaveBeenCalledWith('SUBSCRIBE_MATCH', { courtId: 't2' })
+  })
+
+  it('does NOT emit SUBSCRIBE_MATCH when no court is featured', () => {
+    const mockEmit = vi.fn()
+    const tables = [
+      makeTable({ id: 't1', name: 'Normal Court', status: 'LIVE' }),
+    ]
+    renderPage(tables, { on: vi.fn(), off: vi.fn(), emit: mockEmit })
+
+    expect(mockEmit).not.toHaveBeenCalled()
+  })
+
+  it('does not emit SUBSCRIBE_MATCH for FINISHED featured courts', () => {
+    const mockEmit = vi.fn()
+    const tables = [
+      makeTable({ id: 't1', name: 'Finished Featured', status: 'FINISHED', featured: true }),
+    ]
+    renderPage(tables, { on: vi.fn(), off: vi.fn(), emit: mockEmit })
+
+    expect(mockEmit).not.toHaveBeenCalled()
+  })
+
+  it('unsubscribes old and subscribes new when featured court changes', () => {
+    const mockEmit = vi.fn()
+    const mockOn = vi.fn()
+    const mockOff = vi.fn()
+    const socket = { on: mockOn, off: mockOff, emit: mockEmit }
+
+    const initialCourts = [
+      makeTable({ id: 't1', name: 'First Featured', status: 'LIVE', featured: true }),
+      makeTable({ id: 't2', name: 'Second Court', status: 'LIVE' }),
+    ]
+
+    const { rerender } = renderPage(initialCourts, socket)
+    expect(mockEmit).toHaveBeenCalledWith('SUBSCRIBE_MATCH', { courtId: 't1' })
+
+    // Change featured court
+    const updatedCourts = [
+      makeTable({ id: 't1', name: 'First Featured', status: 'LIVE', featured: false }),
+      makeTable({ id: 't2', name: 'Second Court', status: 'LIVE', featured: true }),
+    ]
+
+    // Update mock context and re-render
+    mockUseSocketContext.mockReturnValue({
+      courts: updatedCourts,
+      connected: true,
+      connecting: false,
+      socket,
+    })
+    rerender(
+      <MemoryRouter>
+        <KioskAllCourtsPage />
+      </MemoryRouter>,
+    )
+
+    expect(mockEmit).toHaveBeenCalledWith('UNSUBSCRIBE_MATCH', { courtId: 't1' })
+    expect(mockEmit).toHaveBeenCalledWith('SUBSCRIBE_MATCH', { courtId: 't2' })
+  })
+
+  it('unsubscribes on unmount when featured court active', () => {
+    const mockEmit = vi.fn()
+    const tables = [
+      makeTable({ id: 't1', name: 'Featured', status: 'LIVE', featured: true }),
+    ]
+
+    const { unmount } = renderPage(tables, { on: vi.fn(), off: vi.fn(), emit: mockEmit })
+
+    unmount()
+
+    expect(mockEmit).toHaveBeenCalledWith('UNSUBSCRIBE_MATCH', { courtId: 't1' })
+  })
+
+  it('does not unsubscribe on unmount when no featured court', () => {
+    const mockEmit = vi.fn()
+    const tables = [makeTable({ id: 't1', name: 'Normal', status: 'LIVE' })]
+
+    const { unmount } = renderPage(tables, { on: vi.fn(), off: vi.fn(), emit: mockEmit })
+
+    unmount()
+
+    expect(mockEmit).not.toHaveBeenCalled()
+  })
+
+  it('listens for MATCH_UPDATE on the socket when featured court is active', () => {
+    const mockOn = vi.fn()
+    const tables = [
+      makeTable({ id: 't1', name: 'Featured', status: 'LIVE', featured: true }),
+    ]
+    renderPage(tables, { on: mockOn, off: vi.fn(), emit: vi.fn() })
+
+    expect(mockOn).toHaveBeenCalledWith('MATCH_UPDATE', expect.any(Function))
+  })
+
+  it('renders KioskScoreboard when featured court is active (Task 3.2)', () => {
+    let matchUpdateHandler: (...args: unknown[]) => void = () => {}
+    const mockOn = vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+      if (event === 'MATCH_UPDATE') matchUpdateHandler = handler
+    })
+    const tables = [
+      makeTable({ id: 't1', name: 'Featured Court', status: 'LIVE', featured: true }),
+    ]
+    renderPage(tables, { on: mockOn, off: vi.fn(), emit: vi.fn() })
+
+    // Simulate receiving MATCH_UPDATE
+    act(() => {
+      matchUpdateHandler({
+        tableId: 't1',
+        courtName: 'Featured Court',
+        status: 'LIVE',
+        sport: 'tableTennis',
+        playerNames: { a: 'Alice', b: 'Bob' },
+        config: { bestOf: 5, pointsPerSet: 11, minDifference: 2, sport: 'tableTennis' },
+        score: { sets: { a: 0, b: 0 }, currentSet: { a: 0, b: 0 }, serving: 'A' },
+        setHistory: [],
+        history: [],
+        undoAvailable: false,
+        winner: null,
+        swappedSides: false,
+        midSetSwapped: false,
+      })
+    })
+
+    expect(screen.getByTestId('scoreboard-main')).toBeInTheDocument()
+    // Text appears in both Destacado bar AND KioskScoreboard mock
+    expect(screen.getAllByText('Featured Court')).toHaveLength(2)
+  })
+
+  it('does NOT render KioskScoreboard when no featured court (Task 3.2)', () => {
+    const tables = [
+      makeTable({ id: 't1', name: 'Normal Court', status: 'LIVE' }),
+    ]
+    renderPage(tables, { on: vi.fn(), off: vi.fn(), emit: vi.fn() })
+
+    expect(screen.queryByTestId('scoreboard-main')).not.toBeInTheDocument()
+  })
+
+  it('shows empty grid when featured court is the only court but has no active status (FINISHED)', () => {
+    const tables = [
+      makeTable({ id: 't1', name: 'Finished Featured', status: 'FINISHED', featured: true }),
+    ]
+    renderPage(tables, { on: vi.fn(), off: vi.fn(), emit: vi.fn() })
+
+    // No KioskScoreboard and empty state visible
+    expect(screen.queryByTestId('scoreboard-main')).not.toBeInTheDocument()
+    expect(screen.getByText('No active matches')).toBeInTheDocument()
+  })
+
+  it('renders Destacado bar with all elements when featured court active (Task 3.3)', () => {
+    let matchUpdateHandler: (...args: unknown[]) => void = () => {}
+    const mockOn = vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+      if (event === 'MATCH_UPDATE') matchUpdateHandler = handler
+    })
+    const tables = [
+      makeTable({ id: 't1', name: 'Court 5', status: 'LIVE', featured: true }),
+    ]
+    renderPage(tables, { on: mockOn, off: vi.fn(), emit: vi.fn() })
+
+    // Destacado bar elements visible even before MATCH_UPDATE
+    expect(screen.getByText('★ DESTACADO')).toBeInTheDocument()
+    expect(screen.getByText('Court 5')).toBeInTheDocument()
+    expect(screen.getByText('EN VIVO')).toBeInTheDocument()
+  })
+
+  it('does NOT render header (logo, QR) when in spotlight mode', () => {
+    const tables = [
+      makeTable({ id: 't1', name: 'Featured', status: 'LIVE', featured: true }),
+    ]
+    renderPage(tables, { on: vi.fn(), off: vi.fn(), emit: vi.fn() })
+
+    // Logo should not be visible in spotlight mode
+    expect(screen.queryByAltText('RallyOS')).not.toBeInTheDocument()
+  })
+
+  it('does not activate spotlight for CONFIGURING featured court', () => {
+    const mockEmit = vi.fn()
+    const tables = [
+      makeTable({ id: 't1', name: 'Config Court', status: 'CONFIGURING', featured: true }),
+    ]
+    renderPage(tables, { on: vi.fn(), off: vi.fn(), emit: mockEmit })
+
+    // No subscription
+    expect(mockEmit).not.toHaveBeenCalled()
+    // No KioskScoreboard
+    expect(screen.queryByTestId('scoreboard-main')).not.toBeInTheDocument()
   })
 })
 
@@ -378,7 +601,7 @@ describe('calculatePages', () => {
   })
 })
 
-describe('KioskAllTablesPage — rotation behavior', () => {
+describe('KioskAllCourtsPage — rotation behavior', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     // Large viewport: 1920×1080, 3 columns, ~12 cards per page
@@ -399,14 +622,14 @@ describe('KioskAllTablesPage — rotation behavior', () => {
   it('renders all cards in static mode when they fit (no indicators, no rotation)', () => {
     // 3 tables on 1920×1080 → all fit on one page → static mode
     mockUseSocketContext.mockReturnValue({
-      tables: makeTables(3),
+      courts: makeTables(3),
       connected: true,
       connecting: false,
     })
 
     render(
       <MemoryRouter>
-        <KioskAllTablesPage />
+        <KioskAllCourtsPage />
       </MemoryRouter>,
     )
 
@@ -425,14 +648,14 @@ describe('KioskAllTablesPage — rotation behavior', () => {
     Object.defineProperty(window, 'innerHeight', { value: 600, configurable: true })
 
     mockUseSocketContext.mockReturnValue({
-      tables: makeTables(8),
+      courts: makeTables(8),
       connected: true,
       connecting: false,
     })
 
     render(
       <MemoryRouter>
-        <KioskAllTablesPage />
+        <KioskAllCourtsPage />
       </MemoryRouter>,
     )
 
@@ -458,14 +681,14 @@ describe('KioskAllTablesPage — rotation behavior', () => {
     Object.defineProperty(window, 'innerHeight', { value: 667, configurable: true })
 
     mockUseSocketContext.mockReturnValue({
-      tables: makeTables(4), // 4 tables → 2 pages of 2
+      courts: makeTables(4), // 4 tables → 2 pages of 2
       connected: true,
       connecting: false,
     })
 
     render(
       <MemoryRouter>
-        <KioskAllTablesPage />
+        <KioskAllCourtsPage />
       </MemoryRouter>,
     )
 
@@ -495,16 +718,16 @@ describe('KioskAllTablesPage — rotation behavior', () => {
     Object.defineProperty(window, 'innerWidth', { value: 1920, configurable: true })
     Object.defineProperty(window, 'innerHeight', { value: 1080, configurable: true })
 
-    const initialTables = makeTables(3)
+    const initialCourts = makeTables(3)
     mockUseSocketContext.mockReturnValue({
-      tables: initialTables,
+      courts: initialCourts,
       connected: true,
       connecting: false,
     })
 
     const { rerender } = render(
       <MemoryRouter>
-        <KioskAllTablesPage />
+        <KioskAllCourtsPage />
       </MemoryRouter>,
     )
 
@@ -515,16 +738,16 @@ describe('KioskAllTablesPage — rotation behavior', () => {
     Object.defineProperty(window, 'innerWidth', { value: 375, configurable: true })
     Object.defineProperty(window, 'innerHeight', { value: 667, configurable: true })
 
-    const moreTables = makeTables(8)
+    const moreCourts = makeTables(8)
     mockUseSocketContext.mockReturnValue({
-      tables: moreTables,
+      courts: moreCourts,
       connected: true,
       connecting: false,
     })
 
     rerender(
       <MemoryRouter>
-        <KioskAllTablesPage />
+        <KioskAllCourtsPage />
       </MemoryRouter>,
     )
 
@@ -535,7 +758,7 @@ describe('KioskAllTablesPage — rotation behavior', () => {
 
   it('renders QR code with hardcoded size 180', () => {
     mockUseSocketContext.mockReturnValue({
-      tables: [makeTable({ status: 'LIVE' })],
+      courts: [makeTable({ status: 'LIVE' })],
       connected: true,
       connecting: false,
       hubConfig: { ssid: 'RallyOS', wifiPassword: 'test1234', domain: 'rallyos-hub.local' },
@@ -543,7 +766,7 @@ describe('KioskAllTablesPage — rotation behavior', () => {
 
     render(
       <MemoryRouter>
-        <KioskAllTablesPage />
+        <KioskAllCourtsPage />
       </MemoryRouter>,
     )
 
@@ -555,7 +778,7 @@ describe('KioskAllTablesPage — rotation behavior', () => {
 
   it('displays full URL in monospace font when hubConfig available', () => {
     mockUseSocketContext.mockReturnValue({
-      tables: [makeTable({ status: 'LIVE' })],
+      courts: [makeTable({ status: 'LIVE' })],
       connected: true,
       connecting: false,
       hubConfig: { domain: 'rallyos-hub.local', port: 3001 },
@@ -563,7 +786,7 @@ describe('KioskAllTablesPage — rotation behavior', () => {
 
     render(
       <MemoryRouter>
-        <KioskAllTablesPage />
+        <KioskAllCourtsPage />
       </MemoryRouter>,
     )
 
@@ -578,14 +801,14 @@ describe('KioskAllTablesPage — rotation behavior', () => {
     Object.defineProperty(window, 'innerHeight', { value: 667, configurable: true })
 
     mockUseSocketContext.mockReturnValue({
-      tables: makeTables(6), // 6 tables → 3 pages of 2
+      courts: makeTables(6), // 6 tables → 3 pages of 2
       connected: true,
       connecting: false,
     })
 
     const { rerender } = render(
       <MemoryRouter>
-        <KioskAllTablesPage />
+        <KioskAllCourtsPage />
       </MemoryRouter>,
     )
 
@@ -597,14 +820,14 @@ describe('KioskAllTablesPage — rotation behavior', () => {
     Object.defineProperty(window, 'innerHeight', { value: 1080, configurable: true })
 
     mockUseSocketContext.mockReturnValue({
-      tables: makeTables(1),
+      courts: makeTables(1),
       connected: true,
       connecting: false,
     })
 
     rerender(
       <MemoryRouter>
-        <KioskAllTablesPage />
+        <KioskAllCourtsPage />
       </MemoryRouter>,
     )
 
@@ -617,14 +840,14 @@ describe('KioskAllTablesPage — rotation behavior', () => {
     Object.defineProperty(window, 'innerHeight', { value: 667, configurable: true })
 
     mockUseSocketContext.mockReturnValue({
-      tables: makeTables(6), // 3 pages
+      courts: makeTables(6), // 3 pages
       connected: true,
       connecting: false,
     })
 
     render(
       <MemoryRouter>
-        <KioskAllTablesPage />
+        <KioskAllCourtsPage />
       </MemoryRouter>,
     )
 
@@ -647,16 +870,16 @@ describe('KioskAllTablesPage — rotation behavior', () => {
     Object.defineProperty(window, 'innerWidth', { value: 375, configurable: true })
     Object.defineProperty(window, 'innerHeight', { value: 667, configurable: true })
 
-    const initialTables = makeTables(6)
+    const initialCourts = makeTables(6)
     mockUseSocketContext.mockReturnValue({
-      tables: initialTables,
+      courts: initialCourts,
       connected: true,
       connecting: false,
     })
 
     const { rerender } = render(
       <MemoryRouter>
-        <KioskAllTablesPage />
+        <KioskAllCourtsPage />
       </MemoryRouter>,
     )
 
@@ -666,19 +889,19 @@ describe('KioskAllTablesPage — rotation behavior', () => {
     })
 
     // Simulate live score update (same tables, different scores)
-    const updatedTables = initialTables.map((t) => ({
+    const updatedCourts = initialCourts.map((t) => ({
       ...t,
       currentScore: { a: (t.currentScore?.a ?? 0) + 1, b: t.currentScore?.b ?? 0 },
     }))
     mockUseSocketContext.mockReturnValue({
-      tables: updatedTables,
+      courts: updatedCourts,
       connected: true,
       connecting: false,
     })
 
     rerender(
       <MemoryRouter>
-        <KioskAllTablesPage />
+        <KioskAllCourtsPage />
       </MemoryRouter>,
     )
 
@@ -699,14 +922,14 @@ describe('KioskAllTablesPage — rotation behavior', () => {
     Object.defineProperty(document, 'hidden', { value: false, writable: true, configurable: true })
 
     mockUseSocketContext.mockReturnValue({
-      tables: makeTables(6), // 3 pages
+      courts: makeTables(6), // 3 pages
       connected: true,
       connecting: false,
     })
 
     render(
       <MemoryRouter>
-        <KioskAllTablesPage />
+        <KioskAllCourtsPage />
       </MemoryRouter>,
     )
 

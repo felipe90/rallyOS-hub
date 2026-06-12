@@ -21,7 +21,7 @@ export { useDashboardStats } from './useDashboardStats'
 export { usePermissions } from './usePermissions'
 export { useCan } from './useCan'
 export { useAuthFlow } from './useAuthFlow'
-export { useTableManagement } from './useTableManagement'
+export { useCourtManagement } from './useCourtManagement'
 export { useWakeLock } from './useWakeLock'
 export type { WakeLockState } from './useWakeLock'
 

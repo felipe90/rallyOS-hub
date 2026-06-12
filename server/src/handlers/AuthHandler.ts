@@ -7,7 +7,7 @@
  */
 
 import { Server, Socket } from 'socket.io';
-import { TableManager } from '../domain/courtManager';
+import { CourtManager } from '../domain/courtManager';
 import { validateSocketPayload } from '../utils/validation';
 import { logger } from '../utils/logger';
 import { SocketEvents } from '../../../shared/events';
@@ -17,7 +17,7 @@ import { generateToken } from '../middleware/ownerAuth';
 import type { SocketData } from '../domain/types';
 
 export class AuthHandler extends SocketHandlerBase {
-  constructor(io: Server, tableManager: TableManager, ownerPin: string) {
+  constructor(io: Server, tableManager: CourtManager, ownerPin: string) {
     super(io, tableManager, ownerPin);
   }
 
@@ -26,22 +26,22 @@ export class AuthHandler extends SocketHandlerBase {
    */
   public registerHandlers(socket: Socket): void {
     // SET_REF: Set referee role for a table
-    socket.on(SocketEvents.CLIENT.SET_REF, (data: { tableId: string; pin: string }) => {
+    socket.on(SocketEvents.CLIENT.SET_REF, (data: { courtId: string; pin: string }) => {
       if (!validateSocketPayload(socket, data, { 
-        tableId: { required: true, type: 'string', maxLength: 36 }, 
+        courtId: { required: true, type: 'string', maxLength: 36 }, 
         pin: { required: true, type: 'string', pattern: PIN_RULES.tablePin.pattern } 
       }, 'SET_REF')) {
         return;
       }
 
-      if (!data?.tableId || !data?.pin) {
-        return this.emitError(socket, 'INVALID_PARAMS', 'tableId and pin required');
+      if (!data?.courtId || !data?.pin) {
+        return this.emitError(socket, 'INVALID_PARAMS', 'courtId and pin required');
       }
 
       const clientIp = socket.handshake.address;
-      const rateLimitKey = `SET_REF:${data.tableId}:${clientIp}`;
+      const rateLimitKey = `SET_REF:${data.courtId}:${clientIp}`;
       if (this.isRateLimited(rateLimitKey)) {
-        this.logRateLimitBlocked('SET_REF', data.tableId, clientIp);
+        this.logRateLimitBlocked('SET_REF', data.courtId, clientIp);
         return this.emitError(socket, 'RATE_LIMITED', 'Too many attempts. Please wait a minute before trying again.');
       }
       
@@ -51,35 +51,35 @@ export class AuthHandler extends SocketHandlerBase {
       
       if (isOwnerPin) {
         // Owner PIN can take control regardless of existing referee
-        success = this.tableManager.setReferee(data.tableId, socket.id, data.pin);
+        success = this.tableManager.setReferee(data.courtId, socket.id, data.pin);
         
         if (!success) {
-          const table = this.tableManager.getTable(data.tableId);
-          if (table) {
-            const existingRef = table.players.find(p => p.role === 'REFEREE');
+          const court = this.tableManager.getCourt(data.courtId);
+          if (court) {
+            const existingRef = court.players.find(p => p.role === 'REFEREE');
             if (existingRef) {
-              logger.info({ tableId: data.tableId, oldRefereeId: existingRef.socketId }, 'Owner taking control, removing old referee');
-              table.players = table.players.filter(p => p.role !== 'REFEREE');
+              logger.info({ courtId: data.courtId, oldRefereeId: existingRef.socketId }, 'Owner taking control, removing old referee');
+              court.players = court.players.filter(p => p.role !== 'REFEREE');
             }
           }
-          success = this.tableManager.setReferee(data.tableId, socket.id, data.pin);
+          success = this.tableManager.setReferee(data.courtId, socket.id, data.pin);
         }
       } else {
-        success = this.tableManager.setReferee(data.tableId, socket.id, data.pin);
+        success = this.tableManager.setReferee(data.courtId, socket.id, data.pin);
       }
       
       if (success) {
-        socket.join(data.tableId);
-        socket.emit(SocketEvents.SERVER.REF_SET, { tableId: data.tableId });
+        socket.join(data.courtId);
+        socket.emit(SocketEvents.SERVER.REF_SET, { courtId: data.courtId });
 
-        const tableInfo = this.tableManager.getAllTables().find(t => t.id === data.tableId);
-        if (tableInfo) {
-          this.io.emit(SocketEvents.SERVER.TABLE_UPDATE, this.toPublicTableInfo(tableInfo));
+        const courtInfo = this.tableManager.getAllCourts().find(c => c.id === data.courtId);
+        if (courtInfo) {
+          this.io.emit(SocketEvents.SERVER.COURT_UPDATE, this.toPublicCourtInfo(courtInfo));
         }
       } else {
-        const table = this.tableManager.getTable(data.tableId);
-        if (table) {
-          const existingRef = table.players.find(p => p.role === 'REFEREE');
+        const court = this.tableManager.getCourt(data.courtId);
+        if (court) {
+          const existingRef = court.players.find(p => p.role === 'REFEREE');
           if (existingRef && existingRef.socketId !== socket.id) {
             return this.emitError(socket, 'REF_ALREADY_ACTIVE', 'Ya hay un árbitro activo en esta cancha');
           }
@@ -116,13 +116,13 @@ export class AuthHandler extends SocketHandlerBase {
     });
 
     // REF_ROLE_CHECK: Verify if socket is referee for a table
-    socket.on(SocketEvents.CLIENT.REF_ROLE_CHECK, (data: { tableId: string }) => {
-      if (!data?.tableId) {
-        return this.emitError(socket, 'INVALID_PARAMS', 'tableId required');
+    socket.on(SocketEvents.CLIENT.REF_ROLE_CHECK, (data: { courtId: string }) => {
+      if (!data?.courtId) {
+        return this.emitError(socket, 'INVALID_PARAMS', 'courtId required');
       }
 
-      const isReferee = this.tableManager.isReferee(data.tableId, socket.id);
-      socket.emit(SocketEvents.SERVER.REF_ROLE_CHECK_RESULT, { tableId: data.tableId, isReferee });
+      const isReferee = this.tableManager.isReferee(data.courtId, socket.id);
+      socket.emit(SocketEvents.SERVER.REF_ROLE_CHECK_RESULT, { courtId: data.courtId, isReferee });
     });
   }
 }

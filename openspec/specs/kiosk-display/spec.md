@@ -8,7 +8,7 @@ Public read-only scoreboard for HDMI/TV display. No authentication required. Sho
 
 ### Requirement: Public Kiosk Route
 
-The system MUST serve `/scoreboard/all/kiosk` without authentication, displaying ALL active tables (LIVE/WAITING) as cards in a responsive grid. Each card SHALL show table name, players, and current score/set. No input controls.
+The system MUST serve `/scoreboard/all/kiosk` without authentication. When at least one LIVE or WAITING court has `featured=true`, the kiosk SHALL subscribe via `SUBSCRIBE_MATCH` to receive real-time `MATCH_UPDATE` and render a fullscreen `ScoreboardMain` view for that court. When no court has `featured=true`, the kiosk SHALL display all active tables (LIVE/WAITING) as cards in a responsive grid. Each card SHALL show table name, players, and current score/set. No input controls.
 
 #### Scenario: All-tables kiosk loads without login
 
@@ -27,6 +27,30 @@ The system MUST serve `/scoreboard/all/kiosk` without authentication, displaying
 - GIVEN table-1 FINISHED, table-2 LIVE, table-3 WAITING
 - WHEN kiosk loads
 - THEN only table-2 and table-3 cards shown
+
+#### Scenario: No featured — grid mode
+
+- GIVEN no court has `featured=true`
+- WHEN kiosk loads or receives `TABLE_UPDATE`
+- THEN normal responsive grid renders (zero regression)
+
+#### Scenario: Featured activates fullscreen
+
+- GIVEN kiosk shows grid mode
+- WHEN `TABLE_UPDATE` arrives with `featured: true` on a LIVE court
+- THEN kiosk emits `SUBSCRIBE_MATCH` and transitions to fullscreen `ScoreboardMain` for that court
+
+#### Scenario: Return to grid when match ends
+
+- GIVEN kiosk shows fullscreen for featured court-A
+- WHEN court-A transitions to FINISHED
+- THEN kiosk emits `UNSUBSCRIBE_MATCH` and transitions back to grid mode
+
+#### Scenario: Return to grid when featured cleared
+
+- GIVEN kiosk shows fullscreen for featured court-A
+- WHEN `TABLE_UPDATE` arrives with `featured: false` on court-A
+- THEN kiosk emits `UNSUBSCRIBE_MATCH` and transitions back to grid mode
 
 ### Requirement: Kiosk Auto-Launch
 
@@ -245,3 +269,19 @@ Toast typography, sizing, and icon scale changes MUST only apply in kiosk mode. 
 - GIVEN non-kiosk mode (desktop, tablet)
 - WHEN a notification appears
 - THEN headline <48pt AND icon <64px AND no viewport-proportional height applied
+
+### Requirement: Kiosk Featured Transition
+
+The kiosk MUST apply a 500ms CSS opacity fade when transitioning between grid↔fullscreen and between different featured courts. The transition SHALL use the same `transition-all duration-500` pattern as the existing auto-rotation.
+
+#### Scenario: Grid to fullscreen fade
+
+- GIVEN kiosk is in grid mode
+- WHEN a court becomes featured
+- THEN grid fades out (500ms) and `ScoreboardMain` fades in (500ms)
+
+#### Scenario: Switch between featured courts
+
+- GIVEN kiosk shows fullscreen for court-A (featured)
+- WHEN featured switches to court-B
+- THEN court-A view fades out (500ms) and court-B view fades in (500ms)

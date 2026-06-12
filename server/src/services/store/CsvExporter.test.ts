@@ -3,15 +3,15 @@ import { SPORT } from '../../../../shared/types';
  * CsvExporter unit tests.
  *
  * Tests CSV generation for finished tables.
- * CsvExporter is a pure function: takes PersistedTable[], returns string.
+ * CsvExporter is a pure function: takes PersistedCourt[], returns string.
  */
 
 import { CsvExporter } from './CsvExporter';
-import type { PersistedTable } from './types';
+import type { PersistedCourt } from './types';
 
 // ── Helpers ───────────────────────────────────────────────────────────
 
-function makeFinishedTable(overrides: Partial<PersistedTable> = {}): PersistedTable {
+function makeFinishedTable(overrides: Partial<PersistedCourt> = {}): PersistedCourt {
   return {
     id: 'table-1',
     number: 1,
@@ -40,7 +40,7 @@ function makeFinishedTable(overrides: Partial<PersistedTable> = {}): PersistedTa
   };
 }
 
-function makeLiveTable(overrides: Partial<PersistedTable> = {}): PersistedTable {
+function makeLiveTable(overrides: Partial<PersistedCourt> = {}): PersistedCourt {
   return {
     id: 'table-live-1',
     number: 99,

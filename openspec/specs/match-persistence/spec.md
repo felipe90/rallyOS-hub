@@ -8,7 +8,7 @@ Server-side JSON file persistence for Table and MatchEngine state. Enables match
 
 ### Requirement: Auto-Save on Mutation
 
-The system MUST persist all LIVE and FINISHED tables to disk after every state-changing operation. StateStore.save() SHALL be called from the TableManager mutation hook (notifyUpdate) after each operation.
+The system MUST persist all LIVE and FINISHED tables to disk after every state-changing operation. StateStore.save() SHALL be called from the CourtManager mutation hook (notifyUpdate) after each operation.
 
 #### Scenario: Point scored triggers save
 
@@ -24,21 +24,21 @@ The system MUST persist all LIVE and FINISHED tables to disk after every state-c
 
 ### Requirement: On-Demand State Restoration
 
-TableManager SHALL start empty on construction — no automatic load. State restoration MUST occur only via explicit POST /api/tournament/load. When triggered, StateStore.load() reads persisted JSON; TableManager reconstructs Table objects and MatchEngine instances via `MatchEngine.fromState()`. Socket.io callbacks MUST be rewired after restoration.
-(Previously: State restored automatically on server startup / TableManager constructor.)
+CourtManager SHALL start empty on construction — no automatic load. State restoration MUST occur only via explicit POST /api/tournament/load. When triggered, StateStore.load() reads persisted JSON; CourtManager reconstructs Court objects and MatchEngine instances via `MatchEngine.fromState()`. Socket.io callbacks MUST be rewired after restoration.
+(Previously: State restored automatically on server startup / CourtManager constructor.)
 
 #### Scenario: Tournament loaded on explicit request
 
 - GIVEN `data/rallyos-state.json` contains 2 LIVE tables and 1 FINISHED
 - WHEN owner sends POST /api/tournament/load
-- THEN TableManager contains 3 tables with correct scores, PINs, and undo history
+- THEN CourtManager contains 3 courts with correct scores, PINs, and undo history
 - AND MatchEngine.fromState() was called for each table with LIVE/FINISHED status
 
-#### Scenario: TableManager starts empty
+#### Scenario: CourtManager starts empty
 
 - GIVEN `data/rallyos-state.json` contains persisted tables
-- WHEN server boots and TableManager is constructed
-- THEN TableManager has zero tables
+- WHEN server boots and CourtManager is constructed
+- THEN CourtManager has zero courts
 - AND state is NOT auto-loaded
 
 #### Scenario: Callbacks rewired after restoration

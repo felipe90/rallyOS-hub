@@ -51,13 +51,13 @@ vi.mock('@/i18n', () => ({
 }))
 
 // Mock SocketContext
-const mockRequestTables = vi.fn()
+const mockRequestCourts = vi.fn()
 vi.mock('@/contexts/SocketContext', () => ({
   useSocketContext: vi.fn(),
 }))
 
 // Mock AuthContext
-const mockSetTablePin = vi.fn()
+const mockSetCourtPin = vi.fn()
 vi.mock('@/contexts/AuthContext', () => ({
   useAuthContext: vi.fn(),
 }))
@@ -93,9 +93,9 @@ describe('RefereeDashboardPage — session persistence', () => {
     mockNavigate.mockClear()
 
     mockUseSocketContext.mockReturnValue({
-      tables: [
+      courts: [
         {
-          id: 'table-1',
+          id: 'court-1',
           number: 1,
           name: 'Mesa 1',
           status: 'LIVE',
@@ -105,13 +105,13 @@ describe('RefereeDashboardPage — session persistence', () => {
         },
       ],
       connected: true,
-      requestTables: mockRequestTables,
+      requestCourts: mockRequestCourts,
       socket: { on: vi.fn(), off: vi.fn(), emit: vi.fn() },
     })
 
     mockUseAuthContext.mockReturnValue({
       logout: vi.fn(),
-      setTablePin: mockSetTablePin,
+      setCourtPin: mockSetCourtPin,
     })
   })
 
@@ -119,10 +119,10 @@ describe('RefereeDashboardPage — session persistence', () => {
     vi.restoreAllMocks()
   })
 
-  it('auto-navigates to scoreboard when valid session exists for LIVE table', () => {
+  it('auto-navigates to scoreboard when valid session exists for LIVE court', () => {
     // Pre-populate localStorage with valid session
     localStorage.setItem(
-      'rallyos_ref_session_table-1',
+      'rallyos_ref_session_court-1',
       JSON.stringify({ pin: '4821', joinedAt: Date.now() }),
     )
 
@@ -133,8 +133,8 @@ describe('RefereeDashboardPage — session persistence', () => {
     )
 
     // Should navigate to scoreboard, skipping PinModal
-    expect(mockNavigate).toHaveBeenCalledWith('/scoreboard/table-1/referee')
-    expect(mockSetTablePin).toHaveBeenCalledWith('4821')
+    expect(mockNavigate).toHaveBeenCalledWith('/scoreboard/court-1/referee')
+    expect(mockSetCourtPin).toHaveBeenCalledWith('4821')
   })
 
   it('shows PinModal when no valid session exists', () => {
@@ -152,17 +152,17 @@ describe('RefereeDashboardPage — session persistence', () => {
     expect(screen.getByText('Panel de Árbitro')).toBeInTheDocument()
   })
 
-  it('does not auto-navigate when session table is FINISHED', () => {
-    // Pre-populate localStorage with session for a FINISHED table
+  it('does not auto-navigate when session court is FINISHED', () => {
+    // Pre-populate localStorage with session for a FINISHED court
     localStorage.setItem(
-      'rallyos_ref_session_table-1',
+      'rallyos_ref_session_court-1',
       JSON.stringify({ pin: '4821', joinedAt: Date.now() }),
     )
 
     mockUseSocketContext.mockReturnValue({
-      tables: [
+      courts: [
         {
-          id: 'table-1',
+          id: 'court-1',
           number: 1,
           name: 'Mesa 1',
           status: 'FINISHED',
@@ -172,7 +172,7 @@ describe('RefereeDashboardPage — session persistence', () => {
         },
       ],
       connected: true,
-      requestTables: mockRequestTables,
+      requestCourts: mockRequestCourts,
       socket: { on: vi.fn(), off: vi.fn(), emit: vi.fn() },
     })
 
@@ -182,10 +182,10 @@ describe('RefereeDashboardPage — session persistence', () => {
       </MemoryRouter>,
     )
 
-    // Should NOT auto-navigate since table is FINISHED
+    // Should NOT auto-navigate since court is FINISHED
     expect(mockNavigate).not.toHaveBeenCalled()
 
     // Stale session should have been cleared
-    expect(localStorage.getItem('rallyos_ref_session_table-1')).toBeNull()
+    expect(localStorage.getItem('rallyos_ref_session_court-1')).toBeNull()
   })
 })

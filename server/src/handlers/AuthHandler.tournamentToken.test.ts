@@ -7,7 +7,7 @@
 
 import { AuthHandler } from './AuthHandler';
 import type { Server, Socket } from 'socket.io';
-import type { TableManager } from '../domain/courtManager';
+import type { CourtManager } from '../domain/courtManager';
 import { SocketEvents } from '../../../shared/events';
 
 // Intercept crypto.randomUUID to verify it was called
@@ -55,7 +55,7 @@ function makeMockSocket(): Socket {
 
 describe('AuthHandler VERIFY_OWNER — tournamentToken', () => {
   let mockIo: Server;
-  let mockTableManager: TableManager;
+  let mockTableManager: CourtManager;
   let socket: ReturnType<typeof makeMockSocket>;
 
   beforeEach(() => {
@@ -72,7 +72,7 @@ describe('AuthHandler VERIFY_OWNER — tournamentToken', () => {
       getTable: jest.fn(),
       getAllTables: jest.fn().mockReturnValue([]),
       isReferee: jest.fn(),
-    } as unknown as TableManager;
+    } as unknown as CourtManager;
 
     socket = makeMockSocket();
   });

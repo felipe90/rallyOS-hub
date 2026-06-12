@@ -16,8 +16,8 @@ export interface SocketContextType {
   error: string | null
   errorCode: string | null
   appError: string | null
-  tables: TableInfo[]
-  currentTable: TableInfo | null
+  courts: TableInfo[]
+  currentCourt: TableInfo | null
   currentMatch: MatchStateExtended | null
   allHistories: AllHistoryEntry[] | null
   hubConfig: HubConfigData | null
@@ -25,15 +25,15 @@ export interface SocketContextType {
   connect: () => void
   disconnect: () => void
   emit: (event: string, data?: unknown) => void
-  createTable: (name?: string) => void
-  joinTable: (tableId: string, pin: string, name?: string) => void
-  requestTables: () => void
-  requestTablesWithPins: (ownerPin?: string) => void
+  createCourt: (name?: string) => void
+  joinCourt: (tableId: string, pin: string, name?: string) => void
+  requestCourts: () => void
+  requestCourtsWithPins: (ownerPin?: string) => void
   scorePoint: (player: 'A' | 'B') => void
   undoLastPoint: () => void
   startMatch: (config?: { pointsPerSet: number; bestOf: number; playerNameA?: string; playerNameB?: string }) => void
-  setReferee: (tableId: string, pin: string) => void
-  regeneratePin: (tableId: string) => void
+  setReferee: (courtId: string, pin: string) => void
+  regeneratePin: (courtId: string) => void
 }
 
 export interface SocketProviderProps {

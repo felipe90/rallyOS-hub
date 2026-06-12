@@ -45,12 +45,12 @@ After owner VERIFY_OWNER succeeds, the client SHALL call GET /api/tournament/sta
 - AND state is cleared; dashboard shows empty
 
 ### Requirement: Load Tournament
-POST /api/tournament/load MUST call StateStore.load() and reconstruct tables via TableManager. On success, existing PINs, scores, and undo history SHALL be intact.
+POST /api/tournament/load MUST call StateStore.load() and reconstruct courts via CourtManager. On success, existing PINs, scores, and undo history SHALL be intact.
 
 #### Scenario: Valid JSON loaded
 - GIVEN valid `data/rallyos-state.json` with 2 LIVE and 1 FINISHED tables
 - WHEN POST /api/tournament/load is called
-- THEN TableManager contains 3 restored tables
+- THEN CourtManager contains 3 restored courts
 - AND PINs, scores, and undo history match saved state
 - AND MatchEngine.fromState() was called for each LIVE/FINISHED table
 - AND Socket.io callbacks are rewired; MATCH_UPDATE emits on future mutations

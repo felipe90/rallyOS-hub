@@ -4,14 +4,14 @@
  * All routes require owner auth (valid tournament token).
  * Provides status, load, new, and finish operations.
  *
- * Design: Dependencies (StateStore, TableManager) are injected via
+ * Design: Dependencies (StateStore, CourtManager) are injected via
  * the factory function `createTournamentRouter`. Handler functions
  * are also exported for unit testing in isolation.
  */
 
 import { Router, Request, Response } from 'express';
 import { StateStore } from '../services/store/StateStore';
-import type { TableManager } from '../domain/courtManager';
+import type { CourtManager } from '../domain/courtManager';
 
 /**
  * GET /status
@@ -42,11 +42,11 @@ export function handleStatus(
 
 /**
  * POST /load
- * Restores tables from persisted state via TableManager.loadTournament().
+ * Restores tables from persisted state via CourtManager.loadTournament().
  */
 export function handleLoad(
   stateStore: StateStore,
-  tableManager: TableManager,
+  tableManager: CourtManager,
   _req: Request,
   res: Response,
 ): void {
@@ -60,7 +60,7 @@ export function handleLoad(
     return;
   }
 
-  const restored = tableManager.getAllTables().length;
+  const restored = tableManager.getAllCourts().length;
 
   res.json({ restored });
 }
@@ -84,7 +84,7 @@ export function handleNew(
  */
 export function handleFinish(
   stateStore: StateStore,
-  tableManager: TableManager,
+  tableManager: CourtManager,
   _req: Request,
   res: Response,
 ): void {
@@ -107,13 +107,13 @@ export function handleFinish(
  * Each route is wrapped with the owner auth middleware.
  *
  * @param stateStore  StateStore instance for persistence operations.
- * @param tableManager  TableManager instance for tournament restoration.
+ * @param tableManager  CourtManager instance for tournament restoration.
  * @param authMiddleware  Express middleware for owner auth validation.
  * @returns  Configured Express Router.
  */
 export function createTournamentRouter(
   stateStore: StateStore,
-  tableManager: TableManager,
+  tableManager: CourtManager,
   authMiddleware: (req: Request, res: Response, next: () => void) => void,
 ): Router {
   const router = Router();

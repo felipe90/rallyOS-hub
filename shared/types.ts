@@ -67,7 +67,9 @@ export interface Score {
 
 // ── Table Status ────────────────────────────────────────────────────
 
-export type TableStatus = 'WAITING' | 'CONFIGURING' | 'LIVE' | 'FINISHED';
+export type CourtStatus = 'WAITING' | 'CONFIGURING' | 'LIVE' | 'FINISHED';
+/** @deprecated Use CourtStatus instead */
+export type TableStatus = CourtStatus;
 
 // ── Score Change (for history / undo) ───────────────────────────────
 
@@ -152,7 +154,7 @@ export type MatchConfigExtended = MatchConfig & {
 /** Base state fields common to ALL sports */
 export interface MatchStateBase {
   config: MatchConfig;
-  status: TableStatus;
+  status: CourtStatus;
   winner: Player | null;
   swappedSides: boolean;
   midSetSwapped: boolean;
@@ -193,8 +195,8 @@ export interface PadelMatchState extends MatchStateBase {
 export type MatchState = TableTennisMatchState | PadelMatchState;
 
 export type MatchStateExtended = MatchState & {
-  tableId: string;
-  tableName: string;
+  courtId: string;
+  courtName: string;
   playerNames: { a: string; b: string };
   history: ScoreChange[];
   undoAvailable: boolean;
@@ -203,8 +205,8 @@ export type MatchStateExtended = MatchState & {
 // ── Aggregated History (ALL_HISTORY event) ────────────────────────
 
 export interface AllHistoryEntry {
-  tableId: string;
-  tableName: string;
+  courtId: string;
+  courtName: string;
   status: string;
   playerNames: { a: string; b: string };
   history: ScoreChange[];
@@ -220,12 +222,14 @@ export interface CourtInfo {
   id: string;
   number: number;
   name: string;
-  status: TableStatus;
+  status: CourtStatus;
   playerCount: number;
   playerNames?: { a: string; b: string };
   currentScore?: Score;
   currentSets?: Score;
   winner?: Player | null;
+  /** Whether this court is the featured/spotlight court for the kiosk */
+  featured?: boolean;
 }
 
 export interface CourtInfoWithPin extends CourtInfo {
@@ -244,8 +248,8 @@ export interface QRData {
   hubSsid: string;
   hubIp: string;
   hubPort: number;
-  tableId: string;
-  tableName: string;
+  courtId: string;
+  courtName: string;
   pin: string;
   encryptedPin: string;  // required: format {iv}:{ciphertext}:{authTag}:{timestamp}
   url: string;           // rallyhub://join/{tableId}?ePin={encryptedPin}
@@ -269,7 +273,7 @@ export interface ValidationError {
 // ── Referee Revoked Event ───────────────────────────────────────────
 
 export interface RefRevokedEvent {
-  tableId: string;
+  courtId: string;
   reason: 'Regenerado' | 'Expulsado' | 'Eliminada';
 }
 

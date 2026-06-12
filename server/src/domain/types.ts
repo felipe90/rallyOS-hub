@@ -12,7 +12,7 @@
 import {
   Player,
   Score,
-  TableStatus,
+  CourtStatus, TableStatus,
   ScoreChange,
   MatchEventType,
   SetWonEvent,
@@ -39,7 +39,7 @@ import type { MatchEngine } from './matchEngine';
 export {
   Player,
   Score,
-  TableStatus,
+  CourtStatus, TableStatus,
   ScoreChange,
   MatchEventType,
   SetWonEvent,
@@ -98,13 +98,15 @@ export interface Court {
   id: string;
   number: number;
   name: string;
-  status: TableStatus;
+  status: CourtStatus;
   pin: string;
   sportRules: MatchEngine;
   playerNames: { a: string; b: string };
   history: MatchEvent[];
   players: PlayerConnection[];
   createdAt: number;
+  /** Whether this court is currently featured/spotlight on the kiosk */
+  featured: boolean;
   // Event callbacks — internal wiring, never exposed to client
   onTableUpdate?: () => void;
   onMatchEvent?: (event: MatchEvent) => void;

@@ -3,17 +3,17 @@ import { render, screen, act } from '@testing-library/react'
 import { AuthProvider, useAuthContext } from './AuthContext'
 
 const TestConsumer = () => {
-  const { role, isReferee, isViewer, login, logout, tableId, isAuthenticated, tournamentToken, setTournamentToken } = useAuthContext()
+  const { role, isReferee, isViewer, login, logout, courtId, isAuthenticated, tournamentToken, setTournamentToken } = useAuthContext()
   return (
     <div>
       <span data-testid="role">{role ?? 'null'}</span>
       <span data-testid="isReferee">{String(isReferee)}</span>
       <span data-testid="isViewer">{String(isViewer)}</span>
-      <span data-testid="tableId">{tableId ?? 'null'}</span>
+      <span data-testid="courtId">{courtId ?? 'null'}</span>
       <span data-testid="isAuthenticated">{String(isAuthenticated)}</span>
       <span data-testid="tournamentToken">{tournamentToken ?? 'null'}</span>
-      <button data-testid="login-referee" onClick={() => login('referee', 'table-1')}>Login Referee</button>
-      <button data-testid="login-viewer" onClick={() => login('viewer', 'table-2')}>Login Viewer</button>
+      <button data-testid="login-referee" onClick={() => login('referee', 'court-1')}>Login Referee</button>
+      <button data-testid="login-viewer" onClick={() => login('viewer', 'court-2')}>Login Viewer</button>
       <button data-testid="logout" onClick={() => logout()}>Logout</button>
       <button data-testid="set-token" onClick={() => setTournamentToken('test-uuid-token')}>Set Token</button>
     </div>
@@ -123,7 +123,7 @@ describe('AuthContext', () => {
     expect(screen.getByTestId('isAuthenticated')).toHaveTextContent('false')
   })
 
-  it('persists role and tableId to localStorage on login (pin is NOT persisted)', () => {
+  it('persists role and courtId to localStorage on login (pin is NOT persisted)', () => {
     render(
       <AuthProvider>
         <TestConsumer />
@@ -134,9 +134,9 @@ describe('AuthContext', () => {
       screen.getByTestId('login-referee').click()
     })
 
-    // Role and tableId ARE persisted
+    // Role and courtId ARE persisted
     expect(localStorage.getItem('role')).toBe('referee')
-    expect(localStorage.getItem('tableId')).toBe('table-1')
+    expect(localStorage.getItem('tableId')).toBe('court-1')
     // ownerPin MUST NOT be in localStorage (security)
     expect(localStorage.getItem('ownerPin')).toBeNull()
     // But React state IS updated
@@ -145,7 +145,7 @@ describe('AuthContext', () => {
 
   it('restores auth state from localStorage on mount', () => {
     localStorage.setItem('role', 'viewer')
-    localStorage.setItem('tableId', 'table-123')
+    localStorage.setItem('tableId', 'court-123')
 
     render(
       <AuthProvider>
@@ -159,7 +159,7 @@ describe('AuthContext', () => {
     expect(screen.getByTestId('isAuthenticated')).toHaveTextContent('true')
   })
 
-  it('does NOT restore ownerPin or tablePin from localStorage (security)', () => {
+  it('does NOT restore ownerPin or courtPin from localStorage (security)', () => {
     // Simulate an attacker trying to inject a PIN
     localStorage.setItem('role', 'referee')
     localStorage.setItem('ownerPin', '12345678')
@@ -206,6 +206,7 @@ describe('AuthContext', () => {
     // localStorage cleared
     expect(localStorage.getItem('role')).toBeNull()
     expect(localStorage.getItem('tableId')).toBeNull()
+
     expect(localStorage.getItem('tournamentToken')).toBeNull()
   })
 

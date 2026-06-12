@@ -1,21 +1,21 @@
 import { describe, it, expect } from 'vitest'
-import { validateTableName, validateOwnerPinInput, validatePlayerName, MAX_TABLE_NAME_LENGTH } from './auth'
+import { validateCourtName, validateOwnerPinInput, validatePlayerName, MAX_COURT_NAME_LENGTH } from './auth'
 
-describe('validateTableName', () => {
+describe('validateCourtName', () => {
   it('returns true for undefined', () => {
-    expect(validateTableName(undefined)).toBe(true)
+    expect(validateCourtName(undefined)).toBe(true)
   })
 
   it('returns true for valid name', () => {
-    expect(validateTableName('Mesa 1')).toBe(true)
+    expect(validateCourtName('Mesa 1')).toBe(true)
   })
 
   it('returns false for name too long', () => {
-    expect(validateTableName('a'.repeat(MAX_TABLE_NAME_LENGTH + 1))).toBe(false)
+    expect(validateCourtName('a'.repeat(MAX_COURT_NAME_LENGTH + 1))).toBe(false)
   })
 
   it('returns true for max length name', () => {
-    expect(validateTableName('a'.repeat(MAX_TABLE_NAME_LENGTH))).toBe(true)
+    expect(validateCourtName('a'.repeat(MAX_COURT_NAME_LENGTH))).toBe(true)
   })
 })
 

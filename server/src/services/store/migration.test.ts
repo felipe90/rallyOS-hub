@@ -11,7 +11,7 @@ import { SPORT } from '../../../../shared/types';
  */
 
 import { migrateV1toV2 } from './migration';
-import type { PersistedState, PersistedTable } from './types';
+import type { PersistedState, PersistedCourt } from './types';
 
 // ── Helpers ───────────────────────────────────────────────────────────
 
@@ -20,7 +20,7 @@ import type { PersistedState, PersistedTable } from './types';
  * Uses 'as any' casts because v1 data intentionally lacks the required
  * PersistedMatchState.sport field — that's what migration fixes.
  */
-function makeV1Table(overrides: Partial<PersistedTable> = {}): PersistedTable {
+function makeV1Table(overrides: Partial<PersistedCourt> = {}): PersistedCourt {
   return {
     id: 'table-1',
     number: 1,
@@ -48,7 +48,7 @@ function makeV1Table(overrides: Partial<PersistedTable> = {}): PersistedTable {
   };
 }
 
-function makeV1State(tables: PersistedTable[] = [makeV1Table()]): PersistedState {
+function makeV1State(tables: PersistedCourt[] = [makeV1Table()]): PersistedState {
   return {
     version: 1,
     savedAt: 1700000000000,

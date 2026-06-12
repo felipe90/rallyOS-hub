@@ -42,15 +42,15 @@ function createMockIo() {
 
 function createMockTableManager() {
   return {
-    getTable: jest.fn(),
-    getAllTables: jest.fn().mockReturnValue([]),
+    getCourt: jest.fn(),
+    getAllCourts: jest.fn().mockReturnValue([]),
     getMatchState: jest.fn(),
-    getAllTablesWithPins: jest.fn().mockReturnValue([]),
+    getAllCourtsWithPins: jest.fn().mockReturnValue([]),
     isReferee: jest.fn(),
     getRefereeSocketId: jest.fn(),
     startMatch: jest.fn(),
     configureMatch: jest.fn(),
-    tableToInfo: jest.fn(),
+    courtToInfo: jest.fn(),
     onTableUpdate: undefined as any,
     onMatchEvent: undefined as any,
   };
@@ -75,8 +75,8 @@ describe('START_MATCH auto-notification', () => {
     mockTM.startMatch.mockReturnValue({
       playerNames: { a: 'Alice', b: 'Bob' },
     });
-    mockTM.getTable.mockReturnValue({ id: 'table-1', players: [] });
-    mockTM.tableToInfo.mockReturnValue({ id: 'table-1' });
+    mockTM.getCourt.mockReturnValue({ id: 'table-1', players: [] });
+    mockTM.courtToInfo.mockReturnValue({ id: 'table-1' });
     mockTM.isReferee.mockReturnValue(true);
 
     const handler = new MatchEventHandler(mockIo as any, mockTM as any, '12345678');
@@ -87,7 +87,7 @@ describe('START_MATCH auto-notification', () => {
     expect(handlerFn).toBeDefined();
 
     mockIo.emit.mockClear();
-    handlerFn({ tableId: 'table-1' });
+    handlerFn({ courtId: 'table-1' });
 
     expect(mockIo.emit).toHaveBeenCalledWith(
       SocketEvents.SERVER.KIOSK_NOTIFICATION,
@@ -139,8 +139,8 @@ describe('Fallback names', () => {
     const mockIo = createMockIo();
     const mockTM = createMockTableManager();
     mockTM.startMatch.mockReturnValue({});
-    mockTM.getTable.mockReturnValue({ id: 'table-1', players: [] });
-    mockTM.tableToInfo.mockReturnValue({ id: 'table-1' });
+    mockTM.getCourt.mockReturnValue({ id: 'table-1', players: [] });
+    mockTM.courtToInfo.mockReturnValue({ id: 'table-1' });
     mockTM.isReferee.mockReturnValue(true);
 
     const handler = new MatchEventHandler(mockIo as any, mockTM as any, '12345678');
@@ -149,7 +149,7 @@ describe('Fallback names', () => {
 
     const handlerFn = mockSocket._handlers[SocketEvents.CLIENT.START_MATCH];
     mockIo.emit.mockClear();
-    handlerFn({ tableId: 'table-1' });
+    handlerFn({ courtId: 'table-1' });
 
     expect(mockIo.emit).toHaveBeenCalledWith(
       SocketEvents.SERVER.KIOSK_NOTIFICATION,
@@ -192,8 +192,8 @@ describe('Existing emissions unchanged', () => {
     mockTM.startMatch.mockReturnValue({
       playerNames: { a: 'Alpha', b: 'Beta' },
     });
-    mockTM.getTable.mockReturnValue({ id: 'table-1', players: [] });
-    mockTM.tableToInfo.mockReturnValue({ id: 'table-1' });
+    mockTM.getCourt.mockReturnValue({ id: 'table-1', players: [] });
+    mockTM.courtToInfo.mockReturnValue({ id: 'table-1' });
     mockTM.isReferee.mockReturnValue(true);
 
     const handler = new MatchEventHandler(mockIo as any, mockTM as any, '12345678');
@@ -201,11 +201,11 @@ describe('Existing emissions unchanged', () => {
     handler.registerHandlers(mockSocket);
 
     const handlerFn = mockSocket._handlers[SocketEvents.CLIENT.START_MATCH];
-    handlerFn({ tableId: 'table-1' });
+    handlerFn({ courtId: 'table-1' });
 
     // Existing events still emitted
     expect(mockIo.emit).toHaveBeenCalledWith(
-      SocketEvents.SERVER.TABLE_UPDATE,
+      SocketEvents.SERVER.COURT_UPDATE,
       expect.any(Object),
     );
     expect(mockIo.emit).toHaveBeenCalledWith(
@@ -232,7 +232,7 @@ describe('Existing emissions unchanged', () => {
     // Original MATCH_WON still emitted
     expect(mockIo.emit).toHaveBeenCalledWith(
       SocketEvents.SERVER.MATCH_WON,
-      expect.objectContaining({ tableId: 'table-1', winner: 'A' }),
+      expect.objectContaining({ courtId: 'table-1', winner: 'A' }),
     );
   });
 });

@@ -5,7 +5,7 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 
 test.describe('Security Tests - PIN Exposure (RF-01)', () => {
   
-  test('TABLE_LIST does not expose pin in payload', async () => {
+  test('COURT_LIST does not expose pin in payload', async () => {
     const socket = io(`http://localhost:${PORT}`, {
       transports: ['websocket'],
       forceNew: true,
@@ -14,10 +14,10 @@ test.describe('Security Tests - PIN Exposure (RF-01)', () => {
     await socket.connect();
     
     // Request table list
-    socket.emit('LIST_TABLES');
+    socket.emit('LIST_COURTS');
     
     const response = await new Promise<any>((resolve) => {
-      socket.on('TABLE_LIST', (data) => {
+      socket.on('COURT_LIST', (data) => {
         resolve(data);
       });
     });
@@ -33,7 +33,7 @@ test.describe('Security Tests - PIN Exposure (RF-01)', () => {
     socket.disconnect();
   });
 
-  test('TABLE_UPDATE does not expose pin in payload', async () => {
+  test('COURT_UPDATE does not expose pin in payload', async () => {
     const socket = io(`http://localhost:${PORT}`, {
       transports: ['websocket'],
       forceNew: true,
@@ -42,10 +42,10 @@ test.describe('Security Tests - PIN Exposure (RF-01)', () => {
     await socket.connect();
     
     // Create a table first
-    socket.emit('CREATE_TABLE', { name: 'Test Table Security' });
+    socket.emit('CREATE_COURT', { name: 'Test Table Security' });
     
     const response = await new Promise<any>((resolve) => {
-      socket.on('TABLE_UPDATE', (data) => {
+      socket.on('COURT_UPDATE', (data) => {
         resolve(data);
       });
     });
@@ -59,7 +59,7 @@ test.describe('Security Tests - PIN Exposure (RF-01)', () => {
 
 test.describe('Security Tests - Authorization (RF-02)', () => {
   
-  test('CREATE_TABLE promotes creator to referee - START_MATCH succeeds', async () => {
+  test('CREATE_COURT promotes creator to referee - START_MATCH succeeds', async () => {
     const socket = io(`http://localhost:${PORT}`, {
       transports: ['websocket'],
       forceNew: true,
@@ -68,10 +68,10 @@ test.describe('Security Tests - Authorization (RF-02)', () => {
     await socket.connect();
     
     // Create a table
-    socket.emit('CREATE_TABLE', { name: 'RF-02 Test Table' });
+    socket.emit('CREATE_COURT', { name: 'RF-02 Test Table' });
     
     const tableCreated = await new Promise<any>((resolve) => {
-      socket.on('TABLE_CREATED', (data) => {
+      socket.on('COURT_CREATED', (data) => {
         resolve(data);
       });
     });
@@ -110,9 +110,9 @@ test.describe('Security Tests - Rate Limiting (RF-03, RF-04)', () => {
     await socket.connect();
     
     // Create table first
-    socket.emit('CREATE_TABLE', { name: 'Rate Test SET_REF' });
+    socket.emit('CREATE_COURT', { name: 'Rate Test SET_REF' });
     const tableCreated = await new Promise<any>((resolve) => {
-      socket.on('TABLE_CREATED', (data) => resolve(data));
+      socket.on('COURT_CREATED', (data) => resolve(data));
     });
     
     // Try to set referee 6 times (more than limit of 5)
@@ -145,14 +145,14 @@ test.describe('Security Tests - Rate Limiting (RF-03, RF-04)', () => {
     await socket.connect();
     
     // Create table first
-    socket.emit('CREATE_TABLE', { name: 'Delete Rate Test' });
+    socket.emit('CREATE_COURT', { name: 'Delete Rate Test' });
     const tableCreated = await new Promise<any>((resolve) => {
-      socket.on('TABLE_CREATED', (data) => resolve(data));
+      socket.on('COURT_CREATED', (data) => resolve(data));
     });
     
     // Try to delete 6 times
     for (let i = 0; i < 6; i++) {
-      socket.emit('DELETE_TABLE', { tableId: tableCreated.tableId });
+      socket.emit('DELETE_COURT', { tableId: tableCreated.tableId });
     }
     
     const errorResponse = await new Promise<any>((resolve) => {

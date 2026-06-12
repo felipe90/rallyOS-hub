@@ -18,9 +18,9 @@ export interface HubConfigData {
 }
 
 export function useSocketState(socket: Socket | null) {
-  const [tables, setTables] = useState<TableInfo[]>([])
+  const [courts, setCourts] = useState<TableInfo[]>([])
   const [currentMatch, setCurrentMatch] = useState<MatchStateExtended | null>(null)
-  const [currentTable, setCurrentTable] = useState<TableInfo | null>(null)
+  const [currentCourt, setCurrentCourt] = useState<TableInfo | null>(null)
   const [appError, setAppError] = useState<string | null>(null)
   const [allHistories, setAllHistories] = useState<AllHistoryEntry[] | null>(null)
   const [hubConfig, setHubConfig] = useState<HubConfigData | null>(null)
@@ -29,31 +29,31 @@ export function useSocketState(socket: Socket | null) {
   useEffect(() => {
     if (!socket) return
 
-    const handleTableUpdate = (table: TableInfo) => {
-      setTables(prev =>
-        prev.find(t => t.id === table.id)
-          ? prev.map(t => (t.id === table.id ? { ...t, ...table } : t))
-          : [...prev, table],
+    const handleCourtUpdate = (court: TableInfo) => {
+      setCourts(prev =>
+        prev.find(t => t.id === court.id)
+          ? prev.map(t => (t.id === court.id ? { ...t, ...court } : t))
+          : [...prev, court],
       )
-      setCurrentTable(table)
+      setCurrentCourt(court)
     }
 
-    const handleTableList = (list: TableInfo[]) => setTables(list)
+    const handleCourtList = (list: TableInfo[]) => setCourts(list)
 
-    const handleTableListWithPins = (data: { tables: TableInfoWithPin[] }) => {
-      setTables(data.tables as TableInfo[])
+    const handleCourtListWithPins = (data: { courts?: TableInfoWithPin[]; tables?: TableInfoWithPin[] }) => {
+      setCourts((data.courts || data.tables || []) as TableInfo[])
     }
 
-    const handleTableDeleted = ({ tableId }: { tableId: string }) => {
-      setTables(prev => prev.filter(t => t.id !== tableId))
+    const handleCourtDeleted = (data: { courtId?: string; tableId?: string }) => {
+      setCourts(prev => prev.filter(t => t.id !== (data.courtId || data.tableId)))
     }
 
-    const handleTableCreated = (table: TableInfo) => {
-      setTables(prev => {
-        if (prev.find(t => t.id === table.id)) {
-          return prev.map(t => (t.id === table.id ? { ...t, ...table } : t))
+    const handleCourtCreated = (court: TableInfo) => {
+      setCourts(prev => {
+        if (prev.find(t => t.id === court.id)) {
+          return prev.map(t => (t.id === court.id ? { ...t, ...court } : t))
         }
-        return [...prev, table]
+        return [...prev, court]
       })
     }
 
@@ -78,11 +78,11 @@ export function useSocketState(socket: Socket | null) {
     }
 
     socket.on(SocketEvents.SERVER.ERROR, handleError)
-    socket.on(SocketEvents.SERVER.TABLE_UPDATE, handleTableUpdate)
-    socket.on(SocketEvents.SERVER.TABLE_LIST, handleTableList)
-    socket.on(SocketEvents.SERVER.TABLE_LIST_WITH_PINS, handleTableListWithPins)
-    socket.on(SocketEvents.SERVER.TABLE_DELETED, handleTableDeleted)
-    socket.on(SocketEvents.SERVER.TABLE_CREATED, handleTableCreated)
+    socket.on(SocketEvents.SERVER.COURT_UPDATE, handleCourtUpdate)
+    socket.on(SocketEvents.SERVER.COURT_LIST, handleCourtList)
+    socket.on(SocketEvents.SERVER.COURT_LIST_WITH_PINS, handleCourtListWithPins)
+    socket.on(SocketEvents.SERVER.COURT_DELETED, handleCourtDeleted)
+    socket.on(SocketEvents.SERVER.COURT_CREATED, handleCourtCreated)
     socket.on(SocketEvents.SERVER.MATCH_UPDATE, handleMatchUpdate)
     socket.on(SocketEvents.SERVER.ALL_HISTORY, handleAllHistory)
     socket.on(SocketEvents.SERVER.HUB_CONFIG, handleHubConfig)
@@ -90,11 +90,11 @@ export function useSocketState(socket: Socket | null) {
 
     return () => {
       socket.off(SocketEvents.SERVER.ERROR, handleError)
-      socket.off(SocketEvents.SERVER.TABLE_UPDATE, handleTableUpdate)
-      socket.off(SocketEvents.SERVER.TABLE_LIST, handleTableList)
-      socket.off(SocketEvents.SERVER.TABLE_LIST_WITH_PINS, handleTableListWithPins)
-      socket.off(SocketEvents.SERVER.TABLE_DELETED, handleTableDeleted)
-      socket.off(SocketEvents.SERVER.TABLE_CREATED, handleTableCreated)
+      socket.off(SocketEvents.SERVER.COURT_UPDATE, handleCourtUpdate)
+      socket.off(SocketEvents.SERVER.COURT_LIST, handleCourtList)
+      socket.off(SocketEvents.SERVER.COURT_LIST_WITH_PINS, handleCourtListWithPins)
+      socket.off(SocketEvents.SERVER.COURT_DELETED, handleCourtDeleted)
+      socket.off(SocketEvents.SERVER.COURT_CREATED, handleCourtCreated)
       socket.off(SocketEvents.SERVER.MATCH_UPDATE, handleMatchUpdate)
       socket.off(SocketEvents.SERVER.ALL_HISTORY, handleAllHistory)
       socket.off(SocketEvents.SERVER.HUB_CONFIG, handleHubConfig)
@@ -102,5 +102,5 @@ export function useSocketState(socket: Socket | null) {
     }
   }, [socket])
 
-  return { tables, currentMatch, currentTable, appError, allHistories, hubConfig, kioskNotification }
+  return { courts, currentMatch, currentCourt, appError, allHistories, hubConfig, kioskNotification }
 }

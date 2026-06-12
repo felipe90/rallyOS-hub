@@ -3,7 +3,7 @@
  */
 
 import { Server } from 'socket.io';
-import { TableManager } from '../src/domain/courtManager';
+import { CourtManager } from '../src/domain/courtManager';
 import { SocketHandlerBase } from '../src/handlers/SocketHandlerBase';
 
 // Concrete subclass to access protected methods
@@ -19,7 +19,7 @@ class TestHandler extends SocketHandlerBase {
 
 function createTestHandler(ownerPin: string = '12345678'): TestHandler {
   const io = {} as Server;
-  const tableManager = {} as TableManager;
+  const tableManager = {} as CourtManager;
   return new TestHandler(io, tableManager, ownerPin);
 }
 

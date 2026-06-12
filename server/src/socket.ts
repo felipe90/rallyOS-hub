@@ -7,17 +7,17 @@
 
 import { Server as IOServer } from 'socket.io';
 import { SocketHandler } from './handlers/SocketHandler';
-import { TableManager } from './domain/courtManager';
+import { CourtManager } from './domain/courtManager';
 import { HubConfig } from './domain/types';
 import { logger } from './utils/logger';
 
 export function createSocketServer(
   io: IOServer,
-  tableManager: TableManager,
+  courtManager: CourtManager,
   ownerPin: string,
   hubConfig: HubConfig,
 ): SocketHandler {
-  const socketHandler = new SocketHandler(io, tableManager, ownerPin, hubConfig);
+  const socketHandler = new SocketHandler(io, courtManager, ownerPin, hubConfig);
 
   logger.info('Socket.IO initialized');
   logger.debug({ transports: io.engine.opts.transports }, 'Socket.IO transports');

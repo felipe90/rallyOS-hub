@@ -1,6 +1,6 @@
 import { SPORT } from '../../../../shared/types';
 import { StateStore } from './StateStore';
-import { FileSystem, PersistedTable } from './types';
+import { FileSystem, PersistedCourt } from './types';
 
 // ── Fake FileSystem for DI ────────────────────────────────────────────
 
@@ -51,7 +51,7 @@ function makeFs(): FileSystem & { _written: Map<string, string>; _files: Map<str
 
 // ── Helpers ───────────────────────────────────────────────────────────
 
-function makeTable(overrides: Partial<PersistedTable> = {}): PersistedTable {
+function makeTable(overrides: Partial<PersistedCourt> = {}): PersistedCourt {
   return {
     id: 'table-1',
     number: 1,

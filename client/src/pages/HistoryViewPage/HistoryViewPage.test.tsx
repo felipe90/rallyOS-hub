@@ -29,8 +29,8 @@ const mockUseAuthContext = useAuthContext as ReturnType<typeof vi.fn>
 const createMockSocketEmit = () => vi.fn()
 
 const createAllHistoryEntry = (overrides: Partial<AllHistoryEntry> = {}): AllHistoryEntry => ({
-  tableId: 'table-1',
-  tableName: 'Mesa 1',
+  courtId: 'table-1',
+  courtName: 'Mesa 1',
   status: 'LIVE',
   playerNames: { a: 'Juan', b: 'María' },
   history: [
@@ -55,10 +55,10 @@ const createAllHistoryEntry = (overrides: Partial<AllHistoryEntry> = {}): AllHis
 })
 
 const createMultiTableEntries = (): AllHistoryEntry[] => [
-  createAllHistoryEntry({ tableId: 'table-1', tableName: 'Mesa 1' }),
+  createAllHistoryEntry({ courtId: 'table-1', courtName: 'Mesa 1' }),
   createAllHistoryEntry({
-    tableId: 'table-2',
-    tableName: 'Mesa 2',
+    courtId: 'table-2',
+    courtName: 'Mesa 2',
     playerNames: { a: 'Carlos', b: 'Ana' },
     history: [
       {
@@ -84,13 +84,13 @@ describe('HistoryViewPage', () => {
       role: 'owner',
       isViewer: false,
       isAuthenticated: true,
-      tableId: null,
+      courtId: null,
       ownerPin: null,
       login: vi.fn(),
       logout: vi.fn(),
       setOwner: vi.fn(),
-      setTablePin: vi.fn(),
-      tablePin: null,
+      setCourtPin: vi.fn(),
+      courtPin: null,
     })
   })
 
@@ -224,13 +224,13 @@ describe('HistoryViewPage', () => {
       role: 'referee',
       isViewer: false,
       isAuthenticated: true,
-      tableId: null,
+      courtId: null,
       ownerPin: null,
       login: vi.fn(),
       logout: vi.fn(),
       setOwner: vi.fn(),
-      setTablePin: vi.fn(),
-      tablePin: null,
+      setCourtPin: vi.fn(),
+      courtPin: null,
     })
 
     renderWithProviders(
@@ -260,13 +260,13 @@ describe('HistoryViewPage', () => {
       role: 'viewer',
       isViewer: true,
       isAuthenticated: true,
-      tableId: null,
+      courtId: null,
       ownerPin: null,
       login: vi.fn(),
       logout: vi.fn(),
       setOwner: vi.fn(),
-      setTablePin: vi.fn(),
-      tablePin: null,
+      setCourtPin: vi.fn(),
+      courtPin: null,
     })
 
     renderWithProviders(

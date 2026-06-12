@@ -7,9 +7,9 @@ export const AuthContext = createContext<AuthContextValue | undefined>(undefined
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [role, setRole] = useState<UserRole>(null)
-  const [tableId, setTableId] = useState<string | null>(null)
+  const [courtId, setCourtId] = useState<string | null>(null)
   const [ownerPin, setOwnerPin] = useState<string | null>(null)
-  const [tablePin, setTablePinState] = useState<string | null>(null)
+  const [courtPin, setCourtPinState] = useState<string | null>(null)
   const [tournamentToken, setTournamentTokenState] = useState<string | null>(null)
   const [isRestoring, setIsRestoring] = useState(true)
 
@@ -18,9 +18,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const savedRole = authStorage.getRole()
     if (savedRole) {
       setRole(savedRole)
-      setTableId(authStorage.getTableId())
+      setCourtId(authStorage.getCourtId())
       setTournamentTokenState(authStorage.getTournamentToken())
-      // ownerPin and tablePin are NOT restored from storage (security)
+      // ownerPin and courtPin are NOT restored from storage (security)
     }
     setIsRestoring(false)
   }, [])
@@ -31,8 +31,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       authStorage.setRole(newRole)
     }
     if (tId) {
-      setTableId(tId)
-      authStorage.setTableId(tId)
+      setCourtId(tId)
+      authStorage.setCourtId(tId)
     }
     if (pin) {
       setOwnerPin(pin)
@@ -42,9 +42,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(() => {
     setRole(null)
-    setTableId(null)
+    setCourtId(null)
     setOwnerPin(null)
-    setTablePinState(null)
+    setCourtPinState(null)
     setTournamentTokenState(null)
     authStorage.clear()
   }, [])
@@ -60,9 +60,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  const setTablePin = useCallback((pin: string) => {
+  const setCourtPin = useCallback((pin: string) => {
     // PIN stored in memory only — never persisted to browser storage
-    setTablePinState(pin)
+    setCourtPinState(pin)
   }, [])
 
   const setTournamentToken = useCallback((token: string) => {
@@ -72,9 +72,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo<AuthContextValue>(() => ({
     role,
-    tableId,
+    courtId,
     ownerPin,
-    tablePin,
+    courtPin,
     tournamentToken,
     isRestoring,
     isOwner: role === UserRoles.OWNER,
@@ -84,9 +84,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     login,
     logout,
     setOwner,
-    setTablePin,
+    setCourtPin,
     setTournamentToken,
-  }), [role, tableId, ownerPin, tablePin, tournamentToken, isRestoring, login, logout, setOwner, setTablePin, setTournamentToken])
+  }), [role, courtId, ownerPin, courtPin, tournamentToken, isRestoring, login, logout, setOwner, setCourtPin, setTournamentToken])
 
   return (
     <AuthContext.Provider value={value}>

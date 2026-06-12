@@ -18,7 +18,7 @@ import { useAuthContext } from '@/contexts/AuthContext'
 import { useDashboardStats } from '@/hooks/useDashboardStats'
 import { usePinSubmission } from '@/hooks/usePinSubmission'
 import { useRefereeSession } from '@/hooks/useRefereeSession'
-import { useTableManagement } from '@/hooks/useTableManagement'
+import { useCourtManagement } from '@/hooks/useCourtManagement'
 import { useToast } from '@/components/molecules/Toast'
 import { Button } from '@/components/atoms/Button'
 import { Body } from '@/components/atoms/Typography'
@@ -38,28 +38,28 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
   const [notifModalOpen, setNotifModalOpen] = useState(false)
   const [finishDialogOpen, setFinishDialogOpen] = useState(false)
   const [exportCsvChecked, setExportCsvChecked] = useState(true)
-  const [selectedTable, setSelectedTable] = useState<TableInfoWithPin | null>(null)
+  const [selectedCourt, setSelectedCourt] = useState<TableInfoWithPin | null>(null)
   const navigate = useNavigate()
   const { i18nText } = useI18n()
-  const { tables, connected, socket, requestTablesWithPins, appError } = useSocketContext()
-  const { logout, ownerPin, setTablePin, isOwner, tournamentToken } = useAuthContext()
-  const stats = useDashboardStats(tables)
+  const { courts, connected, socket, requestCourtsWithPins, appError } = useSocketContext()
+  const { logout, ownerPin, setCourtPin, isOwner, tournamentToken } = useAuthContext()
+  const stats = useDashboardStats(courts)
   const { submitPin, loading: pinLoading, error: pinError, clearError } = usePinSubmission(socket)
   const { saveSession, findAnyValidSession, clearSession } = useRefereeSession()
 
-  const tableMgmt = useTableManagement({ socket, connected })
+  const courtMgmt = useCourtManagement({ socket, connected })
   const { addToast } = useToast()
 
-  // Track previous creating state to detect table creation completion
-  const wasCreatingRef = useRef(tableMgmt.isCreating)
+  // Track previous creating state to detect court creation completion
+  const wasCreatingRef = useRef(courtMgmt.isCreating)
   useEffect(() => {
     const wasCreating = wasCreatingRef.current;
-    wasCreatingRef.current = tableMgmt.isCreating;
-    // Transition: was creating → now not creating = table created successfully
-    if (wasCreating && !tableMgmt.isCreating && !appError) {
-      addToast('success', i18nText('toastTableCreated'));
+    wasCreatingRef.current = courtMgmt.isCreating;
+    // Transition: was creating → now not creating = court created successfully
+    if (wasCreating && !courtMgmt.isCreating && !appError) {
+      addToast('success', i18nText('toastCourtCreated'));
     }
-  }, [tableMgmt.isCreating, appError, addToast, i18nText]);
+  }, [courtMgmt.isCreating, appError, addToast, i18nText]);
 
   // Toast on PIN error
   useEffect(() => {
@@ -68,50 +68,50 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
     }
   }, [pinError, addToast, i18nText]);
 
-  // Derived: check if any FINISHED tables exist
-  const hasFinishedTables = tables.some(t => t.status === 'FINISHED')
-  const hasTables = tables.length > 0
+  // Derived: check if any FINISHED courts exist
+  const hasFinishedCourts = courts.some(t => t.status === 'FINISHED')
+  const hasCourts = courts.length > 0
 
-  // Owner always gets tables with PINs
+  // Owner always gets courts with PINs
   useEffect(() => {
     if (!connected) return
-    requestTablesWithPins(ownerPin || '')
-  }, [connected, ownerPin, requestTablesWithPins])
+    requestCourtsWithPins(ownerPin || '')
+  }, [connected, ownerPin, requestCourtsWithPins])
 
   // Auto-restore valid referee session on first visit only
   useEffect(() => {
-    if (!connected || tables.length === 0) return
+    if (!connected || courts.length === 0) return
     const alreadyRestored = sessionStorage.getItem('rallyos-owner-restored')
     if (alreadyRestored) return
-    const session = findAnyValidSession(tables)
+    const session = findAnyValidSession(courts)
     if (session) {
       sessionStorage.setItem('rallyos-owner-restored', '1')
-      setTablePin(session.pin)
+      setCourtPin(session.pin)
       navigate(buildScoreboardRoute(session.tableId, 'referee'))
     } else {
       sessionStorage.removeItem('rallyos-owner-restored')
     }
-  }, [connected, tables, findAnyValidSession, setTablePin, navigate])
+  }, [connected, courts, findAnyValidSession, setCourtPin, navigate])
 
-  // Clear sessions for tables that transition to FINISHED
+  // Clear sessions for courts that transition to FINISHED
   useEffect(() => {
-    for (const table of tables) {
-      if (table.status === 'FINISHED') {
-        clearSession(table.id)
+    for (const court of courts) {
+      if (court.status === 'FINISHED') {
+        clearSession(court.id)
       }
     }
-  }, [tables, clearSession])
+  }, [courts, clearSession])
 
   // Listen for QR_DATA and PIN_REGENERATED events
   useEffect(() => {
     if (!socket) return
 
     const handleQRData = () => {
-      // QR generated client-side from table data — server event is informational
+      // QR generated client-side from court data — server event is informational
     }
 
     const handlePinRegenerated = () => {
-      requestTablesWithPins(ownerPin || '')
+      requestCourtsWithPins(ownerPin || '')
     }
 
     socket.on(SocketEvents.SERVER.QR_DATA, handleQRData)
@@ -121,33 +121,43 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
       socket.off(SocketEvents.SERVER.QR_DATA, handleQRData)
       socket.off(SocketEvents.SERVER.PIN_REGENERATED, handlePinRegenerated)
     }
-  }, [socket, ownerPin, requestTablesWithPins])
+  }, [socket, ownerPin, requestCourtsWithPins])
 
   /** ── PIN Modal ── */
-  const handleTableClick = (tableId: string) => {
-    const table = tables.find(t => t.id === tableId)
-    if (table) {
-      setSelectedTable(table as TableInfoWithPin)
+  const handleCourtClick = (courtId: string) => {
+    const court = courts.find(t => t.id === courtId)
+    if (court) {
+      setSelectedCourt(court as TableInfoWithPin)
       setPinModalOpen(true)
       clearError()
     }
   }
 
   const handlePinSubmit = async (pin: string) => {
-    if (!selectedTable) return
-    setTablePin(pin)
-    const result = await submitPin(pin, selectedTable.id)
+    if (!selectedCourt) return
+    setCourtPin(pin)
+    const result = await submitPin(pin, selectedCourt.id)
     if (result.success) {
-      saveSession(selectedTable.id, pin)
-      navigate(buildScoreboardRoute(selectedTable.id, 'referee'))
+      saveSession(selectedCourt.id, pin)
+      navigate(buildScoreboardRoute(selectedCourt.id, 'referee'))
     }
   }
 
   const handlePinClose = () => {
     setPinModalOpen(false)
-    setSelectedTable(null)
+    setSelectedCourt(null)
     clearError()
   }
+
+  /** ── Featured Court Toggle ── */
+  const handleToggleFeatured = useCallback((courtId: string) => {
+    if (!socket) return
+    const court = courts.find(t => t.id === courtId)
+    const isCurrentlyFeatured = court?.featured === true
+    socket.emit(SocketEvents.CLIENT.SET_FEATURED, {
+      targetCourtId: isCurrentlyFeatured ? null : courtId,
+    })
+  }, [socket, courts])
 
   /** ── Notification Modal ── */
   const handleNotificationSubmit = ({ type, message, duration }: { type: KioskNotificationType; message: string; duration: number }) => {
@@ -230,16 +240,16 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
   }
 
   const dashboardActions = <div className="flex gap-2 items-center">
-    {!tableMgmt.isCreatingTable ? (
+    {!courtMgmt.isCreatingCourt ? (
       <>
         <Button
           variant="primary"
-          onClick={tableMgmt.startCreating}
+          onClick={courtMgmt.startCreating}
           size="sm" animate={false}
           icon={<Plus size={18}
           />}
         >
-          {i18nText('ownerCreateTable')}
+          {i18nText('ownerCreateCourt')}
         </Button>
         <Button
           variant="primary"
@@ -259,8 +269,8 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
         >
           {i18nText('ownerViewHistory')}
         </Button>
-        {/* Export CSV button — only for owners when FINISHED tables exist */}
-        {isOwner && hasFinishedTables && (
+        {/* Export CSV button — only for owners when FINISHED courts exist */}
+        {isOwner && hasFinishedCourts && (
           <Button
             variant="primary"
             size="sm"
@@ -271,8 +281,8 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
             {i18nText('exportCsv')}
           </Button>
         )}
-        {/* End Tournament button — only for owners when tables exist */}
-        {isOwner && hasTables && (
+        {/* End Tournament button — only for owners when courts exist */}
+        {isOwner && hasCourts && (
           <Button
             variant="danger"
             size="sm"
@@ -289,24 +299,24 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
         <div className="flex gap-2 items-center">
           <input
             type="text"
-            placeholder={i18nText('ownerTableNamePlaceholder')}
-            value={tableMgmt.tableName}
-            onChange={(e) => tableMgmt.setTableName(e.target.value)}
+            placeholder={i18nText('ownerCourtNamePlaceholder')}
+            value={courtMgmt.courtName}
+            onChange={(e) => courtMgmt.setCourtName(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && !tableMgmt.isCreating) tableMgmt.createTable()
+              if (e.key === 'Enter' && !courtMgmt.isCreating) courtMgmt.createCourt()
             }}
             className="px-3 py-2 rounded border border-border bg-background text-text focus:outline-none focus:ring-2 focus:ring-primary"
             autoFocus
-            disabled={tableMgmt.isCreating}
+            disabled={courtMgmt.isCreating}
           />
-          {tableMgmt.isCreating ? (
+          {courtMgmt.isCreating ? (
             <span className="text-sm text-amber-600 font-medium whitespace-nowrap">{i18nText('ownerCreating')}</span>
           ) : (
             <>
-              <Button variant="primary" onClick={tableMgmt.createTable} size="sm" animate={false}>
+              <Button variant="primary" onClick={courtMgmt.createCourt} size="sm" animate={false}>
                 {i18nText('ownerCreate')}
               </Button>
-              <Button variant="ghost" onClick={tableMgmt.cancelCreating} size="sm" animate={false}>
+              <Button variant="ghost" onClick={courtMgmt.cancelCreating} size="sm" animate={false}>
                 {i18nText('commonCancel')}
               </Button>
             </>
@@ -357,7 +367,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
               jugadores: <Users className="text-emerald-500" size={28} />,
             }}
             statLabels={{
-              tables: i18nText('dashboardStatTables'),
+              courts: i18nText('dashboardStatCourts'),
               matches: i18nText('dashboardStatMatches'),
               players: i18nText('dashboardStatPlayers'),
             }}
@@ -365,33 +375,35 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
             listViewLabel={i18nText('dashboardListView')}
           />
           <DashboardGrid
-            tables={tables}
-            onTableClick={handleTableClick}
+            courts={courts}
+            onCourtClick={handleCourtClick}
             viewMode={viewMode}
             showPin={true}
             showQr={true}
-            onCleanTable={tableMgmt.requestClean}
-            cleanTableId={tableMgmt.cleanConfirmTableId}
-            onCleanTableConfirm={() => {
-              tableMgmt.confirmClean();
-              requestTablesWithPins(ownerPin || '');
-              addToast('success', i18nText('toastTableCleaned'));
+            onCleanCourt={courtMgmt.requestClean}
+            cleanConfirmCourtId={courtMgmt.cleanConfirmCourtId}
+            onCleanCourtConfirm={() => {
+              courtMgmt.confirmClean();
+              requestCourtsWithPins(ownerPin || '');
+              addToast('success', i18nText('toastCourtCleaned'));
             }}
-            onCleanTableCancel={tableMgmt.cancelClean}
-            onDeleteTable={tableMgmt.requestDelete}
-            showDeleteConfirm={tableMgmt.deleteConfirmTableId}
-            onDeleteTableConfirm={() => {
-              tableMgmt.confirmDelete();
-              addToast('success', i18nText('toastTableDeleted'));
+            onCleanCourtCancel={courtMgmt.cancelClean}
+            onDeleteCourt={courtMgmt.requestDelete}
+            showDeleteConfirm={courtMgmt.deleteConfirmCourtId}
+            onDeleteCourtConfirm={() => {
+              courtMgmt.confirmDelete();
+              addToast('success', i18nText('toastCourtDeleted'));
             }}
-            onDeleteTableCancel={tableMgmt.cancelDelete}
+            onDeleteCourtCancel={courtMgmt.cancelDelete}
+            featuredCourtId={courts.find(t => t.featured)?.id ?? null}
+            onToggleFeatured={handleToggleFeatured}
           />
         </div>
       </main>
 
       <PinModal
         isOpen={pinModalOpen}
-        tableName={selectedTable?.name || ''}
+        tableName={selectedCourt?.name || ''}
         onClose={handlePinClose}
         onSubmit={handlePinSubmit}
         isLoading={pinLoading}

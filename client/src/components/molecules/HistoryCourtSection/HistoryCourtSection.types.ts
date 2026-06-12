@@ -1,8 +1,8 @@
 import type { ScoreChange } from '@shared/types'
 
-export interface HistoryTableSectionProps {
-  tableId: string
-  tableName: string
+export interface HistoryCourtSectionProps {
+  courtId: string
+  courtName: string
   playerNames: { a: string; b: string }
   history: ScoreChange[]
   handicap?: {

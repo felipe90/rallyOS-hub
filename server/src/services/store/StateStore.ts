@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { FileSystem, PersistedState, PersistedTable, PERSISTENCE_VERSION } from './types';
+import { FileSystem, PersistedState, PersistedCourt, PERSISTENCE_VERSION } from './types';
 import { migrateV1toV2 } from './migration';
 import { logger } from '../../utils/logger';
 
@@ -21,11 +21,11 @@ export class StateStore {
   }
 
   /**
-   * Persist tables to disk atomically (tmp + rename).
+   * Persist courts to disk atomically (tmp + rename).
    * Always writes version 2 format (with sport field on matchState).
-   * Only the caller is responsible for filtering to LIVE/FINISHED tables.
+   * Only the caller is responsible for filtering to LIVE/FINISHED courts.
    */
-  save(tables: PersistedTable[]): void {
+  save(tables: PersistedCourt[]): void {
     const persisted: PersistedState = {
       version: PERSISTENCE_VERSION,
       savedAt: Date.now(),

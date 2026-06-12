@@ -1,10 +1,10 @@
-import { MatchExporter, PersistedTable } from './types';
+import { MatchExporter, PersistedCourt } from './types';
 
 /**
  * CSV exporter for finished tournament matches.
  *
  * Implements the MatchExporter interface. Pure function: takes an array
- * of PersistedTable, filters to FINISHED, and returns a CSV string.
+ * of PersistedCourt, filters to FINISHED, and returns a CSV string.
  *
  * CSV columns: table_number, table_name, player_a, player_b,
  *              sets_won_a, sets_won_b, set_scores, winner
@@ -16,7 +16,7 @@ export class CsvExporter implements MatchExporter {
   private static readonly HEADER =
     'table_number,table_name,player_a,player_b,sets_won_a,sets_won_b,set_scores,winner';
 
-  export(tables: PersistedTable[]): string {
+  export(tables: PersistedCourt[]): string {
     const finished = tables
       .filter((t) => t.status === 'FINISHED')
       .sort((a, b) => a.number - b.number);
@@ -29,7 +29,7 @@ export class CsvExporter implements MatchExporter {
   /**
    * Format a single FINISHED table as a CSV row.
    */
-  private formatRow(table: PersistedTable): string {
+  private formatRow(table: PersistedCourt): string {
     const { setHistory } = table.matchState;
 
     // Count sets won by each player from set history

@@ -61,7 +61,7 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
   const navigate = useNavigate()
   const { i18nText } = useI18n()
   const { currentMatch, emit, connected, socket } = useSocketContext()
-  const { isReferee, isOwner, tablePin } = useAuthContext()
+  const { isReferee, isOwner, courtPin } = useAuthContext()
   const { scoreboard: perms } = usePermissions()
   const { canEdit, canConfigure, canViewHistory } = perms
   const { isLandscape, toggle: toggleOrientation } = useOrientation()
@@ -72,7 +72,7 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
     useScoreboardEvents({ emit, tableId: tableId ?? '', canEdit, connected })
 
   useMatchState(emit, tableId, connected)
-  useRefAuth(emit, tableId, connected, canEdit, tablePin)
+  useRefAuth(emit, tableId, connected, canEdit, courtPin)
   const refRevoked = useRefRevoked({ socket, tableId: tableId ?? '', navigate })
   const [historyOpen, setHistoryOpen] = useState(false)
   const [showWinnerDialog, setShowWinnerDialog] = useState(false)
@@ -126,7 +126,7 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
     return () => { document.body.classList.remove('scoreboard-page') }
   }, [])
 
-  if (!tableId) return <div>{i18nText('scoreboardInvalidTableId')}</div>
+  if (!tableId) return <div>{i18nText('scoreboardInvalidCourtId')}</div>
   if (refRevoked) return <RefRevokedView />
   if (!currentMatch) return <LoadingView />
 
@@ -165,8 +165,8 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
       {/* Match Config Modal */}
       <MatchConfigModal
         isOpen={canConfigure && currentMatch.status === 'WAITING'}
-        tableId={tableId}
-        tableName={currentMatch.tableName || ''}
+        courtId={tableId}
+        courtName={currentMatch.courtName || ''}
         initialBestOf={(currentMatch.config?.bestOf as 1 | 3 | 5) || 3}
         initialHandicapA={((currentMatch.config) as any)?.handicapA || 0}
         initialHandicapB={((currentMatch.config) as any)?.handicapB || 0}
@@ -174,7 +174,7 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
         onSubmit={(config) => handleStartMatch({ ...config, pointsPerSet: 11 })}
         onClose={handleCancelMatch}
         title={i18nText('matchConfigTitle')}
-        forTableLabel={i18nText('matchConfigForTable', { tableName: currentMatch.tableName || '' })}
+        forTableLabel={i18nText('matchConfigForCourt', { courtName: currentMatch.courtName || '' })}
         playersLabel={i18nText('matchConfigPlayers')}
         playerAPlaceholder={i18nText('matchConfigPlayerAPlaceholder')}
         playerBPlaceholder={i18nText('matchConfigPlayerBPlaceholder')}

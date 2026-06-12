@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { KioskTableCard } from './KioskTableCard'
+import { KioskCourtCard } from './KioskCourtCard'
 import type { TableInfo } from '@shared/types'
 
 // Mock i18n — return the key itself so we can verify the key was called
@@ -32,58 +32,58 @@ function makeTable(overrides: Partial<TableInfo> = {}): TableInfo {
   }
 }
 
-describe('KioskTableCard', () => {
+describe('KioskCourtCard', () => {
   it('renders table name', () => {
     const table = makeTable()
-    render(<KioskTableCard table={table} />)
+    render(<KioskCourtCard table={table} />)
     expect(screen.getByText('Mesa 1')).toBeInTheDocument()
   })
 
   it('renders player A score', () => {
     const table = makeTable()
-    render(<KioskTableCard table={table} />)
+    render(<KioskCourtCard table={table} />)
     expect(screen.getByText('5')).toBeInTheDocument()
   })
 
   it('renders player B score', () => {
     const table = makeTable()
-    render(<KioskTableCard table={table} />)
+    render(<KioskCourtCard table={table} />)
     expect(screen.getByText('3')).toBeInTheDocument()
   })
 
   it('renders player A name', () => {
     const table = makeTable()
-    render(<KioskTableCard table={table} />)
+    render(<KioskCourtCard table={table} />)
     expect(screen.getByText('Alice')).toBeInTheDocument()
   })
 
   it('renders player B name', () => {
     const table = makeTable()
-    render(<KioskTableCard table={table} />)
+    render(<KioskCourtCard table={table} />)
     expect(screen.getByText('Bob')).toBeInTheDocument()
   })
 
   it('shows LIVE status badge when status is LIVE', () => {
     const table = makeTable({ status: 'LIVE' })
-    render(<KioskTableCard table={table} />)
+    render(<KioskCourtCard table={table} />)
     expect(screen.getByText('LIVE')).toBeInTheDocument()
   })
 
   it('shows Paused status badge when status is WAITING', () => {
     const table = makeTable({ status: 'WAITING' })
-    render(<KioskTableCard table={table} />)
+    render(<KioskCourtCard table={table} />)
     expect(screen.getByText('Paused')).toBeInTheDocument()
   })
 
   it('shows Finished status badge when status is FINISHED', () => {
     const table = makeTable({ status: 'FINISHED' })
-    render(<KioskTableCard table={table} />)
+    render(<KioskCourtCard table={table} />)
     expect(screen.getByText('Finished')).toBeInTheDocument()
   })
 
   it('renders scores as zero when currentScore is undefined', () => {
     const table = makeTable({ currentScore: undefined })
-    render(<KioskTableCard table={table} />)
+    render(<KioskCourtCard table={table} />)
     // Both scores default to 0
     const zeros = screen.getAllByText('0')
     expect(zeros.length).toBeGreaterThanOrEqual(2)
@@ -91,46 +91,46 @@ describe('KioskTableCard', () => {
 
   it('falls back to default player labels when playerNames is missing', () => {
     const table = makeTable({ playerNames: undefined })
-    render(<KioskTableCard table={table} />)
+    render(<KioskCourtCard table={table} />)
     expect(screen.getByText('commonPlayerA')).toBeInTheDocument()
     expect(screen.getByText('commonPlayerB')).toBeInTheDocument()
   })
 
   it('shows CONFIGURING status as Paused badge', () => {
     const table = makeTable({ status: 'CONFIGURING' })
-    render(<KioskTableCard table={table} />)
+    render(<KioskCourtCard table={table} />)
     expect(screen.getByText('Paused')).toBeInTheDocument()
   })
 
   it('renders with custom className', () => {
     const table = makeTable()
-    const { container } = render(<KioskTableCard table={table} className="custom-class" />)
+    const { container } = render(<KioskCourtCard table={table} className="custom-class" />)
     expect(container.firstElementChild?.className).toContain('custom-class')
   })
 
   describe('set scores display', () => {
     it('renders set scores when currentSets is present with at least one value > 0', () => {
       const table = makeTable({ currentSets: { a: 2, b: 1 } })
-      render(<KioskTableCard table={table} />)
+      render(<KioskCourtCard table={table} />)
       expect(screen.getByText('Sets:')).toBeInTheDocument()
       expect(screen.getByText('2 - 1')).toBeInTheDocument()
     })
 
     it('does not render set scores when currentSets is undefined', () => {
       const table = makeTable({ currentSets: undefined })
-      render(<KioskTableCard table={table} />)
+      render(<KioskCourtCard table={table} />)
       expect(screen.queryByText('Sets:')).not.toBeInTheDocument()
     })
 
     it('does not render set scores when both values are zero', () => {
       const table = makeTable({ currentSets: { a: 0, b: 0 } })
-      render(<KioskTableCard table={table} />)
+      render(<KioskCourtCard table={table} />)
       expect(screen.queryByText('Sets:')).not.toBeInTheDocument()
     })
 
     it('renders set scores in condensed mode', () => {
       const table = makeTable({ currentSets: { a: 1, b: 0 } })
-      render(<KioskTableCard table={table} condensed />)
+      render(<KioskCourtCard table={table} condensed />)
       expect(screen.getByText('Sets:')).toBeInTheDocument()
       expect(screen.getByText('1 - 0')).toBeInTheDocument()
     })
@@ -139,7 +139,7 @@ describe('KioskTableCard', () => {
   describe('condensed mode', () => {
     it('renders table name and scores when condensed', () => {
       const table = makeTable()
-      render(<KioskTableCard table={table} condensed />)
+      render(<KioskCourtCard table={table} condensed />)
 
       // All critical content must still be visible in condensed mode
       expect(screen.getByText('Mesa 1')).toBeInTheDocument()
@@ -152,7 +152,7 @@ describe('KioskTableCard', () => {
 
     it('sets data-condensed="false" when condensed is not provided', () => {
       const table = makeTable()
-      const { container } = render(<KioskTableCard table={table} />)
+      const { container } = render(<KioskCourtCard table={table} />)
 
       const card = container.firstElementChild!
       expect(card.getAttribute('data-condensed')).toBe('false')
@@ -160,7 +160,7 @@ describe('KioskTableCard', () => {
 
     it('sets data-condensed="true" when condensed prop is true', () => {
       const table = makeTable()
-      const { container } = render(<KioskTableCard table={table} condensed />)
+      const { container } = render(<KioskCourtCard table={table} condensed />)
 
       const card = container.firstElementChild!
       expect(card.getAttribute('data-condensed')).toBe('true')

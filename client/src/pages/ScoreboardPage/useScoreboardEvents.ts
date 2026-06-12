@@ -61,34 +61,34 @@ export function useScoreboardEvents({
 
   const handleScorePoint = (player: 'A' | 'B') => {
     if (!connected || !canEdit) return
-    emit(SocketEvents.CLIENT.RECORD_POINT, { player, tableId })
+    emit(SocketEvents.CLIENT.RECORD_POINT, { player, courtId: tableId })
   }
 
   const handleSubtractPoint = (player: 'A' | 'B') => {
     if (!connected || !canEdit) return
-    emit(SocketEvents.CLIENT.SUBTRACT_POINT, { player, tableId })
+    emit(SocketEvents.CLIENT.SUBTRACT_POINT, { player, courtId: tableId })
   }
 
   const handleUndo = () => {
     if (!connected || !canEdit) return
-    emit(SocketEvents.CLIENT.UNDO_LAST, { tableId })
+    emit(SocketEvents.CLIENT.UNDO_LAST, { courtId: tableId })
   }
 
   const handleSetServer = (player: 'A' | 'B') => {
     if (!connected || !canEdit) return
     const playerKey = player.toLowerCase() as 'a' | 'b'
-    emit(SocketEvents.CLIENT.SET_SERVER, { player: playerKey, tableId })
+    emit(SocketEvents.CLIENT.SET_SERVER, { player: playerKey, courtId: tableId })
   }
 
   const handleSwapSides = () => {
     if (!connected || !canEdit) return
-    emit(SocketEvents.CLIENT.SWAP_SIDES, { tableId })
+    emit(SocketEvents.CLIENT.SWAP_SIDES, { courtId: tableId })
   }
 
   const handleStartMatch = (config: MatchStartConfig) => {
     if (!connected) return
     const payload: Record<string, unknown> = {
-      tableId,
+      courtId: tableId,
       bestOf: config.bestOf,
       playerNameA: config.playerNameA,
       playerNameB: config.playerNameB,

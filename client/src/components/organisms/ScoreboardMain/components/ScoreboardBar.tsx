@@ -3,7 +3,7 @@ import { SetScore } from '../../../molecules/MatchContext';
 import type { FormattedSet } from '../../../../adapters/SportDisplayAdapter';
 
 export interface ScoreboardBarProps {
-  tableName: string;
+  courtName: string;
   isConnected: boolean;
   status: string;
   /** Pre-formatted set history from adapter.formatSetHistory() */
@@ -23,10 +23,7 @@ export function ScoreboardBar({
 
   // Portrait: vertical layout
   return (
-    <div className="
-      flex flex-col gap-2 p-4 bg-surface-low
-      landscape:hidden landscape:w-0 landscape:overflow-hidden
-    ">
+    <div className="flex flex-col gap-2 p-4 bg-surface-low">
       {/* Status Badge */}
       {showStatusBadge && (
         <div className="px-3 py-1 bg-surface rounded-lg inline-flex self-start">

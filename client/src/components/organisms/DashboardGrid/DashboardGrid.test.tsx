@@ -9,16 +9,16 @@ const defaultHeaderProps = {
   listViewLabel: 'List view',
 }
 
-const mockTables: TableInfo[] = [
+const mockCourts: TableInfo[] = [
   {
-    id: 'table-1',
+    id: 'court-1',
     number: 1,
     name: 'Cancha 1',
     status: 'WAITING',
     playerCount: 0,
   },
   {
-    id: 'table-2',
+    id: 'court-2',
     number: 2,
     name: 'Cancha 2',
     status: 'LIVE',
@@ -26,7 +26,7 @@ const mockTables: TableInfo[] = [
     playerNames: { a: 'Player A', b: 'Player B' },
   },
   {
-    id: 'table-3',
+    id: 'court-3',
     number: 3,
     name: 'Cancha 3',
     status: 'FINISHED',
@@ -35,42 +35,42 @@ const mockTables: TableInfo[] = [
 ];
 
 describe('DashboardGrid', () => {
-  it('renders list of tables in grid mode', () => {
-    render(<DashboardGrid tables={mockTables} viewMode="grid" />);
+  it('renders list of courts in grid mode', () => {
+    render(<DashboardGrid courts={mockCourts} viewMode="grid" />);
     expect(screen.getAllByText('Cancha 1')).toHaveLength(2);
     expect(screen.getAllByText('Cancha 2')).toHaveLength(2);
     expect(screen.getAllByText('Cancha 3')).toHaveLength(2);
   });
 
-  it('renders list of tables in list mode', () => {
-    render(<DashboardGrid tables={mockTables} viewMode="list" />);
+  it('renders list of courts in list mode', () => {
+    render(<DashboardGrid courts={mockCourts} viewMode="list" />);
     expect(screen.getAllByText('Cancha 1')).toHaveLength(2);
     expect(screen.getAllByText('Cancha 2')).toHaveLength(2);
   });
 
-  it('calls onTableClick when table is clicked', () => {
+  it('calls onCourtClick when court is clicked', () => {
     const handleClick = vi.fn();
-    render(<DashboardGrid tables={mockTables} onTableClick={handleClick} />);
+    render(<DashboardGrid courts={mockCourts} onCourtClick={handleClick} />);
     
-    const firstTable = screen.getAllByText('Cancha 1')[0].closest('div');
-    fireEvent.click(firstTable!);
-    expect(handleClick).toHaveBeenCalledWith('table-1');
+    const firstCourt = screen.getAllByText('Cancha 1')[0].closest('div');
+    fireEvent.click(firstCourt!);
+    expect(handleClick).toHaveBeenCalledWith('court-1');
   });
 
   it('displays correct status indicators', () => {
-    render(<DashboardGrid tables={mockTables} />);
+    render(<DashboardGrid courts={mockCourts} />);
     expect(screen.getByText('Waiting')).toBeInTheDocument();
     expect(screen.getByText('In play')).toBeInTheDocument();
     expect(screen.getByText('Finished')).toBeInTheDocument();
   });
 
-  it('shows empty state when no tables', () => {
-    render(<DashboardGrid tables={[]} />);
+  it('shows empty state when no courts', () => {
+    render(<DashboardGrid courts={[]} />);
     expect(screen.queryByText(/Cancha/)).not.toBeInTheDocument();
   });
 
   it('renders grid with correct responsive classes', () => {
-    const { container } = render(<DashboardGrid tables={mockTables} viewMode="grid" />);
+    const { container } = render(<DashboardGrid courts={mockCourts} viewMode="grid" />);
     const grid = container.querySelector('.grid');
     expect(grid).toHaveClass('grid-cols-1', 'md:grid-cols-2', 'lg:grid-cols-3');
   });

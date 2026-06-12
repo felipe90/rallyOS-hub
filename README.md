@@ -27,12 +27,12 @@ flowchart TB
 
         subgraph HANDLERS["Event Handlers"]
             AUTH_H["AuthHandler"]
-            TABLE_H["TableEventHandler"]
+            COURT_H["CourtEventHandler"]
             MATCH_H["MatchEventHandler"]
             ADMIN_H["AdminHandler"]
         end
 
-        subgraph DOMAIN["Domain Layer — TableManager"]
+        subgraph DOMAIN["Domain Layer — CourtManager"]
             MATCH_ORCH["MatchOrchestrator"]
             PLAYER_SVC["PlayerService"]
             QR_SVC["QRService"]
@@ -57,11 +57,11 @@ flowchart TB
     NETWORK <--> SERVER
 
     EXPRESS --> AUTH_H
-    EXPRESS --> TABLE_H
+    EXPRESS --> COURT_H
     EXPRESS --> MATCH_H
     EXPRESS --> ADMIN_H
 
-    TABLE_H --> MATCH_ORCH
+    COURT_H --> MATCH_ORCH
     MATCH_H --> MATCH_ORCH
     AUTH_H --> PIN_SVC
     ADMIN_H --> STORE
@@ -83,7 +83,7 @@ flowchart TB
 
     class PWA,KIOSK_DISPLAY devices
     class AP,DNS,NAT network
-    class EXPRESS,SOCKET,AUTH_H,TABLE_H,MATCH_H,ADMIN_H,MATCH_ORCH,PLAYER_SVC,QR_SVC,PIN_SVC,STORE,TT,PADEL server
+    class EXPRESS,SOCKET,AUTH_H,COURT_H,MATCH_H,ADMIN_H,MATCH_ORCH,PLAYER_SVC,QR_SVC,PIN_SVC,STORE,TT,PADEL server
     class TYPES,EVENTS,VALIDATION shared
 ```
 
@@ -92,7 +92,7 @@ flowchart TB
 | Component | Role | Key Technologies |
 |-----------|------|-----------------|
 | **Client (Frontend)** | React 19 PWA with atomic design (atoms, molecules, organisms, pages). Sport-specific display adapters for Table Tennis and Padel. i18n (es-AR / en-US). Offline-first via `vite-plugin-pwa`. | React 19, Vite 8, React Router v7, Tailwind CSS 4, i18next |
-| **Server (Backend)** | Express 5 + Socket.IO 4 real-time engine. Clean, service-oriented: event handlers delegate socket payloads to the `TableManager`, which coordinates sub-services (`MatchOrchestrator`, `PlayerService`, `PinService`, `QRService`). Multi-sport scoring via Strategy pattern (`SportRules` interface → `TableTennisRules`, `PadelRules`). | Node.js 22, Express 5, Socket.IO 4, Pino logger |
+| **Server (Backend)** | Express 5 + Socket.IO 4 real-time engine. Clean, service-oriented: event handlers delegate socket payloads to the `CourtManager`, which coordinates sub-services (`MatchOrchestrator`, `PlayerService`, `PinService`, `QRService`). Multi-sport scoring via Strategy pattern (`SportRules` interface → `TableTennisRules`, `PadelRules`). | Node.js 22, Express 5, Socket.IO 4, Pino logger |
 | **Shared Module** | Monorepo package with TypeScript types (discriminated unions for multi-sport), validation limits, and event names. Ensures absolute synchronization of data formats between client and server. | TypeScript 6 |
 | **Embedded Network Stack** | Orchestrated by deployment scripts to configure the Orange Pi as a standalone hub: `hostapd` broadcasts Wi-Fi, `dnsmasq` serves DHCP/DNS, `iptables` enforces captive portal, and Chromium drives the HDMI kiosk display. | hostapd, dnsmasq, iptables, Chromium, X11 |
 
@@ -519,7 +519,7 @@ rallyOS-hub/
 │   └── src/
 │       ├── config/       # App configuration
 │       ├── domain/       # Domain logic
-│       │   ├── courtManager.ts    # TableManager (orchestrator)
+│   │   ├── courtManager.ts    # CourtManager (orchestrator)
 │       │   ├── matchEngine.ts     # Match engine (Strategy delegator)
 │       │   └── sports/           # Sport rules (TableTennis, Padel), registry
 │       ├── handlers/     # Socket.IO event handlers

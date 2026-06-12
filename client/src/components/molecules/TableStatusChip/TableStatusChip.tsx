@@ -4,7 +4,7 @@ import { WaitingBadge, ConfiguringBadge, LiveBadge, FinishedBadge } from '../../
 import { Body } from '../../atoms/Typography';
 import { Button } from '../../atoms/Button';
 import { ConfirmDialog } from '../ConfirmDialog';
-import { RefreshCw, Trash2 } from 'lucide-react';
+import { RefreshCw, Trash2, Star } from 'lucide-react';
 import { useI18n } from '@/i18n';
 
 /* TableStatusChip Molecule - Court info card component */
@@ -28,6 +28,10 @@ export interface TableStatusChipProps {
   onDeleteConfirm?: () => void;       // Confirm delete action
   onDeleteCancel?: () => void;        // Cancel delete action
   statusLabel?: string;
+  /** Whether this court is currently featured (spotlight) */
+  featured?: boolean;
+  /** Callback to toggle featured status */
+  onToggleFeatured?: () => void;
 }
 
 const statusBadge: Record<TableStatus, typeof WaitingBadge> = {
@@ -38,10 +42,10 @@ const statusBadge: Record<TableStatus, typeof WaitingBadge> = {
 };
 
 const statusBadgeLabelKeys: Record<TableStatus, string> = {
-  WAITING: 'tableStatusWaiting',
-  CONFIGURING: 'tableStatusConfiguring',
-  LIVE: 'tableStatusLive',
-  FINISHED: 'tableStatusFinished',
+  WAITING: 'courtStatusWaiting',
+  CONFIGURING: 'courtStatusConfiguring',
+  LIVE: 'courtStatusLive',
+  FINISHED: 'courtStatusFinished',
 };
 
 export function TableStatusChip({
@@ -62,6 +66,8 @@ export function TableStatusChip({
   onDeleteConfirm,
   onDeleteCancel,
   statusLabel,
+  featured,
+  onToggleFeatured,
 }: TableStatusChipProps) {
   const { i18nText } = useI18n();
   const StatusBadgeComponent = statusBadge[status];
@@ -139,6 +145,20 @@ export function TableStatusChip({
           className="mt-2"
         >
           Limpiar Cancha
+        </Button>
+      )}
+
+      {/* Featured toggle button — only for LIVE/WAITING courts */}
+      {onToggleFeatured && (status === 'LIVE' || status === 'WAITING') && (
+        <Button
+          variant={featured ? 'primary' : 'secondary'}
+          size="sm"
+          icon={<Star size={16} className={featured ? 'fill-amber-400 text-amber-400' : ''} />}
+          onClick={() => onToggleFeatured()}
+          stopPropagation
+          className="mt-2"
+        >
+          {featured ? i18nText('courtQuitarDestacado') : i18nText('courtDestacar')}
         </Button>
       )}
 

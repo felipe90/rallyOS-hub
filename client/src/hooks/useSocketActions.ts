@@ -8,9 +8,9 @@ import { useCallback } from 'react'
 import type { Socket } from 'socket.io-client'
 import { SocketEvents } from '@shared/events'
 import type { TableInfo } from '@shared/types'
-import { validateTableName } from '@/services/validation'
+import { validateCourtName } from '@/services/validation'
 
-export function useSocketActions(socket: Socket | null, currentTable: TableInfo | null) {
+export function useSocketActions(socket: Socket | null, currentCourt: TableInfo | null) {
   const emit = useCallback(
     (event: string, data?: unknown) => {
       if (socket?.connected) {
@@ -20,35 +20,35 @@ export function useSocketActions(socket: Socket | null, currentTable: TableInfo 
     [socket],
   )
 
-  const createTable = useCallback(
+  const createCourt = useCallback(
     (name?: string) => {
-      if (!validateTableName(name)) return
-      emit(SocketEvents.CLIENT.CREATE_TABLE, { name })
+      if (!validateCourtName(name)) return
+      emit(SocketEvents.CLIENT.CREATE_COURT, { name })
     },
     [emit],
   )
 
-  const requestTables = useCallback(() => emit(SocketEvents.CLIENT.LIST_TABLES), [emit])
+  const requestCourts = useCallback(() => emit(SocketEvents.CLIENT.LIST_COURTS), [emit])
 
-  const requestTablesWithPins = useCallback(
-    (ownerPin: string) => emit(SocketEvents.CLIENT.GET_TABLES_WITH_PINS, { ownerPin }),
+  const requestCourtsWithPins = useCallback(
+    (ownerPin: string) => emit(SocketEvents.CLIENT.GET_COURTS_WITH_PINS, { ownerPin }),
     [emit],
   )
 
   const scorePoint = useCallback(
     (player: 'A' | 'B') => {
-      if (currentTable?.id) {
-        emit(SocketEvents.CLIENT.RECORD_POINT, { tableId: currentTable.id, player })
+      if (currentCourt?.id) {
+        emit(SocketEvents.CLIENT.RECORD_POINT, { courtId: currentCourt.id, player })
       }
     },
-    [emit, currentTable],
+    [emit, currentCourt],
   )
 
   const undoLastPoint = useCallback(() => {
-    if (currentTable?.id) {
-      emit(SocketEvents.CLIENT.UNDO_LAST, { tableId: currentTable.id })
+    if (currentCourt?.id) {
+      emit(SocketEvents.CLIENT.UNDO_LAST, { courtId: currentCourt.id })
     }
-  }, [emit, currentTable])
+  }, [emit, currentCourt])
 
   const startMatch = useCallback(
     (config: {
@@ -57,25 +57,25 @@ export function useSocketActions(socket: Socket | null, currentTable: TableInfo 
       playerNameA?: string
       playerNameB?: string
     } = { pointsPerSet: 15, bestOf: 3 }) => {
-      if (currentTable?.id) {
-        emit(SocketEvents.CLIENT.START_MATCH, { tableId: currentTable.id, ...config })
+      if (currentCourt?.id) {
+        emit(SocketEvents.CLIENT.START_MATCH, { courtId: currentCourt.id, ...config })
       }
     },
-    [emit, currentTable],
+    [emit, currentCourt],
   )
 
   const regeneratePin = useCallback(
-    (tableId: string) => {
-      emit(SocketEvents.CLIENT.REGENERATE_PIN, { tableId })
+    (courtId: string) => {
+      emit(SocketEvents.CLIENT.REGENERATE_PIN, { courtId: courtId })
     },
     [emit],
   )
 
   return {
     emit,
-    createTable,
-    requestTables,
-    requestTablesWithPins,
+    createCourt,
+    requestCourts,
+    requestCourtsWithPins,
     scorePoint,
     undoLastPoint,
     startMatch,

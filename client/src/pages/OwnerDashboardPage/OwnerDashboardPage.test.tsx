@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { OwnerDashboardPage } from './OwnerDashboardPage'
 import { useSocketContext } from '@/contexts/SocketContext'
 import { useAuthContext } from '@/contexts/AuthContext'
-import { useTableManagement } from '@/hooks/useTableManagement'
+import { useCourtManagement } from '@/hooks/useCourtManagement'
 
 // Mock SocketContext
 vi.mock('@/contexts/SocketContext', () => ({
@@ -42,20 +42,20 @@ vi.mock('@/hooks/useRefereeSession', () => ({
   }),
 }))
 
-vi.mock('@/hooks/useTableManagement', () => ({
-  useTableManagement: vi.fn(() => ({
-    isCreatingTable: false,
-    tableName: '',
-    setTableName: vi.fn(),
-    createTable: vi.fn(),
+vi.mock('@/hooks/useCourtManagement', () => ({
+  useCourtManagement: vi.fn(() => ({
+    isCreatingCourt: false,
+    courtName: '',
+    setCourtName: vi.fn(),
+    createCourt: vi.fn(),
     cancelCreating: vi.fn(),
     startCreating: vi.fn(),
     requestClean: vi.fn(),
-    cleanConfirmTableId: null,
+    cleanConfirmCourtId: null,
     confirmClean: vi.fn(),
     cancelClean: vi.fn(),
     requestDelete: vi.fn(),
-    deleteConfirmTableId: null,
+    deleteConfirmCourtId: null,
     confirmDelete: vi.fn(),
     cancelDelete: vi.fn(),
   })),
@@ -90,6 +90,8 @@ vi.mock('@/i18n', () => ({
         'finishTournamentExportCsv': 'Export CSV before finishing',
         'exportCsv': 'Export CSV',
         'tournamentFinishSuccess': 'Tournament finished and archived',
+        'courtDestacar': 'Feature',
+        'courtQuitarDestacado': 'Remove Spotlight',
       }
       return map[key] || key
     },
@@ -126,9 +128,9 @@ vi.mock('@/components/molecules/KioskNotificationModal', () => ({
 const mockUseSocketContext = useSocketContext as ReturnType<typeof vi.fn>
 const mockUseAuthContext = useAuthContext as ReturnType<typeof vi.fn>
 
-function createTable(overrides: Record<string, unknown> = {}) {
+function createCourt(overrides: Record<string, unknown> = {}) {
   return {
-    id: 'table-1',
+    id: 'court-1',
     number: 1,
     name: 'Mesa 1',
     status: 'WAITING',
@@ -143,12 +145,12 @@ function renderPage(options?: {
 }) {
   const defaultSocket = {
     socket: { on: vi.fn(), off: vi.fn(), emit: vi.fn() },
-    requestTablesWithPins: vi.fn(),
+    requestCourtsWithPins: vi.fn(),
     appError: null,
   }
 
   mockUseSocketContext.mockReturnValue({
-    tables: [],
+    courts: [],
     connected: true,
     connecting: false,
     ...defaultSocket,
@@ -163,12 +165,12 @@ function renderPage(options?: {
     isViewer: false,
     isAuthenticated: true,
     role: 'OWNER',
-    tableId: null,
-    tablePin: null,
+    courtId: null,
+    courtPin: null,
     login: vi.fn(),
     logout: vi.fn(),
     setOwner: vi.fn(),
-    setTablePin: vi.fn(),
+    setCourtPin: vi.fn(),
     setTournamentToken: vi.fn(),
     ...options?.customAuth,
   })
@@ -230,19 +232,19 @@ describe('OwnerDashboardPage — Notification Button', () => {
 })
 
 describe('OwnerDashboardPage — End Tournament Button', () => {
-  it('renders End Tournament button when tables exist', () => {
+  it('renders End Tournament button when courts exist', () => {
     renderPage({
       customSocket: {
-        tables: [createTable({ status: 'LIVE' })],
+        courts: [createCourt({ status: 'LIVE' })],
       },
     })
     expect(screen.getByText('End Tournament')).toBeInTheDocument()
   })
 
-  it('does NOT render End Tournament button when no tables exist', () => {
+  it('does NOT render End Tournament button when no courts exist', () => {
     renderPage({
       customSocket: {
-        tables: [],
+        courts: [],
       },
     })
     expect(screen.queryByText('End Tournament')).not.toBeInTheDocument()
@@ -251,7 +253,7 @@ describe('OwnerDashboardPage — End Tournament Button', () => {
   it('does NOT render End Tournament button for non-owners', () => {
     renderPage({
       customSocket: {
-        tables: [createTable({ status: 'LIVE' })],
+        courts: [createCourt({ status: 'LIVE' })],
       },
       customAuth: {
         isOwner: false,
@@ -265,7 +267,7 @@ describe('OwnerDashboardPage — End Tournament Button', () => {
   it('shows confirmation dialog when End Tournament is clicked', () => {
     renderPage({
       customSocket: {
-        tables: [createTable({ status: 'LIVE' })],
+        courts: [createCourt({ status: 'LIVE' })],
       },
     })
 
@@ -279,7 +281,7 @@ describe('OwnerDashboardPage — End Tournament Button', () => {
   it('shows Export CSV checkbox in confirmation dialog, default checked', () => {
     renderPage({
       customSocket: {
-        tables: [createTable({ status: 'LIVE' })],
+        courts: [createCourt({ status: 'LIVE' })],
       },
     })
 
@@ -292,7 +294,7 @@ describe('OwnerDashboardPage — End Tournament Button', () => {
   it('closes confirmation dialog when Cancel is clicked', () => {
     renderPage({
       customSocket: {
-        tables: [createTable({ status: 'LIVE' })],
+        courts: [createCourt({ status: 'LIVE' })],
       },
     })
 
@@ -305,19 +307,19 @@ describe('OwnerDashboardPage — End Tournament Button', () => {
 })
 
 describe('OwnerDashboardPage — Export CSV Button', () => {
-  it('renders Export CSV button when FINISHED tables exist', () => {
+  it('renders Export CSV button when FINISHED courts exist', () => {
     renderPage({
       customSocket: {
-        tables: [createTable({ status: 'FINISHED' })],
+        courts: [createCourt({ status: 'FINISHED' })],
       },
     })
     expect(screen.getByText('Export CSV')).toBeInTheDocument()
   })
 
-  it('does NOT render Export CSV button when no FINISHED tables exist', () => {
+  it('does NOT render Export CSV button when no FINISHED courts exist', () => {
     renderPage({
       customSocket: {
-        tables: [createTable({ status: 'LIVE' })],
+        courts: [createCourt({ status: 'LIVE' })],
       },
     })
     expect(screen.queryByText('Export CSV')).not.toBeInTheDocument()
@@ -326,7 +328,7 @@ describe('OwnerDashboardPage — Export CSV Button', () => {
   it('does NOT render Export CSV button for non-owners', () => {
     renderPage({
       customSocket: {
-        tables: [createTable({ status: 'FINISHED' })],
+        courts: [createCourt({ status: 'FINISHED' })],
       },
       customAuth: {
         isOwner: false,
@@ -346,7 +348,7 @@ describe('OwnerDashboardPage — Export CSV Button', () => {
 
     renderPage({
       customSocket: {
-        tables: [createTable({ status: 'FINISHED' })],
+        courts: [createCourt({ status: 'FINISHED' })],
       },
     })
 
@@ -359,39 +361,86 @@ describe('OwnerDashboardPage — Export CSV Button', () => {
 })
 
 describe('OwnerDashboardPage – appError display', () => {
-  it('shows appError with role="alert" and AlertTriangle icon when creating table', () => {
-    // Override useTableManagement to show creation mode
-    vi.mocked(useTableManagement).mockReturnValue({
-      isCreatingTable: true,
-      tableName: 'Test Table',
-      setTableName: vi.fn(),
-      createTable: vi.fn(),
+  it('shows appError with role="alert" and AlertTriangle icon when creating court', () => {
+    // Override useCourtManagement to show creation mode
+    vi.mocked(useCourtManagement).mockReturnValue({
+      isCreatingCourt: true,
+      courtName: 'Test Court',
+      setCourtName: vi.fn(),
+      createCourt: vi.fn(),
       cancelCreating: vi.fn(),
       startCreating: vi.fn(),
       isCreating: false,
       requestClean: vi.fn(),
-      cleanConfirmTableId: null,
+      cleanConfirmCourtId: null,
       confirmClean: vi.fn(),
       cancelClean: vi.fn(),
       requestDelete: vi.fn(),
-      deleteConfirmTableId: null,
+      deleteConfirmCourtId: null,
       confirmDelete: vi.fn(),
       cancelDelete: vi.fn(),
     })
 
     renderPage({
       customSocket: {
-        tables: [createTable()],
-        appError: 'Table creation failed',
+        courts: [createCourt()],
+        appError: 'Court creation failed',
       },
     })
 
     const alert = screen.getByRole('alert')
     expect(alert).toBeInTheDocument()
-    expect(alert).toHaveTextContent('Table creation failed')
+    expect(alert).toHaveTextContent('Court creation failed')
 
     // AlertTriangle icon should be rendered as SVG inside the alert
     const alertIcon = alert.querySelector('svg')
     expect(alertIcon).toBeInTheDocument()
+  })
+})
+
+describe('OwnerDashboardPage — featured court toggle (Task 4.3)', () => {
+  it('emits SET_FEATURED with targetCourtId when "Feature" is clicked on a non-featured LIVE court', () => {
+    const mockEmit = vi.fn()
+    renderPage({
+      customSocket: {
+        courts: [createCourt({ id: 'court-1', status: 'LIVE', featured: false })],
+        socket: { on: vi.fn(), off: vi.fn(), emit: mockEmit },
+      },
+    })
+
+    // The "Feature" button should be visible for a non-featured LIVE court
+    const featureBtn = screen.getByRole('button', { name: /^Feature$/i })
+    expect(featureBtn).toBeInTheDocument()
+
+    fireEvent.click(featureBtn)
+
+    expect(mockEmit).toHaveBeenCalledWith('SET_FEATURED', { targetCourtId: 'court-1' })
+  })
+
+  it('emits SET_FEATURED with null when "Remove Spotlight" is clicked on a featured court', () => {
+    const mockEmit = vi.fn()
+    renderPage({
+      customSocket: {
+        courts: [createCourt({ id: 'court-2', status: 'LIVE', featured: true })],
+        socket: { on: vi.fn(), off: vi.fn(), emit: mockEmit },
+      },
+    })
+
+    const removeBtn = screen.getByRole('button', { name: /Remove Spotlight/i })
+    expect(removeBtn).toBeInTheDocument()
+
+    fireEvent.click(removeBtn)
+
+    expect(mockEmit).toHaveBeenCalledWith('SET_FEATURED', { targetCourtId: null })
+  })
+
+  it('does not render featured toggle for FINISHED courts', () => {
+    renderPage({
+      customSocket: {
+        courts: [createCourt({ id: 'court-3', status: 'FINISHED', featured: false })],
+      },
+    })
+
+    expect(screen.queryByRole('button', { name: /Feature|Remove Spotlight/i })).not.toBeInTheDocument()
   })
 })

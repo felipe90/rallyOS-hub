@@ -6,7 +6,7 @@ import { SPORT } from '@shared/types'
 const defaultProps = {
   isOpen: true,
   tableId: 'table-1',
-  tableName: 'Mesa 1',
+  courtName: 'Mesa 1',
   onSubmit: vi.fn(),
   onClose: vi.fn(),
 }

@@ -22,7 +22,7 @@ vi.mock('@/i18n', () => ({
         'scoreboardWinnerDialogContinue': 'Continuar',
         'scoreboardCoachmarkMessage': 'Tocá cualquier lado del marcador para sumar un punto',
         'matchConfigTitle': 'Configurar Partido',
-        'matchConfigForTable': `para ${(params as any)?.tableName || ''}`,
+        'matchConfigForTable': `para ${(params as any)?.courtName || ''}`,
         'matchConfigPlayers': 'Jugadores',
         'matchConfigPlayerAPlaceholder': 'Jugador A',
         'matchConfigPlayerBPlaceholder': 'Jugador B',
@@ -142,7 +142,7 @@ describe('ScoreboardPage', () => {
     mockUseAuthContext.mockReturnValue({
       role: ROLE_REFEREE,
       tableId: 'table-1',
-      tablePin: '1234',
+      courtPin: '1234',
       isReferee: true,
       isViewer: false,
       isOwner: false,
@@ -151,8 +151,8 @@ describe('ScoreboardPage', () => {
       login: vi.fn(),
       logout: vi.fn(),
       setOwner: vi.fn(),
-      setTablePin: vi.fn(),
-      tablePin: null,
+      setCourtPin: vi.fn(),
+      courtPin: null,
     })
 
     mockUsePermissions.mockReturnValue({
@@ -177,7 +177,7 @@ describe('ScoreboardPage', () => {
     renderWithRouter(<ScoreboardPage />)
 
     await waitFor(() => {
-      expect(mockEmit).toHaveBeenCalledWith('GET_MATCH_STATE', { tableId: 'table-1' })
+      expect(mockEmit).toHaveBeenCalledWith('GET_MATCH_STATE', { courtId: 'table-1' })
     })
   })
 
@@ -185,7 +185,7 @@ describe('ScoreboardPage', () => {
     mockUseAuthContext.mockReturnValue({
       role: ROLE_REFEREE,
       tableId: 'table-1',
-      tablePin: '12345',
+      courtPin: '12345',
       isReferee: true,
       isViewer: false,
       isOwner: false,
@@ -194,13 +194,13 @@ describe('ScoreboardPage', () => {
       login: vi.fn(),
       logout: vi.fn(),
       setOwner: vi.fn(),
-      setTablePin: vi.fn(),
+      setCourtPin: vi.fn(),
     })
 
     renderWithRouter(<ScoreboardPage />)
 
     await waitFor(() => {
-      expect(mockEmit).toHaveBeenCalledWith('SET_REF', { tableId: 'table-1', pin: '12345' })
+      expect(mockEmit).toHaveBeenCalledWith('SET_REF', { courtId: 'table-1', pin: '12345' })
     })
   })
 
@@ -279,8 +279,8 @@ describe('ScoreboardPage', () => {
       login: vi.fn(),
       logout: vi.fn(),
       setOwner: vi.fn(),
-      setTablePin: vi.fn(),
-      tablePin: null,
+      setCourtPin: vi.fn(),
+      courtPin: null,
     })
 
     mockUsePermissions.mockReturnValue({

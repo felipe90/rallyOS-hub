@@ -10,7 +10,7 @@ import { SPORT } from '../../../shared/types';
 import { createTournamentRouter } from './tournament';
 import { generateToken, activeTokens } from '../middleware/ownerAuth';
 import { StateStore } from '../services/store/StateStore';
-import type { FileSystem, PersistedTable } from '../services/store/types';
+import type { FileSystem, PersistedCourt } from '../services/store/types';
 import type { Request, Response, NextFunction } from 'express';
 import type { Router } from 'express';
 
@@ -51,7 +51,7 @@ function makeFs(): FileSystem & { _files: Map<string, string> } {
   };
 }
 
-function makePersistedTable(overrides: Partial<PersistedTable> = {}): PersistedTable {
+function makePersistedCourt(overrides: Partial<PersistedCourt> = {}): PersistedCourt {
   return {
     id: 'table-1',
     number: 1,
@@ -161,7 +161,7 @@ describe('Tournament router integration', () => {
       const persisted = {
         version: 1,
         savedAt: 1700000000000,
-        tables: [makePersistedTable()],
+        tables: [makePersistedCourt()],
       };
       fs._files.set('data/rallyos-state.json', JSON.stringify(persisted));
 

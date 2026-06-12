@@ -32,9 +32,9 @@ export function useSocket(options: UseSocketOptions = {}) {
   const { socketRef, connected, connecting, error, errorCode, connect, disconnect } =
     useSocketConnection(serverUrl)
 
-  const { tables, currentMatch, currentTable, appError, allHistories, hubConfig, kioskNotification } = useSocketState(socketRef.current)
+  const { courts, currentMatch, currentCourt, appError, allHistories, hubConfig, kioskNotification } = useSocketState(socketRef.current)
 
-  const actions = useSocketActions(socketRef.current, currentTable)
+  const actions = useSocketActions(socketRef.current, currentCourt)
 
   useEffect(() => {
     if (autoConnect) {
@@ -52,8 +52,8 @@ export function useSocket(options: UseSocketOptions = {}) {
     error,
     errorCode,
     appError,
-    tables,
-    currentTable,
+    courts,
+    currentCourt,
     currentMatch,
     allHistories,
     hubConfig,

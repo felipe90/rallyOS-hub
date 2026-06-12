@@ -5,11 +5,11 @@ import { getErrorMessage } from './errorMessages'
 vi.mock('@/i18n', () => ({
   i18nText: (key: string, params?: Record<string, unknown>) => {
     const map: Record<string, string> = {
-      'errorsInvalidPin': 'PIN de mesa incorrecto',
+      'errorsInvalidPin': 'PIN de cancha incorrecto',
       'errorsInvalidOwnerPin': 'PIN de organizador incorrecto',
       'errorsRateLimited': 'Demasiados intentos. Esperá un minuto.',
-      'errorsRefAlreadyActive': 'Ya hay un árbitro activo en esta mesa',
-      'errorsTableNotFound': 'Mesa no encontrada',
+      'errorsRefAlreadyActive': 'Ya hay un árbitro activo en esta cancha',
+      'errorsCourtNotFound': 'Cancha no encontrada',
       'errorsUnauthorized': 'No autorizado',
       'errorsNotOwner': 'No tenés permisos de organizador',
     }
@@ -28,7 +28,7 @@ vi.mock('@/i18n', () => ({
 
 describe('getErrorMessage', () => {
   it('returns simple message for known code', () => {
-    expect(getErrorMessage('INVALID_PIN')).toBe('PIN de mesa incorrecto')
+    expect(getErrorMessage('INVALID_PIN')).toBe('PIN de cancha incorrecto')
   })
 
   it('returns owner pin message', () => {

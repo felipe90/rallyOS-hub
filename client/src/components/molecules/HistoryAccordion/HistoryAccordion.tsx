@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { Typography } from '../../atoms/Typography'
-import { HistoryTableSection } from '../HistoryTableSection/HistoryTableSection'
+import { HistoryCourtSection } from '../HistoryCourtSection/HistoryCourtSection'
 import type { HistoryAccordionProps } from './HistoryAccordion.types'
 
 export function HistoryAccordion({ entries }: HistoryAccordionProps) {
@@ -38,10 +38,10 @@ export function HistoryAccordion({ entries }: HistoryAccordionProps) {
       )}
 
       {entries.map((entry, idx) => (
-        <HistoryTableSection
-          key={entry.tableId}
-          tableId={entry.tableId}
-          tableName={entry.tableName}
+        <HistoryCourtSection
+          key={entry.courtId}
+          courtId={entry.courtId}
+          courtName={entry.courtName}
           playerNames={entry.playerNames}
           history={entry.history}
           handicap={entry.handicap}

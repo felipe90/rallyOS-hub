@@ -114,16 +114,14 @@ function PlayerSide({
           </div>
 
           {/* Sets Won Indicators */}
-          {isReferee && (
-            <div className="flex gap-3 mt-4">
-              {Array.from({ length: totalSets }).map((_, i) => (
-                <div
-                  key={i}
-                  className={`w-5 h-5 rounded-full ${i < setsWon ? 'bg-amber' : 'bg-white/30'}`}
-                />
-              ))}
-            </div>
-          )}
+          <div className="flex gap-3 mt-4">
+            {Array.from({ length: totalSets }).map((_, i) => (
+              <div
+                key={i}
+                className={`w-5 h-5 rounded-full ${i < setsWon ? 'bg-amber' : 'bg-white/30'}`}
+              />
+            ))}
+          </div>
         </div>
       </section>
 

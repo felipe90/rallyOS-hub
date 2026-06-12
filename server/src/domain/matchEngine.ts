@@ -30,7 +30,7 @@ import {
   MatchStateExtended,
   ScoreChange,
   MatchEvent,
-  TableStatus,
+  CourtStatus, TableStatus,
   PadelPoint,
   SPORT,
 } from './types';
@@ -56,7 +56,7 @@ interface InternalMatchState {
   swappedSides: boolean;
   midSetSwapped: boolean;
   setHistory: Score[];
-  status: TableStatus;
+  status: CourtStatus;
   winner: Player | null;
   sport: import('./types').Sport;
   /** Padel-specific: current point values (0, 15, 30, 40, AD) */
@@ -67,8 +67,8 @@ interface InternalMatchState {
   tiebreakPoints?: { a: number; b: number };
   /** Padel-specific: golden point / sudden death enabled */
   goldenPoint?: boolean;
-  tableId?: string;
-  tableName?: string;
+  courtId?: string;
+  courtName?: string;
   playerNames: { a: string; b: string };
   history: ScoreChange[];
   undoAvailable: boolean;
@@ -143,7 +143,7 @@ export class MatchEngine {
       swappedSides: false,
       midSetSwapped: false,
       setHistory: [],
-      status: 'WAITING' as TableStatus,
+      status: 'WAITING' as CourtStatus,
       winner: null,
       sport,
       // Initialize padel-specific root-level fields from config
@@ -151,8 +151,8 @@ export class MatchEngine {
       isTiebreak: padelConfig ? false : undefined,
       tiebreakPoints: padelConfig ? { a: 0, b: 0 } : undefined,
       goldenPoint: padelConfig ? (padelConfig.goldenPoint ?? false) : undefined,
-      tableId: '',
-      tableName: '',
+      courtId: '',
+      courtName: '',
       playerNames: { a: 'Player A', b: 'Player B' },
       history: [],
       undoAvailable: false,
@@ -223,9 +223,9 @@ export class MatchEngine {
     return this.getState();
   }
 
-  public setTableId(id: string, name: string): void {
-    this.state.tableId = id;
-    this.state.tableName = name;
+  public setCourtId(id: string, name: string): void {
+    this.state.courtId = id;
+    this.state.courtName = name;
   }
 
   private addToHistory(player: Player | undefined, action: 'POINT' | 'CORRECTION' | 'SET_WON', pointsBefore: Score, pointsAfter: Score, setNumber?: number): void {
@@ -315,8 +315,8 @@ export class MatchEngine {
   public getState(): MatchStateExtended {
     const base = JSON.parse(JSON.stringify(this.state));
     const common = {
-      tableId: this.state.tableId || '',
-      tableName: this.state.tableName || '',
+      courtId: this.state.courtId || '',
+      courtName: this.state.courtName || '',
       playerNames: this.state.playerNames || { a: 'Player A', b: 'Player B' },
       history: this.state.history,
       undoAvailable: this.state.undoAvailable,
@@ -411,8 +411,8 @@ export class MatchEngine {
       winner: state.winner,
       sport,
       ...padelExtras,
-      tableId: (state as any).tableId || '',
-      tableName: (state as any).tableName || '',
+      courtId: (state as any).courtId || '',
+      courtName: (state as any).courtName || '',
       playerNames: (state as any).playerNames
         ? { ...(state as any).playerNames }
         : { a: 'Player A', b: 'Player B' },

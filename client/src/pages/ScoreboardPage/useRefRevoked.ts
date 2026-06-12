@@ -19,7 +19,7 @@ export function useRefRevoked({ socket, tableId, navigate }: UseRefRevokedProps)
   useEffect(() => {
     if (!socket) return
     const handler = (data: RefRevokedEvent) => {
-      if (data.tableId === tableId) {
+      if (data.courtId === tableId) {
         setRefRevoked(true)
         setTimeout(() => navigate(Routes.DASHBOARD_SPECTATOR), 3000)
       }

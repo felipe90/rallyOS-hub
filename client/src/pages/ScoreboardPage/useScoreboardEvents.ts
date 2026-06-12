@@ -88,7 +88,7 @@ export function useScoreboardEvents({
   const handleStartMatch = (config: MatchStartConfig) => {
     if (!connected) return
     const payload: Record<string, unknown> = {
-      tableId,
+      courtId: tableId,
       bestOf: config.bestOf,
       playerNameA: config.playerNameA,
       playerNameB: config.playerNameB,

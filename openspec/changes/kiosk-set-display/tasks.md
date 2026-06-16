@@ -52,9 +52,20 @@ Chain strategy: pending
 | [x] 3.3 | Full client suite | Run `pnpm --filter client run test`; confirm no changes to `TTPointDisplay`, `PadelPointDisplay`, or `ScoreboardMain` | 3.1, 3.2 | 20m | All client tests pass |
 | [x] 3.4 | Spec acceptance audit | Compare every spec scenario and acceptance criterion against implementation; update task checkboxes | 3.3 | 15m | All acceptance criteria checked |
 
+## Remediation (post-verify)
+
+| ID | Title | Description | Status |
+|---|---|---|---|
+| R1 | Background colors in `KioskPointDisplay` | Apply `bg-primary/10` and `border-primary/20` to score digit panels, set-count panels, and set-history strip | [x] |
+| R2 | Serving indicator in `KioskPointDisplay` | Use `leftServing`/`rightServing` props to render amber "Saque" pill next to serving player's name | [x] |
+| R3 | Cross-court fade in `KioskAllCourtsPage` | Force remount of fullscreen `KioskScoreboard` via `key={featuredCourtId}` and trigger 500ms opacity fade on featured court change | [x] |
+| R4 | Remediation tests | Add tests for background classes, serving indicator side, and cross-court fade remount | [x] |
+
 ## Commit / Work-Unit Plan
 
 1. `feat(kiosk): add KioskPointDisplay component with TT/padel layouts and tests`
    - Includes `KioskPointDisplay.tsx` and `KioskPointDisplay.test.tsx`
 2. `refactor(kiosk): wire KioskPointDisplay into KioskScoreboard and remove legacy bars`
    - Modifies `KioskScoreboard.tsx` and adds regression tests
+3. `fix(kiosk): apply background colors, serving indicator, and cross-court fade`
+   - Modifies `KioskPointDisplay.tsx`, `KioskPointDisplay.test.tsx`, `KioskAllCourtsPage.tsx`, and `KioskAllCourtsPage.test.tsx`

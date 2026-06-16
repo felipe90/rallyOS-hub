@@ -53,6 +53,18 @@ function getDisplayValues(
   };
 }
 
+function ServingIndicator() {
+  return (
+    <div
+      data-testid="serving-indicator"
+      className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber/10 border border-amber/20"
+    >
+      <div className="w-3 h-3 bg-amber rounded-full animate-pulse" />
+      <span className="text-amber text-sm font-bold uppercase tracking-wider">Saque</span>
+    </div>
+  );
+}
+
 function AnimatedScore({
   value,
   shouldReduceMotion,
@@ -87,6 +99,8 @@ export function KioskPointDisplay({
   rightName,
   leftSets,
   rightSets,
+  leftServing,
+  rightServing,
 }: KioskPointDisplayProps) {
   const { i18nText } = useI18n();
   const adapter = useSportAdapter(match);
@@ -114,14 +128,23 @@ export function KioskPointDisplay({
         data-testid="main-score-area"
         className="flex-1 flex items-center justify-center px-[clamp(1rem,4vw,4rem)] gap-[clamp(1rem,4vw,4rem)] min-h-0"
       >
-        <div className="flex-1 flex flex-col items-center justify-center min-w-0">
-          <span
-            data-testid="left-player-name"
-            className="text-[clamp(2rem,4vw,4rem)] font-heading font-bold text-text-h text-center truncate w-full"
+        <div
+          data-testid="left-player-area"
+          className="flex-1 flex flex-col items-center justify-center min-w-0"
+        >
+          <div className="flex items-center gap-[clamp(0.5rem,1vw,1rem)]">
+            <span
+              data-testid="left-player-name"
+              className="text-[clamp(2rem,4vw,4rem)] font-heading font-bold text-text-h text-center truncate"
+            >
+              {displayLeftName}
+            </span>
+            {leftServing && <ServingIndicator />}
+          </div>
+          <div
+            data-testid="left-score-panel"
+            className="text-[clamp(10rem,22vw,20rem)] font-heading font-bold leading-none text-text-h px-[clamp(1rem,3vw,3rem)] py-[clamp(0.5rem,1.5vw,1.5rem)] rounded-2xl bg-primary/10 border border-primary/20"
           >
-            {displayLeftName}
-          </span>
-          <div className="text-[clamp(10rem,22vw,20rem)] font-heading font-bold leading-none text-text-h">
             <AnimatedScore
               value={displayValues.leftMain}
               shouldReduceMotion={shouldReduceMotion}
@@ -140,7 +163,7 @@ export function KioskPointDisplay({
         <div className="flex items-center justify-center gap-[clamp(0.5rem,2vw,2rem)] shrink-0">
           <div
             data-testid="left-sets-panel"
-            className="flex flex-col items-center justify-center min-w-[clamp(4rem,10vw,10rem)] aspect-square rounded-2xl bg-surface border border-border/20 shadow-lg"
+            className="flex flex-col items-center justify-center min-w-[clamp(4rem,10vw,10rem)] aspect-square rounded-2xl bg-primary/10 border border-primary/20 shadow-lg"
           >
             <span className="text-[clamp(1.5rem,3vw,3rem)] font-heading font-semibold text-text-muted">
               Sets
@@ -151,7 +174,7 @@ export function KioskPointDisplay({
           </div>
           <div
             data-testid="right-sets-panel"
-            className="flex flex-col items-center justify-center min-w-[clamp(4rem,10vw,10rem)] aspect-square rounded-2xl bg-surface border border-border/20 shadow-lg"
+            className="flex flex-col items-center justify-center min-w-[clamp(4rem,10vw,10rem)] aspect-square rounded-2xl bg-primary/10 border border-primary/20 shadow-lg"
           >
             <span className="text-[clamp(1.5rem,3vw,3rem)] font-heading font-semibold text-text-muted">
               Sets
@@ -162,14 +185,23 @@ export function KioskPointDisplay({
           </div>
         </div>
 
-        <div className="flex-1 flex flex-col items-center justify-center min-w-0">
-          <span
-            data-testid="right-player-name"
-            className="text-[clamp(2rem,4vw,4rem)] font-heading font-bold text-text-h text-center truncate w-full"
+        <div
+          data-testid="right-player-area"
+          className="flex-1 flex flex-col items-center justify-center min-w-0"
+        >
+          <div className="flex items-center gap-[clamp(0.5rem,1vw,1rem)]">
+            {rightServing && <ServingIndicator />}
+            <span
+              data-testid="right-player-name"
+              className="text-[clamp(2rem,4vw,4rem)] font-heading font-bold text-text-h text-center truncate"
+            >
+              {displayRightName}
+            </span>
+          </div>
+          <div
+            data-testid="right-score-panel"
+            className="text-[clamp(10rem,22vw,20rem)] font-heading font-bold leading-none text-text-h px-[clamp(1rem,3vw,3rem)] py-[clamp(0.5rem,1.5vw,1.5rem)] rounded-2xl bg-primary/10 border border-primary/20"
           >
-            {displayRightName}
-          </span>
-          <div className="text-[clamp(10rem,22vw,20rem)] font-heading font-bold leading-none text-text-h">
             <AnimatedScore
               value={displayValues.rightMain}
               shouldReduceMotion={shouldReduceMotion}
@@ -189,7 +221,7 @@ export function KioskPointDisplay({
       {swappedHistory.length > 0 && (
         <div
           data-testid="set-history-strip"
-          className="border-t border-border/20 bg-surface p-[clamp(0.75rem,2vw,2rem)]"
+          className="border-t border-border/20 bg-primary/10 p-[clamp(0.75rem,2vw,2rem)]"
         >
           <div
             className="grid items-center gap-4"

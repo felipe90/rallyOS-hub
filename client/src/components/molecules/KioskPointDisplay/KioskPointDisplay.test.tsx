@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { KioskPointDisplay } from './KioskPointDisplay';
 import { SPORT } from '@shared/types';
 import type { MatchStateExtended, Score } from '@shared/types';
@@ -363,6 +363,54 @@ describe('KioskPointDisplay', () => {
       render(<KioskPointDisplay {...baseProps} match={createMatch()} />);
       expect(screen.getByTestId('main-score-area')).toHaveTextContent('11');
       expect(screen.getAllByTestId('motion-div').length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('serving indicator', () => {
+    it('renders amber serving indicator on the left side when leftServing is true', () => {
+      render(<KioskPointDisplay {...baseProps} leftServing={true} rightServing={false} match={createMatch()} />);
+      const leftArea = screen.getByTestId('left-player-area');
+      const indicator = within(leftArea).getByTestId('serving-indicator');
+      expect(indicator).toBeInTheDocument();
+      expect(indicator).toHaveTextContent('Saque');
+      expect(indicator.querySelector('.bg-amber')).toBeInTheDocument();
+    });
+
+    it('renders amber serving indicator on the right side when rightServing is true', () => {
+      render(<KioskPointDisplay {...baseProps} leftServing={false} rightServing={true} match={createMatch()} />);
+      const rightArea = screen.getByTestId('right-player-area');
+      const indicator = within(rightArea).getByTestId('serving-indicator');
+      expect(indicator).toBeInTheDocument();
+      expect(indicator).toHaveTextContent('Saque');
+      expect(indicator.querySelector('.bg-amber')).toBeInTheDocument();
+    });
+
+    it('does not render serving indicator when neither side is serving', () => {
+      render(<KioskPointDisplay {...baseProps} leftServing={false} rightServing={false} match={createMatch()} />);
+      expect(screen.queryByTestId('serving-indicator')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('background colors', () => {
+    it('applies primary surface and border classes to score digit panels', () => {
+      render(<KioskPointDisplay {...baseProps} match={createMatch()} />);
+      expect(screen.getByTestId('left-score-panel')).toHaveClass('bg-primary/10');
+      expect(screen.getByTestId('left-score-panel')).toHaveClass('border-primary/20');
+      expect(screen.getByTestId('right-score-panel')).toHaveClass('bg-primary/10');
+      expect(screen.getByTestId('right-score-panel')).toHaveClass('border-primary/20');
+    });
+
+    it('applies primary surface and border classes to set-count panels', () => {
+      render(<KioskPointDisplay {...baseProps} match={createMatch()} />);
+      expect(screen.getByTestId('left-sets-panel')).toHaveClass('bg-primary/10');
+      expect(screen.getByTestId('left-sets-panel')).toHaveClass('border-primary/20');
+      expect(screen.getByTestId('right-sets-panel')).toHaveClass('bg-primary/10');
+      expect(screen.getByTestId('right-sets-panel')).toHaveClass('border-primary/20');
+    });
+
+    it('applies primary surface class to the set-history strip', () => {
+      render(<KioskPointDisplay {...baseProps} match={createMatch()} />);
+      expect(screen.getByTestId('set-history-strip')).toHaveClass('bg-primary/10');
     });
   });
 });

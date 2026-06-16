@@ -60,6 +60,7 @@ export function KioskAllCourtsPage() {
   const [spotlightMatch, setSpotlightMatch] = useState<MatchStateExtended | null>(null)
   const [spotlightFadeState, setSpotlightFadeState] = useState<'visible' | 'hidden'>('visible')
   const prevFeaturedIdRef = useRef<string | null>(null)
+  const previousFeaturedIdForFadeRef = useRef<string | null>(null)
 
   // Notification toast visibility
   const [visibleNotification, setVisibleNotification] = useState<KioskNotificationData | null>(null)
@@ -146,11 +147,24 @@ export function KioskAllCourtsPage() {
     }
   }, [socket, featuredCourtId])
 
-  // Reset match state when featured court changes
+  // Reset match state when featured court changes and apply cross-court fade
   useEffect(() => {
+    const prevId = previousFeaturedIdForFadeRef.current
+    const currentId = featuredCourtId
+    previousFeaturedIdForFadeRef.current = currentId
+
     setSpotlightMatch(null)
+
+    if (inSpotlight && prevId !== null && prevId !== currentId) {
+      setSpotlightFadeState('hidden')
+      const t = setTimeout(() => {
+        setSpotlightFadeState('visible')
+      }, 500)
+      return () => clearTimeout(t)
+    }
+
     setSpotlightFadeState('visible')
-  }, [featuredCourtId])
+  }, [featuredCourtId, inSpotlight])
 
   // Fade transitions between grid and spotlight modes
   const [transitioning, setTransitioning] = useState(false)
@@ -240,7 +254,7 @@ export function KioskAllCourtsPage() {
             }`}
           >
             {spotlightMatch ? (
-              <KioskScoreboard match={spotlightMatch} />
+              <KioskScoreboard key={featuredCourtId ?? 'none'} match={spotlightMatch} />
             ) : (
               <div className="flex-1 flex items-center justify-center">
                 <Typography variant="title" className="text-2xl text-text-muted text-center px-4">

@@ -7,10 +7,8 @@
  */
 
 import { useMatchDisplay } from '../../../hooks/useMatchDisplay';
-import { useSportAdapter } from '../../../hooks/useSportAdapter/useSportAdapter';
 import type { MatchStateExtended } from '@shared/types';
-import { ScoreboardBar } from '../ScoreboardMain/components/ScoreboardBar';
-import { SportDisplaySelector } from '../../molecules/SportDisplaySelector/SportDisplaySelector';
+import { KioskPointDisplay } from '../../molecules/KioskPointDisplay/KioskPointDisplay';
 import { useI18n } from '@/i18n';
 
 export interface KioskScoreboardProps {
@@ -20,7 +18,6 @@ export interface KioskScoreboardProps {
 
 export function KioskScoreboard({ match, className = '' }: KioskScoreboardProps) {
   const { i18nText } = useI18n();
-  const adapter = useSportAdapter(match);
 
   const {
     totalSets,
@@ -32,29 +29,18 @@ export function KioskScoreboard({ match, className = '' }: KioskScoreboardProps)
     rightSets,
   } = useMatchDisplay(match);
 
-  const formattedSets = adapter.formatSetHistory(match.setHistory || []);
-
   return (
     <div className={`flex-1 flex flex-col ${className}`}>
-      <ScoreboardBar
-        courtName={match.courtName}
-        isConnected={true}
-        status={match.status}
-        formattedSets={formattedSets}
+      <KioskPointDisplay
+        match={match}
+        leftName={leftName || i18nText('commonPlayerA')}
+        rightName={rightName || i18nText('commonPlayerB')}
+        leftSets={leftSets}
+        rightSets={rightSets}
+        totalSets={totalSets}
+        leftServing={leftServing}
+        rightServing={rightServing}
       />
-      <div className="flex-1 flex items-center justify-center p-4 bg-surface min-h-0">
-        <SportDisplaySelector
-          match={match}
-          leftPlayerName={leftName || i18nText('commonPlayerA')}
-          rightPlayerName={rightName || i18nText('commonPlayerB')}
-          totalSets={totalSets}
-          leftServing={leftServing}
-          rightServing={rightServing}
-          leftSets={leftSets}
-          rightSets={rightSets}
-          isReferee={false}
-        />
-      </div>
     </div>
   );
 }

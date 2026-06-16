@@ -41,16 +41,16 @@ Chain strategy: pending
 | [x] 2.4 | GREEN: padel layout | Add padel branching via `adapter.computeDisplayData(match)` | 2.3 | 30m | Padel tests pass |
 | [x] 2.5 | RED: edge-case tests | Write failing tests for empty-name fallback, side-swap, reduced motion, light theme | 1.3 | 25m | Tests fail for expected reasons |
 | [x] 2.6 | GREEN: edge cases | Apply fallback labels, honor `useReducedMotion`, use theme tokens, mirror swapped sides | 2.5 | 35m | Edge-case tests pass |
-| 2.7 | Wire `KioskScoreboard` | Remove `ScoreboardBar`/`SportDisplaySelector`; render `KioskPointDisplay` with `useMatchDisplay` values | 2.2, 2.4, 2.6 | 30m | KioskScoreboard renders without old components |
+| [x] 2.7 | Wire `KioskScoreboard` | Remove `ScoreboardBar`/`SportDisplaySelector`; render `KioskPointDisplay` with `useMatchDisplay` values | 2.2, 2.4, 2.6 | 30m | KioskScoreboard renders without old components |
 
 ## Phase 3: Testing & Verification
 
 | ID | Title | Description | Dependencies | Effort | Acceptance Criteria |
 |---|---|---|---|---|---|
 | [x] 3.1 | Run component tests | Execute Vitest for `KioskPointDisplay` and fix failures | 2.7 | 20m | Component tests green |
-| 3.2 | `KioskScoreboard` regression tests | Assert `ScoreboardBar` and `SportDisplaySelector` absent and `KioskPointDisplay` present | 2.7 | 20m | New tests pass |
-| 3.3 | Full client suite | Run `pnpm --filter client run test`; confirm no changes to `TTPointDisplay`, `PadelPointDisplay`, or `ScoreboardMain` | 3.1, 3.2 | 20m | All client tests pass |
-| 3.4 | Spec acceptance audit | Compare every spec scenario and acceptance criterion against implementation; update task checkboxes | 3.3 | 15m | All acceptance criteria checked |
+| [x] 3.2 | `KioskScoreboard` regression tests | Assert `ScoreboardBar` and `SportDisplaySelector` absent and `KioskPointDisplay` present | 2.7 | 20m | New tests pass |
+| [x] 3.3 | Full client suite | Run `pnpm --filter client run test`; confirm no changes to `TTPointDisplay`, `PadelPointDisplay`, or `ScoreboardMain` | 3.1, 3.2 | 20m | All client tests pass |
+| [x] 3.4 | Spec acceptance audit | Compare every spec scenario and acceptance criterion against implementation; update task checkboxes | 3.3 | 15m | All acceptance criteria checked |
 
 ## Commit / Work-Unit Plan
 

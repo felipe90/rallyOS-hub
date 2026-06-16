@@ -60,6 +60,8 @@ Chain strategy: pending
 | R2 | Serving indicator in `KioskPointDisplay` | Use `leftServing`/`rightServing` props to render amber "Saque" pill next to serving player's name | [x] |
 | R3 | Cross-court fade in `KioskAllCourtsPage` | Force remount of fullscreen `KioskScoreboard` via `key={featuredCourtId}` and trigger 500ms opacity fade on featured court change | [x] |
 | R4 | Remediation tests | Add tests for background classes, serving indicator side, and cross-court fade remount | [x] |
+| R5 | Name clipping remediation | Replace `truncate` with `leading-tight line-clamp-1` on player names and set-history strip names; add clipping tests | [x] |
+| R6 | Green color scheme remediation | Apply `bg-[var(--color-primary)]` / `bg-[var(--color-primary-light)]` green palette, `text-white` numbers, `text-white/70` muted text, `border-white/10` borders | [x] |
 
 ## Commit / Work-Unit Plan
 
@@ -69,3 +71,5 @@ Chain strategy: pending
    - Modifies `KioskScoreboard.tsx` and adds regression tests
 3. `fix(kiosk): apply background colors, serving indicator, and cross-court fade`
    - Modifies `KioskPointDisplay.tsx`, `KioskPointDisplay.test.tsx`, `KioskAllCourtsPage.tsx`, and `KioskAllCourtsPage.test.tsx`
+4. `fix(kiosk): apply green color scheme to KioskPointDisplay panels and text`
+   - Modifies `KioskPointDisplay.tsx` and `KioskPointDisplay.test.tsx`

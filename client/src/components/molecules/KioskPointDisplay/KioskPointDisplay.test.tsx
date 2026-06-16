@@ -391,26 +391,110 @@ describe('KioskPointDisplay', () => {
     });
   });
 
-  describe('background colors', () => {
-    it('applies primary surface and border classes to score digit panels', () => {
+  describe('player name clipping', () => {
+    it('does not use truncate class that clips descenders on player names', () => {
       render(<KioskPointDisplay {...baseProps} match={createMatch()} />);
-      expect(screen.getByTestId('left-score-panel')).toHaveClass('bg-primary/10');
-      expect(screen.getByTestId('left-score-panel')).toHaveClass('border-primary/20');
-      expect(screen.getByTestId('right-score-panel')).toHaveClass('bg-primary/10');
-      expect(screen.getByTestId('right-score-panel')).toHaveClass('border-primary/20');
+      const leftName = screen.getByTestId('left-player-name');
+      const rightName = screen.getByTestId('right-player-name');
+      expect(leftName.className).not.toContain('truncate');
+      expect(rightName.className).not.toContain('truncate');
     });
 
-    it('applies primary surface and border classes to set-count panels', () => {
+    it('applies a readable line-height class to player name text', () => {
       render(<KioskPointDisplay {...baseProps} match={createMatch()} />);
-      expect(screen.getByTestId('left-sets-panel')).toHaveClass('bg-primary/10');
-      expect(screen.getByTestId('left-sets-panel')).toHaveClass('border-primary/20');
-      expect(screen.getByTestId('right-sets-panel')).toHaveClass('bg-primary/10');
-      expect(screen.getByTestId('right-sets-panel')).toHaveClass('border-primary/20');
+      const leftName = screen.getByTestId('left-player-name');
+      const rightName = screen.getByTestId('right-player-name');
+      expect(leftName.className).toMatch(/leading-(tight|normal|relaxed)/);
+      expect(rightName.className).toMatch(/leading-(tight|normal|relaxed)/);
     });
 
-    it('applies primary surface class to the set-history strip', () => {
+    it('renders long player names with their full text visible', () => {
+      const longName = 'Player with a very long name containing descenders like y and g';
+      render(
+        <KioskPointDisplay
+          {...baseProps}
+          leftName={longName}
+          rightName={longName}
+          match={createMatch()}
+        />
+      );
+      expect(screen.getByTestId('left-player-name')).toHaveTextContent(longName);
+      expect(screen.getByTestId('right-player-name')).toHaveTextContent(longName);
+    });
+
+    it('does not clip set-history strip player names', () => {
       render(<KioskPointDisplay {...baseProps} match={createMatch()} />);
-      expect(screen.getByTestId('set-history-strip')).toHaveClass('bg-primary/10');
+      const strip = screen.getByTestId('set-history-strip');
+      const names = within(strip).getAllByText(/Alice|Bob/);
+      expect(names.length).toBeGreaterThanOrEqual(2);
+      names.forEach((name) => {
+        expect(name.className).not.toContain('truncate');
+      });
+    });
+  });
+
+  describe('color scheme', () => {
+    it('uses light primary green as the page background', () => {
+      render(<KioskPointDisplay {...baseProps} match={createMatch()} />);
+      expect(screen.getByTestId('kiosk-point-display')).toHaveClass(
+        'bg-[var(--color-primary-light)]'
+      );
+    });
+
+    it('uses dark primary green for score digit panels', () => {
+      render(<KioskPointDisplay {...baseProps} match={createMatch()} />);
+      expect(screen.getByTestId('left-score-panel')).toHaveClass('bg-[var(--color-primary)]');
+      expect(screen.getByTestId('right-score-panel')).toHaveClass('bg-[var(--color-primary)]');
+    });
+
+    it('uses dark primary green for set-count panels', () => {
+      render(<KioskPointDisplay {...baseProps} match={createMatch()} />);
+      expect(screen.getByTestId('left-sets-panel')).toHaveClass('bg-[var(--color-primary)]');
+      expect(screen.getByTestId('right-sets-panel')).toHaveClass('bg-[var(--color-primary)]');
+    });
+
+    it('uses dark primary green for the set-history strip', () => {
+      render(<KioskPointDisplay {...baseProps} match={createMatch()} />);
+      expect(screen.getByTestId('set-history-strip')).toHaveClass('bg-[var(--color-primary)]');
+    });
+
+    it('renders score digits in white', () => {
+      render(<KioskPointDisplay {...baseProps} match={createMatch()} />);
+      expect(screen.getByTestId('left-score-panel')).toHaveClass('text-white');
+      expect(screen.getByTestId('right-score-panel')).toHaveClass('text-white');
+    });
+
+    it('renders set counts in white', () => {
+      render(<KioskPointDisplay {...baseProps} match={createMatch()} />);
+      const leftPanel = screen.getByTestId('left-sets-panel');
+      const rightPanel = screen.getByTestId('right-sets-panel');
+      expect(within(leftPanel).getByText('1')).toHaveClass('text-white');
+      expect(within(rightPanel).getByText('0')).toHaveClass('text-white');
+    });
+
+    it('renders player names in white', () => {
+      render(<KioskPointDisplay {...baseProps} match={createMatch()} />);
+      expect(screen.getByTestId('left-player-name')).toHaveClass('text-white');
+      expect(screen.getByTestId('right-player-name')).toHaveClass('text-white');
+    });
+
+    it('renders set-history strip cells in white', () => {
+      render(<KioskPointDisplay {...baseProps} match={createMatch()} />);
+      expect(screen.getByTestId('left-set-0')).toHaveClass('text-white');
+      expect(screen.getByTestId('right-set-0')).toHaveClass('text-white');
+    });
+
+    it('renders secondary labels with white opacity for readability', () => {
+      render(<KioskPointDisplay {...baseProps} match={createMatch()} />);
+      const leftPanel = screen.getByTestId('left-sets-panel');
+      expect(leftPanel).toHaveClass('text-white/70');
+    });
+
+    it('keeps subtle white borders on panels and strip', () => {
+      render(<KioskPointDisplay {...baseProps} match={createMatch()} />);
+      expect(screen.getByTestId('left-score-panel')).toHaveClass('border-white/10');
+      expect(screen.getByTestId('left-sets-panel')).toHaveClass('border-white/10');
+      expect(screen.getByTestId('set-history-strip')).toHaveClass('border-white/10');
     });
   });
 });

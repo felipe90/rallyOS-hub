@@ -53,11 +53,11 @@ function getDisplayValues(
   };
 }
 
-function ServingIndicator() {
+function ServingIndicator({ active }: { active: boolean }) {
   return (
     <div
       data-testid="serving-indicator"
-      className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber/10 border border-amber/20"
+      className={`flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber/10 border border-amber/20 ${active ? 'visible' : 'invisible'}`}
     >
       <div className="w-3 h-3 bg-amber rounded-full animate-pulse" />
       <span className="text-amber text-sm font-bold uppercase tracking-wider">Saque</span>
@@ -132,18 +132,18 @@ export function KioskPointDisplay({
           data-testid="left-player-area"
           className="flex-1 flex flex-col items-center justify-center min-w-0"
         >
-          <div className="flex items-center gap-[clamp(0.5rem,1vw,1rem)]">
+          <div className="flex flex-col items-center">
+            <ServingIndicator active={leftServing} />
             <span
               data-testid="left-player-name"
-              className="text-[clamp(2rem,4vw,4rem)] font-heading font-bold text-white text-center leading-tight line-clamp-1"
+              className="text-[clamp(2rem,5vw,7rem)] font-heading font-bold text-white text-center leading-tight line-clamp-1"
             >
               {displayLeftName}
             </span>
-            {leftServing && <ServingIndicator />}
           </div>
           <div
             data-testid="left-score-panel"
-            className="text-[clamp(10rem,22vw,20rem)] font-heading font-bold leading-none text-white px-[clamp(1rem,3vw,3rem)] py-[clamp(0.5rem,1.5vw,1.5rem)] rounded-2xl bg-[var(--color-primary)] border border-white/10"
+            className="text-[clamp(10rem,30vw,26rem)] font-heading font-bold leading-none text-white px-[clamp(2rem,4vw,5rem)] py-[clamp(0.75rem,2vw,2.5rem)] rounded-2xl bg-[var(--color-primary)] border border-white/10"
           >
             <AnimatedScore
               value={displayValues.leftMain}
@@ -153,7 +153,7 @@ export function KioskPointDisplay({
           {displayValues.leftGames !== undefined && (
             <span
               data-testid="left-games"
-              className="text-[clamp(1.5rem,3vw,3rem)] font-heading font-semibold text-white/70"
+              className="text-[clamp(1.5rem,3vw,4rem)] font-heading font-semibold text-white/70"
             >
               Games: {displayValues.leftGames}
             </span>
@@ -163,23 +163,23 @@ export function KioskPointDisplay({
         <div className="flex items-center justify-center gap-[clamp(0.5rem,2vw,2rem)] shrink-0">
           <div
             data-testid="left-sets-panel"
-            className="flex flex-col items-center justify-center min-w-[clamp(4rem,10vw,10rem)] aspect-square rounded-2xl bg-[var(--color-primary)] border border-white/10 shadow-lg text-white/70"
+            className="flex flex-col items-center justify-center min-w-[clamp(4rem,12vw,14rem)] p-[clamp(0.75rem,1.5vw,2rem)] rounded-2xl bg-[var(--color-primary)] border border-white/10 shadow-lg text-white/70"
           >
-            <span className="text-[clamp(1.5rem,3vw,3rem)] font-heading font-semibold">
+            <span className="text-[clamp(1.5rem,3vw,4rem)] font-heading font-semibold">
               Sets
             </span>
-            <span className="text-[clamp(5rem,10vw,10rem)] font-heading font-bold leading-none text-white">
+            <span className="text-[clamp(5rem,14vw,18rem)] font-heading font-bold leading-none text-white">
               {leftSets}
             </span>
           </div>
           <div
             data-testid="right-sets-panel"
-            className="flex flex-col items-center justify-center min-w-[clamp(4rem,10vw,10rem)] aspect-square rounded-2xl bg-[var(--color-primary)] border border-white/10 shadow-lg text-white/70"
+            className="flex flex-col items-center justify-center min-w-[clamp(4rem,12vw,14rem)] p-[clamp(0.75rem,1.5vw,2rem)] rounded-2xl bg-[var(--color-primary)] border border-white/10 shadow-lg text-white/70"
           >
-            <span className="text-[clamp(1.5rem,3vw,3rem)] font-heading font-semibold">
+            <span className="text-[clamp(1.5rem,3vw,4rem)] font-heading font-semibold">
               Sets
             </span>
-            <span className="text-[clamp(5rem,10vw,10rem)] font-heading font-bold leading-none text-white">
+            <span className="text-[clamp(5rem,14vw,18rem)] font-heading font-bold leading-none text-white">
               {rightSets}
             </span>
           </div>
@@ -189,18 +189,18 @@ export function KioskPointDisplay({
           data-testid="right-player-area"
           className="flex-1 flex flex-col items-center justify-center min-w-0"
         >
-          <div className="flex items-center gap-[clamp(0.5rem,1vw,1rem)]">
-            {rightServing && <ServingIndicator />}
+          <div className="flex flex-col items-center">
+            <ServingIndicator active={rightServing} />
             <span
               data-testid="right-player-name"
-              className="text-[clamp(2rem,4vw,4rem)] font-heading font-bold text-white text-center leading-tight line-clamp-1"
+              className="text-[clamp(2rem,5vw,7rem)] font-heading font-bold text-white text-center leading-tight line-clamp-1"
             >
               {displayRightName}
             </span>
           </div>
           <div
             data-testid="right-score-panel"
-            className="text-[clamp(10rem,22vw,20rem)] font-heading font-bold leading-none text-white px-[clamp(1rem,3vw,3rem)] py-[clamp(0.5rem,1.5vw,1.5rem)] rounded-2xl bg-[var(--color-primary)] border border-white/10"
+            className="text-[clamp(10rem,30vw,26rem)] font-heading font-bold leading-none text-white px-[clamp(2rem,4vw,5rem)] py-[clamp(0.75rem,2vw,2.5rem)] rounded-2xl bg-[var(--color-primary)] border border-white/10"
           >
             <AnimatedScore
               value={displayValues.rightMain}
@@ -210,7 +210,7 @@ export function KioskPointDisplay({
           {displayValues.rightGames !== undefined && (
             <span
               data-testid="right-games"
-              className="text-[clamp(1.5rem,3vw,3rem)] font-heading font-semibold text-white/70"
+              className="text-[clamp(1.5rem,3vw,4rem)] font-heading font-semibold text-white/70"
             >
               Games: {displayValues.rightGames}
             </span>
@@ -218,51 +218,53 @@ export function KioskPointDisplay({
         </div>
       </div>
 
-      {swappedHistory.length > 0 && (
-        <div
-          data-testid="set-history-strip"
-          className="border-t border-white/10 bg-[var(--color-primary)] p-[clamp(0.75rem,2vw,2rem)]"
-        >
-          <div
-            className="grid items-center gap-4"
-            style={{
-              gridTemplateColumns: `auto repeat(${swappedHistory.length}, minmax(0, 1fr))`,
-            }}
-          >
-            <div className="text-[clamp(1.25rem,2.5vw,2.5rem)] font-heading font-bold text-white/70 pr-4 leading-tight line-clamp-1">
-              {displayLeftName}
-            </div>
-            {swappedHistory.map((set, index) => (
-              <div
-                key={`left-${index}`}
-                data-testid={`left-set-${index}`}
-                className="text-center text-[clamp(1.25rem,2.5vw,2.5rem)] font-heading font-bold text-white"
-              >
-                {set.left}
+      <div
+        data-testid="set-history-strip"
+        className="border-t border-white/10 bg-[var(--color-primary)] p-[clamp(0.75rem,2vw,2rem)] min-h-[clamp(3rem,6vw,6rem)]"
+      >
+        {swappedHistory.length > 0 && (
+          <>
+            <div
+              className="grid items-center gap-4"
+              style={{
+                gridTemplateColumns: `auto repeat(${swappedHistory.length}, minmax(0, 1fr))`,
+              }}
+            >
+              <div className="text-[clamp(1.25rem,3vw,4rem)] font-heading font-bold text-white/70 pr-4 leading-tight line-clamp-1">
+                {displayLeftName}
               </div>
-            ))}
-          </div>
-          <div
-            className="grid items-center gap-4 mt-2"
-            style={{
-              gridTemplateColumns: `auto repeat(${swappedHistory.length}, minmax(0, 1fr))`,
-            }}
-          >
-            <div className="text-[clamp(1.25rem,2.5vw,2.5rem)] font-heading font-bold text-white/70 pr-4 leading-tight line-clamp-1">
-              {displayRightName}
+              {swappedHistory.map((set, index) => (
+                <div
+                  key={`left-${index}`}
+                  data-testid={`left-set-${index}`}
+                  className="text-center text-[clamp(1.25rem,3vw,4rem)] font-heading font-bold text-white"
+                >
+                  {set.left}
+                </div>
+              ))}
             </div>
-            {swappedHistory.map((set, index) => (
-              <div
-                key={`right-${index}`}
-                data-testid={`right-set-${index}`}
-                className="text-center text-[clamp(1.25rem,2.5vw,2.5rem)] font-heading font-bold text-white"
-              >
-                {set.right}
+            <div
+              className="grid items-center gap-4 mt-2"
+              style={{
+                gridTemplateColumns: `auto repeat(${swappedHistory.length}, minmax(0, 1fr))`,
+              }}
+            >
+              <div className="text-[clamp(1.25rem,3vw,4rem)] font-heading font-bold text-white/70 pr-4 leading-tight line-clamp-1">
+                {displayRightName}
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+              {swappedHistory.map((set, index) => (
+                <div
+                  key={`right-${index}`}
+                  data-testid={`right-set-${index}`}
+                  className="text-center text-[clamp(1.25rem,3vw,4rem)] font-heading font-bold text-white"
+                >
+                  {set.right}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

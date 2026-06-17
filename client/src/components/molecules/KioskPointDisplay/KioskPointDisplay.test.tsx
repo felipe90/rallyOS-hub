@@ -385,9 +385,15 @@ describe('KioskPointDisplay', () => {
       expect(indicator.querySelector('.bg-amber')).toBeInTheDocument();
     });
 
-    it('does not render serving indicator when neither side is serving', () => {
+    it('renders serving indicator invisible when neither side is serving', () => {
       render(<KioskPointDisplay {...baseProps} leftServing={false} rightServing={false} match={createMatch()} />);
-      expect(screen.queryByTestId('serving-indicator')).not.toBeInTheDocument();
+      const indicators = screen.getAllByTestId('serving-indicator');
+      expect(indicators).toHaveLength(2);
+      indicators.forEach((ind) => {
+        expect(ind).toBeInTheDocument();
+        expect(ind).toHaveClass('invisible');
+        expect(ind).not.toHaveClass('visible');
+      });
     });
   });
 

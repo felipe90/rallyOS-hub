@@ -39,7 +39,7 @@ vi.mock('@/i18n', () => ({
         'kioskPageTitle': 'Scoreboard',
         'scoreboardWifiDomain': 'Abrí rallyos-hub.local',
         'scoreboardWifiQrCta': 'Paso 1: Escaneá para conectarte al WiFi',
-        'scoreboardUrlQrCta': 'Paso 2: Escaneá para abrir rallyOS',
+        'scoreboardUrlQrCta': 'Escaneá para abrir rallyOS',
         'kioskDestacado': '★ DESTACADO',
         'kioskEnVivo': 'EN VIVO',
         'kioskNoActiveMatches': 'No active matches',

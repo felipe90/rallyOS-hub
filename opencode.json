@@ -12,7 +12,8 @@
         "chromium",
         "--caps",
         "vision",
-        "--headless"
+        "--headless",
+        "--ignore-https-errors"
       ]
     }
   }

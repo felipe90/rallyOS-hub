@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { useMatchDisplay } from '../../../hooks/useMatchDisplay';
 import type { MatchStateExtended } from '@shared/types';
 import { SPORT } from '@shared/types';
@@ -45,7 +46,30 @@ export function ScoreboardMain({
     rightServing,
     leftSets,
     rightSets,
+    leftPlayer,
+    rightPlayer,
   } = useMatchDisplay(match);
+
+  // Wrap score callbacks to account for side swaps.
+  // Display components hardcode side="A" for left and side="B" for right,
+  // but when sides are swapped, the visual left shows Player B. We need
+  // to remap the visual side to the actual player via leftPlayer/rightPlayer.
+  const handleScorePoint = useCallback(
+    (side: 'A' | 'B') => {
+      const actualPlayer = side === 'A' ? leftPlayer : rightPlayer;
+      onScorePoint(actualPlayer);
+    },
+    [leftPlayer, rightPlayer, onScorePoint],
+  );
+
+  const handleSubtractPoint = useCallback(
+    (side: 'A' | 'B') => {
+      if (!onSubtractPoint) return;
+      const actualPlayer = side === 'A' ? leftPlayer : rightPlayer;
+      onSubtractPoint(actualPlayer);
+    },
+    [leftPlayer, rightPlayer, onSubtractPoint],
+  );
 
   // Format set history via adapter (sport-appropriate display)
   const formattedSets = adapter.formatSetHistory(
@@ -104,8 +128,8 @@ export function ScoreboardMain({
             leftSets={leftSets}
             rightSets={rightSets}
             isReferee={isReferee}
-            onScorePoint={onScorePoint}
-            onSubtractPoint={onSubtractPoint}
+            onScorePoint={handleScorePoint}
+            onSubtractPoint={handleSubtractPoint}
             onSwapSides={match.sport !== SPORT.PADEL ? onSwapSides : undefined}
           />
         </div>

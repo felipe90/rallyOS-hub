@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, act } from '@testing-library/react'
+import { useEffect } from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { KioskAllCourtsPage, calculatePages } from './KioskAllCourtsPage'
 import { useSocketContext } from '@/contexts/SocketContext'
@@ -12,11 +13,16 @@ vi.mock('@/components/organisms/KioskNotificationToast', () => ({
   )),
 }))
 
+const mockScoreboardMount = vi.fn()
+
 // Mock KioskScoreboard for featured court spotlight tests
 vi.mock('@/components/organisms/KioskScoreboard', () => ({
-  KioskScoreboard: vi.fn(({ match }: { match: { courtName: string } }) => (
-    <div data-testid="scoreboard-main">{match.courtName}</div>
-  )),
+  KioskScoreboard: vi.fn(({ match }: { match: { courtId: string; courtName: string } }) => {
+    useEffect(() => {
+      mockScoreboardMount(match.courtId)
+    }, [])
+    return <div data-testid="scoreboard-main">{match.courtName}</div>
+  }),
 }))
 
 // Mock SocketContext
@@ -33,7 +39,7 @@ vi.mock('@/i18n', () => ({
         'kioskPageTitle': 'Scoreboard',
         'scoreboardWifiDomain': 'Abrí rallyos-hub.local',
         'scoreboardWifiQrCta': 'Paso 1: Escaneá para conectarte al WiFi',
-        'scoreboardUrlQrCta': 'Paso 2: Escaneá para abrir rallyOS',
+        'scoreboardUrlQrCta': 'Escaneá para abrir rallyOS',
         'kioskDestacado': '★ DESTACADO',
         'kioskEnVivo': 'EN VIVO',
         'kioskNoActiveMatches': 'No active matches',
@@ -194,7 +200,7 @@ describe('KioskAllCourtsPage', () => {
     // URL text is visible below the URL QR
     expect(screen.getByText('https://rallyos-hub.local:3001')).toBeInTheDocument()
     // URL QR label is visible
-    expect(screen.getByText('Paso 2: Escaneá para abrir rallyOS')).toBeInTheDocument()
+    expect(screen.getByText('Escaneá para abrir rallyOS')).toBeInTheDocument()
   })
 
   it('hides WiFi QR when wifiPassword is absent but shows URL QR', () => {
@@ -217,7 +223,7 @@ describe('KioskAllCourtsPage', () => {
     // URL text is still visible
     expect(screen.getByText('https://rallyos-hub.local:3001')).toBeInTheDocument()
     // URL QR label is visible
-    expect(screen.getByText('Paso 2: Escaneá para abrir rallyOS')).toBeInTheDocument()
+    expect(screen.getByText('Escaneá para abrir rallyOS')).toBeInTheDocument()
     // WiFi label should NOT be visible
     expect(screen.queryByText('Paso 1: Escaneá para conectarte al WiFi')).not.toBeInTheDocument()
   })
@@ -238,7 +244,7 @@ describe('KioskAllCourtsPage', () => {
 
     // Step labels should be visible
     expect(screen.getByText('Paso 1: Escaneá para conectarte al WiFi')).toBeInTheDocument()
-    expect(screen.getByText('Paso 2: Escaneá para abrir rallyOS')).toBeInTheDocument()
+    expect(screen.getByText('Escaneá para abrir rallyOS')).toBeInTheDocument()
   })
 
   it('renders single table grid', () => {
@@ -344,6 +350,7 @@ describe('KioskAllCourtsPage', () => {
 describe('KioskAllCourtsPage — featured court spotlight', () => {
   beforeEach(() => {
     vi.useFakeTimers()
+    mockScoreboardMount.mockClear()
     Object.defineProperty(window, 'innerWidth', { value: 1920, configurable: true })
     Object.defineProperty(window, 'innerHeight', { value: 1080, configurable: true })
   })
@@ -418,6 +425,98 @@ describe('KioskAllCourtsPage — featured court spotlight', () => {
 
     expect(mockEmit).toHaveBeenCalledWith('UNSUBSCRIBE_MATCH', { courtId: 't1' })
     expect(mockEmit).toHaveBeenCalledWith('SUBSCRIBE_MATCH', { courtId: 't2' })
+  })
+
+  it('remounts KioskScoreboard and applies 500ms opacity fade when switching featured courts', () => {
+    let matchUpdateHandler: (...args: unknown[]) => void = () => {}
+    const mockOn = vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+      if (event === 'MATCH_UPDATE') matchUpdateHandler = handler
+    })
+    const socket = { on: mockOn, off: vi.fn(), emit: vi.fn() }
+
+    const initialCourts = [
+      makeTable({ id: 't1', name: 'Court A', status: 'LIVE', featured: true }),
+      makeTable({ id: 't2', name: 'Court B', status: 'LIVE' }),
+    ]
+
+    const { rerender } = renderPage(initialCourts, socket)
+
+    act(() => {
+      matchUpdateHandler({
+        tableId: 't1',
+        courtId: 't1',
+        courtName: 'Court A',
+        status: 'LIVE',
+        sport: 'tableTennis',
+        playerNames: { a: 'Alice', b: 'Bob' },
+        config: { bestOf: 5, pointsPerSet: 11, minDifference: 2, sport: 'tableTennis' },
+        score: { sets: { a: 0, b: 0 }, currentSet: { a: 0, b: 0 }, serving: 'A' },
+        setHistory: [],
+        history: [],
+        undoAvailable: false,
+        winner: null,
+        swappedSides: false,
+        midSetSwapped: false,
+      })
+    })
+
+    expect(mockScoreboardMount).toHaveBeenCalledTimes(1)
+    expect(mockScoreboardMount).toHaveBeenLastCalledWith('t1')
+
+    const spotlightMain = screen.getByRole('main')
+    expect(spotlightMain).toHaveClass('transition-opacity', 'duration-500')
+
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
+    expect(spotlightMain).toHaveClass('opacity-100')
+
+    const updatedCourts = [
+      makeTable({ id: 't1', name: 'Court A', status: 'LIVE', featured: false }),
+      makeTable({ id: 't2', name: 'Court B', status: 'LIVE', featured: true }),
+    ]
+
+    mockUseSocketContext.mockReturnValue({
+      courts: updatedCourts,
+      connected: true,
+      connecting: false,
+      socket,
+    })
+    rerender(
+      <MemoryRouter>
+        <KioskAllCourtsPage />
+      </MemoryRouter>,
+    )
+
+    // Fade should be hidden immediately after switching featured courts
+    expect(spotlightMain).toHaveClass('opacity-0')
+
+    act(() => {
+      matchUpdateHandler({
+        tableId: 't2',
+        courtId: 't2',
+        courtName: 'Court B',
+        status: 'LIVE',
+        sport: 'tableTennis',
+        playerNames: { a: 'Alice', b: 'Bob' },
+        config: { bestOf: 5, pointsPerSet: 11, minDifference: 2, sport: 'tableTennis' },
+        score: { sets: { a: 0, b: 0 }, currentSet: { a: 0, b: 0 }, serving: 'A' },
+        setHistory: [],
+        history: [],
+        undoAvailable: false,
+        winner: null,
+        swappedSides: false,
+        midSetSwapped: false,
+      })
+    })
+
+    expect(mockScoreboardMount.mock.calls[mockScoreboardMount.mock.calls.length - 1]).toEqual(['t2'])
+
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
+
+    expect(spotlightMain).toHaveClass('opacity-100')
   })
 
   it('unsubscribes on unmount when featured court active', () => {

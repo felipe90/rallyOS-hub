@@ -17,6 +17,7 @@ import { ownerAuthMiddleware } from './middleware/ownerAuth';
 import { logger } from './utils/logger';
 import { initOwnerPin } from './config/ownerPin';
 import { getHubDomain } from './config/allowedOrigins';
+import { startCaptivePortal } from './captivePortal';
 
 // Owner PIN initialization
 // If set via env → use it (production). If not → generate random (plug-and-play Orange Pi).
@@ -83,6 +84,9 @@ httpsServer.listen(PORT, () => {
   logger.info({ url: `https://localhost:${PORT}` }, 'Local URL');
   logger.info({ url: `https://${hubConfig.domain}:${PORT}` }, 'Domain URL');
   logger.info({ url: `https://YOUR_IP:${PORT}` }, 'Network URL - Connect mobile phone to same WiFi');
+
+  // Start the HTTP captive portal on port 80 alongside the HTTPS server.
+  startCaptivePortal(hubConfig);
 });
 
 // Graceful shutdown handlers

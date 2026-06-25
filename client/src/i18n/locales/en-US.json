@@ -119,7 +119,7 @@
   "courtStatusFinished": "Finished",
   "scoreboardWifiDomain": "Open {{domain}}",
   "scoreboardWifiQrCta": "Step 1: Scan for WiFi",
-  "scoreboardUrlQrCta": "Step 2: Scan to open rallyOS",
+  "scoreboardUrlQrCta": "Scan to open rallyOS",
   "ownerCreateNotification": "Create Notification",
   "notificationModalTitle": "Send Notification",
   "notificationTypeLabel": "Type",

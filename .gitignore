@@ -6,6 +6,9 @@ node_modules/
 # Use pnpm only (workspace lockfile: pnpm-lock.yaml)
 package-lock.json
 
+# Playwright MCP screenshots
+.playwright-mcp/
+
 # Test artifacts
 test-results/
 coverage/

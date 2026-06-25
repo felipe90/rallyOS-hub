@@ -14,7 +14,6 @@ set -e
 # --- CONFIGURATION ---
 AP_INTERFACE="wlx90de8018370a"
 AP_SSID="RallyOS"
-AP_PASSPHRASE="rallyos2026"
 AP_IP="192.168.4.1"
 DHCP_RANGE_START="192.168.4.100"
 DHCP_RANGE_END="192.168.4.200"
@@ -235,10 +234,7 @@ wmm_enabled=0
 macaddr_acl=0
 auth_algs=1
 ignore_broadcast_ssid=0
-wpa=2
-wpa_passphrase=${AP_PASSPHRASE}
-wpa_key_mgmt=WPA-PSK
-rsn_pairwise=CCMP
+wpa=0
 EOF
 
     sed -i 's|#DAEMON_CONF=""|DAEMON_CONF="/etc/hostapd/hostapd.conf"|' /etc/default/hostapd 2>/dev/null || true
@@ -252,8 +248,9 @@ dhcp-range=${DHCP_RANGE_START},${DHCP_RANGE_END},255.255.255.0,24h
 domain=local
 address=/rallyos.local/${AP_IP}
 address=/rallyos-hub.local/${AP_IP}
-# DO NOT add address=/#/ — catch-all DNS prevents iOS/Android from detecting "no internet"
-# and falling back to cellular data for non-rallyOS traffic.
+# Catch-all DNS: resolve every domain to the AP IP so any HTTP request lands on
+# the captive portal (port 80) regardless of the requested host.
+address=/#/${AP_IP}
 EOF
 
     # Use systemd-networkd instead of /etc/network/interfaces (more reliable on Armbian)
@@ -307,7 +304,8 @@ WOT_EOF
     iptables -t nat -A POSTROUTING -o "${WAN_INTERFACE}" -j MASQUERADE 2>/dev/null || true
     iptables -A FORWARD -i "${WAN_INTERFACE}" -o "${AP_INTERFACE}" -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || true
     iptables -A FORWARD -i "${AP_INTERFACE}" -o "${WAN_INTERFACE}" -j ACCEPT 2>/dev/null || true
-    iptables -t nat -A PREROUTING -i "${AP_INTERFACE}" -p tcp --dport 80 -j DNAT --to-destination ${AP_IP}:3000 2>/dev/null || true
+    # Port 80 is now owned directly by the Docker container ("80:80" mapping),
+    # which runs the captive portal HTTP server — no DNAT to :3000 needed anymore.
     # Force Android devices to use dnsmasq — many ignore DHCP DNS and use 8.8.8.8 via DNS-over-HTTPS
     iptables -t nat -A PREROUTING -i "${AP_INTERFACE}" -p udp --dport 53 -j REDIRECT --to-port 53 2>/dev/null || true
     iptables -t nat -A PREROUTING -i "${AP_INTERFACE}" -p tcp --dport 53 -j REDIRECT --to-port 53 2>/dev/null || true
@@ -354,7 +352,7 @@ echo "  ┌───────────────────────
 echo "  │         ✅  Setup Complete!              │"
 echo "  ├──────────────────────────────────────────┤"
 echo "  │  SSID:     ${AP_SSID}"
-echo "  │  Password: ${AP_PASSPHRASE}"
+echo "  │  Password: (open network)"
 echo "  │  AP IP:    ${AP_IP}"
 echo "  │  Repo:     ${REPO_PATH}"
 echo "  └──────────────────────────────────────────┘"

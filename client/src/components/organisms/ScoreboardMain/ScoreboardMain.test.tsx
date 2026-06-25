@@ -72,12 +72,24 @@ vi.mock('../../../hooks/useSportAdapter/useSportAdapter', () => ({
       leftSets: (state.setHistory || []).filter((s: any) => (s.a ?? 0) > (s.b ?? 0)).length,
       rightSets: (state.setHistory || []).filter((s: any) => (s.b ?? 0) > (s.a ?? 0)).length,
     }),
-    DisplayComponent: ({ sportDisplay, leftPlayerName, rightPlayerName }: any) => (
+    DisplayComponent: ({ sportDisplay, leftPlayerName, rightPlayerName, onScorePoint, onSubtractPoint }: any) => (
       <div data-testid="sport-display">
         <span>{leftPlayerName}</span>
         <span>{sportDisplay?.leftScore}</span>
         <span>{rightPlayerName}</span>
         <span>{sportDisplay?.rightScore}</span>
+        {onScorePoint && (
+          <>
+            <button aria-label="Add point to A" onClick={() => onScorePoint('A')}>+{leftPlayerName}</button>
+            <button aria-label="Add point to B" onClick={() => onScorePoint('B')}>+{rightPlayerName}</button>
+          </>
+        )}
+        {onSubtractPoint && (
+          <>
+            <button aria-label="Subtract point from A" onClick={() => onSubtractPoint('A')}>-{leftPlayerName}</button>
+            <button aria-label="Subtract point from B" onClick={() => onSubtractPoint('B')}>-{rightPlayerName}</button>
+          </>
+        )}
       </div>
     ),
     getCurrentScores: (state: any) => ({ a: state.score?.currentSet?.a ?? 0, b: state.score?.currentSet?.b ?? 0 }),
@@ -175,7 +187,7 @@ describe('ScoreboardMain', () => {
   });
 
   describe('Interaction Tests', () => {
-    it('llama onScorePoint cuando se hace click en score button', () => {
+    it('llama onScorePoint cuando se hace click en Add point to A', () => {
       const onScorePoint = vi.fn();
       const mockMatch = createMockMatch({
         status: 'LIVE',
@@ -183,18 +195,51 @@ describe('ScoreboardMain', () => {
       
       render(<ScoreboardMain match={mockMatch} onScorePoint={onScorePoint} isReferee />);
       
-      const buttons = document.querySelectorAll('button');
-      const addButton = Array.from(buttons).find(
-        (btn) => btn.getAttribute('aria-label') === 'Add point to A'
-      );
-      
-      if (addButton) {
-        fireEvent.click(addButton);
-        expect(onScorePoint).toHaveBeenCalledWith('A');
-      }
+      fireEvent.click(screen.getByRole('button', { name: 'Add point to A' }));
+      expect(onScorePoint).toHaveBeenCalledWith('A');
     });
 
-    it('llama onSubtractPoint cuando se hace click en subtract', () => {
+    it('llama onScorePoint con Player B cuando swappedSides=true y se toca izquierda', () => {
+      const onScorePoint = vi.fn();
+      const mockMatch = createMockMatch({
+        status: 'LIVE',
+        swappedSides: true,
+        score: {
+          sets: { a: 0, b: 0 },
+          currentSet: { a: 5, b: 3 },
+          serving: 'A',
+        },
+      });
+      
+      render(<ScoreboardMain match={mockMatch} onScorePoint={onScorePoint} isReferee />);
+      
+      // Left side shows Player B visually (name swapped by useMatchDisplay)
+      // Button calls onScorePoint('A') → wrapper maps via leftPlayer='B'
+      fireEvent.click(screen.getByRole('button', { name: 'Add point to A' }));
+      expect(onScorePoint).toHaveBeenCalledWith('B');
+    });
+
+    it('llama onScorePoint con Player A cuando swappedSides=true y se toca derecha', () => {
+      const onScorePoint = vi.fn();
+      const mockMatch = createMockMatch({
+        status: 'LIVE',
+        swappedSides: true,
+        score: {
+          sets: { a: 0, b: 0 },
+          currentSet: { a: 5, b: 3 },
+          serving: 'A',
+        },
+      });
+      
+      render(<ScoreboardMain match={mockMatch} onScorePoint={onScorePoint} isReferee />);
+      
+      // Right side shows Player A visually
+      // Button calls onScorePoint('B') → wrapper maps via rightPlayer='A'
+      fireEvent.click(screen.getByRole('button', { name: 'Add point to B' }));
+      expect(onScorePoint).toHaveBeenCalledWith('A');
+    });
+
+    it('llama onSubtractPoint cuando se hace click en Subtract point from A', () => {
       const onSubtractPoint = vi.fn();
       const mockMatch = createMockMatch({
         score: {
@@ -213,15 +258,33 @@ describe('ScoreboardMain', () => {
         />
       );
       
-      const buttons = document.querySelectorAll('button');
-      const subtractButton = Array.from(buttons).find(
-        (btn) => btn.getAttribute('aria-label') === 'Subtract point from A'
+      fireEvent.click(screen.getByRole('button', { name: 'Subtract point from A' }));
+      expect(onSubtractPoint).toHaveBeenCalledWith('A');
+    });
+
+    it('mapea subtract point a Player B cuando swappedSides=true', () => {
+      const onSubtractPoint = vi.fn();
+      const mockMatch = createMockMatch({
+        status: 'LIVE',
+        swappedSides: true,
+        score: {
+          sets: { a: 0, b: 0 },
+          currentSet: { a: 5, b: 3 },
+          serving: 'A',
+        },
+      });
+      
+      render(
+        <ScoreboardMain
+          match={mockMatch}
+          onScorePoint={() => {}}
+          onSubtractPoint={onSubtractPoint}
+          isReferee
+        />
       );
       
-      if (subtractButton) {
-        fireEvent.click(subtractButton);
-        expect(onSubtractPoint).toHaveBeenCalledWith('A');
-      }
+      fireEvent.click(screen.getByRole('button', { name: 'Subtract point from A' }));
+      expect(onSubtractPoint).toHaveBeenCalledWith('B');
     });
 
     it('llama onUndo cuando se provee y hay historial', () => {

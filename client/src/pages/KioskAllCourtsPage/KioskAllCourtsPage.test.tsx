@@ -200,7 +200,7 @@ describe('KioskAllCourtsPage', () => {
     // URL text is visible below the URL QR
     expect(screen.getByText('https://rallyos-hub.local:3001')).toBeInTheDocument()
     // URL QR label is visible
-    expect(screen.getByText('Paso 2: Escaneá para abrir rallyOS')).toBeInTheDocument()
+    expect(screen.getByText('Escaneá para abrir rallyOS')).toBeInTheDocument()
   })
 
   it('hides WiFi QR when wifiPassword is absent but shows URL QR', () => {
@@ -223,7 +223,7 @@ describe('KioskAllCourtsPage', () => {
     // URL text is still visible
     expect(screen.getByText('https://rallyos-hub.local:3001')).toBeInTheDocument()
     // URL QR label is visible
-    expect(screen.getByText('Paso 2: Escaneá para abrir rallyOS')).toBeInTheDocument()
+    expect(screen.getByText('Escaneá para abrir rallyOS')).toBeInTheDocument()
     // WiFi label should NOT be visible
     expect(screen.queryByText('Paso 1: Escaneá para conectarte al WiFi')).not.toBeInTheDocument()
   })
@@ -244,7 +244,7 @@ describe('KioskAllCourtsPage', () => {
 
     // Step labels should be visible
     expect(screen.getByText('Paso 1: Escaneá para conectarte al WiFi')).toBeInTheDocument()
-    expect(screen.getByText('Paso 2: Escaneá para abrir rallyOS')).toBeInTheDocument()
+    expect(screen.getByText('Escaneá para abrir rallyOS')).toBeInTheDocument()
   })
 
   it('renders single table grid', () => {

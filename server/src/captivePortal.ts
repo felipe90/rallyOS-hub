@@ -218,7 +218,7 @@ export function createCaptivePortalHandler(hubConfig: HubPortalConfig) {
       return;
     }
 
-    // Accept → redirect to the HTTPS app (use IP to avoid DNS resolution issues with .local domains).
+    // Accept → redirect to the HTTPS app.
     if (method === 'POST' && pathname === '/accept') {
       res.statusCode = 302;
       res.setHeader('Location', `https://${hubConfig.domain}:${hubConfig.port}`);

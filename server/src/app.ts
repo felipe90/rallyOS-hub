@@ -149,7 +149,7 @@ app.get('/api/owner-pin', (req, res) => {
   res.json({ pin, isRandom: true });
 });
 
-// Captive Portal redirect — redirects browser to the hub PWA (use IP to avoid DNS resolution issues).
+// Captive Portal redirect — redirects browser to the hub PWA.
 app.get('/captive-portal', (req, res) => {
   const domain = process.env.HUB_DOMAIN || 'rallyos.wifi';
   const port = process.env.HUB_PORT || '3000';

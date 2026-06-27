@@ -37,7 +37,7 @@ vi.mock('@/i18n', () => ({
       const map: Record<string, string> = {
         'kioskNoActiveMatches': 'No active matches',
         'kioskPageTitle': 'Scoreboard',
-        'scoreboardWifiDomain': 'Abrí rallyos-hub.local',
+        'scoreboardWifiDomain': 'Abrí rallyos.wifi',
         'scoreboardWifiQrCta': 'Paso 1: Escaneá para conectarte al WiFi',
         'scoreboardUrlQrCta': 'Escaneá para abrir rallyOS',
         'kioskDestacado': '★ DESTACADO',
@@ -143,7 +143,7 @@ describe('KioskAllCourtsPage', () => {
       courts: [makeTable({ status: 'LIVE' })],
       connected: true,
       connecting: false,
-      hubConfig: { ssid: 'RallyOS', wifiPassword: 'test1234', domain: 'rallyos-hub.local' },
+      hubConfig: { ssid: 'RallyOS', wifiPassword: 'test1234', domain: 'rallyos.wifi' },
     })
 
     render(
@@ -162,7 +162,7 @@ describe('KioskAllCourtsPage', () => {
       courts: [makeTable({ status: 'LIVE' })],
       connected: true,
       connecting: false,
-      hubConfig: { ssid: 'RallyOS', wifiPassword: 'test1234', domain: 'rallyos-hub.local' },
+      hubConfig: { ssid: 'RallyOS', wifiPassword: 'test1234', domain: 'rallyos.wifi' },
     })
 
     render(
@@ -186,7 +186,7 @@ describe('KioskAllCourtsPage', () => {
       courts: [makeTable({ status: 'LIVE' })],
       connected: true,
       connecting: false,
-      hubConfig: { ssid: 'RallyOS', wifiPassword: 'test1234', domain: 'rallyos-hub.local', port: 3001 },
+      hubConfig: { ssid: 'RallyOS', wifiPassword: 'test1234', domain: 'rallyos.wifi', port: 3001 },
     })
 
     render(
@@ -198,7 +198,7 @@ describe('KioskAllCourtsPage', () => {
     const qrSvgs = document.querySelectorAll('svg[role="img"]')
     expect(qrSvgs.length).toBe(2)
     // URL text is visible below the URL QR
-    expect(screen.getByText('https://rallyos-hub.local:3001')).toBeInTheDocument()
+    expect(screen.getByText('https://rallyos.wifi:3001')).toBeInTheDocument()
     // URL QR label is visible
     expect(screen.getByText('Escaneá para abrir rallyOS')).toBeInTheDocument()
   })
@@ -208,7 +208,7 @@ describe('KioskAllCourtsPage', () => {
       courts: [makeTable({ status: 'LIVE' })],
       connected: true,
       connecting: false,
-      hubConfig: { domain: 'rallyos-hub.local', port: 3001 },
+      hubConfig: { domain: 'rallyos.wifi', port: 3001 },
     })
 
     render(
@@ -221,7 +221,7 @@ describe('KioskAllCourtsPage', () => {
     // Only the URL QR should be visible — no WiFi QR
     expect(qrSvgs.length).toBe(1)
     // URL text is still visible
-    expect(screen.getByText('https://rallyos-hub.local:3001')).toBeInTheDocument()
+    expect(screen.getByText('https://rallyos.wifi:3001')).toBeInTheDocument()
     // URL QR label is visible
     expect(screen.getByText('Escaneá para abrir rallyOS')).toBeInTheDocument()
     // WiFi label should NOT be visible
@@ -233,7 +233,7 @@ describe('KioskAllCourtsPage', () => {
       courts: [makeTable({ status: 'LIVE' })],
       connected: true,
       connecting: false,
-      hubConfig: { ssid: 'RallyOS', wifiPassword: 'test1234', domain: 'rallyos-hub.local', port: 3001 },
+      hubConfig: { ssid: 'RallyOS', wifiPassword: 'test1234', domain: 'rallyos.wifi', port: 3001 },
     })
 
     render(
@@ -860,7 +860,7 @@ describe('KioskAllCourtsPage — rotation behavior', () => {
       courts: [makeTable({ status: 'LIVE' })],
       connected: true,
       connecting: false,
-      hubConfig: { ssid: 'RallyOS', wifiPassword: 'test1234', domain: 'rallyos-hub.local' },
+      hubConfig: { ssid: 'RallyOS', wifiPassword: 'test1234', domain: 'rallyos.wifi' },
     })
 
     render(
@@ -880,7 +880,7 @@ describe('KioskAllCourtsPage — rotation behavior', () => {
       courts: [makeTable({ status: 'LIVE' })],
       connected: true,
       connecting: false,
-      hubConfig: { domain: 'rallyos-hub.local', port: 3001 },
+      hubConfig: { domain: 'rallyos.wifi', port: 3001 },
     })
 
     render(
@@ -890,7 +890,7 @@ describe('KioskAllCourtsPage — rotation behavior', () => {
     )
 
     // Full URL rendered as: https://{domain}:{port}
-    const urlElement = screen.getByText('https://rallyos-hub.local:3001')
+    const urlElement = screen.getByText('https://rallyos.wifi:3001')
     expect(urlElement).toBeInTheDocument()
   })
 

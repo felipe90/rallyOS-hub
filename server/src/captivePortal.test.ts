@@ -13,7 +13,7 @@ import path from 'path';
 import { createCaptivePortalHandler } from './captivePortal';
 
 const FONTS_DIR = path.join(process.cwd(), 'public', 'fonts');
-const DEFAULT_HUB = { domain: 'rallyos-hub.local', port: 3000, ip: '192.168.4.1' };
+const DEFAULT_HUB = { domain: 'rallyos.wifi', port: 3000, ip: '192.168.4.1' };
 
 // ── Test server helpers ────────────────────────────────────────────────
 
@@ -176,11 +176,11 @@ describe('captive portal: POST /accept redirect', () => {
     await closeServer(handle.server);
   });
 
-  it('responds 302 to https://${ip}:${port}', async () => {
-    const res = await request(handle.baseUrl, { method: 'POST', path: '/accept', host: 'rallyos-hub.local' });
+  it('responds 302 to https://${domain}:${port}', async () => {
+    const res = await request(handle.baseUrl, { method: 'POST', path: '/accept', host: 'rallyos.wifi' });
 
     expect(res.status).toBe(302);
-    expect(res.headers['location']).toBe('https://192.168.4.1:3000');
+    expect(res.headers['location']).toBe('https://rallyos.wifi:3000');
   });
 
   it('builds the redirect target from hubConfig (not hardcoded)', async () => {
@@ -189,7 +189,7 @@ describe('captive portal: POST /accept redirect', () => {
       const res = await request(custom.baseUrl, { method: 'POST', path: '/accept' });
 
       expect(res.status).toBe(302);
-      expect(res.headers['location']).toBe('https://10.0.0.1:4000');
+      expect(res.headers['location']).toBe('https://hub.test:4000');
     } finally {
       await closeServer(custom.server);
     }

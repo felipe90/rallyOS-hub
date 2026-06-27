@@ -103,7 +103,7 @@ The Orange Pi becomes a self-contained tournament hub with no external internet 
 | Service | Role | Configuration |
 |---------|------|---------------|
 | **hostapd** | Broadcasts the RallyOS Wi-Fi SSID (`RallyOS-Table1`) for players to connect | WPA2-PSK, channel 6, 2.4 GHz |
-| **dnsmasq** | DHCP server assigning IPs (192.168.4.100–200) and DNS resolving `rallyos-hub.local` → 192.168.4.1 | bind-dynamic for boot resilience, catch-all redirect for captive portal |
+| **dnsmasq** | DHCP server assigning IPs (192.168.4.100–200) and DNS resolving `rallyos.wifi` → 192.168.4.1 | bind-dynamic for boot resilience, catch-all redirect for captive portal |
 | **iptables** | NAT masquerading for client internet, port 80 → 3000 redirect (captive portal), DNS redirect for Android devices | Forces all DNS through dnsmasq, captive portal interception |
 | **Chromium Kiosk** | Auto-starts on HDMI display via systemd service, pointing to the scoreboard grid | X11, matchbox-window-manager, unclutter (hidden cursor) |
 
@@ -269,7 +269,7 @@ Copy `.env.example` to `.env` and adjust:
 | `HUB_SSID` | `RallyOS` | Wi-Fi SSID broadcast by the hub |
 | `HUB_WIFI_PASSWORD` | `rallyos2026` | Wi-Fi WPA2 password |
 | `HUB_IP` | `192.168.4.1` | Hub IP address (AP mode) |
-| `HUB_DOMAIN` | `rallyos-hub.local` | Hub domain name |
+| `HUB_DOMAIN` | `rallyos.wifi` | Hub domain name |
 | `HUB_ALLOWED_ORIGINS` | — | Comma-separated CORS origins |
 | `ENCRYPTION_SECRET` | — | AES-256-GCM key (32-byte hex) |
 | `NODE_OPTIONS` | `--max-old-space-size=256` | Memory limit for ARM devices |
@@ -322,7 +322,7 @@ This single script handles:
 - Docker + Docker Compose installation
 - `.env` creation from template
 - **WiFi Access Point** (hostapd) — creates `RallyOS-Table1` SSID
-- **DHCP + DNS** (dnsmasq) — assigns IPs, resolves `rallyos-hub.local`
+- **DHCP + DNS** (dnsmasq) — assigns IPs, resolves `rallyos.wifi`
 - **Captive Portal** (iptables) — auto-redirects WiFi clients to the hub
 - **HDMI Kiosk** (Chromium + X11) — auto-starts the scoreboard on connected display
 
@@ -335,12 +335,12 @@ Safe to re-run — skips what's already installed.
 ```
 
 The hub will be accessible at:
-- **Domain (recommended)**: https://rallyos-hub.local:3000
+- **Domain (recommended)**: https://rallyos.wifi:3000
 - **AP network**: https://192.168.4.1:3000
 - **WiFi network**: https://<orange-pi-ip>:3000
 - **Local**: https://localhost:3000
 
-> ℹ️ Use the domain URL (`rallyos-hub.local`) for PWA installation. It survives IP changes — if the Orange Pi gets a new IP via DHCP, you only need to restart dnsmasq. PWAs installed via IP address will break on IP change.
+> ℹ️ Use the domain URL (`rallyos.wifi`) for PWA installation. It survives IP changes — if the Orange Pi gets a new IP via DHCP, you only need to restart dnsmasq. PWAs installed via IP address will break on IP change.
 
 ### Diagnostics
 
@@ -353,13 +353,13 @@ Non-interactive TTL-safe script that checks: system info, Docker status, disk us
 ### PWA Installation (recommended for users)
 
 1. Connect your device to the Orange Pi WiFi network
-2. Open `https://rallyos-hub.local:3000` in your browser
+2. Open `https://rallyos.wifi:3000` in your browser
 3. Accept the SSL certificate warning (expected — local self-signed cert)
 4. Install the PWA from the browser menu:
    - **Android/Chrome**: Tap ⋮ → "Install app" / "Add to Home screen"
    - **iOS/Safari**: Tap Share → "Add to Home Screen"
    - **Desktop**: Install icon in the address bar
-5. The installed PWA will use `rallyos-hub.local:3000` — it survives Orange Pi IP changes
+5. The installed PWA will use `rallyos.wifi:3000` — it survives Orange Pi IP changes
 
 > ⚠️ If you previously installed the PWA via IP address (`192.168.4.1:3000`), uninstall it first and re-install from the domain URL.
 
@@ -367,30 +367,30 @@ Non-interactive TTL-safe script that checks: system info, Docker status, disk us
 
 ```bash
 # On the Orange Pi — verify dnsmasq resolves the domain
-nslookup rallyos-hub.local
+nslookup rallyos.wifi
 # Expected: 192.168.4.1 (or the Orange Pi's current IP)
 
 # On a client device — verify connectivity
-curl -k https://rallyos-hub.local:3000/health
+curl -k https://rallyos.wifi:3000/health
 # Expected: {"status":"ok"}
 
 # Check active DNS entries
 grep "address=" /etc/dnsmasq.conf
 # Expected:
 #   address=/rallyos.local/192.168.4.1
-#   address=/rallyos-hub.local/192.168.4.1
+#   address=/rallyos.wifi/192.168.4.1
 ```
 
 ### Troubleshooting
 
 | Problem | Diagnostic | Solution |
 |---------|------------|----------|
-| **`rallyos-hub.local` does not resolve** | `nslookup rallyos-hub.local` returns nothing | Restart dnsmasq: `sudo systemctl restart dnsmasq`. If still failing, re-run `sudo ./scripts/setup-orangepi-ap.sh` |
-| **PWA won't install** | Browser shows no install prompt | Ensure you're accessing via `https://rallyos-hub.local:3000` (not IP). Accept the SSL warning first. PWA requires HTTPS + valid manifest. |
-| **CORS errors in browser console** | `Access-Control-Allow-Origin` errors | Check `HUB_ALLOWED_ORIGINS` includes your domain in `.env` or `docker-compose.yml`. Default: includes `rallyos-hub.local`, `rallyos.local`, and `orangepi.local`. |
-| **SSL certificate warning won't go away** | Every visit shows cert error | Expected behavior. Self-signed certs always trigger warnings in browsers. On first visit, click "Advanced" → "Proceed to rallyos-hub.local (unsafe)". The PWA will remember the exception after installation. |
+| **`rallyos.wifi` does not resolve** | `nslookup rallyos.wifi` returns nothing | Restart dnsmasq: `sudo systemctl restart dnsmasq`. If still failing, re-run `sudo ./scripts/setup-orangepi-ap.sh` |
+| **PWA won't install** | Browser shows no install prompt | Ensure you're accessing via `https://rallyos.wifi:3000` (not IP). Accept the SSL warning first. PWA requires HTTPS + valid manifest. |
+| **CORS errors in browser console** | `Access-Control-Allow-Origin` errors | Check `HUB_ALLOWED_ORIGINS` includes your domain in `.env` or `docker-compose.yml`. Default: includes `rallyos.wifi`, `rallyos.local`, and `orangepi.local`. |
+| **SSL certificate warning won't go away** | Every visit shows cert error | Expected behavior. Self-signed certs always trigger warnings in browsers. On first visit, click "Advanced" → "Proceed to rallyos.wifi (unsafe)". The PWA will remember the exception after installation. |
 | **Container won't start** | `docker compose ps` shows `Exit` | Run `./scripts/diagnose.sh` for full system check. Check logs: `docker compose -f docker-compose.yml logs --tail=50 hub`. Common: port 3000 in use, missing `.env` file, Docker not running. |
-| **PWA installed with old IP, now broken** | App opens blank or error page | The old PWA was installed with an IP address URL. Uninstall it (long-press icon → Uninstall), then re-install from `https://rallyos-hub.local:3000`. The domain-based PWA survives IP changes. |
+| **PWA installed with old IP, now broken** | App opens blank or error page | The old PWA was installed with an IP address URL. Uninstall it (long-press icon → Uninstall), then re-install from `https://rallyos.wifi:3000`. The domain-based PWA survives IP changes. |
 
 ## Authentication
 

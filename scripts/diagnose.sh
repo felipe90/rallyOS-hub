@@ -229,10 +229,10 @@ check_dnsmasq() {
         && _ok "Catch-all active (captive portal)" \
         || _warn "No catch-all — captive portal won't redirect"
 
-    # rallyos-hub.local
-    grep -q "address=/rallyos-hub.local" /etc/dnsmasq.conf 2>/dev/null \
-        && _ok "rallyos-hub.local resolves" \
-        || _warn "rallyos-hub.local not configured"
+    # rallyos.wifi
+    grep -q "address=/rallyos.wifi" /etc/dnsmasq.conf 2>/dev/null \
+        && _ok "rallyos.wifi resolves" \
+        || _warn "rallyos.wifi not configured"
 
     # DHCP range
     local dhcp_range

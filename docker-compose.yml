@@ -17,9 +17,9 @@ services:
       - TOURNAMENT_OWNER_PIN=${TOURNAMENT_OWNER_PIN:?TOURNAMENT_OWNER_PIN is required. Set it in .env or environment}
       - HUB_SSID=${HUB_SSID:-RallyOS}
       - HUB_IP=${HUB_IP:-192.168.4.1}
-      - HUB_DOMAIN=${HUB_DOMAIN:-rallyos-hub.local}
+      - HUB_DOMAIN=${HUB_DOMAIN:-rallyos.wifi}
       - HUB_WIFI_PASSWORD=${HUB_WIFI_PASSWORD:-}
-      - HUB_ALLOWED_ORIGINS=${HUB_ALLOWED_ORIGINS:-http://localhost:5173,https://localhost:5173,http://localhost:3000,https://localhost:3000,http://127.0.0.1:5173,https://127.0.0.1:5173,http://127.0.0.1:3000,https://127.0.0.1:3000,http://orangepi.local:3000,https://orangepi.local:3000,http://rallyos.local:3000,https://rallyos.local:3000,http://rallyos-hub.local:3000,https://rallyos-hub.local:3000}
+      - HUB_ALLOWED_ORIGINS=${HUB_ALLOWED_ORIGINS:-http://localhost:5173,https://localhost:5173,http://localhost:3000,https://localhost:3000,http://127.0.0.1:5173,https://127.0.0.1:5173,http://127.0.0.1:3000,https://127.0.0.1:3000,http://orangepi.local:3000,https://orangepi.local:3000,http://rallyos.local:3000,https://rallyos.local:3000,http://rallyos.wifi:3000,https://rallyos.wifi:3000}
       - NODE_OPTIONS=--max-old-space-size=${NODE_OPTIONS_MEMORY:-256}
     networks:
       - rallyos-net

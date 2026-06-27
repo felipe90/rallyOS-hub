@@ -65,7 +65,7 @@ COPY --from=client-builder --chown=node:node /build/client/dist ./public/dist
 # Generate self-signed SSL certificates
 RUN openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 \
     -nodes -subj "/C=AR/ST=BA/L=Buenos Aires/O=RallyOS/OU=Prod/CN=localhost" \
-    -addext "subjectAltName=DNS:localhost,IP:127.0.0.1,DNS:${HUB_DOMAIN:-rallyos-hub.local}" 2>/dev/null || true && \
+    -addext "subjectAltName=DNS:localhost,IP:127.0.0.1,DNS:${HUB_DOMAIN:-rallyos.wifi}" 2>/dev/null || true && \
     chmod 644 key.pem cert.pem
 
 # Create logs directory and set ownership for node user

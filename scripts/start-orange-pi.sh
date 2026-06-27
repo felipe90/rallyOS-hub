@@ -83,7 +83,7 @@ main() {
         print_step ".env not found — creating from .env.example..."
         if [ -f ".env.example" ]; then
             cp .env.example .env
-            print_success ".env created (PIN: 12345678, Domain: rallyos-hub.local)"
+            print_success ".env created (PIN: 12345678, Domain: rallyos.wifi)"
         else
             print_error ".env.example not found. Cannot proceed."
             exit 1
@@ -132,7 +132,7 @@ main() {
         echo ""
         echo -e "Access from:"
         echo -e "  Local:     ${BLUE}https://localhost:3000${NC}"
-        echo -e "  Domain:    ${BLUE}https://rallyos-hub.local:3000${NC}"
+        echo -e "  Domain:    ${BLUE}https://rallyos.wifi:3000${NC}"
         echo -e "  AP Net:    ${BLUE}https://192.168.4.1:3000${NC}"
         echo -e "  Main WiFi: ${BLUE}https://${PI_IP}:3000${NC}"
         echo ""

@@ -118,7 +118,7 @@ _step_start "Environment config"
 
 REPO_PATH="$(cd "$(dirname "$0")/.." && pwd)"
 
-CORRECT_ORIGINS="https://localhost:3000,http://localhost:3000,https://${AP_IP}:3000,http://${AP_IP}:3000,https://rallyos-hub.local:3000,http://rallyos-hub.local:3000"
+CORRECT_ORIGINS="https://localhost:3000,http://localhost:3000,https://${AP_IP}:3000,http://${AP_IP}:3000,https://rallyos.wifi:3000,http://rallyos.wifi:3000"
 
 if [ ! -f "${REPO_PATH}/.env" ]; then
     echo "  Creating .env with Orange Pi defaults..."
@@ -131,13 +131,13 @@ PORT=3000
 TOURNAMENT_OWNER_PIN=${TOURNAMENT_OWNER_PIN:-12345678}
 HUB_SSID=${AP_SSID}
 HUB_IP=${AP_IP}
-HUB_DOMAIN=rallyos-hub.local
+HUB_DOMAIN=rallyos.wifi
 HUB_ALLOWED_ORIGINS=${CORRECT_ORIGINS}
 NODE_OPTIONS_MEMORY=512
 ENCRYPTION_SECRET=${ENCRYPTION_SECRET}
 ENVEOF
 
-    echo "  ✅ .env created with AP_IP=${AP_IP} and HUB_DOMAIN=rallyos-hub.local"
+    echo "  ✅ .env created with AP_IP=${AP_IP} and HUB_DOMAIN=rallyos.wifi"
     _step_ok
 else
     echo "  .env already exists — checking for issues..."
@@ -149,10 +149,10 @@ else
     current_origins=$(grep '^HUB_ALLOWED_ORIGINS=' "${REPO_PATH}/.env" 2>/dev/null || true)
     if [ -z "$current_origins" ]; then
         echo "  ℹ️  HUB_ALLOWED_ORIGINS: not set — server uses safe defaults (OK)"
-    elif echo "$current_origins" | grep -q "rallyos-hub.local:3000"; then
-        echo "  ✅ HUB_ALLOWED_ORIGINS includes rallyos-hub.local (OK)"
+    elif echo "$current_origins" | grep -q "rallyos.wifi:3000"; then
+        echo "  ✅ HUB_ALLOWED_ORIGINS includes rallyos.wifi (OK)"
     else
-        echo "  ⚠️  HUB_ALLOWED_ORIGINS is MISSING rallyos-hub.local — fixing..."
+        echo "  ⚠️  HUB_ALLOWED_ORIGINS is MISSING rallyos.wifi — fixing..."
         sed -i "s|^HUB_ALLOWED_ORIGINS=.*|HUB_ALLOWED_ORIGINS=${CORRECT_ORIGINS}|" "${REPO_PATH}/.env"
         echo "  ✅ HUB_ALLOWED_ORIGINS fixed to include all required origins"
         env_fixed=1
@@ -248,7 +248,7 @@ listen-address=${AP_IP}
 dhcp-range=${DHCP_RANGE_START},${DHCP_RANGE_END},255.255.255.0,24h
 domain=local
 address=/rallyos.local/${AP_IP}
-address=/rallyos-hub.local/${AP_IP}
+address=/rallyos.wifi/${AP_IP}
 # Catch-all DNS: resolve every domain to the AP IP so any HTTP request lands on
 # the captive portal (port 80) regardless of the requested host.
 address=/#/${AP_IP}

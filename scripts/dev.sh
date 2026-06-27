@@ -117,7 +117,7 @@ main() {
         echo -e "${YELLOW}  Generating self-signed SSL certificates...${NC}"
         openssl req -x509 -newkey rsa:2048 -keyout "$KEY_FILE" -out "$CERT_FILE" -days 365 \
             -nodes -subj "/C=AR/ST=BA/L=Buenos Aires/O=RallyOS/OU=Dev/CN=localhost" \
-            -addext "subjectAltName=DNS:localhost,IP:127.0.0.1,DNS:rallyos-hub.local" 2>/dev/null || true
+            -addext "subjectAltName=DNS:localhost,IP:127.0.0.1,DNS:rallyos.wifi" 2>/dev/null || true
         chmod 600 "$KEY_FILE" "$CERT_FILE"
         print_success "SSL certificates generated"
     else

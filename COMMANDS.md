@@ -101,7 +101,7 @@ cp .env.example .env
 #   TOURNAMENT_OWNER_PIN=12345678    # admin PIN
 #   HUB_SSID=RallyOS                 # WiFi SSID
 #   HUB_IP=192.168.4.1               # AP IP
-#   HUB_DOMAIN=rallyos-hub.local     # domain
+#   HUB_DOMAIN=rallyos.wifi     # domain
 #   NODE_OPTIONS_MEMORY=512          # Orange Pi: 512, Mac: 256
 ```
 
@@ -130,7 +130,7 @@ npx lint-staged
 | URL | Description |
 |-----|-------------|
 | `https://192.168.4.1:3000` | AP network |
-| `https://rallyos-hub.local:3000` | Domain (PWA) |
+| `https://rallyos.wifi:3000` | Domain (PWA) |
 | `https://localhost:3000` | Local (HDMI kiosk) |
 | `https://localhost:3000/scoreboard/all/kiosk` | Kiosk display |
 

@@ -10,6 +10,7 @@
 # Safe to re-run — skips what's already installed.
 
 set -e
+trap 'echo "  ⚠️  ERROR en línea ${LINENO}: ${BASH_COMMAND}" >&2' ERR
 
 # --- CONFIGURATION ---
 AP_INTERFACE="wlx90de8018370a"
@@ -101,8 +102,8 @@ else
         case "$ARCH" in aarch64) CA="aarch64" ;; armv7l) CA="armv7" ;; *) CA="aarch64" ;; esac
         COMPOSE_VER=$(curl -s https://api.github.com/repos/docker/compose/releases/latest | grep '"tag_name"' | head -1 | cut -d'"' -f4)
         curl -fsSL "https://github.com/docker/compose/releases/download/${COMPOSE_VER}/docker-compose-linux-${CA}" \
-            -o /usr/local/bin/docker-compose
-        chmod +x /usr/local/bin/docker-compose
+            -o /usr/local/bin/docker-compose || true
+        chmod +x /usr/local/bin/docker-compose || true
     }
     echo "  Compose installed"
 fi
@@ -199,23 +200,23 @@ else
     # Pre-seed iptables-persistent debconf to avoid interactive prompts
     echo iptables-persistent iptables-persistent/autosave_v4 boolean true | debconf-set-selections 2>/dev/null || true
     echo iptables-persistent iptables-persistent/autosave_v6 boolean true | debconf-set-selections 2>/dev/null || true
-    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq hostapd dnsmasq iptables-persistent net-tools
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq hostapd dnsmasq iptables-persistent net-tools || true
 
     # Free port 53 from systemd-resolved
     if systemctl is-active systemd-resolved --quiet 2>/dev/null; then
         echo "  Stopping systemd-resolved (port 53 conflict)..."
-        systemctl stop systemd-resolved
-        systemctl disable systemd-resolved
+        systemctl stop systemd-resolved || true
+        systemctl disable systemd-resolved || true
     fi
 
     # Ensure host DNS works without systemd-resolved (always, not just first run)
     rm -f /etc/resolv.conf
-    echo "nameserver 8.8.8.8" > /etc/resolv.conf
+    echo "nameserver 8.8.8.8" > /etc/resolv.conf || true
 
     # Docker daemon must use external DNS directly (dnsmasq catch-all breaks registry pulls)
     echo "  Configuring Docker DNS..."
     mkdir -p /etc/docker
-    cat > /etc/docker/daemon.json << DAEMON_EOF
+    cat > /etc/docker/daemon.json << DAEMON_EOF || true
 {
   "dns": ["8.8.8.8", "1.1.1.1"]
 }
@@ -281,18 +282,18 @@ WOT_EOF
     # Bring interface up BEFORE starting services (dnsmasq needs the IP to exist)
     echo "  Bringing interface up..."
     ip addr add ${AP_IP}/24 dev "${AP_INTERFACE}" 2>/dev/null || true
-    ip link set "${AP_INTERFACE}" up
+    ip link set "${AP_INTERFACE}" up || true
     sleep 1
 
     echo "  Starting AP services..."
     systemctl unmask hostapd 2>/dev/null || true
-    systemctl enable hostapd
-    systemctl start hostapd
-    systemctl enable dnsmasq
-    systemctl start dnsmasq
+    systemctl enable hostapd || true
+    systemctl start hostapd || _step_warn "hostapd failed to start"
+    systemctl enable dnsmasq || true
+    systemctl start dnsmasq || _step_warn "dnsmasq failed to start"
 
     # Re-assert host DNS — dnsmasq's start-resolvconf hook overwrites resolv.conf
-    echo "nameserver 8.8.8.8" > /etc/resolv.conf
+    echo "nameserver 8.8.8.8" > /etc/resolv.conf || true
 
     # Reload Docker to pick up daemon.json DNS config
     systemctl restart docker 2>/dev/null || true
@@ -329,16 +330,16 @@ apt-get install -y -qq matchbox-window-manager unclutter x11-xserver-utils 2>/de
 
 echo "  Installing systemd service..."
 sed "s|__REPO_PATH__|${REPO_PATH}|g" "${REPO_PATH}/scripts/rallyos-kiosk.service" \
-    > /etc/systemd/system/rallyos-kiosk.service
+    > /etc/systemd/system/rallyos-kiosk.service || true
 
-    systemctl daemon-reload
-systemctl enable rallyos-kiosk
+    systemctl daemon-reload || true
+systemctl enable rallyos-kiosk || true
 systemctl restart rallyos-kiosk 2>/dev/null || true
 
 echo "  Installing diagnostic service..."
 sed "s|__REPO_PATH__|${REPO_PATH}|g" "${REPO_PATH}/scripts/rallyos-diagnose.service" \
-    > /etc/systemd/system/rallyos-diagnose.service
-systemctl daemon-reload
+    > /etc/systemd/system/rallyos-diagnose.service || true
+systemctl daemon-reload || true
 systemctl enable rallyos-diagnose 2>/dev/null || true
 echo "  ✅ rallyos-diagnose will run on every boot"
 

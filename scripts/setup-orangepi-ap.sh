@@ -111,6 +111,16 @@ fi
 systemctl enable docker 2>/dev/null || true
 systemctl start docker 2>/dev/null || true
 
+# Docker daemon must use external DNS directly (dnsmasq catch-all breaks registry pulls)
+echo "  Configuring Docker DNS..."
+mkdir -p /etc/docker
+cat > /etc/docker/daemon.json << DAEMON_EOF
+{
+  "dns": ["8.8.8.8", "1.1.1.1"]
+}
+DAEMON_EOF
+systemctl restart docker 2>/dev/null || true
+
 _step_ok
 
 # ==== Step 4: Config =============================================
@@ -213,15 +223,6 @@ else
     rm -f /etc/resolv.conf
     echo "nameserver 8.8.8.8" > /etc/resolv.conf || true
 
-    # Docker daemon must use external DNS directly (dnsmasq catch-all breaks registry pulls)
-    echo "  Configuring Docker DNS..."
-    mkdir -p /etc/docker
-    cat > /etc/docker/daemon.json << DAEMON_EOF || true
-{
-  "dns": ["8.8.8.8", "1.1.1.1"]
-}
-DAEMON_EOF
-
     systemctl stop hostapd 2>/dev/null || true
     systemctl stop dnsmasq 2>/dev/null || true
 
@@ -295,7 +296,6 @@ WOT_EOF
     # Re-assert host DNS — dnsmasq's start-resolvconf hook overwrites resolv.conf
     echo "nameserver 8.8.8.8" > /etc/resolv.conf || true
 
-    # Reload Docker to pick up daemon.json DNS config
     systemctl restart docker 2>/dev/null || true
 
     # iptables rules MUST come AFTER Docker restart — Docker flushes custom chains

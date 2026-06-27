@@ -146,7 +146,7 @@ else
 
     # Check HUB_ALLOWED_ORIGINS
     current_origins=""
-    current_origins=$(grep '^HUB_ALLOWED_ORIGINS=' "${REPO_PATH}/.env" 2>/dev/null)
+    current_origins=$(grep '^HUB_ALLOWED_ORIGINS=' "${REPO_PATH}/.env" 2>/dev/null || true)
     if [ -z "$current_origins" ]; then
         echo "  ℹ️  HUB_ALLOWED_ORIGINS: not set — server uses safe defaults (OK)"
     elif echo "$current_origins" | grep -q "rallyos-hub.local:3000"; then

@@ -38,7 +38,7 @@ vi.mock('@/i18n', () => ({
         'kioskNoActiveMatches': 'No active matches',
         'kioskPageTitle': 'Scoreboard',
         'scoreboardWifiDomain': 'Abrí rallyos.wifi',
-        'scoreboardWifiQrCta': 'Paso 1: Escaneá para conectarte al WiFi',
+        'scoreboardWifiQrCta': 'Escaneá para conectarte al WiFi',
         'scoreboardUrlQrCta': 'Escaneá para abrir rallyOS',
         'kioskDestacado': '★ DESTACADO',
         'kioskEnVivo': 'EN VIVO',
@@ -178,7 +178,7 @@ describe('KioskAllCourtsPage', () => {
     expect(qrSvgs[0]).toHaveAttribute('width', '180')
     expect(qrSvgs[1]).toHaveAttribute('width', '180')
     // WiFi QR label is visible
-    expect(screen.getByText('Paso 1: Escaneá para conectarte al WiFi')).toBeInTheDocument()
+    expect(screen.getByText('Escaneá para conectarte al WiFi')).toBeInTheDocument()
   })
 
   it('URL QR encodes hub domain and port', () => {
@@ -225,7 +225,7 @@ describe('KioskAllCourtsPage', () => {
     // URL QR label is visible
     expect(screen.getByText('Escaneá para abrir rallyOS')).toBeInTheDocument()
     // WiFi label should NOT be visible
-    expect(screen.queryByText('Paso 1: Escaneá para conectarte al WiFi')).not.toBeInTheDocument()
+    expect(screen.queryByText('Escaneá para conectarte al WiFi')).not.toBeInTheDocument()
   })
 
   it('renders WiFi and URL step labels in horizontal layout', () => {
@@ -243,7 +243,7 @@ describe('KioskAllCourtsPage', () => {
     )
 
     // Step labels should be visible
-    expect(screen.getByText('Paso 1: Escaneá para conectarte al WiFi')).toBeInTheDocument()
+    expect(screen.getByText('Escaneá para conectarte al WiFi')).toBeInTheDocument()
     expect(screen.getByText('Escaneá para abrir rallyOS')).toBeInTheDocument()
   })
 

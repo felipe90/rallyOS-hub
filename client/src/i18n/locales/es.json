@@ -118,7 +118,7 @@
   "courtStatusLive": "En juego",
   "courtStatusFinished": "Finalizado",
   "scoreboardWifiDomain": "Abrí {{domain}}",
-  "scoreboardWifiQrCta": "Paso 1: Escaneá para conectarte al WiFi",
+  "scoreboardWifiQrCta": "Escaneá para conectarte al WiFi",
   "scoreboardUrlQrCta": "Escaneá para abrir rallyOS",
   "ownerCreateNotification": "Crear Notificación",
   "notificationModalTitle": "Enviar Notificación",

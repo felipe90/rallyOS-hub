@@ -25,6 +25,7 @@ const FONTS_DIR = path.join(process.cwd(), 'public', 'fonts');
 export interface HubPortalConfig {
   domain: string;
   port: number;
+  ip: string;
 }
 
 // ── Portal HTML ────────────────────────────────────────────────────────
@@ -217,10 +218,10 @@ export function createCaptivePortalHandler(hubConfig: HubPortalConfig) {
       return;
     }
 
-    // Accept → redirect to the HTTPS app.
+    // Accept → redirect to the HTTPS app (use IP to avoid DNS resolution issues with .local domains).
     if (method === 'POST' && pathname === '/accept') {
       res.statusCode = 302;
-      res.setHeader('Location', `https://${hubConfig.domain}:${hubConfig.port}`);
+      res.setHeader('Location', `https://${hubConfig.ip}:${hubConfig.port}`);
       res.end();
       return;
     }

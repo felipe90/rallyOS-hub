@@ -300,7 +300,22 @@ WOT_EOF
     sleep 1
 
     echo "  Starting AP services..."
+    # Ensure WiFi dongle driver loads at boot (systemd modules-load.d)
+    echo "rtw88_8821cu" > /etc/modules-load.d/rtw88-8821cu.conf
+
+    # Make hostapd wait for the AP interface to appear before starting
+    mkdir -p /etc/systemd/system/hostapd.service.d
+    cat > /etc/systemd/system/hostapd.service.d/override.conf << HOSTAPD_OVERRIDE
+[Unit]
+After=network.target
+Wants=network.target
+
+[Service]
+ExecStartPre=/bin/sh -c 'for i in \$(seq 1 10); do ip link show ${AP_INTERFACE} && break; sleep 2; done'
+HOSTAPD_OVERRIDE
+
     systemctl unmask hostapd 2>/dev/null || true
+    systemctl daemon-reload || true
     systemctl enable hostapd || true
     systemctl start hostapd || _step_warn "hostapd failed to start"
     systemctl enable dnsmasq || true

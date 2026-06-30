@@ -168,6 +168,19 @@ else
         env_fixed=1
     fi
 
+    # Check HUB_DOMAIN (rallyos.wifi is the current correct value)
+    current_domain=""
+    current_domain=$(grep '^HUB_DOMAIN=' "${REPO_PATH}/.env" 2>/dev/null || true)
+    if [ -z "$current_domain" ]; then
+        echo "  ℹ️  HUB_DOMAIN: not set — adding rallyos.wifi..."
+        echo 'HUB_DOMAIN=rallyos.wifi' >> "${REPO_PATH}/.env"
+        env_fixed=1
+    elif ! echo "$current_domain" | grep -q 'rallyos.wifi'; then
+        echo "  ⚠️  HUB_DOMAIN is '$current_domain' — fixing to rallyos.wifi..."
+        sed -i 's/^HUB_DOMAIN=.*/HUB_DOMAIN=rallyos.wifi/' "${REPO_PATH}/.env"
+        env_fixed=1
+    fi
+
     # Check NODE_OPTIONS_MEMORY (armbian Orangepi needs 512 max)
     if ! grep -q '^NODE_OPTIONS_MEMORY=' "${REPO_PATH}/.env" 2>/dev/null; then
         echo "  ⚠️  NODE_OPTIONS_MEMORY not set — adding for Orange Pi (512MB)..."

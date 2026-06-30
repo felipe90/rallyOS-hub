@@ -88,6 +88,13 @@ main() {
             print_error ".env.example not found. Cannot proceed."
             exit 1
         fi
+    else
+        # Ensure HUB_DOMAIN is up to date
+        if grep -q '^HUB_DOMAIN=' .env && ! grep -q '^HUB_DOMAIN=rallyos.wifi' .env; then
+            print_step "Updating HUB_DOMAIN to rallyos.wifi..."
+            sed -i 's/^HUB_DOMAIN=.*/HUB_DOMAIN=rallyos.wifi/' .env
+            print_success "HUB_DOMAIN updated to rallyos.wifi"
+        fi
     fi
 
     print_step "Building Docker image (Node 22 Alpine - Client + Server)..."

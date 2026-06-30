@@ -311,7 +311,7 @@ After=network.target
 Wants=network.target
 
 [Service]
-ExecStartPre=/bin/sh -c 'for i in \$(seq 1 10); do ip link show ${AP_INTERFACE} && break; sleep 2; done'
+ExecStartPre=/bin/sh -c 'modprobe rtw88_8821cu; for i in \$(seq 1 10); do ip link show ${AP_INTERFACE} && break; sleep 2; done'
 HOSTAPD_OVERRIDE
 
     systemctl unmask hostapd 2>/dev/null || true

@@ -16,6 +16,9 @@ export { useSocketState } from './useSocketState'
 export { useSocketActions } from './useSocketActions'
 
 // New feature hooks
+export { useRallyTapBridge } from './useRallyTapBridge'
+export type { RallyTapState, UseRallyTapBridgeReturn } from './useRallyTapBridge'
+
 export { usePinSubmission } from './usePinSubmission'
 export { useDashboardStats } from './useDashboardStats'
 export { usePermissions } from './usePermissions'

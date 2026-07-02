@@ -8,6 +8,7 @@
  */
 
 import type { BleState } from '@/services/ble/bridge'
+import { useI18n } from '@/i18n'
 
 // ── Props ──────────────────────────────────────────────────────
 
@@ -36,20 +37,23 @@ interface StatusBadgeConfig {
     | 'error'
 }
 
-function getStatusConfig(bleStatus: BleState): StatusBadgeConfig {
+function getStatusConfig(
+  bleStatus: BleState,
+  t: (key: string) => string,
+): StatusBadgeConfig {
   switch (bleStatus) {
     case 'idle':
-      return { label: 'Desconectado', variant: 'idle' }
+      return { label: t('rallyTapStatusIdle'), variant: 'idle' }
     case 'scanning':
-      return { label: 'Escaneando...', variant: 'scanning' }
+      return { label: t('rallyTapStatusScanning'), variant: 'scanning' }
     case 'connecting':
-      return { label: 'Conectando...', variant: 'scanning' }
+      return { label: t('rallyTapStatusConnecting'), variant: 'scanning' }
     case 'connected':
-      return { label: 'Conectado', variant: 'connected' }
+      return { label: t('rallyTapStatusConnected'), variant: 'connected' }
     case 'reconnecting':
-      return { label: 'Reconectando...', variant: 'reconnecting' }
+      return { label: t('rallyTapStatusReconnecting'), variant: 'reconnecting' }
     case 'error':
-      return { label: 'Error', variant: 'error' }
+      return { label: t('rallyTapStatusError'), variant: 'error' }
   }
 }
 
@@ -87,7 +91,8 @@ export function RallyTapConnectButton({
   onConnect,
   onDisconnect,
 }: RallyTapConnectButtonProps) {
-  const config = getStatusConfig(bleStatus)
+  const { i18nText: t } = useI18n()
+  const config = getStatusConfig(bleStatus, t)
   const isBusy =
     bleStatus === 'scanning' ||
     bleStatus === 'connecting' ||
@@ -127,13 +132,13 @@ export function RallyTapConnectButton({
       >
         {isBusy
           ? bleStatus === 'scanning'
-            ? 'Buscando...'
+            ? t('rallyTapStatusScanning')
             : bleStatus === 'connecting'
-              ? 'Conectando...'
-              : 'Reconectando...'
+              ? t('rallyTapStatusConnecting')
+              : t('rallyTapStatusReconnecting')
           : isConnected
-            ? 'Desconectar'
-            : 'Conectar RallyTap'}
+            ? t('rallyTapButtonDisconnect')
+            : t('rallyTapButtonConnect')}
       </button>
 
       {/* Error message */}

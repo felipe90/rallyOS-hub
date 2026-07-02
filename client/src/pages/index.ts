@@ -9,3 +9,6 @@ export { ScoreboardPage } from './ScoreboardPage'
 export { HistoryViewPage } from './HistoryViewPage'
 
 export { NotFoundPage } from './NotFoundPage'
+
+export { ClubSetupPage } from './ClubSetupPage'
+export { ClubAdminPage } from './ClubAdminPage'

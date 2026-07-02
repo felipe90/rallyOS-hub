@@ -30,3 +30,9 @@ export type { WakeLockState } from './useWakeLock'
 
 export { useResponsiveQrSize } from './useResponsiveQrSize'
 export { useFocusTrap } from './useFocusTrap'
+
+// Club Mode hooks
+export { useClubAdmin } from './useClubAdmin'
+export type { ClubConfigData, ClubSetupData } from './useClubAdmin'
+export { useClubCourtManagement } from './useClubCourtManagement'
+

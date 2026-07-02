@@ -15,6 +15,8 @@ import { ScoreboardPage } from './pages/ScoreboardPage'
 import { HistoryViewPage } from './pages/HistoryViewPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { KioskAllCourtsPage } from './pages/KioskAllCourtsPage'
+import { ClubSetupPage } from './pages/ClubSetupPage'
+import { ClubAdminPage } from './pages/ClubAdminPage'
 import { useAutoUpdateBanner } from './hooks/useAutoUpdate'
 import { LanguageSwitcher } from './components/atoms'
 import { useI18n } from './i18n'
@@ -26,6 +28,10 @@ function AppRoutes() {
         {/* Public routes */}
         <Route path={Routes.AUTH} element={<AuthPage />} />
         <Route path={Routes.SCOREBOARD_KIOSK} element={<KioskAllCourtsPage />} />
+
+        {/* Club Mode routes */}
+        <Route path={Routes.CLUB_SETUP} element={<ClubSetupPage />} />
+        <Route path={Routes.CLUB_ADMIN} element={<ClubAdminPage />} />
 
         {/* Protected routes (require authentication) */}
         <Route element={<PrivateRoute />}>

@@ -13,6 +13,10 @@ export const Routes = {
   SCOREBOARD_REFEREE: '/scoreboard/:tableId/referee',
   SCOREBOARD_VIEW: '/scoreboard/:tableId/view',
   HISTORY: '/history',
+
+  // Club Mode routes
+  CLUB_SETUP: '/setup',
+  CLUB_ADMIN: '/club/admin',
 } as const
 
 // Type for all route values

@@ -74,6 +74,9 @@ export class ClubConfigStore {
         clubName: parsed.clubName,
         sport: parsed.sport,
         configured: parsed.configured === true,
+        adminPinHash: parsed.adminPinHash || '',
+        adminPin: parsed.adminPin || '',
+        createdAt: parsed.createdAt || Date.now(),
       };
     } catch {
       return null;

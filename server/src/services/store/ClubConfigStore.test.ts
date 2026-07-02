@@ -55,6 +55,9 @@ function makeConfig(overrides: Partial<ClubConfig> = {}): ClubConfig {
     clubName: 'My Club',
     sport: 'padel',
     configured: true,
+    adminPinHash: 'salt:hash',
+    adminPin: '123456',
+    createdAt: 1_000_000,
     ...overrides,
   };
 }
@@ -71,7 +74,7 @@ describe('ClubConfigStore', () => {
   });
 
   describe('save', () => {
-    it('should write JSON with clubName, sport, and configured', () => {
+    it('should write JSON with all ClubConfig fields', () => {
       store.save(makeConfig());
 
       const savedContent = fs._files.get('data/club-config.json');
@@ -125,7 +128,10 @@ describe('ClubConfigStore', () => {
     });
 
     it('should return configured=false when saved with configured=false', () => {
-      fs._files.set('data/club-config.json', JSON.stringify({ clubName: '', sport: '', configured: false }));
+      fs._files.set('data/club-config.json', JSON.stringify({
+        clubName: '', sport: '', configured: false,
+        adminPinHash: '', adminPin: '', createdAt: 0,
+      }));
 
       const result = store.load();
       expect(result).not.toBeNull();

@@ -8,6 +8,7 @@
 import { Server as IOServer } from 'socket.io';
 import { SocketHandler } from './handlers/SocketHandler';
 import { CourtManager } from './domain/courtManager';
+import { ClubConfigStore } from './services/store/ClubConfigStore';
 import { HubConfig } from './domain/types';
 import { logger } from './utils/logger';
 
@@ -16,8 +17,9 @@ export function createSocketServer(
   courtManager: CourtManager,
   ownerPin: string,
   hubConfig: HubConfig,
+  clubConfigStore?: ClubConfigStore,
 ): SocketHandler {
-  const socketHandler = new SocketHandler(io, courtManager, ownerPin, hubConfig);
+  const socketHandler = new SocketHandler(io, courtManager, ownerPin, hubConfig, clubConfigStore);
 
   logger.info('Socket.IO initialized');
   logger.debug({ transports: io.engine.opts.transports }, 'Socket.IO transports');

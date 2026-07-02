@@ -11,6 +11,7 @@ import { createSecureServer, gracefulShutdown } from './server';
 import { createSocketServer } from './socket';
 import { CourtManager } from './domain/courtManager';
 import { StateStore } from './services/store/StateStore';
+import { ClubConfigStore } from './services/store/ClubConfigStore';
 import { createTournamentRouter } from './routes/tournament';
 import { createExportRouter } from './routes/export';
 import { ownerAuthMiddleware } from './middleware/ownerAuth';
@@ -46,10 +47,23 @@ const hubConfig = {
   ownerPin,
 };
 
-// Create StateStore and CourtManager with persistence
+// Create stores
 const stateStore = new StateStore();
+const clubConfigStore = new ClubConfigStore();
+
+// Create CourtManager with persistence
 const courtManager = new CourtManager(hubConfig, stateStore);
-createSocketServer(io, courtManager, ownerPin, hubConfig);
+createSocketServer(io, courtManager, ownerPin, hubConfig, clubConfigStore);
+
+// GET /api/club/config — public endpoint to check if club is configured
+app.get('/api/club/config', (_req, res) => {
+  const config = clubConfigStore.load();
+  res.json({
+    configured: config?.configured === true,
+    clubName: config?.clubName || null,
+    sport: config?.sport || null,
+  });
+});
 
 // Mount tournament lifecycle routes (before SPA fallback)
 app.use(

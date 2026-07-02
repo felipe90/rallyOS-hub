@@ -115,6 +115,18 @@ export abstract class SocketHandlerBase {
   }
 
   /**
+   * Check if socket is club admin and emit error if not
+   */
+  protected validateClubAdmin(socket: Socket): boolean {
+    const socketData = socket.data as import('../domain/types').SocketData;
+    if (!socketData.isClubAdmin) {
+      this.emitError(socket, 'UNAUTHORIZED', 'Admin access required');
+      return false;
+    }
+    return true;
+  }
+
+  /**
    * Check if socket is referee for court and emit error if not
    */
   protected validateReferee(socket: Socket, courtId: string): boolean {

@@ -6,12 +6,17 @@
  * - MatchEventHandler: GET_MATCH_STATE, CONFIGURE_MATCH, START_MATCH, RECORD_POINT, etc.
  * - AuthHandler: SET_REF, VERIFY_OWNER, REF_ROLE_CHECK
  * - AdminHandler: REGENERATE_PIN, GET_RATE_LIMIT_STATUS
+ * - ClubAdminHandler: CLUB_VERIFY_ADMIN, CLUB_GET_CONFIG, CLUB_SETUP
+ * - ClubCourtHandler: CLUB_CREATE_COURT, CLUB_ACTIVATE_COURT, CLUB_FORCE_END, CLUB_DELETE_COURT
+ * - SpotlightHandler: SET_FEATURED, SUBSCRIBE_MATCH, UNSUBSCRIBE_MATCH
  * 
  * Maintains global listeners for table updates and match events.
  */
 
 import { Server, Socket } from 'socket.io';
 import { CourtManager } from '../domain/courtManager';
+import { ClubConfigStore } from '../services/store/ClubConfigStore';
+import { AdminPinService } from '../services/security/AdminPinService';
 import { TableInfo, HubConfig } from '../domain/types';
 import { logger } from '../utils/logger';
 import { RateLimiter } from '../services/security/RateLimiter';
@@ -22,6 +27,8 @@ import {
   AuthHandler, 
   AdminHandler,
   SpotlightHandler,
+  ClubAdminHandler,
+  ClubCourtHandler,
 } from './index';
 
 export class SocketHandler {
@@ -37,13 +44,24 @@ export class SocketHandler {
   private authHandler: AuthHandler;
   private adminHandler: AdminHandler;
   private spotlightHandler: SpotlightHandler;
+  private clubAdminHandler: ClubAdminHandler;
+  private clubCourtHandler: ClubCourtHandler;
 
-  constructor(io: Server, tableManager: CourtManager, ownerPin: string, hubConfig: HubConfig) {
+  constructor(
+    io: Server,
+    tableManager: CourtManager,
+    ownerPin: string,
+    hubConfig: HubConfig,
+    clubConfigStore?: ClubConfigStore,
+  ) {
     this.io = io;
     this.tableManager = tableManager;
     this.ownerPin = ownerPin;
     this.hubConfig = hubConfig;
     this.connectionRateLimiter = new RateLimiter(60_000, 20); // 20 connections per 60s per IP
+    
+    // Initialize services
+    const adminPinService = new AdminPinService();
     
     // Initialize handlers
     this.courtHandler = new CourtEventHandler(io, tableManager, ownerPin);
@@ -51,6 +69,8 @@ export class SocketHandler {
     this.authHandler = new AuthHandler(io, tableManager, ownerPin);
     this.adminHandler = new AdminHandler(io, tableManager, ownerPin);
     this.spotlightHandler = new SpotlightHandler(io, tableManager, ownerPin);
+    this.clubAdminHandler = new ClubAdminHandler(io, tableManager, ownerPin, clubConfigStore!, adminPinService);
+    this.clubCourtHandler = new ClubCourtHandler(io, tableManager, ownerPin);
     
     // Set up global court update listener once
     this.tableManager.onTableUpdate = (tableInfo) => {
@@ -148,6 +168,8 @@ export class SocketHandler {
       this.authHandler.registerHandlers(socket);
       this.adminHandler.registerHandlers(socket);
       this.spotlightHandler.registerHandlers(socket);
+      this.clubAdminHandler.registerHandlers(socket);
+      this.clubCourtHandler.registerHandlers(socket);
 
       // Handle disconnection
       socket.on('disconnect', (reason) => {

@@ -274,6 +274,12 @@ export interface ClubConfig {
   clubName: string;
   sport: string;
   configured: boolean;
+  /** scrypt hash (salt:hash format) for admin PIN verification */
+  adminPinHash: string;
+  /** Plaintext admin PIN for CLI recovery — stored alongside hash for recovery use case */
+  adminPin: string;
+  /** Timestamp when the club was first configured */
+  createdAt: number;
 }
 
 /** Club court info exposed to admin clients */

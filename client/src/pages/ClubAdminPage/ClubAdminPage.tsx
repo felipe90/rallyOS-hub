@@ -121,10 +121,6 @@ export function ClubAdminPage() {
     }
   }, [verifyError, addToast, i18nText])
 
-  useEffect(() => {
-    clearVerifyError()
-  }, [clearVerifyError])
-
   const handleVerify = () => {
     if (adminPin.trim()) {
       verifyAdminPin(adminPin.trim())
@@ -163,7 +159,7 @@ export function ClubAdminPage() {
           <Input
             type="password"
             value={adminPin}
-            onChange={(e) => setAdminPin(e.target.value)}
+            onChange={(e) => { setAdminPin(e.target.value); clearVerifyError() }}
             placeholder="••••••"
             disabled={verifyLoading}
             error={translateVerifyError(verifyError, i18nText)}

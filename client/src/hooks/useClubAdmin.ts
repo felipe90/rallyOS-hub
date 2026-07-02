@@ -114,7 +114,9 @@ export function useClubAdmin(socket: Socket | null, connected: boolean) {
     }
     setSetupLoading(true)
     setSetupError(null)
-    socket.emit(SocketEvents.CLIENT.CLUB_SETUP, data)
+    // Map adminPin → pin (server expects "pin")
+    const { adminPin, ...rest } = data
+    socket.emit(SocketEvents.CLIENT.CLUB_SETUP, { ...rest, pin: adminPin })
   }, [socket, connected])
 
   // Listen for setup completion

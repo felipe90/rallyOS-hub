@@ -92,12 +92,28 @@ export function useRallyTapBridge(
     })
 
     // Wire MATCH_UPDATE from hub → write to device
-    const handleMatchUpdate = (payload: ScorePayload) => {
+    // Extract score from nested match state (MatchStateExtended):
+    //   TableTennis: payload.score.currentSet.{a,b}, payload.score.sets.{a,b}
+    //   Padel:       payload.padelPoints, payload.sets
+    const handleMatchUpdate = (payload: Record<string, unknown>) => {
+      const matchScore = payload?.score as Record<string, unknown> | undefined
+      const currentSet = matchScore?.currentSet as Record<string, number> | undefined
+      const sets = matchScore?.sets as Record<string, number> | undefined
+
+      const score: ScorePayload = {
+        a: currentSet?.a ?? 0,
+        b: currentSet?.b ?? 0,
+        set_a: sets?.a ?? 0,
+        set_b: sets?.b ?? 0,
+        status: 'ok',
+        msg: '',
+      }
+      console.log('[useRallyTapBridge] MATCH_UPDATE → score:', score)
       setState(prev => ({
         ...prev,
-        score: { a: payload?.a ?? 0, b: payload?.b ?? 0 },
+        score: { a: score.a, b: score.b },
       }))
-      bridge.writeScore(payload)
+      bridge.writeScore(score)
     }
 
     // Wire ERROR from hub → store error message

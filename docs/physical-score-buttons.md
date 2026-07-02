@@ -1,219 +1,268 @@
-# RallyTap — Physical Score Buttons PoC
+# RallyTap — Physical Score Button PoC
 
-Players press physical buttons on the table to score their own points.  
-No referee needed — one player connects the device to their phone via Bluetooth.
+ESP32-based physical button device for padel/tennis referees.  
+Connects to the referee's phone via **BLE GATT** (not WiFi, not HID gamepad).  
+The phone bridges button presses to rallyOS-hub via Socket.IO, and writes score updates back to the OLED display.
 
 ```
-Botón A ──┐
-          ├── GPIO ── ESP32 ── BT Gamepad ──► Teléfono ── PWA (Gamepad API) ── WS ── Server
-Botón B ──┘
+Botón A ── GPIO18 ─┐
+                   ├── ESP32 ── BLE GATT ──► Phone Browser (Web Bluetooth) ── WS ── Server
+Botón B ── GPIO19 ─┘
 
-         ↑ "RallyTap"
-         ↑ se conecta como gamepad Bluetooth HID
-         ↑ el teléfono lo ve como un mando más
+           ↑ "RallyTap-01"
+           ↑ se conecta como GATT server (no HID gamepad)
+           ↑ el bridge web (BLEBridge) hace de intermediario
 ```
+
+## Architecture
+
+**Two independent domains** bridged by BLE GATT:
+
+| Domain | Tech | Location | Status |
+|--------|------|----------|--------|
+| ESP32 firmware | PlatformIO + Arduino + BLE GATT | `firmware/rallytap/` | ✅ Built & tested |
+| Browser bridge | Web Bluetooth + Socket.IO | `client/src/services/ble/` | ✅ Built & tested |
+
+### Why BLE + phone bridge (not WiFi direct)?
+
+- **iOS no soporta Web Bluetooth** — pero el bridge corre en el browser del referee. Android funciona perfecto. iOS cae al fallback: usar la UI táctil del scoreboard directamente.
+- **El ESP32 no necesita WiFi credentials** — zero config, prende y se anuncia.
+- **El teléfono ya está autenticado** como referee (courtId + PIN) ante el hub. El ESP32 no necesita saber PIN ni court ID.
+
+---
 
 ## Hardware
 
-| Component | Price | Notes |
-|-----------|-------|-------|
-| ESP32 DevKitC | ~$5 | Any ESP32 with Bluetooth (not ESP8266) |
-| Push buttons ×2 | ✅ have | Large, differentiated (color/shape) |
-| Dupont cables | ~$2 | Female-female for GPIO connections |
-| Power bank (PoC) | ~$5 | 2000mAh+ gives ~15h runtime |
-| 18650 + TP4056 (prod) | ~$6 | For standalone battery operation |
+| Component | Qty | Notes |
+|-----------|-----|-------|
+| ESP32 DevKitC (WROOM-32) | 1 | Cualquier ESP32 con BLE |
+| Push buttons (4-pin tactile 6x6mm) | 2 | Una pata a GPIO, la otra (diagonal) a GND |
+| OLED SSD1306 128x64 I2C | 1 | Display de 7 estados |
+| Dupont cables | varios | Hembra-hembra |
+| Power bank (PoC) | 1 | USB → ESP32 |
+| 18650 + TP4056 (prod) | 1 | Para batería standalone |
 
 ### Wiring
 
 ```
-ESP32                  Buttons
-─────                  ───────
-GPIO 13 ─────────────── Botón A (una pata)
-GPIO 14 ─────────────── Botón B (una pata)
-GND     ───┬─────────── Botón A (otra pata)
-           └─────────── Botón B (otra pata)
+ESP32               OLED (I2C)
+─────               ──────────
+GPIO21 (SDA) ─────── SDA
+GPIO22 (SCL) ─────── SCK
+3V3           ─────── VDD
+GND           ───┬─── GND
+                 │
+ESP32            Botones
+─────            ───────
+GPIO18 ─────────── Botón A (una pata, la otra a GND)
+GPIO19 ─────────── Botón B (una pata, la otra a GND)
+GND    ───┬─────── Botón A (pata diagonal)
+          └─────── Botón B (pata diagonal)
 ```
 
-No external resistors needed — ESP32 has internal pull-ups (`INPUT_PULLUP`).
+No se necesitan resistencias externas — `INPUT_PULLUP` interno del ESP32.
 
-- Button not pressed → GPIO sees HIGH (3.3V via pull-up)
-- Button pressed → GPIO connects to GND → sees LOW
-- Firmware detects HIGH→LOW transition
+### Button Behavior
 
-Buttons use long cables so they sit at opposite ends of the table (one per player).
+- Sin presión → GPIO HIGH (3.3V vía pull-up interna)
+- Presionado → GPIO conectado a GND → LOW
+- Debounce: 50ms (antirrebote por software)
+- Cooldown: 300ms tras cada presión (ignora pulsaciones rápidas)
 
-### Power
-
-**PoC**: Power bank → USB cable → ESP32 USB port  
-**Production**: 18650 battery → TP4056 charger module → ESP32 VIN pin
+---
 
 ## Firmware (ESP32)
 
-Language: Arduino IDE (same ecosystem as UNO)
+### Stack
 
-Library: [ESP32-BLE-Gamepad](https://github.com/lemmingDev/ESP32-BLE-Gamepad)
+| Component | Technology |
+|-----------|-----------|
+| Toolchain | PlatformIO + Arduino framework |
+| BLE | ESP32 built-in BLEDevice/BLEServer |
+| Display | Adafruit SSD1306 + GFX via I2C |
+| JSON | ArduinoJson v7 (StaticJsonDocument\<128\>) |
 
-```cpp
-#include <BleGamepad.h>
-
-BleGamepad bleGamepad("RallyTap", "RallyOS", 100);
-
-#define BTN_A 13
-#define BTN_B 14
-
-void setup() {
-  pinMode(BTN_A, INPUT_PULLUP);
-  pinMode(BTN_B, INPUT_PULLUP);
-  BleGamepadConfiguration config;
-  config.setButtonCount(2);
-  bleGamepad.begin(&config);
-}
-
-void loop() {
-  if (bleGamepad.isConnected()) {
-    bleGamepad.setButton(1, digitalRead(BTN_A) == LOW);
-    bleGamepad.setButton(2, digitalRead(BTN_B) == LOW);
-  }
-  delay(20);
-}
-```
-
-Phone sees it as Bluetooth gamepad **"RallyTap"** with 2 buttons.
-
-## QR + Quick Connect
-
-A sticker on the RallyTap has a QR that encodes:
+### File Layout
 
 ```
-https://rallyos.wifi:3000/join?c=<courtId>&p=<pin>
+firmware/rallytap/
+├── platformio.ini
+├── include/
+│   ├── BLEHandler.h
+│   ├── ButtonHandler.h
+│   ├── DisplayManager.h
+│   └── ScoreManager.h
+└── src/
+    ├── main.cpp
+    ├── BLEHandler.cpp
+    ├── ButtonHandler.cpp
+    ├── DisplayManager.cpp
+    └── ScoreManager.cpp
 ```
 
-New route `/join`:
-- Parses `c` (courtId) and `p` (pin)
-- Redirects to `/scoreboard/:courtId` with PIN auto-filled
-- Also triggers Web Bluetooth `navigator.bluetooth.requestDevice()` to discover and connect to "RallyTap" directly from the browser
+### BLE GATT Protocol
 
-### UX Flow
+| Item | UUID | Type | Value |
+|------|------|------|-------|
+| Service | `f000a001-0451-4000-b000-000000000000` | — | — |
+| Device Name | `f000a002` | READ | ASCII, max 16B — "RallyTap-01" |
+| Button Press | `f000a003` | NOTIFY | 1B: `0x01` = A, `0x02` = B |
+| Score Display | `f000a004` | WRITE | UTF-8 JSON, max 128B |
 
-1. RallyTap is on the table, powered on
-2. Player scans QR on the RallyTap → opens phone browser
-3. Browser loads `/join?c=abc&p=1234` → redirects to scoreboard
-4. Chrome prompts "RallyTap wants to connect" → tap to pair
-5. Scoreboard shows **PIN auto-filled** → player taps "Ingresar"
-6. PWA detects gamepad → shows "RallyTap conectado ✓"
-7. Player A presses left button → point scores
-8. Phone screen also works for corrections if needed
-
-**No Settings, no Bluetooth menu, no typing PIN.**
-
-### Web Bluetooth fallback
-
-If `navigator.bluetooth` is not available (iOS, some browsers):
-- Pair manually once (Settings → Bluetooth → RallyTap)
-- Then Gamepad API works as normal
-- QR still opens the scoreboard with PIN pre-filled
-
-## PWA Changes
-
-### New: `client/src/hooks/useGamepad.ts`
+### OLED Display States (7 estados)
 
 ```
-- Poll navigator.getGamepads() in requestAnimationFrame
-- Detect button transitions (edge-triggered, not level — avoid double-fires)
-- Map: gamepad button 0 → player A, button 1 → player B
-- Call existing handleScorePoint('A' | 'B')
-- Show connected status indicator
+┌──────────┐  2s       ┌──────────┐  BLE paired   ┌─────────────┐
+│   BOOT   │──────────→│   IDLE   │──────────────→│  CONNECTED  │
+│"RallyTap"│           │"Conect.."│               │"A:2 B:1"    │
+│  "-01"   │           └──────────┘               │"Conectado"  │
+└──────────┘               ↑  BLE disc             └──────┬──────┘
+                      ┌────┴──────┐              button   │
+                      │RECONNECT. │            press──────┘
+                      │"Reconect."│                  │
+                      └───────────┘             ┌────▼──────┐
+                                                 │ PRESSING  │
+                                                 │ (flash)   │
+                                                 │ 100ms     │
+                                                 └────┬──────┘
+                                                ┌─────▼──────┐
+                                      ┌────────│ CONFIRMING │
+                                      │ error  │ "A:3 B:1"  │
+                                 ┌────▼───┐   │ "OK" 1.5s  │
+                                 │ ERROR  │   └──────┬──────┘
+                                 │"✗ {msg}"│         │
+                                 └─────────┘    ┌────▼──────┐
+                                                │ CONNECTED │
+                                                └───────────┘
 ```
 
-### New: `client/src/pages/JoinPage/JoinPage.tsx`
+### Data Flow (main loop)
 
 ```
-- Route: /join?c=&p=
-- Extracts courtId + pin from URL params
-- Stores PIN in session/auto-fills on redirect
-- Optionally triggers Web Bluetooth scanning
-- Redirects to /scoreboard/:courtId
+loop()
+  ├─ ButtonHandler::poll()
+  │   └─ Press detected (debounced + cooldown OK):
+  │       ├─ BLEHandler::notifyButtonPress(player)
+  │       └─ DisplayManager::setState(PRESSING)
+  │
+  ├─ BLEHandler::isConnected()
+  │   ├─ true (was disconnected) → CONNECTED state
+  │   └─ false (was connected) → RECONNECTING + startAdvertising()
+  │
+  ├─ Pending score write (from BLE)
+  │   ├─ JSON válido → ScoreManager actualiza + CONFIRMING/ERROR
+  │   └─ JSON inválido → silencioso
+  │
+  └─ DisplayManager::tick() — avanza estados temporizados
 ```
 
-### Modified: `ScoreboardPage.tsx`
+---
+
+## Bridge Web (browser — pendiente)
+
+El bridge son 3 archivos del lado del cliente web, aún no implementados:
+
+| File | Ruta | Función |
+|------|------|---------|
+| `BLEBridge.ts` | `client/src/services/ble/bridge.ts` | Clase que conecta via Web Bluetooth, se subscribe a notificaciones y escribe score |
+| `useRallyTapBridge.ts` | `client/src/hooks/useRallyTapBridge.ts` | Hook React: conecta BLEBridge con Socket.IO |
+| `RallyTapConnectButton.tsx` | `client/src/components/molecules/` | Botón UI + badge de estado |
+
+### Event Flow (cuando esté implementado)
 
 ```
-- Import useGamepad hook
-- When gamepad connected: show "🎮 RallyTap conectado" pill
-- Gamepad button → same handleScorePoint as touch/click
-- Both input methods work simultaneously
+BLE notification (button_press: 0x01)
+  │
+  ▼
+BLEBridge.onButtonPress
+  │
+  ▼
+socket.emit(RECORD_POINT, { courtId, player: 'A' })
+  │
+  ▼
+hub → MatchEventHandler → courtManager.recordPoint()
+  │
+  ▼
+hub emite MATCH_UPDATE (broadcast)
+  │
+  ▼
+socket.on(MATCH_UPDATE) en useRallyTapBridge
+  │
+  ▼
+BLEBridge.writeScore({ a, b, status, msg })
+  │
+  ▼
+BLE GATT write a score_display characteristic
+  │
+  ▼
+ESP32 parsea JSON → OLED se actualiza
 ```
 
-**Zero server changes** — courtId + PIN auth already exists.
+---
+
+## Implementation Status
+
+| Step | Status |
+|------|--------|
+| **Hardware** | |
+| ESP32 + cables | ✅ |
+| OLED cableado | ✅ |
+| Botones cableados | ✅ (GPIO18, GPIO19) |
+| Power | ✅ (USB) |
+| **Firmware** | |
+| PlatformIO project | ✅ |
+| BLE GATT server (service + 3 characteristics) | ✅ |
+| ButtonHandler (debounce 50ms + cooldown 300ms) | ✅ |
+| DisplayManager (7 estados OLED) | ✅ |
+| ScoreManager (JSON parse/format) | ✅ |
+| Build & upload | ✅ |
+| OLED boot "RallyTap-01" → "Conectando..." | ✅ |
+| BLE advertising como "RallyTap-01" | ✅ |
+| BLE conectado → OLED "Conectado A:0 B:0" | ✅ |
+| PRESSING state (blink en botón) | ✅ |
+| **Bridge** | |
+| BLEBridge.ts | ✅ |
+| useRallyTapBridge.ts | ✅ |
+| RallyTapConnectButton.tsx | ✅ |
+
+---
 
 ## Error Handling
 
-| Scenario | Mitigation |
-|----------|-----------|
-| False press (ball hits RallyTap) | Long-press mode: hold 300ms → point |
-| Wrong player scores | Phone screen still works — tap to correct |
-| Battery dies | Continue on phone (touch, no gamepad) |
-| Gamepad disconnects mid-match | PWA detects, shows "RallyTap desconectado", re-pair on button press |
-| Organizer forgot to charge | Power bank swap in 10s |
+| Escenario | Mitigación |
+|-----------|-----------|
+| Presión accidental (bola golpea el botón) | Cooldown 300ms ignora pulsaciones rápidas |
+| Jugador equivocado anota | UI táctil del teléfono sigue funcionando para corregir |
+| Batería del RallyTap muere | Continuar en el teléfono (touch, sin BLE) |
+| BLE se desconecta | OLED muestra RECONNECTING, advertising se reinicia automáticamente |
+| OLED falla (I2C sin ACK) | Modo headless — firmware sigue funcionando sin display |
+| iOS Safari (no Web Bluetooth) | El árbitro usa la UI táctil directamente en vez del puente BLE |
+| Hub rechaza RECORD_POINT | BLE escribe status=error → OLED muestra ✗ + mensaje |
 
-## Use Case Walkthrough
+---
 
-```
-1. Organizer creates court → RallyTap assigned to that court
-2. Organizer puts RallyTap on table, gives PIN to players
-3. Players arrive, no referee
-4. Player A scans QR on RallyTap → phone opens scoreboard
-5. Phone pairs with RallyTap via Web Bluetooth
-6. Player A enters PIN (or auto-filled from QR) → referee auth
-7. Match starts, both players press their buttons to score
-8. Kiosk shows live score, phone shows same + corrections
-9. If RallyTap battery dies → continue on phone touch
-10. Match ends → organizer retrieves RallyTap, charges for next
-```
+## QR + Quick Connect (futuro)
 
-## Implementation Steps
+Para producción, un sticker QR en el RallyTap codifica:
 
 ```
-[ ] Hardware
-  [ ] Buy ESP32 + cables + power bank
-  [ ] Connect buttons to GPIO 13, 14, GND (long cables)
-  [ ] Power ESP32 via USB
-
-[ ] Firmware
-  [ ] Install ESP32 board support in Arduino IDE
-  [ ] Install ESP32-BLE-Gamepad library
-  [ ] Flash firmware (device name: "RallyTap")
-  [ ] Verify: phone pairs as gamepad, buttons register
-
-[ ] PWA — Gamepad support
-  [ ] Create useGamepad.ts hook
-  [ ] Show connection status indicator
-  [ ] Map button 0 → A, button 1 → B
-  [ ] Integrate in ScoreboardPage.tsx
-  [ ] Test with USB gamepad first (dev)
-
-[ ] PWA — QR + Join route
-  [ ] Create /join route (extracts courtId + pin)
-  [ ] Auto-fill PIN on scoreboard redirect
-  [ ] Web Bluetooth scanning (optional, PoC)
-  [ ] Generate QR code for sticker
-
-[ ] Validation
-  [ ] Button A → player A point
-  [ ] Button B → player B point
-  [ ] Both buttons simultaneously
-  [ ] QR scan → scoreboard with PIN pre-filled
-  [ ] Gamepad disconnect/reconnect mid-match
-  [ ] Battery drain test
-  [ ] Accidental press prevention (debounce + hold)
+https://rallyos.app/join?c=<courtId>&p=<pin>
 ```
 
-## Future Iterations
+Flujo:
+1. Escanear QR → abre el scoreboard con PIN auto-completado
+2. Browser Chrome pide conectar Bluetooth → "RallyTap-01"
+3. Bridge activo → botones físicos funcionan
 
-- 3D-printed enclosure with large arcade buttons (distinct colors)
-- ESP32 touch GPIO (no moving parts)
-- WiFi direct to server (no phone needed) — same ESP32, different firmware
-- Multiple court support (multiple RallyTaps)
-- Undo button on device
-- Haptic feedback on point scored
-- NFC tag instead of QR for faster pairing
+Sin QR: el referee abre el scoreboard manualmente, conecta BLE desde el botón "Conectar RallyTap" en la UI.
+
+---
+
+## Out of Scope (Phase 1)
+
+- iOS Web Bluetooth (no existe en Safari)
+- Batería recargable / cargador integrado
+- Caja 3D / PCB
+- Botón de restar / undo
+- WiFi provisioning
+- Múltiples RallyTaps simultáneos

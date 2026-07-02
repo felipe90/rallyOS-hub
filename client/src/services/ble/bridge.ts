@@ -130,6 +130,7 @@ export class BLEBridge {
       device = await Promise.race([
         navigator.bluetooth.requestDevice({
           filters: [{ services: [SERVICE_UUID] }],
+          optionalServices: [SERVICE_UUID],
         }),
         new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error('SCAN_TIMEOUT')), SCAN_TIMEOUT_MS),
@@ -228,7 +229,10 @@ export class BLEBridge {
    * Per spec R7: status/msg are stripped when status is "ok" to reduce payload size.
    */
   async writeScore(score: ScorePayload): Promise<void> {
-    if (!this.scoreDisplayChar) return
+    if (!this.scoreDisplayChar) {
+      console.warn('[BLEBridge] writeScore skipped — no scoreDisplayChar')
+      return
+    }
 
     try {
       // Strip status/msg when ok per R7 confirmation scenario
@@ -239,8 +243,10 @@ export class BLEBridge {
       }
 
       const json = JSON.stringify(payload)
+      console.log('[BLEBridge] writeScore:', json)
       const encoder = new TextEncoder()
       await this.scoreDisplayChar.writeValue(encoder.encode(json))
+      console.log('[BLEBridge] writeScore OK')
     } catch (err) {
       console.error('[BLEBridge] writeScore error:', err)
     }

@@ -1,5 +1,5 @@
 /**
- * ClubAdminPage - Admin dashboard for club mode
+ * ClubAdminPage — Admin dashboard for club mode
  *
  * Displays court list with CRUD operations, activation, and force-end.
  * Delegates all business logic to hooks.
@@ -11,19 +11,30 @@ import type { ClubCourtInfo } from '@shared/types'
 import { Input } from '@/components/atoms/Input'
 import { Button } from '@/components/atoms/Button'
 import { Body, Headline } from '@/components/atoms/Typography'
+import { PageHeader } from '@/components/molecules/PageHeader'
 import { ConfirmDialog } from '@/components/molecules/ConfirmDialog'
 import { useSocketContext } from '@/contexts/SocketContext'
 import { useClubAdmin } from '@/hooks/useClubAdmin'
 import { useClubCourtManagement } from '@/hooks/useClubCourtManagement'
+import { useI18n } from '@/i18n'
+import {
+  Shield,
+  Plus,
+  Play,
+  Trash2,
+  LogOut,
+  Building2,
+  RefreshCw,
+} from 'lucide-react'
 
 /** Human-readable label for club status */
-function statusLabel(status: ClubCourtInfo['status']): string {
+function statusLabel(status: ClubCourtInfo['status'], i18nText: (key: string) => string): string {
   switch (status) {
-    case CLUB_STATUS.AVAILABLE: return 'Available'
-    case CLUB_STATUS.RESERVED: return 'Reserved'
-    case CLUB_STATUS.OCCUPIED: return 'Occupied'
-    case CLUB_STATUS.FINISHED: return 'Finished'
-    case CLUB_STATUS.MAINTENANCE: return 'Maintenance'
+    case CLUB_STATUS.AVAILABLE: return i18nText('clubAdminStatusAvailable')
+    case CLUB_STATUS.RESERVED: return i18nText('clubAdminStatusReserved')
+    case CLUB_STATUS.OCCUPIED: return i18nText('clubAdminStatusOccupied')
+    case CLUB_STATUS.FINISHED: return i18nText('clubAdminStatusFinished')
+    case CLUB_STATUS.MAINTENANCE: return i18nText('clubAdminStatusMaintenance')
     default: return status
   }
 }
@@ -42,6 +53,7 @@ function statusColor(status: ClubCourtInfo['status']): string {
 
 export function ClubAdminPage() {
   const { socket, connected } = useSocketContext()
+  const { i18nText } = useI18n()
   const { isAdmin, verifyAdminPin, verifyLoading, verifyError, clearVerifyError } =
     useClubAdmin(socket, connected)
   const courtMgmt = useClubCourtManagement(socket, connected)
@@ -50,7 +62,6 @@ export function ClubAdminPage() {
   const [newCourtName, setNewCourtName] = useState('')
   const [forceEndCourt, setForceEndCourt] = useState<ClubCourtInfo | null>(null)
 
-  // Auto-verify if PIN already known
   useEffect(() => {
     clearVerifyError()
   }, [clearVerifyError])
@@ -78,21 +89,28 @@ export function ClubAdminPage() {
   // Admin PIN verification screen
   if (!isAdmin) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-dvh p-4 bg-surface">
-        <div className="w-full max-w-sm card bg-background rounded-lg shadow-xl p-6 space-y-4">
-          <Headline className="text-center">Club Admin</Headline>
+      <div className="flex items-center justify-center min-h-dvh bg-surface p-4">
+        <div className="card bg-surface-low rounded-lg shadow-xl p-8 w-full max-w-sm space-y-6">
+          <div className="text-center space-y-2">
+            <div className="flex justify-center">
+              <div className="bg-primary/10 text-primary p-3 rounded-full">
+                <Shield size={32} />
+              </div>
+            </div>
+            <Headline className="text-center">{i18nText('clubAdminTitle')}</Headline>
+            <Body className="text-text/70">{i18nText('clubAdminEnterPin')}</Body>
+          </div>
+
           <Input
-            label="Admin PIN"
             type="password"
             value={adminPin}
             onChange={(e) => setAdminPin(e.target.value)}
-            placeholder="Enter admin PIN"
+            placeholder="••••••"
             disabled={verifyLoading}
+            error={verifyError || undefined}
             onKeyDown={(e) => { if (e.key === 'Enter') handleVerify() }}
           />
-          {verifyError && (
-            <Body className="text-red-500 text-sm text-center">{verifyError}</Body>
-          )}
+
           <Button
             variant="primary"
             fullWidth
@@ -100,7 +118,7 @@ export function ClubAdminPage() {
             loading={verifyLoading}
             disabled={verifyLoading || !adminPin.trim()}
           >
-            Verify
+            {verifyLoading ? i18nText('clubAdminVerifying') : i18nText('clubAdminVerify')}
           </Button>
         </div>
       </div>
@@ -110,24 +128,24 @@ export function ClubAdminPage() {
   // Admin dashboard
   return (
     <div className="flex flex-col h-dvh bg-surface">
-      <header className="p-4 border-b border-border">
-        <div className="flex items-center justify-between">
-          <Headline>Club Admin</Headline>
-          <Button variant="ghost" size="sm" onClick={() => window.location.reload()}>
-            Refresh
-          </Button>
-        </div>
-      </header>
+      <PageHeader
+        title={i18nText('clubAdminTitle')}
+        subtitle={i18nText('clubAdminSubtitle')}
+        showStatus
+      />
 
       <main className="flex-1 overflow-auto p-4 space-y-4">
         {/* Create court form */}
-        <div className="card bg-background rounded-lg shadow p-4 space-y-3">
-          <Body className="font-medium">Create Court</Body>
+        <div className="card bg-surface-low rounded-lg shadow-sm p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Building2 size={18} className="text-primary" />
+            <Body className="font-medium">{i18nText('clubAdminCreateCourt')}</Body>
+          </div>
           <div className="flex gap-2">
             <Input
               value={newCourtName}
               onChange={(e) => setNewCourtName(e.target.value)}
-              placeholder="Court name"
+              placeholder={i18nText('clubAdminCourtNamePlaceholder')}
               disabled={courtMgmt.loading}
               onKeyDown={(e) => { if (e.key === 'Enter') handleCreateCourt() }}
             />
@@ -137,26 +155,35 @@ export function ClubAdminPage() {
               loading={courtMgmt.loading}
               disabled={courtMgmt.loading || !newCourtName.trim()}
             >
-              Create
+              <Plus size={16} />
             </Button>
           </div>
         </div>
 
         {/* Court list */}
         {courtMgmt.courts.length === 0 ? (
-          <Body className="text-center text-text/50">No courts yet. Create one above.</Body>
+          <div className="flex flex-col items-center justify-center py-12 gap-2">
+            <Building2 size={40} className="text-text/30" />
+            <Body className="text-text/50 text-center">{i18nText('clubAdminNoCourts')}</Body>
+          </div>
         ) : (
           <div className="space-y-2">
             {courtMgmt.courts.map((court) => (
               <div
                 key={court.id}
-                className="card bg-background rounded-lg shadow p-4 flex items-center justify-between"
+                className="card bg-surface-low rounded-lg shadow-sm p-4 flex items-center justify-between hover:bg-surface-high transition-colors"
               >
                 <div className="flex flex-col gap-1">
                   <Body className="font-medium">{court.name}</Body>
                   <div className="flex gap-3 text-sm">
-                    <span className={statusColor(court.status)}>{statusLabel(court.status)}</span>
-                    {court.pin && <span className="text-text/50">PIN: {court.pin}</span>}
+                    <span className={`font-medium ${statusColor(court.status)}`}>
+                      {statusLabel(court.status, i18nText)}
+                    </span>
+                    {court.pin && (
+                      <span className="font-mono text-text/50">
+                        {i18nText('clubAdminPinLabel', { pin: court.pin })}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -168,7 +195,8 @@ export function ClubAdminPage() {
                         onClick={() => courtMgmt.activateCourt(court.id)}
                         disabled={courtMgmt.loading}
                       >
-                        Activate
+                        <Play size={14} className="mr-1" />
+                        {i18nText('clubAdminActivate')}
                       </Button>
                       <Button
                         variant="danger"
@@ -176,7 +204,7 @@ export function ClubAdminPage() {
                         onClick={() => courtMgmt.deleteCourt(court.id)}
                         disabled={courtMgmt.loading}
                       >
-                        Delete
+                        <Trash2 size={14} />
                       </Button>
                     </>
                   )}
@@ -187,7 +215,8 @@ export function ClubAdminPage() {
                       onClick={() => setForceEndCourt(court)}
                       disabled={courtMgmt.loading}
                     >
-                      Force End
+                      <LogOut size={14} className="mr-1" />
+                      {i18nText('clubAdminForceEnd')}
                     </Button>
                   )}
                 </div>
@@ -196,19 +225,33 @@ export function ClubAdminPage() {
           </div>
         )}
 
+        {/* Refresh button */}
+        <div className="flex justify-center pt-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => window.location.reload()}
+          >
+            <RefreshCw size={14} className="mr-1" />
+            Refresh
+          </Button>
+        </div>
+
         {courtMgmt.error && (
-          <Body className="text-red-500 text-sm text-center">{courtMgmt.error}</Body>
+          <div className="p-3 rounded-md bg-red-50 text-red-600 text-sm text-center">
+            {courtMgmt.error}
+          </div>
         )}
       </main>
 
       {/* Force-end confirmation modal */}
       <ConfirmDialog
         isOpen={forceEndCourt !== null}
-        title="Force End Session"
-        message={`Are you sure you want to force end the session on "${forceEndCourt?.name}"? This will end the current game and invalidate the court PIN.`}
+        title={i18nText('clubAdminForceEnd')}
+        message={`${i18nText('clubAdminForceEndConfirm')}`}
         severity="error"
-        confirmLabel="Force End"
-        cancelLabel="Cancel"
+        confirmLabel={i18nText('clubAdminForceEnd')}
+        cancelLabel={i18nText('commonCancel')}
         onConfirm={handleForceEndConfirm}
         onCancel={() => setForceEndCourt(null)}
       />

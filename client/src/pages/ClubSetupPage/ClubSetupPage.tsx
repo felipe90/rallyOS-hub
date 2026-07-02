@@ -1,5 +1,5 @@
 /**
- * ClubSetupPage - First-run setup wizard
+ * ClubSetupPage — First-run setup wizard
  *
  * Collects club name, sport, admin PIN, and optional court count.
  * Delegates all business logic to useClubAdmin hook.
@@ -13,9 +13,12 @@ import { Button } from '@/components/atoms/Button'
 import { Body, Headline } from '@/components/atoms/Typography'
 import { useSocketContext } from '@/contexts/SocketContext'
 import { useClubAdmin } from '@/hooks/useClubAdmin'
+import { useI18n } from '@/i18n'
+import { Settings, Shield, CheckCircle, Building2 } from 'lucide-react'
 
 export function ClubSetupPage() {
   const { socket, connected } = useSocketContext()
+  const { i18nText } = useI18n()
   const {
     clubConfig,
     configLoading,
@@ -38,16 +41,26 @@ export function ClubSetupPage() {
     checkClubConfig().catch(() => {})
   }, [checkClubConfig])
 
-  // Redirect or show message if already configured
   if (configLoading) {
-    return <div className="flex items-center justify-center h-dvh"><Body>Loading...</Body></div>
+    return (
+      <div className="flex items-center justify-center h-dvh bg-surface">
+        <Body>{i18nText('clubAdminLoading')}</Body>
+      </div>
+    )
   }
 
   // If already configured, show info instead of form
   if (clubConfig?.configured && !setupComplete) {
     return (
-      <div className="flex items-center justify-center h-dvh">
-        <Body>Club is already configured.</Body>
+      <div className="flex items-center justify-center h-dvh bg-surface p-4">
+        <div className="card bg-surface-low rounded-lg shadow-xl p-8 max-w-sm w-full text-center space-y-4">
+          <div className="flex justify-center">
+            <div className="bg-amber-100 text-amber-600 p-3 rounded-full">
+              <Settings size={32} />
+            </div>
+          </div>
+          <Body className="text-text/70">{i18nText('clubSetupAlreadyConfigured')}</Body>
+        </div>
       </div>
     )
   }
@@ -57,11 +70,11 @@ export function ClubSetupPage() {
 
     if (!clubName.trim()) return
     if (!ADMIN_PIN_RULES.pattern.test(adminPin)) {
-      setPinError(`PIN must be ${ADMIN_PIN_RULES.minLength}-${ADMIN_PIN_RULES.maxLength} digits`)
+      setPinError(i18nText('errorsInvalidPin'))
       return
     }
     if (adminPin !== confirmPin) {
-      setPinError('PINs do not match')
+      setPinError(i18nText('errorAuthInvalidPin'))
       return
     }
 
@@ -75,35 +88,50 @@ export function ClubSetupPage() {
 
   if (setupComplete) {
     return (
-      <div className="flex flex-col items-center justify-center h-dvh gap-4 p-4">
-        <Headline>Club Setup Complete!</Headline>
-        <Body>{clubName} is ready to go.</Body>
+      <div className="flex flex-col items-center justify-center h-dvh bg-surface p-4 gap-6">
+        <div className="bg-green-100 text-green-600 p-4 rounded-full">
+          <CheckCircle size={48} />
+        </div>
+        <Headline className="text-center">{i18nText('clubSetupSuccessTitle')}</Headline>
+        <Body className="text-text/70 text-center">
+          {i18nText('clubSetupSuccessDesc', { name: clubName })}
+        </Body>
         <Button variant="primary" onClick={() => window.location.href = '/club/admin'}>
-          Go to Admin Panel
+          {i18nText('clubSetupGoToAdmin')}
         </Button>
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-dvh p-4 bg-surface">
-      <div className="w-full max-w-md card bg-background rounded-lg shadow-xl p-6 space-y-4">
-        <Headline className="text-center">Club Setup</Headline>
+    <div className="flex items-center justify-center min-h-dvh bg-surface p-4">
+      <div className="card bg-surface-low rounded-lg shadow-xl p-8 w-full max-w-md space-y-6">
+        {/* Header */}
+        <div className="text-center space-y-2">
+          <div className="flex justify-center">
+            <div className="bg-primary/10 text-primary p-3 rounded-full">
+              <Building2 size={32} />
+            </div>
+          </div>
+          <Headline className="text-center">{i18nText('clubSetupTitle')}</Headline>
+        </div>
 
         <Input
-          label="Club Name"
+          label={i18nText('clubSetupClubName')}
           value={clubName}
           onChange={(e) => setClubName(e.target.value)}
           placeholder="My Club"
           disabled={setupLoading}
         />
 
-        <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-text/70">Sport</label>
+        <div className="flex flex-col gap-1.5">
+          <label className="font-body text-sm font-medium text-text">
+            {i18nText('clubSetupSport')}
+          </label>
           <select
             value={sport}
             onChange={(e) => setSport(e.target.value)}
-            className="px-3 py-2 rounded border border-border bg-background text-text focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-full px-4 py-3 rounded-[--radius-md] font-body text-base bg-surface-low text-text-h placeholder:text-text-muted transition-all duration-200 hover:bg-surface-high focus:outline-none focus:ring-2 focus:ring-primary/30 focus:bg-surface disabled:opacity-50"
             disabled={setupLoading}
           >
             <option value={SPORT.PADEL}>Padel</option>
@@ -111,41 +139,48 @@ export function ClubSetupPage() {
           </select>
         </div>
 
-        <Input
-          label="Admin PIN"
-          type="password"
-          value={adminPin}
-          onChange={(e) => setAdminPin(e.target.value)}
-          placeholder={`${ADMIN_PIN_RULES.minLength}-${ADMIN_PIN_RULES.maxLength} digits`}
-          disabled={setupLoading}
-          error={pinError}
-        />
+        <div className="space-y-1">
+          <Input
+            label={i18nText('clubSetupAdminPin')}
+            type="password"
+            value={adminPin}
+            onChange={(e) => setAdminPin(e.target.value)}
+            placeholder="••••••"
+            disabled={setupLoading}
+            error={pinError}
+          />
+        </div>
 
         <Input
-          label="Confirm PIN"
+          label={i18nText('clubSetupConfirmPin')}
           type="password"
           value={confirmPin}
           onChange={(e) => setConfirmPin(e.target.value)}
-          placeholder="Re-enter PIN"
+          placeholder="••••••"
           disabled={setupLoading}
         />
 
-        <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-text/70">Number of Courts (optional)</label>
+        <div className="flex flex-col gap-1.5">
+          <label className="font-body text-sm font-medium text-text">
+            {i18nText('clubSetupCourtCount')}
+          </label>
           <input
             type="number"
             min={1}
             max={10}
             value={courtCount}
             onChange={(e) => setCourtCount(parseInt(e.target.value) || 0)}
-            className="px-3 py-2 rounded border border-border bg-background text-text focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-full px-4 py-3 rounded-[--radius-md] font-body text-base bg-surface-low text-text-h placeholder:text-text-muted transition-all duration-200 hover:bg-surface-high focus:outline-none focus:ring-2 focus:ring-primary/30 focus:bg-surface disabled:opacity-50"
             disabled={setupLoading}
           />
-          <Body className="text-xs text-text/50">Between 1 and 10 courts</Body>
+          <Body className="text-xs text-text-muted">{i18nText('clubSetupCourtCountHint')}</Body>
         </div>
 
         {setupError && (
-          <Body className="text-red-500 text-sm text-center">{setupError}</Body>
+          <div className="flex items-center gap-2 p-3 rounded-md bg-red-50 text-red-600 text-sm">
+            <Shield size={16} />
+            {setupError}
+          </div>
         )}
 
         <Button
@@ -155,7 +190,7 @@ export function ClubSetupPage() {
           loading={setupLoading}
           disabled={setupLoading || !clubName.trim()}
         >
-          Complete Setup
+          {i18nText('clubSetupComplete')}
         </Button>
       </div>
     </div>

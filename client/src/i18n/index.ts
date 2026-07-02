@@ -23,7 +23,7 @@ void i18n
       es: { translation: es },
       'en-US': { translation: en },
     },
-    fallbackLng: 'es',
+    fallbackLng: 'en-US',
     detection: {
       order: ['localStorage', 'navigator', 'htmlTag'],
       caches: ['localStorage'],

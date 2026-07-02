@@ -26,3 +26,6 @@ export type { MatchContextProps, SetScoreProps } from './MatchContext'
 
 export { ConfirmDialog } from './ConfirmDialog'
 export type { ConfirmDialogProps, ConfirmDialogSeverity } from './ConfirmDialog'
+
+export { RallyTapConnectButton } from './RallyTapConnectButton'
+export type { RallyTapConnectButtonProps } from './RallyTapConnectButton'

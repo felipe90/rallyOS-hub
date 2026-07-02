@@ -16,6 +16,8 @@ import { useScoreboardEvents } from './useScoreboardEvents'
 import { useMatchState, useRefAuth, useRefRevoked } from './'
 import { ScoreboardMain } from '@/components/organisms/ScoreboardMain'
 import { MatchConfigModal } from '@/components/molecules/MatchConfigModal'
+import { RallyTapConnectButton } from '@/components/molecules/RallyTapConnectButton'
+import { useRallyTapBridge } from '@/hooks/useRallyTapBridge'
 import { SPORT } from '@shared/types'
 import type { Sport } from '@shared/types'
 import { HistoryDrawer } from '@/components/organisms/HistoryDrawer'
@@ -74,6 +76,10 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
   useMatchState(emit, tableId, connected)
   useRefAuth(emit, tableId, connected, canEdit, courtPin)
   const refRevoked = useRefRevoked({ socket, tableId: tableId ?? '', navigate })
+  const rallyTap = useRallyTapBridge(
+    canEdit && currentMatch?.status === 'LIVE' ? socket : null,
+    tableId ?? '',
+  )
   const [historyOpen, setHistoryOpen] = useState(false)
   const [showWinnerDialog, setShowWinnerDialog] = useState(false)
   const { addToast } = useToast()
@@ -211,6 +217,19 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
           navigate(backRoute)
         }}
       />
+
+      {/* RallyTap BLE bridge — solo referee con match LIVE */}
+      {canEdit && currentMatch.status === 'LIVE' && (
+        <div className="fixed bottom-6 left-6 z-50">
+          <RallyTapConnectButton
+            bleStatus={rallyTap.bleStatus}
+            deviceName={rallyTap.deviceName}
+            errorMessage={rallyTap.errorMessage}
+            onConnect={rallyTap.connect}
+            onDisconnect={rallyTap.disconnect}
+          />
+        </div>
+      )}
 
       {/* CoachMark for first-time referees */}
       {canEdit && currentMatch.status === 'LIVE' && (

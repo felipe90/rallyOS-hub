@@ -169,5 +169,13 @@
   "kioskDestacado": "★ SPOTLIGHT",
   "kioskEnVivo": "LIVE",
   "courtDestacar": "Feature",
-  "courtQuitarDestacado": "Remove Spotlight"
+  "courtQuitarDestacado": "Remove Spotlight",
+  "rallyTapStatusIdle": "Disconnected",
+  "rallyTapStatusScanning": "Scanning...",
+  "rallyTapStatusConnecting": "Connecting...",
+  "rallyTapStatusConnected": "Connected",
+  "rallyTapStatusReconnecting": "Reconnecting...",
+  "rallyTapStatusError": "Error",
+  "rallyTapButtonConnect": "Connect RallyTap",
+  "rallyTapButtonDisconnect": "Disconnect"
 }

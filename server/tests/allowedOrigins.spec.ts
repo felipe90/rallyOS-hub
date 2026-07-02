@@ -51,11 +51,11 @@ describe('allowedOrigins', () => {
       expect(defaultAllowedOrigins).toContain('https://rallyos.local:3000');
     });
 
-    it('should contain rallyos-hub.local origins in computed defaults (dynamic)', () => {
+    it('should contain default domain origins in computed defaults (dynamic)', () => {
       delete process.env.HUB_DOMAIN;
       const origins = getAllowedOrigins();
-      expect(origins).toContain('http://rallyos-hub.local:3000');
-      expect(origins).toContain('https://rallyos-hub.local:3000');
+      expect(origins).toContain('http://rallyos.wifi:3000');
+      expect(origins).toContain('https://rallyos.wifi:3000');
       // Must be exactly 14: 12 static + 2 dynamic
       expect(origins).toHaveLength(14);
     });
@@ -70,9 +70,9 @@ describe('allowedOrigins', () => {
       for (const origin of defaultAllowedOrigins) {
         expect(origins).toContain(origin);
       }
-      // Plus dynamic HUB_DOMAIN entries (default: rallyos-hub.local)
-      expect(origins).toContain('http://rallyos-hub.local:3000');
-      expect(origins).toContain('https://rallyos-hub.local:3000');
+      // Plus dynamic HUB_DOMAIN entries (default: rallyos.wifi)
+      expect(origins).toContain('http://rallyos.wifi:3000');
+      expect(origins).toContain('https://rallyos.wifi:3000');
       expect(origins).toHaveLength(14);
     });
 
@@ -84,9 +84,9 @@ describe('allowedOrigins', () => {
       for (const origin of defaultAllowedOrigins) {
         expect(origins).toContain(origin);
       }
-      // Plus dynamic HUB_DOMAIN entries (default: rallyos-hub.local)
-      expect(origins).toContain('http://rallyos-hub.local:3000');
-      expect(origins).toContain('https://rallyos-hub.local:3000');
+      // Plus dynamic HUB_DOMAIN entries (default: rallyos.wifi)
+      expect(origins).toContain('http://rallyos.wifi:3000');
+      expect(origins).toContain('https://rallyos.wifi:3000');
       expect(origins).toHaveLength(14);
     });
 
@@ -122,14 +122,14 @@ describe('allowedOrigins', () => {
       expect(origins).toContain('http://custom.local:3000');
     });
 
-    it('should NOT include hardcoded rallyos-hub.local when HUB_DOMAIN is custom', () => {
+    it('should NOT include hardcoded default domain when HUB_DOMAIN is custom', () => {
       delete process.env.HUB_ALLOWED_ORIGINS;
       process.env.HUB_DOMAIN = 'myhub.local';
       const origins = getAllowedOrigins();
       expect(origins).toContain('https://myhub.local:3000');
       expect(origins).toContain('http://myhub.local:3000');
-      expect(origins).not.toContain('https://rallyos-hub.local:3000');
-      expect(origins).not.toContain('http://rallyos-hub.local:3000');
+      expect(origins).not.toContain('https://rallyos.wifi:3000');
+      expect(origins).not.toContain('http://rallyos.wifi:3000');
     });
 
     it('should preserve orangepi.local origins for backward compatibility', () => {
@@ -142,9 +142,9 @@ describe('allowedOrigins', () => {
   });
 
   describe('getHubDomain', () => {
-    it('should default to rallyos-hub.local when HUB_DOMAIN is not set', () => {
+    it('should default to rallyos.wifi when HUB_DOMAIN is not set', () => {
       delete process.env.HUB_DOMAIN;
-      expect(getHubDomain()).toBe('rallyos-hub.local');
+      expect(getHubDomain()).toBe('rallyos.wifi');
     });
 
     it('should return custom domain when HUB_DOMAIN is set', () => {
@@ -154,7 +154,7 @@ describe('allowedOrigins', () => {
 
     it('should return default when HUB_DOMAIN is empty string', () => {
       process.env.HUB_DOMAIN = '';
-      expect(getHubDomain()).toBe('rallyos-hub.local');
+      expect(getHubDomain()).toBe('rallyos.wifi');
     });
   });
 });

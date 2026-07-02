@@ -208,5 +208,12 @@
   "clubAdminPinLabel": "PIN: {{pin}}",
   "clubAdminNoCourts": "No courts yet",
   "clubAdminLoading": "Loading...",
-  "clubAdminVerifying": "Verifying..."
+  "clubAdminVerifying": "Verifying...",
+  "toastClubCourtCreated": "Court created",
+  "toastClubCourtActivated": "Court activated",
+  "toastClubSessionEnded": "Session ended",
+  "toastClubCourtDeleted": "Court deleted",
+  "toastClubActivationFailed": "Could not activate court",
+  "toastClubForceEndFailed": "Could not end session",
+  "toastClubDeleteFailed": "Could not delete court"
 }

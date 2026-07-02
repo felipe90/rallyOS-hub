@@ -10,11 +10,21 @@ import type { Socket } from 'socket.io-client'
 import { SocketEvents } from '@shared/events'
 import type { ClubCourtInfo } from '@shared/types'
 
+export type ClubOperationEvent = {
+  type: 'court-created' | 'court-activated' | 'session-ended' | 'court-deleted'
+} | {
+  type: 'error'
+  code: string
+}
+
 export function useClubCourtManagement(socket: Socket | null, connected: boolean) {
   const [courts, setCourts] = useState<ClubCourtInfo[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [lastEvent, setLastEvent] = useState<ClubOperationEvent | null>(null)
   const [forceEndConfirmId, setForceEndConfirmId] = useState<string | null>(null)
+
+  const clearEvent = useCallback(() => setLastEvent(null), [])
 
   // Listen for court lifecycle events from server
   useEffect(() => {
@@ -23,11 +33,13 @@ export function useClubCourtManagement(socket: Socket | null, connected: boolean
     const handleCourtCreated = (court: ClubCourtInfo) => {
       setCourts(prev => [...prev, court])
       setLoading(false)
+      setLastEvent({ type: 'court-created' })
     }
 
     const handleCourtActivated = (data: ClubCourtInfo) => {
       setCourts(prev => prev.map(c => c.id === data.id ? { ...c, ...data } : c))
       setLoading(false)
+      setLastEvent({ type: 'court-activated' })
     }
 
     const handleSessionEnded = (data: { courtId: string }) => {
@@ -35,16 +47,19 @@ export function useClubCourtManagement(socket: Socket | null, connected: boolean
         c.id === data.courtId ? { ...c, status: 'FINISHED' as const, pin: undefined } : c
       ))
       setLoading(false)
+      setLastEvent({ type: 'session-ended' })
     }
 
     const handleCourtDeleted = (data: { courtId: string }) => {
       setCourts(prev => prev.filter(c => c.id !== data.courtId))
       setLoading(false)
+      setLastEvent({ type: 'court-deleted' })
     }
 
     const handleError = (err: { code: string; message: string }) => {
       setError(err.code || 'UNKNOWN_ERROR')
       setLoading(false)
+      setLastEvent({ type: 'error', code: err.code || 'UNKNOWN_ERROR' })
     }
 
     socket.on(SocketEvents.SERVER.CLUB_COURT_CREATED, handleCourtCreated)
@@ -111,6 +126,7 @@ export function useClubCourtManagement(socket: Socket | null, connected: boolean
     courts,
     loading,
     error,
+    lastEvent,
     forceEndConfirmId,
     createCourt,
     activateCourt,
@@ -119,5 +135,6 @@ export function useClubCourtManagement(socket: Socket | null, connected: boolean
     requestForceEnd,
     cancelForceEnd,
     clearError,
+    clearEvent,
   }
 }

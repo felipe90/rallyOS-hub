@@ -11,14 +11,16 @@ import { ADMIN_PIN_RULES } from '@shared/validation'
 import { Input } from '@/components/atoms/Input'
 import { Button } from '@/components/atoms/Button'
 import { Body, Headline } from '@/components/atoms/Typography'
+import { useToast } from '@/components/molecules/Toast'
 import { useSocketContext } from '@/contexts/SocketContext'
 import { useClubAdmin } from '@/hooks/useClubAdmin'
 import { useI18n } from '@/i18n'
-import { Settings, Shield, CheckCircle, Building2 } from 'lucide-react'
+import { Settings, CheckCircle, Building2 } from 'lucide-react'
 
 export function ClubSetupPage() {
   const { socket, connected } = useSocketContext()
   const { i18nText } = useI18n()
+  const { addToast } = useToast()
   const {
     clubConfig,
     configLoading,
@@ -35,6 +37,13 @@ export function ClubSetupPage() {
   const [confirmPin, setConfirmPin] = useState('')
   const [courtCount, setCourtCount] = useState(3)
   const [pinError, setPinError] = useState('')
+
+  // Toast for setup errors
+  useEffect(() => {
+    if (setupError) {
+      addToast('error', setupError)
+    }
+  }, [setupError, addToast])
 
   // Check club config on mount
   useEffect(() => {
@@ -175,13 +184,6 @@ export function ClubSetupPage() {
           />
           <Body className="text-xs text-text-muted">{i18nText('clubSetupCourtCountHint')}</Body>
         </div>
-
-        {setupError && (
-          <div className="flex items-center gap-2 p-3 rounded-md bg-red-50 text-red-600 text-sm">
-            <Shield size={16} />
-            {setupError}
-          </div>
-        )}
 
         <Button
           variant="primary"

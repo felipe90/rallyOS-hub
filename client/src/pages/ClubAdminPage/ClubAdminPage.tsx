@@ -13,9 +13,11 @@ import { Button } from '@/components/atoms/Button'
 import { Body, Headline } from '@/components/atoms/Typography'
 import { PageHeader } from '@/components/molecules/PageHeader'
 import { ConfirmDialog } from '@/components/molecules/ConfirmDialog'
+import { useToast } from '@/components/molecules/Toast'
 import { useSocketContext } from '@/contexts/SocketContext'
 import { useClubAdmin } from '@/hooks/useClubAdmin'
 import { useClubCourtManagement } from '@/hooks/useClubCourtManagement'
+import type { ClubOperationEvent } from '@/hooks/useClubCourtManagement'
 import { useI18n } from '@/i18n'
 import {
   Shield,
@@ -58,9 +60,42 @@ export function ClubAdminPage() {
     useClubAdmin(socket, connected)
   const courtMgmt = useClubCourtManagement(socket, connected)
 
+  const { addToast } = useToast()
   const [adminPin, setAdminPin] = useState('')
   const [newCourtName, setNewCourtName] = useState('')
   const [forceEndCourt, setForceEndCourt] = useState<ClubCourtInfo | null>(null)
+
+  // Toast for operation events
+  useEffect(() => {
+    if (!courtMgmt.lastEvent) return
+
+    const ev: ClubOperationEvent = courtMgmt.lastEvent
+    switch (ev.type) {
+      case 'court-created':
+        addToast('success', i18nText('toastClubCourtCreated'))
+        break
+      case 'court-activated':
+        addToast('success', i18nText('toastClubCourtActivated'))
+        break
+      case 'session-ended':
+        addToast('success', i18nText('toastClubSessionEnded'))
+        break
+      case 'court-deleted':
+        addToast('success', i18nText('toastClubCourtDeleted'))
+        break
+      case 'error':
+        if (ev.code === 'ACTIVATION_FAILED') {
+          addToast('error', i18nText('toastClubActivationFailed'))
+        } else if (ev.code === 'FORCE_END_FAILED') {
+          addToast('error', i18nText('toastClubForceEndFailed'))
+        } else if (ev.code === 'DELETE_FAILED') {
+          addToast('error', i18nText('toastClubDeleteFailed'))
+        }
+        break
+    }
+
+    courtMgmt.clearEvent()
+  }, [courtMgmt.lastEvent, courtMgmt.clearEvent, addToast, i18nText])
 
   useEffect(() => {
     clearVerifyError()
@@ -237,11 +272,7 @@ export function ClubAdminPage() {
           </Button>
         </div>
 
-        {courtMgmt.error && (
-          <div className="p-3 rounded-md bg-red-50 text-red-600 text-sm text-center">
-            {courtMgmt.error}
-          </div>
-        )}
+        {/* Errors are shown via Toast system via lastEvent */}
       </main>
 
       {/* Force-end confirmation modal */}

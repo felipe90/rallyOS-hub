@@ -208,5 +208,12 @@
   "clubAdminPinLabel": "PIN: {{pin}}",
   "clubAdminNoCourts": "Sin canchas aún",
   "clubAdminLoading": "Cargando...",
-  "clubAdminVerifying": "Verificando..."
+  "clubAdminVerifying": "Verificando...",
+  "toastClubCourtCreated": "Cancha creada",
+  "toastClubCourtActivated": "Cancha activada",
+  "toastClubSessionEnded": "Sesión finalizada",
+  "toastClubCourtDeleted": "Cancha eliminada",
+  "toastClubActivationFailed": "No se pudo activar la cancha",
+  "toastClubForceEndFailed": "No se pudo finalizar la sesión",
+  "toastClubDeleteFailed": "No se pudo eliminar la cancha"
 }

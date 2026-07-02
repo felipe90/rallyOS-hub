@@ -90,7 +90,7 @@ export class BLEBridge {
   }
 
   private handleNotification = (event: Event): void => {
-    const target = event.target as BluetoothRemoteGATTCharacteristic
+    const target = event.target as unknown as BluetoothRemoteGATTCharacteristic
     const value = target.value
     if (!value || value.byteLength === 0) return
 

@@ -111,7 +111,7 @@ export function useRallyTapBridge(
       console.log('[useRallyTapBridge] MATCH_UPDATE → score:', score)
       setState(prev => ({
         ...prev,
-        score: { a: score.a, b: score.b },
+        score: { a: score.a ?? 0, b: score.b ?? 0 },
       }))
       bridge.writeScore(score)
     }

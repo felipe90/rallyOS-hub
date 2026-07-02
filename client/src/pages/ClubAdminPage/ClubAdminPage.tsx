@@ -41,6 +41,19 @@ function statusLabel(status: ClubCourtInfo['status'], i18nText: (key: string) =>
   }
 }
 
+/** Translate admin PIN verification error codes to user-facing messages */
+function translateVerifyError(code: string | null, i18nText: (key: string) => string): string | undefined {
+  if (!code) return undefined
+  const map: Record<string, string> = {
+    INVALID_ADMIN_PIN: i18nText('errorClubPinInvalid'),
+    VALIDATION_ERROR: i18nText('errorClubPinFormat'),
+    NO_CONNECTION: i18nText('errorClubConnection'),
+    TIMEOUT: i18nText('errorClubPinTimeout'),
+    DISCONNECTED: i18nText('errorClubConnection'),
+  }
+  return map[code] || code
+}
+
 /** Status-based badge colour */
 function statusColor(status: ClubCourtInfo['status']): string {
   switch (status) {
@@ -97,6 +110,17 @@ export function ClubAdminPage() {
     courtMgmt.clearEvent()
   }, [courtMgmt.lastEvent, courtMgmt.clearEvent, addToast, i18nText])
 
+  // Toast for verify errors
+  useEffect(() => {
+    if (verifyError === 'NO_CONNECTION' || verifyError === 'DISCONNECTED') {
+      addToast('error', i18nText('errorClubConnection'))
+    } else if (verifyError === 'TIMEOUT') {
+      addToast('error', i18nText('errorClubPinTimeout'))
+    } else if (verifyError && verifyError !== 'VALIDATION_ERROR') {
+      addToast('error', i18nText('errorClubPinInvalid'))
+    }
+  }, [verifyError, addToast, i18nText])
+
   useEffect(() => {
     clearVerifyError()
   }, [clearVerifyError])
@@ -142,7 +166,7 @@ export function ClubAdminPage() {
             onChange={(e) => setAdminPin(e.target.value)}
             placeholder="••••••"
             disabled={verifyLoading}
-            error={verifyError || undefined}
+            error={translateVerifyError(verifyError, i18nText)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleVerify() }}
           />
 

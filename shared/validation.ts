@@ -26,6 +26,17 @@ export const PIN_RULES = {
 } as const
 
 /**
+ * Admin PIN validation rules
+ * Separate from court/owner PIN — 6-8 digit pattern for club admin access.
+ */
+export const ADMIN_PIN_RULES = {
+  pattern: /^\d{6,8}$/,
+  minLength: 6,
+  maxLength: 8,
+  description: '6-8 digit club admin PIN',
+} as const
+
+/**
  * Player name validation rules
  */
 export const PLAYER_NAME_RULES = {

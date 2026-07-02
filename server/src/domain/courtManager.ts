@@ -12,7 +12,7 @@
 
 import crypto from 'crypto';
 import { MatchEngine } from './matchEngine';
-import { Court, TableInfo, TableInfoWithPin, Player, MatchConfig, MatchStateExtended, QRData, HubConfig, Sport, SPORT } from './types';
+import { Court, TableInfo, TableInfoWithPin, Player, MatchConfig, MatchStateExtended, QRData, HubConfig, Sport, SPORT, CourtMode, COURT_MODE, ClubStatus, CLUB_STATUS } from './types';
 import { AllHistoryEntry } from '../../../shared/types';
 import { logger } from '../utils/logger';
 import { sanitizeInput } from '../utils/validation';
@@ -100,6 +100,106 @@ export class CourtManager {
       }
     }
     return deleted;
+  }
+
+  // ── Club Mode ──────────────────────────────────────────────────────
+
+  /**
+   * Create a club-mode court (mode='club') with clubStatus='AVAILABLE' and no PIN.
+   * Club courts don't need a match PIN — they use session PINs on activation.
+   */
+  createClubCourt(name?: string): Court {
+    const courtNumber = this.repository.getNextTableNumber();
+    const courtName = name ? sanitizeInput(name, 256) : `Cancha ${courtNumber}`;
+    const id = crypto.randomUUID();
+
+    const court: Court = {
+      id,
+      number: courtNumber,
+      name: courtName,
+      status: 'WAITING',
+      pin: '',
+      sportRules: new MatchEngine(),
+      playerNames: { a: '', b: '' },
+      history: [],
+      players: [],
+      createdAt: Date.now(),
+      featured: false,
+      mode: COURT_MODE.CLUB,
+      clubStatus: CLUB_STATUS.AVAILABLE,
+    };
+
+    court.sportRules.setCourtId(id, courtName);
+    court.sportRules.setEventCallback((event: any) => {
+      this.onMatchEvent(id, event);
+    });
+
+    this.repository.create(court);
+    logger.info({ courtId: id, courtName, mode: 'club' }, 'Club court created');
+    this.notifyUpdate(court);
+
+    return court;
+  }
+
+  /**
+   * Delete a club-mode court. Only allowed when clubStatus is AVAILABLE.
+   */
+  deleteClubCourt(courtId: string): boolean {
+    const court = this.repository.get(courtId);
+    if (!court) return false;
+    if (court.mode !== COURT_MODE.CLUB) return false;
+    if (court.clubStatus !== CLUB_STATUS.AVAILABLE) return false;
+
+    const deleted = this.repository.delete(courtId);
+    if (deleted) {
+      logger.info({ courtId, courtName: court.name }, 'Club court deleted');
+    }
+    return deleted;
+  }
+
+  /**
+   * Get all club-mode courts.
+   */
+  getClubCourts(): Court[] {
+    return this.repository.getAll().filter((c) => c.mode === COURT_MODE.CLUB);
+  }
+
+  /**
+   * Activate a club court: transitions clubStatus from AVAILABLE to RESERVED,
+   * generates a 4-digit session PIN, and emits the update.
+   */
+  activateCourt(courtId: string): Court | null {
+    const court = this.repository.get(courtId);
+    if (!court) return null;
+    if (court.mode !== COURT_MODE.CLUB) return null;
+    if (court.clubStatus !== CLUB_STATUS.AVAILABLE) return null;
+
+    court.clubStatus = CLUB_STATUS.RESERVED;
+    court.pin = this.pinService.generatePin();
+
+    logger.info({ courtId, courtName: court.name, pin: court.pin }, 'Club court activated');
+    this.notifyUpdate(court);
+
+    return court;
+  }
+
+  /**
+   * Force-end a club court session: transitions OCCUPIED → FINISHED,
+   * invalidates the session PIN by clearing it.
+   */
+  forceEndSession(courtId: string): Court | null {
+    const court = this.repository.get(courtId);
+    if (!court) return null;
+    if (court.mode !== COURT_MODE.CLUB) return null;
+    if (court.clubStatus !== CLUB_STATUS.OCCUPIED) return null;
+
+    court.clubStatus = CLUB_STATUS.FINISHED;
+    court.pin = '';
+
+    logger.info({ courtId, courtName: court.name }, 'Club court session force-ended');
+    this.notifyUpdate(court);
+
+    return court;
   }
 
   finishTournament(): void {

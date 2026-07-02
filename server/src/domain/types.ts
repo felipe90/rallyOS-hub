@@ -32,6 +32,10 @@ import {
   PadelPoint,
   Sport,
   SPORT,
+  CourtMode,
+  COURT_MODE,
+  ClubStatus,
+  CLUB_STATUS,
 } from '../../../shared/types';
 import type { MatchEngine } from './matchEngine';
 
@@ -59,6 +63,10 @@ export {
   PadelPoint,
   Sport,
   SPORT,
+  CourtMode,
+  COURT_MODE,
+  ClubStatus,
+  CLUB_STATUS,
 };
 
 /**
@@ -107,6 +115,10 @@ export interface Court {
   createdAt: number;
   /** Whether this court is currently featured/spotlight on the kiosk */
   featured: boolean;
+  /** Court mode discriminator — 'club' for club-managed courts, undefined for legacy tournament courts */
+  mode?: CourtMode;
+  /** Club-specific status — only used when mode === 'club' */
+  clubStatus?: ClubStatus;
   // Event callbacks — internal wiring, never exposed to client
   onTableUpdate?: () => void;
   onMatchEvent?: (event: MatchEvent) => void;
@@ -125,4 +137,5 @@ export interface SocketData {
   sessionToken?: string;
   tableId?: string;
   roles?: string[];
+  isClubAdmin?: boolean;
 }

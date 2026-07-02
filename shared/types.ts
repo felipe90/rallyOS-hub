@@ -230,6 +230,10 @@ export interface CourtInfo {
   winner?: Player | null;
   /** Whether this court is the featured/spotlight court for the kiosk */
   featured?: boolean;
+  /** Court mode discriminator — undefined for backward compat with tournament-only courts */
+  mode?: CourtMode;
+  /** Club-specific status — only present when mode === 'club' */
+  clubStatus?: ClubStatus;
 }
 
 export interface CourtInfoWithPin extends CourtInfo {
@@ -241,6 +245,45 @@ export type TableInfo = CourtInfo;
 
 /** @deprecated Use CourtInfoWithPin instead — legacy alias for backward compat */
 export type TableInfoWithPin = CourtInfoWithPin;
+
+// ── Club Mode ─────────────────────────────────────────────────────────
+
+/** Club status const — use instead of magic strings */
+export const CLUB_STATUS = {
+  AVAILABLE: 'AVAILABLE',
+  RESERVED: 'RESERVED',
+  OCCUPIED: 'OCCUPIED',
+  FINISHED: 'FINISHED',
+  MAINTENANCE: 'MAINTENANCE',
+} as const;
+
+/** Club court status — derived from CLUB_STATUS const */
+export type ClubStatus = (typeof CLUB_STATUS)[keyof typeof CLUB_STATUS];
+
+/** Court mode const — use instead of magic strings */
+export const COURT_MODE = {
+  CLUB: 'club',
+  TOURNAMENT: 'tournament',
+} as const;
+
+/** Court mode discriminator — derived from COURT_MODE const */
+export type CourtMode = (typeof COURT_MODE)[keyof typeof COURT_MODE];
+
+/** Club configuration — persisted to disk */
+export interface ClubConfig {
+  clubName: string;
+  sport: string;
+  configured: boolean;
+}
+
+/** Club court info exposed to admin clients */
+export interface ClubCourtInfo {
+  id: string;
+  name: string;
+  status: ClubStatus;
+  mode: CourtMode;
+  pin?: string;
+}
 
 // ── QR Data ─────────────────────────────────────────────────────────
 

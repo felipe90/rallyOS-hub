@@ -11,7 +11,7 @@ import { SocketEvents } from '@shared/events'
 import type { ClubCourtInfo } from '@shared/types'
 
 export type ClubOperationEvent = {
-  type: 'court-created' | 'court-activated' | 'session-ended' | 'court-deleted'
+  type: 'court-created' | 'court-activated' | 'court-deactivated' | 'court-resetted' | 'session-ended' | 'court-deleted'
 } | {
   type: 'error'
   code: string
@@ -42,6 +42,22 @@ export function useClubCourtManagement(socket: Socket | null, connected: boolean
       setLastEvent({ type: 'court-activated' })
     }
 
+    const handleCourtDeactivated = (data: { courtId: string; status: string }) => {
+      setCourts(prev => prev.map(c =>
+        c.id === data.courtId ? { ...c, status: 'AVAILABLE' as const, pin: undefined } : c
+      ))
+      setLoading(false)
+      setLastEvent({ type: 'court-deactivated' })
+    }
+
+    const handleCourtResetted = (data: { courtId: string; status: string }) => {
+      setCourts(prev => prev.map(c =>
+        c.id === data.courtId ? { ...c, status: 'AVAILABLE' as const, pin: undefined } : c
+      ))
+      setLoading(false)
+      setLastEvent({ type: 'court-resetted' })
+    }
+
     const handleSessionEnded = (data: { courtId: string }) => {
       setCourts(prev => prev.map(c =>
         c.id === data.courtId ? { ...c, status: 'FINISHED' as const, pin: undefined } : c
@@ -64,6 +80,8 @@ export function useClubCourtManagement(socket: Socket | null, connected: boolean
 
     socket.on(SocketEvents.SERVER.CLUB_COURT_CREATED, handleCourtCreated)
     socket.on(SocketEvents.SERVER.CLUB_COURT_ACTIVATED, handleCourtActivated)
+    socket.on(SocketEvents.SERVER.CLUB_COURT_DEACTIVATED, handleCourtDeactivated)
+    socket.on(SocketEvents.SERVER.CLUB_COURT_RESETTED, handleCourtResetted)
     socket.on(SocketEvents.SERVER.CLUB_SESSION_ENDED, handleSessionEnded)
     socket.on(SocketEvents.SERVER.COURT_DELETED, handleCourtDeleted)
     socket.on(SocketEvents.SERVER.ERROR, handleError)
@@ -71,6 +89,8 @@ export function useClubCourtManagement(socket: Socket | null, connected: boolean
     return () => {
       socket.off(SocketEvents.SERVER.CLUB_COURT_CREATED, handleCourtCreated)
       socket.off(SocketEvents.SERVER.CLUB_COURT_ACTIVATED, handleCourtActivated)
+      socket.off(SocketEvents.SERVER.CLUB_COURT_DEACTIVATED, handleCourtDeactivated)
+      socket.off(SocketEvents.SERVER.CLUB_COURT_RESETTED, handleCourtResetted)
       socket.off(SocketEvents.SERVER.CLUB_SESSION_ENDED, handleSessionEnded)
       socket.off(SocketEvents.SERVER.COURT_DELETED, handleCourtDeleted)
       socket.off(SocketEvents.SERVER.ERROR, handleError)
@@ -108,6 +128,26 @@ export function useClubCourtManagement(socket: Socket | null, connected: boolean
     socket.emit(SocketEvents.CLIENT.CLUB_FORCE_END, { courtId })
   }, [socket, connected])
 
+  const deactivateCourt = useCallback((courtId: string) => {
+    if (!socket || !connected) {
+      setError('NO_CONNECTION')
+      return
+    }
+    setLoading(true)
+    setError(null)
+    socket.emit(SocketEvents.CLIENT.CLUB_DEACTIVATE_COURT, { courtId })
+  }, [socket, connected])
+
+  const resetCourt = useCallback((courtId: string) => {
+    if (!socket || !connected) {
+      setError('NO_CONNECTION')
+      return
+    }
+    setLoading(true)
+    setError(null)
+    socket.emit(SocketEvents.CLIENT.CLUB_RESET_COURT, { courtId })
+  }, [socket, connected])
+
   const deleteCourt = useCallback((courtId: string) => {
     if (!socket || !connected) {
       setError('NO_CONNECTION')
@@ -130,6 +170,8 @@ export function useClubCourtManagement(socket: Socket | null, connected: boolean
     forceEndConfirmId,
     createCourt,
     activateCourt,
+    deactivateCourt,
+    resetCourt,
     forceEndSession,
     deleteCourt,
     requestForceEnd,

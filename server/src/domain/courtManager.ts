@@ -184,6 +184,43 @@ export class CourtManager {
   }
 
   /**
+   * Deactivate a club court: transitions RESERVED → AVAILABLE,
+   * invalidates the session PIN.
+   */
+  deactivateCourt(courtId: string): Court | null {
+    const court = this.repository.get(courtId);
+    if (!court) return null;
+    if (court.mode !== COURT_MODE.CLUB) return null;
+    if (court.clubStatus !== CLUB_STATUS.RESERVED) return null;
+
+    court.clubStatus = CLUB_STATUS.AVAILABLE;
+    court.pin = '';
+
+    logger.info({ courtId, courtName: court.name }, 'Club court deactivated');
+    this.notifyUpdate(court);
+
+    return court;
+  }
+
+  /**
+   * Reset a club court: transitions FINISHED → AVAILABLE.
+   */
+  resetCourt(courtId: string): Court | null {
+    const court = this.repository.get(courtId);
+    if (!court) return null;
+    if (court.mode !== COURT_MODE.CLUB) return null;
+    if (court.clubStatus !== CLUB_STATUS.FINISHED) return null;
+
+    court.clubStatus = CLUB_STATUS.AVAILABLE;
+    court.pin = '';
+
+    logger.info({ courtId, courtName: court.name }, 'Club court reset to available');
+    this.notifyUpdate(court);
+
+    return court;
+  }
+
+  /**
    * Force-end a club court session: transitions OCCUPIED → FINISHED,
    * invalidates the session PIN by clearing it.
    */

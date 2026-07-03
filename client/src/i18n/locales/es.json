@@ -219,5 +219,12 @@
   "toastClubCourtDeleted": "Cancha eliminada",
   "toastClubActivationFailed": "No se pudo activar la cancha",
   "toastClubForceEndFailed": "No se pudo finalizar la sesión",
-  "toastClubDeleteFailed": "No se pudo eliminar la cancha"
+  "toastClubDeleteFailed": "No se pudo eliminar la cancha",
+  "toastClubCourtDeactivated": "Cancha desactivada",
+  "toastClubCourtResetted": "Cancha restablecida",
+  "toastClubDeactivateFailed": "No se pudo desactivar la cancha",
+  "toastClubResetFailed": "No se pudo restablecer la cancha",
+  "clubAdminDeactivate": "Desactivar",
+  "clubAdminReset": "Restablecer",
+  "clubAdminDeleteConfirm": "Esta cancha no está disponible. ¿Eliminar de todas formas?"
 }

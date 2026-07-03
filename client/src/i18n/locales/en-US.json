@@ -219,5 +219,12 @@
   "toastClubCourtDeleted": "Court deleted",
   "toastClubActivationFailed": "Could not activate court",
   "toastClubForceEndFailed": "Could not end session",
-  "toastClubDeleteFailed": "Could not delete court"
+  "toastClubDeleteFailed": "Could not delete court",
+  "toastClubCourtDeactivated": "Court deactivated",
+  "toastClubCourtResetted": "Court reset",
+  "toastClubDeactivateFailed": "Could not deactivate court",
+  "toastClubResetFailed": "Could not reset court",
+  "clubAdminDeactivate": "Deactivate",
+  "clubAdminReset": "Reset",
+  "clubAdminDeleteConfirm": "This court is not available. Delete anyway?"
 }

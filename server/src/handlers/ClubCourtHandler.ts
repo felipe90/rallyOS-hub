@@ -68,9 +68,11 @@ export class ClubCourtHandler extends SocketHandlerBase {
       }
 
       socket.emit(SocketEvents.SERVER.CLUB_COURT_ACTIVATED, {
-        courtId: activated.id,
-        pin: activated.pin,
+        id: activated.id,
+        name: activated.name,
         status: activated.clubStatus,
+        mode: activated.mode,
+        pin: activated.pin,
       });
 
       logger.info({ courtId: data.courtId, pin: activated.pin }, 'Club court activated');
@@ -100,6 +102,56 @@ export class ClubCourtHandler extends SocketHandlerBase {
       });
 
       logger.info({ courtId: data.courtId }, 'Club court session force-ended');
+    });
+
+    // CLUB_DEACTIVATE_COURT: Deactivate a court (RESERVED → AVAILABLE)
+    socket.on(SocketEvents.CLIENT.CLUB_DEACTIVATE_COURT, (data: { courtId: string }) => {
+      if (!this.validateClubAdmin(socket)) return;
+
+      if (!validateSocketPayload(socket, data, {
+        courtId: { required: true, type: 'string', maxLength: 36 },
+      }, 'CLUB_DEACTIVATE_COURT')) {
+        return;
+      }
+
+      if (!this.validateCourtExists(socket, data.courtId)) return;
+
+      const deactivated = this.tableManager.deactivateCourt(data.courtId);
+      if (!deactivated) {
+        return this.emitError(socket, 'DEACTIVATE_FAILED', 'No se pudo desactivar. La cancha debe estar en estado RESERVED.');
+      }
+
+      socket.emit(SocketEvents.SERVER.CLUB_COURT_DEACTIVATED, {
+        courtId: deactivated.id,
+        status: deactivated.clubStatus,
+      });
+
+      logger.info({ courtId: data.courtId }, 'Club court deactivated');
+    });
+
+    // CLUB_RESET_COURT: Reset a finished court (FINISHED → AVAILABLE)
+    socket.on(SocketEvents.CLIENT.CLUB_RESET_COURT, (data: { courtId: string }) => {
+      if (!this.validateClubAdmin(socket)) return;
+
+      if (!validateSocketPayload(socket, data, {
+        courtId: { required: true, type: 'string', maxLength: 36 },
+      }, 'CLUB_RESET_COURT')) {
+        return;
+      }
+
+      if (!this.validateCourtExists(socket, data.courtId)) return;
+
+      const reset = this.tableManager.resetCourt(data.courtId);
+      if (!reset) {
+        return this.emitError(socket, 'RESET_FAILED', 'No se pudo resetear. La cancha debe estar en estado FINISHED.');
+      }
+
+      socket.emit(SocketEvents.SERVER.CLUB_COURT_RESETTED, {
+        courtId: reset.id,
+        status: reset.clubStatus,
+      });
+
+      logger.info({ courtId: data.courtId }, 'Club court reset to available');
     });
 
     // CLUB_DELETE_COURT: Delete a club court (only when AVAILABLE)

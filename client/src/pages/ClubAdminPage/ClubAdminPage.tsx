@@ -27,6 +27,7 @@ import {
   LogOut,
   Building2,
   RefreshCw,
+  XCircle,
 } from 'lucide-react'
 
 /** Human-readable label for club status */
@@ -96,6 +97,12 @@ export function ClubAdminPage() {
       case 'court-deleted':
         addToast('success', i18nText('toastClubCourtDeleted'))
         break
+      case 'court-deactivated':
+        addToast('success', i18nText('toastClubCourtDeactivated'))
+        break
+      case 'court-resetted':
+        addToast('success', i18nText('toastClubCourtResetted'))
+        break
       case 'error':
         if (ev.code === 'ACTIVATION_FAILED') {
           addToast('error', i18nText('toastClubActivationFailed'))
@@ -103,6 +110,10 @@ export function ClubAdminPage() {
           addToast('error', i18nText('toastClubForceEndFailed'))
         } else if (ev.code === 'DELETE_FAILED') {
           addToast('error', i18nText('toastClubDeleteFailed'))
+        } else if (ev.code === 'DEACTIVATE_FAILED') {
+          addToast('error', i18nText('toastClubDeactivateFailed'))
+        } else if (ev.code === 'RESET_FAILED') {
+          addToast('error', i18nText('toastClubResetFailed'))
         }
         break
     }
@@ -263,6 +274,19 @@ export function ClubAdminPage() {
                       </Button>
                     </>
                   )}
+                  {court.status === CLUB_STATUS.RESERVED && (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="xs"
+                        onClick={() => courtMgmt.deactivateCourt(court.id)}
+                        disabled={courtMgmt.loading}
+                      >
+                        <XCircle size={14} className="mr-1" />
+                        {i18nText('clubAdminDeactivate')}
+                      </Button>
+                    </>
+                  )}
                   {court.status === CLUB_STATUS.OCCUPIED && (
                     <Button
                       variant="danger"
@@ -273,6 +297,31 @@ export function ClubAdminPage() {
                       <LogOut size={14} className="mr-1" />
                       {i18nText('clubAdminForceEnd')}
                     </Button>
+                  )}
+                  {court.status === CLUB_STATUS.FINISHED && (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="xs"
+                        onClick={() => courtMgmt.resetCourt(court.id)}
+                        disabled={courtMgmt.loading}
+                      >
+                        <RefreshCw size={14} className="mr-1" />
+                        {i18nText('clubAdminReset')}
+                      </Button>
+                      <Button
+                        variant="danger"
+                        size="xs"
+                        onClick={() => {
+                          if (window.confirm(i18nText('clubAdminDeleteConfirm'))) {
+                            courtMgmt.deleteCourt(court.id)
+                          }
+                        }}
+                        disabled={courtMgmt.loading}
+                      >
+                        <Trash2 size={14} />
+                      </Button>
+                    </>
                   )}
                 </div>
               </div>

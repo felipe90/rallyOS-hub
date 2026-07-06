@@ -12,3 +12,4 @@ export { NotFoundPage } from './NotFoundPage'
 
 export { ClubSetupPage } from './ClubSetupPage'
 export { ClubAdminPage } from './ClubAdminPage'
+export { ClubPlayPage } from './ClubPlayPage'

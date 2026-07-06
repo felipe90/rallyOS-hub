@@ -29,3 +29,6 @@ export type { ConfirmDialogProps, ConfirmDialogSeverity } from './ConfirmDialog'
 
 export { RallyTapConnectButton } from './RallyTapConnectButton'
 export type { RallyTapConnectButtonProps } from './RallyTapConnectButton'
+
+export { PlayerNamePrompt } from './PlayerNamePrompt/PlayerNamePrompt'
+export type { PlayerNamePromptProps } from './PlayerNamePrompt/PlayerNamePrompt'

@@ -9,7 +9,7 @@ vi.mock('@/i18n', () => ({
   useI18n: () => ({
     i18nText: (key: string) => {
       const map: Record<string, string> = {
-        'authSelectRole': 'Elige tu rol',
+        'authSelectRole': 'Elige una opción',
         'authEnterOwnerPin': 'Ingresa tu PIN de Organizador',
         'authRoleOwner': 'Organizador',
         'authRoleReferee': 'Árbitro',
@@ -21,6 +21,16 @@ vi.mock('@/i18n', () => ({
         'authVerifying': 'Verificando...',
         'authEnter': 'Ingresar',
         'commonBack': 'Atrás',
+        'authAdminClub': 'Administrar',
+        'authClubPlay': 'Quiero jugar',
+        'authClubPlayDesc': 'Ingresá el PIN de tu cancha',
+        'authTournament': 'Torneo',
+        'authPinBack': 'Volver',
+        'authPinErrorInvalid': 'PIN inválido. Verificá con el staff.',
+        'authPinErrorRateLimited': 'Demasiados intentos. Esperá {{seconds}} segundos.',
+        'authPinPlaceholder': 'PIN de la cancha',
+        'authPinSubmit': 'Ingresar',
+        'authPinVerifying': 'Verificando...',
       }
       return map[key] || key
     },
@@ -106,43 +116,64 @@ describe('AuthPage', () => {
   })
 
   describe('Role Selection', () => {
-    it('shows role selection initially with 3 buttons', () => {
+    it('shows new 3-entry layout: play, tournament (expandable), admin', () => {
       renderWithRouter()
-      
+
       // Logo uses alt text
       expect(screen.getByAltText('RallyOS')).toBeInTheDocument()
-      expect(screen.getByText('Elige tu rol')).toBeInTheDocument()
+      expect(screen.getByText('Elige una opción')).toBeInTheDocument()
+
+      // New primary CTA button
+      expect(screen.getByText('Quiero jugar')).toBeInTheDocument()
+
+      // Torneo expandable section (initially collapsed — sub-roles hidden)
+      expect(screen.getByText('Torneo')).toBeInTheDocument()
+      expect(screen.queryByText('Organizador')).not.toBeInTheDocument()
+      expect(screen.queryByText('Árbitro')).not.toBeInTheDocument()
+      expect(screen.queryByText('Espectador')).not.toBeInTheDocument()
+
+      // Administrar link
+      expect(screen.getByText('Administrar')).toBeInTheDocument()
+
+      // Expand Torneo to reveal sub-roles
+      fireEvent.click(screen.getByText('Torneo'))
       expect(screen.getByText('Organizador')).toBeInTheDocument()
       expect(screen.getByText('Árbitro')).toBeInTheDocument()
       expect(screen.getByText('Espectador')).toBeInTheDocument()
     })
 
-    it('shows PIN entry for Organizador', () => {
+    it('shows PIN entry for Organizador after expanding Torneo', () => {
       renderWithRouter()
-      
+
+      // Expand Torneo first
+      fireEvent.click(screen.getByText('Torneo'))
       const organizerButton = screen.getByText('Organizador')
       fireEvent.click(organizerButton)
-      
+
       expect(screen.getByText('Ingresa tu PIN de Organizador')).toBeInTheDocument()
       expect(screen.getByPlaceholderText('••••••••')).toBeInTheDocument()
     })
 
-    it('navigates to dashboard for Árbitro', () => {
+    it('navigates to dashboard for Árbitro after expanding Torneo', () => {
       renderWithRouter()
-      
+
+      // Expand Torneo first
+      fireEvent.click(screen.getByText('Torneo'))
       const refereeButton = screen.getByText('Árbitro')
       fireEvent.click(refereeButton)
-      
+
       expect(mockLogin).toHaveBeenCalledWith('referee')
       expect(mockNavigate).toHaveBeenCalledWith('/dashboard/referee')
     })
 
-    it('navigates to waiting room for Espectador', () => {
+    it('navigates to waiting room for Espectador after expanding Torneo', () => {
       renderWithRouter()
-      
+
+      // Expand Torneo first
+      fireEvent.click(screen.getByText('Torneo'))
       const spectatorButton = screen.getByText('Espectador')
       fireEvent.click(spectatorButton)
-      
+
       expect(mockLogin).toHaveBeenCalledWith('viewer')
       expect(mockNavigate).toHaveBeenCalledWith('/dashboard/spectator')
     })
@@ -151,15 +182,16 @@ describe('AuthPage', () => {
   describe('Owner PIN Validation', () => {
     it('validates PIN must be 5-8 digits', async () => {
       renderWithRouter()
-      
-      // Select Owner role
+
+      // Expand Torneo, then select Owner role
+      fireEvent.click(screen.getByText('Torneo'))
       const organizerButton = screen.getByText('Organizador')
       fireEvent.click(organizerButton)
-      
+
       // Verify PIN input exists with correct placeholder
       const input = screen.getByPlaceholderText('••••••••')
       expect(input).toBeInTheDocument()
-      
+
       // Verify submit button exists
       const submitButton = screen.getByRole('button', { name: /ingresar/i })
       expect(submitButton).toBeInTheDocument()
@@ -167,23 +199,60 @@ describe('AuthPage', () => {
 
     it('shows back button and returns to selection', () => {
       renderWithRouter()
-      
+
+      // Expand Torneo, select owner
+      fireEvent.click(screen.getByText('Torneo'))
       const organizerButton = screen.getByText('Organizador')
       fireEvent.click(organizerButton)
-      
+
       const backButton = screen.getByText('Atrás')
       fireEvent.click(backButton)
-      
-      expect(screen.getByText('Elige tu rol')).toBeInTheDocument()
+
+      expect(screen.getByText('Elige una opción')).toBeInTheDocument()
     })
 
     it('has Ingresa tu PIN de Organizador text', () => {
       renderWithRouter()
-      
+
+      // Expand Torneo, select owner
+      fireEvent.click(screen.getByText('Torneo'))
       const organizerButton = screen.getByText('Organizador')
       fireEvent.click(organizerButton)
-      
+
       expect(screen.getByText('Ingresa tu PIN de Organizador')).toBeInTheDocument()
+    })
+  })
+
+  describe('Quiero jugar (Club PIN)', () => {
+    it('shows club PIN entry mode when clicking Quiero jugar', () => {
+      renderWithRouter()
+
+      fireEvent.click(screen.getByText('Quiero jugar'))
+
+      expect(screen.getByText('Ingresá el PIN de tu cancha')).toBeInTheDocument()
+      expect(screen.getByText('Ingresar')).toBeInTheDocument()
+      // Back button
+      expect(screen.getByText('Volver')).toBeInTheDocument()
+    })
+
+    it('returns to selection when clicking back from club PIN', () => {
+      renderWithRouter()
+
+      fireEvent.click(screen.getByText('Quiero jugar'))
+      fireEvent.click(screen.getByText('Volver'))
+
+      expect(screen.getByText('Elige una opción')).toBeInTheDocument()
+      expect(screen.getByText('Quiero jugar')).toBeInTheDocument()
+    })
+  })
+
+  describe('Administrar', () => {
+    it('navigates to club admin when clicking Administrar', () => {
+      renderWithRouter()
+
+      fireEvent.click(screen.getByText('Administrar'))
+
+      expect(mockNavigate).toHaveBeenCalledWith('/club/admin')
     })
   })
 })

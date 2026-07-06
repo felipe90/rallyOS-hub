@@ -75,6 +75,32 @@ export class PlayerService {
     return true;
   }
 
+  /**
+   * Set a socket as referee without PIN validation.
+   * Used by club-mode courts where the joining player IS the referee.
+   */
+  setRefereeDirect(court: Court, socketId: string, name: string): void {
+    const existingReferee = court.players.find(p => p.role === 'REFEREE');
+    if (existingReferee && existingReferee.socketId !== socketId) {
+      court.players = court.players.filter(p => p.socketId !== existingReferee.socketId);
+      logger.info({ courtId: court.id, courtName: court.name, oldReferee: existingReferee.socketId, newReferee: socketId }, 'Replacing existing referee');
+    }
+
+    const player = court.players.find(p => p.socketId === socketId);
+    if (player) {
+      player.role = 'REFEREE';
+    } else {
+      court.players.push({
+        socketId,
+        name: sanitizeInput(name, 100),
+        role: 'REFEREE',
+        joinedAt: Date.now(),
+      });
+    }
+
+    logger.info({ courtId: court.id, courtName: court.name, socketId }, 'Club referee registered');
+  }
+
   isReferee(court: Court, socketId: string): boolean {
     const player = court.players.find(p => p.socketId === socketId);
     return player?.role === 'REFEREE';

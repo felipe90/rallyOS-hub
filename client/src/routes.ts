@@ -15,6 +15,7 @@ export const Routes = {
   HISTORY: '/history',
 
   // Club Mode routes
+  CLUB_PLAY: '/club/play/:courtId',
   CLUB_SETUP: '/setup',
   CLUB_ADMIN: '/club/admin',
 } as const
@@ -23,6 +24,10 @@ export const Routes = {
 export type RoutePath = typeof Routes[keyof typeof Routes]
 
 // Route builder for parameterized routes
+export const buildClubPlayRoute = (courtId: string): string => {
+  return Routes.CLUB_PLAY.replace(':courtId', courtId)
+}
+
 export const buildScoreboardRoute = (
   tableId: string,
   mode: 'referee' | 'view'

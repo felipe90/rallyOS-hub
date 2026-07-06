@@ -8,6 +8,7 @@
  * - AdminHandler: REGENERATE_PIN, GET_RATE_LIMIT_STATUS
  * - ClubAdminHandler: CLUB_VERIFY_ADMIN, CLUB_GET_CONFIG, CLUB_SETUP
  * - ClubCourtHandler: CLUB_CREATE_COURT, CLUB_ACTIVATE_COURT, CLUB_FORCE_END, CLUB_DELETE_COURT
+ * - ClubPlayerHandler: CLUB_JOIN
  * - SpotlightHandler: SET_FEATURED, SUBSCRIBE_MATCH, UNSUBSCRIBE_MATCH
  * 
  * Maintains global listeners for table updates and match events.
@@ -29,6 +30,7 @@ import {
   SpotlightHandler,
   ClubAdminHandler,
   ClubCourtHandler,
+  ClubPlayerHandler,
 } from './index';
 
 export class SocketHandler {
@@ -46,6 +48,7 @@ export class SocketHandler {
   private spotlightHandler: SpotlightHandler;
   private clubAdminHandler: ClubAdminHandler;
   private clubCourtHandler: ClubCourtHandler;
+  private clubPlayerHandler: ClubPlayerHandler;
 
   constructor(
     io: Server,
@@ -71,6 +74,7 @@ export class SocketHandler {
     this.spotlightHandler = new SpotlightHandler(io, tableManager, ownerPin);
     this.clubAdminHandler = new ClubAdminHandler(io, tableManager, ownerPin, clubConfigStore!, adminPinService);
     this.clubCourtHandler = new ClubCourtHandler(io, tableManager, ownerPin);
+    this.clubPlayerHandler = new ClubPlayerHandler(io, tableManager, ownerPin, clubConfigStore!);
     
     // Set up global court update listener once
     this.tableManager.onTableUpdate = (tableInfo) => {
@@ -170,6 +174,7 @@ export class SocketHandler {
       this.spotlightHandler.registerHandlers(socket);
       this.clubAdminHandler.registerHandlers(socket);
       this.clubCourtHandler.registerHandlers(socket);
+      this.clubPlayerHandler.registerHandlers(socket);
 
       // Handle disconnection
       socket.on('disconnect', (reason) => {

@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { CLUB_STATUS } from '@shared/types'
 import type { ClubCourtInfo } from '@shared/types'
 import { Input } from '@/components/atoms/Input'
@@ -19,6 +20,7 @@ import { useClubAdmin } from '@/hooks/useClubAdmin'
 import { useClubCourtManagement } from '@/hooks/useClubCourtManagement'
 import type { ClubOperationEvent } from '@/hooks/useClubCourtManagement'
 import { useI18n } from '@/i18n'
+import { Routes } from '@/routes'
 import {
   Shield,
   Plus,
@@ -28,6 +30,7 @@ import {
   Building2,
   RefreshCw,
   XCircle,
+  ArrowLeft,
 } from 'lucide-react'
 
 /** Human-readable label for club status */
@@ -69,6 +72,7 @@ function statusColor(status: ClubCourtInfo['status']): string {
 
 export function ClubAdminPage() {
   const { socket, connected } = useSocketContext()
+  const navigate = useNavigate()
   const { i18nText } = useI18n()
   const { isAdmin, verifyAdminPin, verifyLoading, verifyError, clearVerifyError } =
     useClubAdmin(socket, connected)
@@ -198,6 +202,18 @@ export function ClubAdminPage() {
         title={i18nText('clubAdminTitle')}
         subtitle={i18nText('clubAdminSubtitle')}
         showStatus
+        connectionLabels={{
+          connected: i18nText('connectionConnected'),
+          connecting: i18nText('connectionConnecting'),
+          error: i18nText('connectionNoConnection'),
+          disconnected: i18nText('connectionDisconnected'),
+        }}
+        actions={
+          <Button variant="ghost" size="sm" onClick={() => navigate(Routes.AUTH)}>
+            <ArrowLeft size={16} className="mr-1" />
+            {i18nText('clubAdminBack')}
+          </Button>
+        }
       />
 
       <main className="flex-1 overflow-auto p-4 space-y-4">

@@ -221,6 +221,89 @@ export class CourtManager {
   }
 
   /**
+   * Find a club court by matching its session PIN.
+   * Only matches courts in RESERVED or OCCUPIED state (active sessions).
+   * Returns undefined when no match is found.
+   */
+  findClubCourtByPin(pin: string): Court | undefined {
+    return this.repository.getAll().find(
+      (c) => c.mode === COURT_MODE.CLUB && c.pin === pin &&
+            (c.clubStatus === CLUB_STATUS.RESERVED || c.clubStatus === CLUB_STATUS.OCCUPIED),
+    );
+  }
+
+  /**
+   * Occupy a club court: transitions RESERVED → OCCUPIED and auto-initializes
+   * a match with default config based on the club's sport.
+   *
+   * For reconnection on already OCCUPIED courts, returns the current state
+   * without re-initializing the match.
+   *
+   * Returns null when the court is not found, is not a club court, or has
+   * an invalid clubStatus (not RESERVED or OCCUPIED).
+   */
+  occupyClubCourt(courtId: string, sport: Sport): { court: Court; matchState: MatchStateExtended } | null {
+    const court = this.repository.get(courtId);
+    if (!court) return null;
+    if (court.mode !== COURT_MODE.CLUB) return null;
+    if (court.clubStatus !== CLUB_STATUS.RESERVED && court.clubStatus !== CLUB_STATUS.OCCUPIED) return null;
+
+    // Reconnection on already OCCUPIED court — return current match state
+    if (court.clubStatus === CLUB_STATUS.OCCUPIED) {
+      const matchState = this.matchOrchestrator.getMatchState(court);
+      if (!matchState) return null;
+      return { court, matchState };
+    }
+
+    // Transition RESERVED → OCCUPIED
+    court.clubStatus = CLUB_STATUS.OCCUPIED;
+
+    // Set default player names
+    court.playerNames = { a: 'Jugador 1', b: 'Jugador 2' };
+    court.sportRules.setPlayerNames({ a: 'Jugador 1', b: 'Jugador 2' });
+
+    // Build default match config based on sport
+    const matchConfig: MatchConfig = sport === SPORT.PADEL
+      ? {
+          sport: SPORT.PADEL,
+          bestOf: 1,
+          gamesPerSet: 6,
+          tiebreakPoints: 7,
+          goldenPoint: false,
+        } as MatchConfig
+      : {
+          sport: SPORT.TABLE_TENNIS,
+          bestOf: 1,
+          pointsPerSet: 11,
+          minDifference: 2,
+          handicapA: 0,
+          handicapB: 0,
+        } as MatchConfig;
+
+    // Auto-init match via MatchOrchestrator
+    const matchState = this.matchOrchestrator.startMatch(court, {
+      ...matchConfig,
+      playerNameA: 'Jugador 1',
+      playerNameB: 'Jugador 2',
+    });
+
+    if (!matchState) {
+      // Rollback on failure
+      court.clubStatus = CLUB_STATUS.RESERVED;
+      court.playerNames = { a: '', b: '' };
+      return null;
+    }
+
+    // Rewire match engine callback — same pattern as startMatch(), regeneratePin(), etc.
+    court.sportRules.setEventCallback((event: any) => {
+      this.onMatchEvent(courtId, event);
+    });
+
+    this.notifyUpdate(court);
+    return { court, matchState };
+  }
+
+  /**
    * Force-end a club court session: transitions OCCUPIED → FINISHED,
    * invalidates the session PIN by clearing it.
    */
@@ -290,6 +373,21 @@ export class CourtManager {
     const court = this.repository.get(courtId);
     if (!court) return null;
     return this.playerService.getRefereeSocketId(court);
+  }
+
+  /**
+   * Register a club player socket as referee — bypasses PIN validation
+   * because club courts are self-refereed (the player IS the referee).
+   * Only works for club-mode courts.
+   */
+  registerClubReferee(courtId: string, socketId: string): boolean {
+    const court = this.repository.get(courtId);
+    if (!court) return false;
+    if (court.mode !== COURT_MODE.CLUB) return false;
+
+    this.playerService.setRefereeDirect(court, socketId, 'Club Player');
+    this.notifyUpdate(court);
+    return true;
   }
 
   // Match orchestration

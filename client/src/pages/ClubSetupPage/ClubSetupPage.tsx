@@ -38,9 +38,9 @@ export function ClubSetupPage() {
   const [courtCount, setCourtCount] = useState(3)
   const [pinError, setPinError] = useState('')
 
-  // Toast for setup errors
+  // Toast for setup errors (skip ALREADY_CONFIGURED — it's handled by the UI state)
   useEffect(() => {
-    if (setupError) {
+    if (setupError && setupError !== 'ALREADY_CONFIGURED') {
       addToast('error', setupError)
     }
   }, [setupError, addToast])

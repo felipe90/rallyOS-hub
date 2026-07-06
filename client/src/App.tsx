@@ -16,6 +16,7 @@ import { HistoryViewPage } from './pages/HistoryViewPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { KioskAllCourtsPage } from './pages/KioskAllCourtsPage'
 import { ClubSetupPage } from './pages/ClubSetupPage'
+import { ClubPlayPage } from './pages/ClubPlayPage'
 import { ClubAdminPage } from './pages/ClubAdminPage'
 import { useAutoUpdateBanner } from './hooks/useAutoUpdate'
 import { LanguageSwitcher } from './components/atoms'
@@ -32,6 +33,7 @@ function AppRoutes() {
         {/* Club Mode routes */}
         <Route path={Routes.CLUB_SETUP} element={<ClubSetupPage />} />
         <Route path={Routes.CLUB_ADMIN} element={<ClubAdminPage />} />
+        <Route path={Routes.CLUB_PLAY} element={<ClubPlayPage />} />
 
         {/* Protected routes (require authentication) */}
         <Route element={<PrivateRoute />}>

@@ -78,12 +78,32 @@ export function useClubCourtManagement(socket: Socket | null, connected: boolean
       setLastEvent({ type: 'error', code: err.code || 'UNKNOWN_ERROR' })
     }
 
+    // Listen for COURT_LIST to sync club court status changes
+    // COURT_UPDATE only goes to court room members; COURT_LIST is global.
+    // Club courts in COURT_LIST carry clubStatus in the status field.
+    const handleCourtList = (courtsList: Array<{ id: string; status: string; mode?: string }>) => {
+      const clubCourts = courtsList.filter(c => c.mode === 'club')
+      if (clubCourts.length > 0) {
+        setCourts(prev => {
+          const updated = [...prev]
+          for (const cc of clubCourts) {
+            const idx = updated.findIndex(c => c.id === cc.id)
+            if (idx >= 0) {
+              updated[idx] = { ...updated[idx], status: cc.status as ClubCourtInfo['status'] }
+            }
+          }
+          return updated
+        })
+      }
+    }
+
     socket.on(SocketEvents.SERVER.CLUB_COURT_CREATED, handleCourtCreated)
     socket.on(SocketEvents.SERVER.CLUB_COURT_ACTIVATED, handleCourtActivated)
     socket.on(SocketEvents.SERVER.CLUB_COURT_DEACTIVATED, handleCourtDeactivated)
     socket.on(SocketEvents.SERVER.CLUB_COURT_RESETTED, handleCourtResetted)
     socket.on(SocketEvents.SERVER.CLUB_SESSION_ENDED, handleSessionEnded)
     socket.on(SocketEvents.SERVER.COURT_DELETED, handleCourtDeleted)
+    socket.on(SocketEvents.SERVER.COURT_LIST, handleCourtList)
     socket.on(SocketEvents.SERVER.ERROR, handleError)
 
     return () => {
@@ -93,6 +113,7 @@ export function useClubCourtManagement(socket: Socket | null, connected: boolean
       socket.off(SocketEvents.SERVER.CLUB_COURT_RESETTED, handleCourtResetted)
       socket.off(SocketEvents.SERVER.CLUB_SESSION_ENDED, handleSessionEnded)
       socket.off(SocketEvents.SERVER.COURT_DELETED, handleCourtDeleted)
+      socket.off(SocketEvents.SERVER.COURT_LIST, handleCourtList)
       socket.off(SocketEvents.SERVER.ERROR, handleError)
     }
   }, [socket])

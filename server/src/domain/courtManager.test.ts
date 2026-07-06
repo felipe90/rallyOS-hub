@@ -681,4 +681,92 @@ describe('CourtManager with StateStore', () => {
       expect(state!.history.length).toBe(3);
     });
   });
+
+  describe('club courts — occupyClubCourt', () => {
+    let manager: CourtManager;
+
+    beforeEach(() => {
+      manager = new CourtManager(mockHubConfig, stateStore);
+    });
+
+    it('should return null for non-existent court', () => {
+      const result = manager.occupyClubCourt('non-existent', SPORT.PADEL);
+      expect(result).toBeNull();
+    });
+
+    it('should return null for non-club court (tournament mode)', () => {
+      const court = manager.createCourt('Tournament Court');
+      const result = manager.occupyClubCourt(court.id, SPORT.PADEL);
+      expect(result).toBeNull();
+    });
+
+    it('should return null for AVAILABLE club court (not yet activated)', () => {
+      const court = manager.createClubCourt('Club Court');
+      const result = manager.occupyClubCourt(court.id, SPORT.PADEL);
+      expect(result).toBeNull();
+    });
+
+    it('should return null for FINISHED club court', () => {
+      const court = manager.createClubCourt('Club Court');
+      manager.activateCourt(court.id);
+      manager.occupyClubCourt(court.id, SPORT.PADEL);
+      // Force end → FINISHED
+      const ended = manager.forceEndSession(court.id);
+      expect(ended).not.toBeNull();
+      const result = manager.occupyClubCourt(court.id, SPORT.PADEL);
+      expect(result).toBeNull();
+    });
+
+    it('should transition RESERVED → OCCUPIED and return match state for padel', () => {
+      const court = manager.createClubCourt('Padel Club');
+      expect(court.clubStatus).toBe('AVAILABLE');
+
+      manager.activateCourt(court.id);
+      expect(court.clubStatus).toBe('RESERVED');
+
+      const result = manager.occupyClubCourt(court.id, SPORT.PADEL);
+      expect(result).not.toBeNull();
+      expect(result!.court.clubStatus).toBe('OCCUPIED');
+      expect(result!.court.id).toBe(court.id);
+      expect(result!.matchState.status).toBe('LIVE');
+      expect(result!.matchState.config.sport).toBe(SPORT.PADEL);
+    });
+
+    it('should transition RESERVED → OCCUPIED for table tennis', () => {
+      const court = manager.createClubCourt('TT Club');
+      manager.activateCourt(court.id);
+
+      const result = manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+      expect(result).not.toBeNull();
+      expect(result!.court.clubStatus).toBe('OCCUPIED');
+      expect(result!.matchState.config.sport).toBe(SPORT.TABLE_TENNIS);
+      expect(result!.matchState.config.bestOf).toBe(1);
+    });
+
+    it('should return current state on reconnection (already OCCUPIED)', () => {
+      const court = manager.createClubCourt('Reconnect Court');
+      manager.activateCourt(court.id);
+
+      const result1 = manager.occupyClubCourt(court.id, SPORT.PADEL);
+      expect(result1).not.toBeNull();
+      expect(result1!.court.clubStatus).toBe('OCCUPIED');
+
+      // Second call — reconnection path
+      const result2 = manager.occupyClubCourt(court.id, SPORT.PADEL);
+      expect(result2).not.toBeNull();
+      expect(result2!.court.clubStatus).toBe('OCCUPIED');
+      // Should return same match state
+      expect(result2!.matchState.status).toBe('LIVE');
+      expect(result2!.matchState.courtId).toBe(court.id);
+    });
+
+    it('should set default player names for new OCCUPIED court', () => {
+      const court = manager.createClubCourt('Names Club');
+      manager.activateCourt(court.id);
+
+      const result = manager.occupyClubCourt(court.id, SPORT.PADEL);
+      expect(result).not.toBeNull();
+      expect(result!.court.playerNames).toEqual({ a: 'Jugador 1', b: 'Jugador 2' });
+    });
+  });
 });

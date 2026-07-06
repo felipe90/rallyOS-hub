@@ -20,6 +20,7 @@
   "authOwnerPinEnterPin": "Enter the tournament organizer PIN",
   "authAdminClub": "Manage",
   "authClubPlay": "I want to play",
+  "authClubPlayTitle": "Play",
   "authClubPlayDesc": "Enter your court PIN",
   "authPinBack": "Back",
   "authPinErrorInvalid": "Invalid PIN. Check with staff.",

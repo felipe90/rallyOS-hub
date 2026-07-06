@@ -20,6 +20,7 @@
   "authOwnerPinEnterPin": "Ingresa el PIN de organizador del torneo",
   "authAdminClub": "Administrar",
   "authClubPlay": "Quiero jugar",
+  "authClubPlayTitle": "Jugar",
   "authClubPlayDesc": "Ingresá el PIN de tu cancha",
   "authPinBack": "Volver",
   "authPinErrorInvalid": "PIN inválido. Verificá con el staff.",

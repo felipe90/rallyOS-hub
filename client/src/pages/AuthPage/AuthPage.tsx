@@ -194,6 +194,7 @@ export function AuthPage() {
         <Typography variant="title">
           {mode === 'select' ? i18nText('authSelectRole')
            : mode === 'sport-select' ? i18nText('configSportLabel')
+           : mode === 'club-pin' ? i18nText('authClubPlayTitle')
            : i18nText('authEnterOwnerPin')}
         </Typography>
       </div>

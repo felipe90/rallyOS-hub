@@ -12,8 +12,8 @@
 
 import crypto from 'crypto';
 import { MatchEngine } from './matchEngine';
-import { Court, TableInfo, TableInfoWithPin, Player, MatchConfig, MatchStateExtended, QRData, HubConfig, Sport, SPORT } from './types';
-import { AllHistoryEntry } from '../../../shared/types';
+import { Court, TableInfo, TableInfoWithPin, Player, MatchConfig, MatchStateExtended, QRData, HubConfig, Sport, SPORT, CourtMode, COURT_MODE, ClubStatus, CLUB_STATUS } from './types';
+import { AllHistoryEntry, ClubKioskPayload, ClubKioskCourtInfo, ClubConfig } from '../../../shared/types';
 import { logger } from '../utils/logger';
 import { sanitizeInput } from '../utils/validation';
 import { CourtRepository } from '../services/table/CourtRepository';
@@ -38,6 +38,7 @@ export class CourtManager {
   public onTableUpdate: (table: TableInfo) => void = () => {};
   public onTournamentFinish: () => void = () => {};
   public onMatchEvent: (courtId: string, event: any) => void = () => {};
+  public onClubSessionEnd: (courtId: string, elapsedMinutes: number, reason: string) => void = () => {};
 
   constructor(hubConfig: HubConfig, stateStore?: StateStore) {
     this.repository = new CourtRepository();
@@ -69,6 +70,7 @@ export class CourtManager {
       players: [],
       createdAt: Date.now(),
       featured: false,
+      occupiedAt: null,
     };
 
     court.sportRules.setCourtId(id, courtName);
@@ -100,6 +102,280 @@ export class CourtManager {
       }
     }
     return deleted;
+  }
+
+  // ── Club Mode ──────────────────────────────────────────────────────
+
+  /**
+   * Create a club-mode court (mode='club') with clubStatus='AVAILABLE' and no PIN.
+   * Club courts don't need a match PIN — they use session PINs on activation.
+   */
+  createClubCourt(name?: string): Court {
+    const courtNumber = this.repository.getNextTableNumber();
+    const courtName = name ? sanitizeInput(name, 256) : `Cancha ${courtNumber}`;
+    const id = crypto.randomUUID();
+
+    const court: Court = {
+      id,
+      number: courtNumber,
+      name: courtName,
+      status: 'WAITING',
+      pin: '',
+      sportRules: new MatchEngine(),
+      playerNames: { a: '', b: '' },
+      history: [],
+      players: [],
+      createdAt: Date.now(),
+      featured: false,
+      mode: COURT_MODE.CLUB,
+      clubStatus: CLUB_STATUS.AVAILABLE,
+      occupiedAt: null,
+    };
+
+    court.sportRules.setCourtId(id, courtName);
+    court.sportRules.setEventCallback((event: any) => {
+      this.onMatchEvent(id, event);
+    });
+
+    this.repository.create(court);
+    logger.info({ courtId: id, courtName, mode: 'club' }, 'Club court created');
+    this.notifyUpdate(court);
+
+    return court;
+  }
+
+  /**
+   * Delete a club-mode court. Only allowed when clubStatus is AVAILABLE.
+   */
+  deleteClubCourt(courtId: string): boolean {
+    const court = this.repository.get(courtId);
+    if (!court) return false;
+    if (court.mode !== COURT_MODE.CLUB) return false;
+    if (court.clubStatus !== CLUB_STATUS.AVAILABLE) return false;
+
+    const deleted = this.repository.delete(courtId);
+    if (deleted) {
+      logger.info({ courtId, courtName: court.name }, 'Club court deleted');
+    }
+    return deleted;
+  }
+
+  /**
+   * Get all club-mode courts.
+   */
+  getClubCourts(): Court[] {
+    return this.repository.getAll().filter((c) => c.mode === COURT_MODE.CLUB);
+  }
+
+  /**
+   * Build ClubKioskPayload for the public kiosk display.
+   * Filters to club-mode courts, maps each to ClubKioskCourtInfo using the
+   * formatter for scores/names/winner, and populates pin only when RESERVED.
+   * Returns empty courts array when no club courts exist.
+   */
+  getClubKioskPayload(clubConfig: ClubConfig | null): ClubKioskPayload {
+    const clubCourts = this.repository.getAll().filter((c) => c.mode === COURT_MODE.CLUB);
+
+    const courts: ClubKioskCourtInfo[] = clubCourts.map((c) => {
+      const info = this.formatter.toPublicInfo(c);
+      return {
+        id: c.id,
+        name: c.name,
+        status: c.clubStatus ?? CLUB_STATUS.AVAILABLE,
+        mode: COURT_MODE.CLUB,
+        pin: c.clubStatus === CLUB_STATUS.RESERVED ? c.pin : undefined,
+        playerNames: info.playerNames,
+        currentScore: info.currentScore,
+        winner: info.winner,
+      };
+    });
+
+    return {
+      clubName: clubConfig?.clubName ?? 'Club',
+      courts,
+    };
+  }
+
+  /**
+   * Activate a club court: transitions clubStatus from AVAILABLE to RESERVED,
+   * generates a 4-digit session PIN, and emits the update.
+   */
+  activateCourt(courtId: string): Court | null {
+    const court = this.repository.get(courtId);
+    if (!court) return null;
+    if (court.mode !== COURT_MODE.CLUB) return null;
+    if (court.clubStatus !== CLUB_STATUS.AVAILABLE) return null;
+
+    court.clubStatus = CLUB_STATUS.RESERVED;
+    court.pin = this.pinService.generatePin();
+
+    logger.info({ courtId, courtName: court.name, pin: court.pin }, 'Club court activated');
+    this.notifyUpdate(court);
+
+    return court;
+  }
+
+  /**
+   * Deactivate a club court: transitions RESERVED → AVAILABLE,
+   * invalidates the session PIN.
+   */
+  deactivateCourt(courtId: string): Court | null {
+    const court = this.repository.get(courtId);
+    if (!court) return null;
+    if (court.mode !== COURT_MODE.CLUB) return null;
+    if (court.clubStatus !== CLUB_STATUS.RESERVED) return null;
+
+    court.clubStatus = CLUB_STATUS.AVAILABLE;
+    court.pin = '';
+
+    logger.info({ courtId, courtName: court.name }, 'Club court deactivated');
+    this.notifyUpdate(court);
+
+    return court;
+  }
+
+  /**
+   * Reset a club court: transitions FINISHED → AVAILABLE.
+   */
+  resetCourt(courtId: string): Court | null {
+    const court = this.repository.get(courtId);
+    if (!court) return null;
+    if (court.mode !== COURT_MODE.CLUB) return null;
+    if (court.clubStatus !== CLUB_STATUS.FINISHED) return null;
+
+    court.clubStatus = CLUB_STATUS.AVAILABLE;
+    court.pin = '';
+    court.occupiedAt = null;
+    court.playerNames = { a: '', b: '' };
+    court.players = [];
+
+    // Reset match engine to fresh WAITING state
+    this.matchOrchestrator.resetTable(court);
+
+    logger.info({ courtId, courtName: court.name }, 'Club court reset to available');
+    this.notifyUpdate(court);
+
+    return court;
+  }
+
+  /**
+   * Find a club court by matching its session PIN.
+   * Only matches courts in RESERVED or OCCUPIED state (active sessions).
+   * Returns undefined when no match is found.
+   */
+  findClubCourtByPin(pin: string): Court | undefined {
+    return this.repository.getAll().find(
+      (c) => c.mode === COURT_MODE.CLUB && c.pin === pin &&
+            (c.clubStatus === CLUB_STATUS.RESERVED || c.clubStatus === CLUB_STATUS.OCCUPIED),
+    );
+  }
+
+  /**
+   * Occupy a club court: transitions RESERVED → OCCUPIED and auto-initializes
+   * a match with default config based on the club's sport.
+   *
+   * For reconnection on already OCCUPIED courts, returns the current state
+   * without re-initializing the match.
+   *
+   * Returns null when the court is not found, is not a club court, or has
+   * an invalid clubStatus (not RESERVED or OCCUPIED).
+   */
+  occupyClubCourt(courtId: string, sport: Sport): { court: Court; matchState: MatchStateExtended } | null {
+    const court = this.repository.get(courtId);
+    if (!court) return null;
+    if (court.mode !== COURT_MODE.CLUB) return null;
+    if (court.clubStatus !== CLUB_STATUS.RESERVED && court.clubStatus !== CLUB_STATUS.OCCUPIED) return null;
+
+    // Reconnection on already OCCUPIED court — return current match state
+    if (court.clubStatus === CLUB_STATUS.OCCUPIED) {
+      const matchState = this.matchOrchestrator.getMatchState(court);
+      if (!matchState) return null;
+      return { court, matchState };
+    }
+
+    // Transition RESERVED → OCCUPIED
+    court.clubStatus = CLUB_STATUS.OCCUPIED;
+    court.occupiedAt = Date.now();
+
+    // Set default player names
+    court.playerNames = { a: 'Jugador 1', b: 'Jugador 2' };
+    court.sportRules.setPlayerNames({ a: 'Jugador 1', b: 'Jugador 2' });
+
+    // Build default match config based on sport
+    const matchConfig: MatchConfig = sport === SPORT.PADEL
+      ? {
+          sport: SPORT.PADEL,
+          bestOf: 1,
+          gamesPerSet: 6,
+          tiebreakPoints: 7,
+          goldenPoint: false,
+        } as MatchConfig
+      : {
+          sport: SPORT.TABLE_TENNIS,
+          bestOf: 1,
+          pointsPerSet: 11,
+          minDifference: 2,
+          handicapA: 0,
+          handicapB: 0,
+        } as MatchConfig;
+
+    // Auto-init match via MatchOrchestrator
+    const matchState = this.matchOrchestrator.startMatch(court, {
+      ...matchConfig,
+      playerNameA: 'Jugador 1',
+      playerNameB: 'Jugador 2',
+    });
+
+    if (!matchState) {
+      // Rollback on failure
+      court.clubStatus = CLUB_STATUS.RESERVED;
+      court.playerNames = { a: '', b: '' };
+      return null;
+    }
+
+    // Rewire match engine callback — same pattern as startMatch(), regeneratePin(), etc.
+    court.sportRules.setEventCallback((event: any) => {
+      this.onMatchEvent(courtId, event);
+    });
+
+    this.notifyUpdate(court);
+    return { court, matchState };
+  }
+
+  /**
+   * End a club court session: validates OCCUPIED state, transitions to FINISHED,
+   * clears PIN, computes elapsed minutes, fires onClubSessionEnd callback.
+   *
+   * @returns { elapsedMinutes } on success, null on failure.
+   */
+  endSession(courtId: string, reason: string): { elapsedMinutes: number } | null {
+    const court = this.repository.get(courtId);
+    if (!court) return null;
+    if (court.mode !== COURT_MODE.CLUB) return null;
+    if (court.clubStatus !== CLUB_STATUS.OCCUPIED) return null;
+
+    const now = Date.now();
+    const elapsedMs = court.occupiedAt ? now - court.occupiedAt : 0;
+    const elapsedMinutes = Math.max(1, Math.ceil(elapsedMs / 60000));
+
+    court.clubStatus = CLUB_STATUS.FINISHED;
+    court.pin = '';
+
+    logger.info({ courtId, courtName: court.name, reason, elapsedMinutes }, 'Club court session ended');
+    this.notifyUpdate(court);
+    this.onClubSessionEnd(courtId, elapsedMinutes, reason);
+
+    return { elapsedMinutes };
+  }
+
+  /**
+   * Force-end a club court session: delegates to endSession('force').
+   * Keeps backward-compatible return (Court | null) by looking up the court.
+   */
+  forceEndSession(courtId: string): Court | null {
+    const result = this.endSession(courtId, 'force');
+    if (!result) return null;
+    return this.repository.get(courtId) ?? null;
   }
 
   finishTournament(): void {
@@ -155,6 +431,23 @@ export class CourtManager {
     return this.playerService.getRefereeSocketId(court);
   }
 
+  /**
+   * Register a club player socket as referee — bypasses PIN validation
+   * because club courts are self-refereed (the player IS the referee).
+   * Only works for club-mode courts.
+   *
+   * @returns The old referee's socketId if one was displaced, null otherwise.
+   */
+  registerClubReferee(courtId: string, socketId: string): string | null {
+    const court = this.repository.get(courtId);
+    if (!court) return null;
+    if (court.mode !== COURT_MODE.CLUB) return null;
+
+    const displaced = this.playerService.setRefereeDirect(court, socketId, 'Club Player');
+    this.notifyUpdate(court);
+    return displaced;
+  }
+
   // Match orchestration
   configureMatch(courtId: string, config: { playerNames?: { a: string; b: string }; matchConfig?: MatchConfig }): void {
     const court = this.repository.get(courtId);
@@ -197,6 +490,12 @@ export class CourtManager {
     if (state) {
       this.notifyUpdate(court);
     }
+
+    // Auto-finish: if the match just ended on a club OCCUPIED court, end the session
+    if (court.status === 'FINISHED' && court.mode === COURT_MODE.CLUB && court.clubStatus === CLUB_STATUS.OCCUPIED) {
+      this.endSession(courtId, 'auto');
+    }
+
     return state;
   }
 
@@ -361,14 +660,16 @@ export class CourtManager {
   }
 
   /**
-   * Persist all LIVE and FINISHED courts to the state store.
+   * Persist LIVE, FINISHED, and OCCUPIED/FINISHED club courts to the state store.
+   * Club courts use `status: 'WAITING'` with `clubStatus` as the real discriminator,
+   * so we must also match OCCUPIED and FINISHED club states.
    * Errors are caught and logged — the caller is never affected.
    */
   private autoSave(): void {
     try {
       const allCourts = this.repository.getAll();
       const persisted: PersistedCourt[] = allCourts
-        .filter((c) => c.status === 'LIVE' || c.status === 'FINISHED')
+        .filter((c) => c.status === 'LIVE' || c.status === 'FINISHED' || c.clubStatus === 'OCCUPIED' || c.clubStatus === 'FINISHED')
         .map((c) => this.toPersistedCourt(c));
       this.stateStore!.save(persisted);
     } catch (err) {
@@ -394,6 +695,9 @@ export class CourtManager {
       pin: court.pin,
       playerNames: { ...court.playerNames },
       createdAt: court.createdAt,
+      mode: court.mode,
+      clubStatus: court.clubStatus,
+      occupiedAt: court.occupiedAt ?? undefined,
       matchState: {
         config: { ...state.config },
         score: isPadel
@@ -446,8 +750,9 @@ export class CourtManager {
     let restored = 0;
 
     for (const pt of persisted.tables) {
-      // Only restore LIVE or FINISHED courts
-      if (pt.status !== 'LIVE' && pt.status !== 'FINISHED') {
+      // Only restore LIVE, FINISHED, or OCCUPIED/FINISHED club courts
+      // Club courts use status: 'WAITING' with clubStatus as the real discriminator
+      if (pt.status !== 'LIVE' && pt.status !== 'FINISHED' && pt.clubStatus !== 'OCCUPIED' && pt.clubStatus !== 'FINISHED') {
         continue;
       }
 
@@ -475,6 +780,9 @@ export class CourtManager {
           players: [],
           createdAt: pt.createdAt,
           featured: false,
+          mode: pt.mode as CourtMode | undefined,
+          clubStatus: pt.clubStatus as ClubStatus | undefined,
+          occupiedAt: pt.occupiedAt ?? null,
         };
 
         // Wire callbacks so Socket.io events work after restoration

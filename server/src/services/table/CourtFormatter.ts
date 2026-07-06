@@ -4,7 +4,7 @@
  * Responsibility: Format tables for public/owner consumption.
  */
 
-import { Court, TableInfo, TableInfoWithPin } from '../../domain/types';
+import { Court, TableInfo, TableInfoWithPin, CourtStatus, COURT_MODE } from '../../domain/types';
 
 export class CourtFormatter {
   toPublicInfo(table: Court): TableInfo {
@@ -13,7 +13,8 @@ export class CourtFormatter {
     // Handle discriminated union: TT has score.currentSet/sets, padel has games/sets top-level
     const currentScore = s.score?.currentSet ?? s.games ?? { a: 0, b: 0 };
     const currentSets = s.score?.sets ?? s.sets ?? { a: 0, b: 0 };
-    return {
+
+    const base: TableInfo = {
       id: table.id,
       number: table.number,
       name: table.name,
@@ -25,6 +26,19 @@ export class CourtFormatter {
       winner: state.winner,
       featured: table.featured,
     };
+
+    // Club courts: expose clubStatus as the public status, pass through mode and clubStatus
+    // Cast status to CourtStatus — the client-side UI for club mode reads clubStatus directly
+    if (table.mode === COURT_MODE.CLUB) {
+      return {
+        ...base,
+        status: (table.clubStatus ?? base.status) as CourtStatus,
+        mode: table.mode,
+        clubStatus: table.clubStatus,
+      };
+    }
+
+    return base;
   }
 
   toInfoWithPin(table: Court): TableInfoWithPin {

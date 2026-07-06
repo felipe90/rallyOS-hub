@@ -12,10 +12,11 @@ import { TournamentResumeModal } from '@/components/molecules/TournamentResumeMo
 import { SportDisplayRegistry } from '@/adapters/SportDisplayRegistry'
 import { SPORT } from '@shared/types'
 import type { Sport } from '@shared/types'
+import { SocketEvents } from '@shared/events'
 import logoBig from '@/assets/logo-big.png'
 import { Routes } from '@/routes'
 
-export type AuthMode = 'select' | 'owner-pin' | 'sport-select'
+export type AuthMode = 'select' | 'owner-pin' | 'sport-select' | 'club-pin'
 
 const registry = new SportDisplayRegistry()
 const SPORT_STORAGE_KEY = 'rallyos-sport'
@@ -25,6 +26,13 @@ export function AuthPage() {
   const [mode, setMode] = useState<AuthMode>('select')
   const [randomOwnerPin, setRandomOwnerPin] = useState<string | null>(null)
   const [pendingAction, setPendingAction] = useState<'load' | 'new' | null>(null)
+  // Club PIN entry state
+  const [clubPin, setClubPin] = useState('')
+  const [clubLoading, setClubLoading] = useState(false)
+  const [clubError, setClubError] = useState<string | null>(null)
+  const [clubRetryAfter, setClubRetryAfter] = useState<number | null>(null)
+  // Tournament section state
+  const [tournamentExpanded, setTournamentExpanded] = useState(false)
   const navigate = useNavigate()
   const { i18nText } = useI18n()
   const { login, setOwner, setTournamentToken } = useAuthContext()
@@ -64,6 +72,37 @@ export function AuthPage() {
       })
   }, [])
 
+  // Listen for CLUB_JOIN_RESULT after submitting club PIN
+  useEffect(() => {
+    if (!socket) return
+
+    const handleClubJoinResult = (data: {
+      success: boolean
+      courtId?: string
+      courtName?: string
+      matchState?: unknown
+      error?: string
+      retryAfterSeconds?: number
+    }) => {
+      setClubLoading(false)
+      if (data.success && data.courtId) {
+        navigate(Routes.CLUB_PLAY.replace(':courtId', data.courtId))
+      } else if (data.error === 'RATE_LIMITED') {
+        setClubError('RATE_LIMITED')
+        setClubRetryAfter(data.retryAfterSeconds ?? 60)
+      } else if (data.error === 'INVALID_PIN') {
+        setClubError('INVALID_PIN')
+      } else {
+        setClubError(data.error ?? 'UNKNOWN_ERROR')
+      }
+    }
+
+    socket.on(SocketEvents.SERVER.CLUB_JOIN_RESULT, handleClubJoinResult)
+    return () => {
+      socket.off(SocketEvents.SERVER.CLUB_JOIN_RESULT, handleClubJoinResult)
+    }
+  }, [socket, navigate])
+
   const handleOwnerClick = () => {
     setMode('owner-pin')
     setPin('')
@@ -102,6 +141,41 @@ export function AuthPage() {
     return map[code] || code
   }
 
+  const handlePlayClick = () => {
+    setMode('club-pin')
+    setClubPin('')
+    setClubError(null)
+    setClubRetryAfter(null)
+  }
+
+  const handleAdminClick = () => {
+    navigate(Routes.CLUB_ADMIN)
+  }
+
+  const handleClubPinChange = (value: string) => {
+    setClubPin(value)
+    if (value.length === 4 && clubError) {
+      setClubError(null)
+    }
+  }
+
+  const handleClubPinSubmit = () => {
+    if (!socket || !connected) {
+      setClubError('CONNECTION_ERROR')
+      return
+    }
+    setClubLoading(true)
+    setClubError(null)
+    socket.emit(SocketEvents.CLIENT.CLUB_JOIN, { pin: clubPin })
+  }
+
+  const handleClubPinBack = () => {
+    setMode('select')
+    setClubPin('')
+    setClubError(null)
+    setClubRetryAfter(null)
+  }
+
   const handleBack = () => {
     setMode('select')
     setPin('')
@@ -120,39 +194,125 @@ export function AuthPage() {
         <Typography variant="title">
           {mode === 'select' ? i18nText('authSelectRole')
            : mode === 'sport-select' ? i18nText('configSportLabel')
+           : mode === 'club-pin' ? i18nText('authClubPlayTitle')
            : i18nText('authEnterOwnerPin')}
         </Typography>
       </div>
 
       {mode === 'select' ? (
-        // Selection Mode - 3 buttons
+        // Selection Mode — 3-entry layout: Play, Tournament (expandable), Admin
         <div className="flex flex-col gap-4 w-full max-w-sm">
+          {/* "Quiero jugar" — primary green CTA button */}
+          <Button
+            variant="success"
+            size="xl"
+            onClick={handlePlayClick}
+            animate={false}
+          >
+            {i18nText('authClubPlay')}
+          </Button>
+
+          {/* "Torneo" — expandable section with sub-roles */}
+          <div className="flex flex-col gap-2">
+            <Button
+              variant="secondary"
+              size="lg"
+              onClick={() => setTournamentExpanded(!tournamentExpanded)}
+              animate={false}
+            >
+              <span className="flex-1 text-left">{i18nText('authTournament')}</span>
+              <span>{tournamentExpanded ? '▲' : '▼'}</span>
+            </Button>
+
+            {tournamentExpanded && (
+              <div className="flex flex-col gap-2 pl-4 pt-1">
+                <Button
+                  variant="primary"
+                  size="lg"
+                  onClick={handleOwnerClick}
+                  disabled={loading}
+                  animate={false}
+                >
+                  {i18nText('authRoleOwner')}
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  onClick={handleRefereeClick}
+                  disabled={loading}
+                  animate={false}
+                >
+                  {i18nText('authRoleReferee')}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={handleSpectatorClick}
+                  disabled={loading}
+                  animate={false}
+                >
+                  {i18nText('authRoleSpectator')}
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* "Administrar" — ghost/link style */}
+          <Button
+            variant="ghost"
+            size="lg"
+            onClick={handleAdminClick}
+            animate={false}
+          >
+            {i18nText('authAdminClub')}
+          </Button>
+        </div>
+      ) : mode === 'club-pin' ? (
+        // Club PIN Entry Mode
+        <div className="flex flex-col gap-4 w-full max-w-sm">
+          <Typography variant="body" className="text-center text-muted-foreground">
+            {i18nText('authClubPlayDesc')}
+          </Typography>
+          <PinInput
+            length={4}
+            value={clubPin}
+            onChange={handleClubPinChange}
+            onComplete={() => {}}
+            disabled={clubLoading}
+            error={clubError ?? undefined}
+            autoFocus
+            placeholder="••••"
+          />
+
+          {clubError === 'INVALID_PIN' && (
+            <Typography variant="label" className="text-red-500 text-center">
+              {i18nText('authPinErrorInvalid')}
+            </Typography>
+          )}
+          {clubError === 'RATE_LIMITED' && (
+            <Typography variant="label" className="text-red-500 text-center">
+              {i18nText('authPinErrorRateLimited', { seconds: clubRetryAfter })}
+            </Typography>
+          )}
+
           <Button
             variant="primary"
-            size="lg"
-            onClick={handleOwnerClick}
-            disabled={loading}
+            disabled={clubPin.length !== 4 || clubLoading}
+            onClick={handleClubPinSubmit}
             animate={false}
           >
-            {i18nText('authRoleOwner')}
+            {clubLoading ? (
+              <span className="animate-spin inline-block h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
+            ) : i18nText('authPinSubmit')}
           </Button>
+
           <Button
-            variant="secondary"
-            size="lg"
-            onClick={handleRefereeClick}
-            disabled={loading}
+            variant="ghost"
+            onClick={handleClubPinBack}
+            disabled={clubLoading}
             animate={false}
           >
-            {i18nText('authRoleReferee')}
-          </Button>
-          <Button
-            variant="outline"
-            size="lg"
-            onClick={handleSpectatorClick}
-            disabled={loading}
-            animate={false}
-          >
-            {i18nText('authRoleSpectator')}
+            {i18nText('authPinBack')}
           </Button>
         </div>
       ) : mode === 'sport-select' ? (

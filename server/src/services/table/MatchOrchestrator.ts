@@ -151,6 +151,12 @@ export class MatchOrchestrator {
   }
 
   getMatchState(court: Court): MatchStateExtended | null {
-    return court.sportRules.getState();
+    const state = court.sportRules.getState();
+    if (!state) return null;
+    return {
+      ...state,
+      mode: court.mode,
+      clubStatus: court.clubStatus,
+    };
   }
 }

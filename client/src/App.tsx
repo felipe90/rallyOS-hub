@@ -14,7 +14,10 @@ import { SpectatorDashboardPage } from './pages/SpectatorDashboardPage'
 import { ScoreboardPage } from './pages/ScoreboardPage'
 import { HistoryViewPage } from './pages/HistoryViewPage'
 import { NotFoundPage } from './pages/NotFoundPage'
-import { KioskAllCourtsPage } from './pages/KioskAllCourtsPage'
+import { KioskPage } from './pages/KioskPage'
+import { ClubSetupPage } from './pages/ClubSetupPage'
+import { ClubPlayPage } from './pages/ClubPlayPage'
+import { ClubAdminPage } from './pages/ClubAdminPage'
 import { useAutoUpdateBanner } from './hooks/useAutoUpdate'
 import { LanguageSwitcher } from './components/atoms'
 import { useI18n } from './i18n'
@@ -25,7 +28,12 @@ function AppRoutes() {
       <ReactRoutes>
         {/* Public routes */}
         <Route path={Routes.AUTH} element={<AuthPage />} />
-        <Route path={Routes.SCOREBOARD_KIOSK} element={<KioskAllCourtsPage />} />
+        <Route path={Routes.KIOSK} element={<KioskPage />} />
+
+        {/* Club Mode routes */}
+        <Route path={Routes.CLUB_SETUP} element={<ClubSetupPage />} />
+        <Route path={Routes.CLUB_ADMIN} element={<ClubAdminPage />} />
+        <Route path={Routes.CLUB_PLAY} element={<ClubPlayPage />} />
 
         {/* Protected routes (require authentication) */}
         <Route element={<PrivateRoute />}>

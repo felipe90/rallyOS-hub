@@ -5,7 +5,7 @@
 
 set -e
 
-KIOSK_URL="${1:-https://localhost:3000/scoreboard/all/kiosk}"
+KIOSK_URL="${1:-https://localhost:3000/kiosk}"
 DISPLAY="${DISPLAY:-:0}"
 
 # Wait for Docker containers to be healthy

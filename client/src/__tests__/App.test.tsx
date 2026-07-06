@@ -101,15 +101,15 @@ vi.mock('@/i18n', () => ({
 // a different CI provider with larger runners.
 // See: https://github.com/vitest-dev/vitest/issues/related-to-worker-memory
 describe.skip('App routing', () => {
-  it('renders kiosk page at /scoreboard/all/kiosk without auth', () => {
+  it('renders kiosk page at /kiosk without auth', () => {
     render(
-      <MemoryRouter initialEntries={['/scoreboard/all/kiosk']}>
+      <MemoryRouter initialEntries={['/kiosk']}>
         <App />
       </MemoryRouter>
     )
 
-    // The kiosk page should render its content — the table name from our mock
-    expect(screen.getByText('Mesa Kiosk')).toBeInTheDocument()
+    // The kiosk page should render its content
+    expect(screen.getByText('Cargando...')).toBeInTheDocument()
   })
 
   it('redirects to /auth when accessing protected root without auth', () => {
@@ -137,9 +137,9 @@ describe.skip('LanguageSwitcher visibility', () => {
     expect(screen.getByRole('button', { name: 'en-US' })).toBeInTheDocument()
   })
 
-  it('hides LanguageSwitcher on /scoreboard/all/kiosk', () => {
+  it('hides LanguageSwitcher on /kiosk', () => {
     render(
-      <MemoryRouter initialEntries={['/scoreboard/all/kiosk']}>
+      <MemoryRouter initialEntries={['/kiosk']}>
         <App />
       </MemoryRouter>
     )

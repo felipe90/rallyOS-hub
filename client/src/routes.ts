@@ -9,16 +9,25 @@ export const Routes = {
   DASHBOARD_OWNER: '/dashboard/owner',
   DASHBOARD_REFEREE: '/dashboard/referee',
   DASHBOARD_SPECTATOR: '/dashboard/spectator',
-  SCOREBOARD_KIOSK: '/scoreboard/all/kiosk',
+  KIOSK: '/kiosk',
   SCOREBOARD_REFEREE: '/scoreboard/:tableId/referee',
   SCOREBOARD_VIEW: '/scoreboard/:tableId/view',
   HISTORY: '/history',
+
+  // Club Mode routes
+  CLUB_PLAY: '/club/play/:courtId',
+  CLUB_SETUP: '/setup',
+  CLUB_ADMIN: '/club/admin',
 } as const
 
 // Type for all route values
 export type RoutePath = typeof Routes[keyof typeof Routes]
 
 // Route builder for parameterized routes
+export const buildClubPlayRoute = (courtId: string): string => {
+  return Routes.CLUB_PLAY.replace(':courtId', courtId)
+}
+
 export const buildScoreboardRoute = (
   tableId: string,
   mode: 'referee' | 'view'

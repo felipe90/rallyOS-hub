@@ -11,3 +11,6 @@ export { MatchEventHandler } from './MatchEventHandler';
 export { AuthHandler } from './AuthHandler';
 export { AdminHandler } from './AdminHandler';
 export { SpotlightHandler } from './SpotlightHandler';
+export { ClubAdminHandler } from './ClubAdminHandler';
+export { ClubCourtHandler } from './ClubCourtHandler';
+export { ClubPlayerHandler } from './ClubPlayerHandler';

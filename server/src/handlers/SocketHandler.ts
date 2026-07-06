@@ -6,12 +6,18 @@
  * - MatchEventHandler: GET_MATCH_STATE, CONFIGURE_MATCH, START_MATCH, RECORD_POINT, etc.
  * - AuthHandler: SET_REF, VERIFY_OWNER, REF_ROLE_CHECK
  * - AdminHandler: REGENERATE_PIN, GET_RATE_LIMIT_STATUS
+ * - ClubAdminHandler: CLUB_VERIFY_ADMIN, CLUB_GET_CONFIG, CLUB_SETUP
+ * - ClubCourtHandler: CLUB_CREATE_COURT, CLUB_ACTIVATE_COURT, CLUB_FORCE_END, CLUB_DELETE_COURT
+ * - ClubPlayerHandler: CLUB_JOIN
+ * - SpotlightHandler: SET_FEATURED, SUBSCRIBE_MATCH, UNSUBSCRIBE_MATCH
  * 
  * Maintains global listeners for table updates and match events.
  */
 
 import { Server, Socket } from 'socket.io';
 import { CourtManager } from '../domain/courtManager';
+import { ClubConfigStore } from '../services/store/ClubConfigStore';
+import { AdminPinService } from '../services/security/AdminPinService';
 import { TableInfo, HubConfig } from '../domain/types';
 import { logger } from '../utils/logger';
 import { RateLimiter } from '../services/security/RateLimiter';
@@ -22,6 +28,9 @@ import {
   AuthHandler, 
   AdminHandler,
   SpotlightHandler,
+  ClubAdminHandler,
+  ClubCourtHandler,
+  ClubPlayerHandler,
 } from './index';
 
 export class SocketHandler {
@@ -30,6 +39,7 @@ export class SocketHandler {
   private ownerPin: string;
   private hubConfig: HubConfig;
   private connectionRateLimiter: RateLimiter;
+  private clubConfigStore?: ClubConfigStore;
   
   // Handler instances
   private courtHandler: CourtEventHandler;
@@ -37,13 +47,26 @@ export class SocketHandler {
   private authHandler: AuthHandler;
   private adminHandler: AdminHandler;
   private spotlightHandler: SpotlightHandler;
+  private clubAdminHandler: ClubAdminHandler;
+  private clubCourtHandler: ClubCourtHandler;
+  private clubPlayerHandler: ClubPlayerHandler;
 
-  constructor(io: Server, tableManager: CourtManager, ownerPin: string, hubConfig: HubConfig) {
+  constructor(
+    io: Server,
+    tableManager: CourtManager,
+    ownerPin: string,
+    hubConfig: HubConfig,
+    clubConfigStore?: ClubConfigStore,
+  ) {
     this.io = io;
     this.tableManager = tableManager;
     this.ownerPin = ownerPin;
     this.hubConfig = hubConfig;
     this.connectionRateLimiter = new RateLimiter(60_000, 20); // 20 connections per 60s per IP
+    this.clubConfigStore = clubConfigStore;
+    
+    // Initialize services
+    const adminPinService = new AdminPinService();
     
     // Initialize handlers
     this.courtHandler = new CourtEventHandler(io, tableManager, ownerPin);
@@ -51,13 +74,21 @@ export class SocketHandler {
     this.authHandler = new AuthHandler(io, tableManager, ownerPin);
     this.adminHandler = new AdminHandler(io, tableManager, ownerPin);
     this.spotlightHandler = new SpotlightHandler(io, tableManager, ownerPin);
+    this.clubAdminHandler = new ClubAdminHandler(io, tableManager, ownerPin, clubConfigStore!, adminPinService);
+    this.clubCourtHandler = new ClubCourtHandler(io, tableManager, ownerPin);
+    this.clubPlayerHandler = new ClubPlayerHandler(io, tableManager, ownerPin, clubConfigStore!);
     
     // Set up global court update listener once
-    this.tableManager.onTableUpdate = (tableInfo) => {
+      this.tableManager.onTableUpdate = (tableInfo) => {
       // TABLE_UPDATE goes only to clients in the court's room
       this.io.to(tableInfo.id).emit(SocketEvents.SERVER.COURT_UPDATE, tableInfo);
       // TABLE_LIST goes to ALL clients (global)
       this.io.emit(SocketEvents.SERVER.COURT_LIST, this.getPublicCourtList());
+
+      // CLUB_KIOSK_DATA goes to ALL clients — club-only court data for kiosk display
+      const clubConfig = this.clubConfigStore?.load() ?? null;
+      const kioskPayload = this.tableManager.getClubKioskPayload(clubConfig);
+      this.io.emit(SocketEvents.SERVER.CLUB_KIOSK_DATA, kioskPayload);
     };
 
     // On tournament finish, broadcast empty table list to all clients
@@ -148,6 +179,9 @@ export class SocketHandler {
       this.authHandler.registerHandlers(socket);
       this.adminHandler.registerHandlers(socket);
       this.spotlightHandler.registerHandlers(socket);
+      this.clubAdminHandler.registerHandlers(socket);
+      this.clubCourtHandler.registerHandlers(socket);
+      this.clubPlayerHandler.registerHandlers(socket);
 
       // Handle disconnection
       socket.on('disconnect', (reason) => {

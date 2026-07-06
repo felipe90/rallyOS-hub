@@ -268,4 +268,29 @@ describe('TableStatusChip', () => {
       expect(screen.queryByRole('button', { name: /Destacar|Quitar Destacado/i })).not.toBeInTheDocument();
     });
   });
+
+  describe('Club mode statuses', () => {
+    it('does not crash with RESERVED status (club mode)', () => {
+      expect(() => {
+        render(<TableStatusChip tableNumber={1} tableName="Club Court" status={'RESERVED' as any} />);
+      }).not.toThrow();
+    });
+
+    it('does not crash with AVAILABLE status (club mode)', () => {
+      expect(() => {
+        render(<TableStatusChip tableNumber={1} tableName="Club Court" status={'AVAILABLE' as any} />);
+      }).not.toThrow();
+    });
+
+    it('does not crash with OCCUPIED status (club mode)', () => {
+      expect(() => {
+        render(<TableStatusChip tableNumber={1} tableName="Club Court" status={'OCCUPIED' as any} />);
+      }).not.toThrow();
+    });
+
+    it('renders fallback status text for unknown statuses', () => {
+      render(<TableStatusChip tableNumber={1} tableName="Test" status={'RESERVED' as any} />);
+      expect(screen.getByText('RESERVED')).toBeInTheDocument();
+    });
+  });
 });

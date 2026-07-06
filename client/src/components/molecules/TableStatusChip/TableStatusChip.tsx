@@ -34,14 +34,14 @@ export interface TableStatusChipProps {
   onToggleFeatured?: () => void;
 }
 
-const statusBadge: Record<TableStatus, typeof WaitingBadge> = {
+const statusBadge: Record<string, typeof WaitingBadge | undefined> = {
   WAITING: WaitingBadge,
   CONFIGURING: ConfiguringBadge,
   LIVE: LiveBadge,
   FINISHED: FinishedBadge,
 };
 
-const statusBadgeLabelKeys: Record<TableStatus, string> = {
+const statusBadgeLabelKeys: Record<string, string> = {
   WAITING: 'courtStatusWaiting',
   CONFIGURING: 'courtStatusConfiguring',
   LIVE: 'courtStatusLive',
@@ -71,7 +71,7 @@ export function TableStatusChip({
 }: TableStatusChipProps) {
   const { i18nText } = useI18n();
   const StatusBadgeComponent = statusBadge[status];
-  const resolvedLabel = statusLabel || i18nText(statusBadgeLabelKeys[status]);
+  const resolvedLabel = statusLabel || (statusBadgeLabelKeys[status] ? i18nText(statusBadgeLabelKeys[status]) : status);
 
   // Keep last known PIN to prevent flicker during updates
   const [lastKnownPin, setLastKnownPin] = useState(pin);
@@ -99,7 +99,11 @@ export function TableStatusChip({
     >
       <div className="flex items-center justify-between">
         <Body className="font-medium text-text-h">Cancha {tableNumber}</Body>
-        <StatusBadgeComponent label={resolvedLabel} />
+        {StatusBadgeComponent ? (
+          <StatusBadgeComponent label={resolvedLabel} />
+        ) : (
+          <Body className="text-xs text-muted-foreground">{resolvedLabel}</Body>
+        )}
       </div>
       
       <Body className="text-sm text-text/70">{tableName}</Body>

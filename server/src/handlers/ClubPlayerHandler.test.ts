@@ -438,3 +438,243 @@ describe('ClubPlayerHandler — CLUB_RECONNECT', () => {
     expect(revokedCall).toBeDefined();
   });
 });
+
+// ═══════════════════════════════════════════════════════════════
+// CLUB_END_SESSION Tests
+// ═══════════════════════════════════════════════════════════════
+
+describe('ClubPlayerHandler — CLUB_END_SESSION', () => {
+  let socket: jest.Mocked<Socket>;
+  let courtId: string;
+  let courtPin: string;
+
+  beforeEach(() => {
+    mockIo = createMockIo();
+    courtManager = new CourtManager({ ssid: 'test', ip: '127.0.0.1', port: 3000, domain: 'test.local', wifiPassword: 'test' });
+    const fakeFs = createFakeFs();
+    // Seed club config with costPerMinute for cost calc tests
+    fakeFs._files.set(
+      'data/club-config.json',
+      JSON.stringify({
+        clubName: 'Test Club',
+        sport: SPORT.PADEL,
+        adminPin: OWNER_PIN,
+        adminPinHash: 'dummy-hash',
+        configured: true,
+        createdAt: Date.now(),
+        costPerMinute: 50,
+        currency: 'ARS',
+      }),
+    );
+    clubConfigStore = new ClubConfigStore(fakeFs);
+    handler = new ClubPlayerHandler(mockIo, courtManager, OWNER_PIN, clubConfigStore);
+
+    socket = createMockSocket('end-session-socket');
+    handler.registerHandlers(socket);
+
+    // Set up an OCCUPIED club court and register the socket as referee
+    const court = courtManager.createClubCourt('End Session Court');
+    courtId = court.id;
+    const activated = courtManager.activateCourt(courtId);
+    courtPin = activated!.pin;
+
+    // Occupy the court (simulates player joining via PIN)
+    courtManager.occupyClubCourt(courtId, SPORT.PADEL);
+    // Register socket as referee (simulates the join flow)
+    courtManager.registerClubReferee(courtId, socket.id);
+  });
+
+  it('should register CLUB_END_SESSION handler', () => {
+    expect(socket.on).toHaveBeenCalledWith(
+      SocketEvents.CLIENT.CLUB_END_SESSION,
+      expect.any(Function),
+    );
+  });
+
+  it('should end session for referee on OCCUPIED court', () => {
+    const endSessionHandler = (socket.on as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_END_SESSION,
+    );
+    endSessionHandler[1]({ courtId });
+
+    // Court should be FINISHED
+    const court = courtManager.getCourt(courtId);
+    expect(court).not.toBeNull();
+    expect(court!.clubStatus).toBe('FINISHED');
+    expect(court!.pin).toBe('');
+  });
+
+  it('should broadcast CLUB_SESSION_ENDED via onClubSessionEnd callback', () => {
+    const endSessionHandler = (socket.on as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_END_SESSION,
+    );
+    endSessionHandler[1]({ courtId });
+
+    // The callback should have broadcast CLUB_SESSION_ENDED to the room
+    expect(mockIo.to).toHaveBeenCalledWith(courtId);
+    const toCall = (mockIo.to as jest.Mock).mock.calls.find(
+      ([id]: [string]) => id === courtId,
+    );
+    expect(toCall).toBeDefined();
+  });
+
+  it('should emit ERROR when court is not OCCUPIED', () => {
+    // End the session first
+    const endSessionHandler = (socket.on as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_END_SESSION,
+    );
+    endSessionHandler[1]({ courtId });
+
+    // Try to end again — should fail
+    (socket.emit as jest.Mock).mockClear();
+    endSessionHandler[1]({ courtId });
+
+    expect(socket.emit).toHaveBeenCalledWith(
+      SocketEvents.SERVER.ERROR,
+      expect.objectContaining({ code: 'SESSION_NOT_ACTIVE' }),
+    );
+  });
+
+  it('should emit ERROR when socket is not referee', () => {
+    const nonRefSocket = createMockSocket('non-ref-socket');
+    handler.registerHandlers(nonRefSocket);
+
+    const endSessionHandler = (nonRefSocket.on as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_END_SESSION,
+    );
+    endSessionHandler[1]({ courtId });
+
+    expect(nonRefSocket.emit).toHaveBeenCalledWith(
+      SocketEvents.SERVER.ERROR,
+      expect.objectContaining({ code: 'UNAUTHORIZED' }),
+    );
+  });
+
+  it('should emit ERROR for invalid params (missing courtId)', () => {
+    const endSessionHandler = (socket.on as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_END_SESSION,
+    );
+    endSessionHandler[1]({});
+
+    expect(socket.emit).toHaveBeenCalledWith(
+      SocketEvents.SERVER.ERROR,
+      expect.objectContaining({ code: 'INVALID_PARAMS' }),
+    );
+  });
+
+  it('should calculate cost correctly via onClubSessionEnd callback', () => {
+    // costPerMinute=50, elapsedMinutes≥1, so cost ≥ 50
+    const endSessionHandler = (socket.on as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_END_SESSION,
+    );
+    endSessionHandler[1]({ courtId });
+
+    // Verify the broadcast payload via the callback
+    const emitCalls = (mockIo.to as jest.Mock).mock.results;
+    expect(emitCalls.length).toBeGreaterThan(0);
+
+    // Find the CLUB_SESSION_ENDED emit on the court room
+    const emitMock = mockIo.to(courtId);
+    expect(emitMock.emit).toHaveBeenCalledWith(
+      SocketEvents.SERVER.CLUB_SESSION_ENDED,
+      expect.objectContaining({
+        courtId,
+        elapsedMinutes: expect.any(Number),
+        cost: expect.any(Number),
+        currency: 'ARS',
+        reason: 'player',
+      }),
+    );
+
+    // Verify cost calculation: cost ≥ 50 since elapsedMinutes ≥ 1 and costPerMinute=50
+    const sessionEndedCall = emitMock.emit.mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.SERVER.CLUB_SESSION_ENDED,
+    );
+    const payload = sessionEndedCall![1];
+    expect(payload.cost).toBeGreaterThanOrEqual(50);
+    expect(payload.reason).toBe('player');
+  });
+
+  it('should handle costPerMinute=0 gracefully (free session)', () => {
+    // Create a handler with costPerMinute=0
+    const freeFs = createFakeFs();
+    freeFs._files.set(
+      'data/club-config.json',
+      JSON.stringify({
+        clubName: 'Free Club',
+        sport: SPORT.PADEL,
+        adminPin: OWNER_PIN,
+        adminPinHash: 'dummy-hash',
+        configured: true,
+        createdAt: Date.now(),
+        costPerMinute: 0,
+        currency: 'ARS',
+      }),
+    );
+    const freeStore = new ClubConfigStore(freeFs);
+    const freeHandler = new ClubPlayerHandler(mockIo, courtManager, OWNER_PIN, freeStore);
+
+    const freeSocket = createMockSocket('free-socket', { isClubAdmin: false });
+    freeHandler.registerHandlers(freeSocket);
+
+    // Set up court and referee
+    const freeCourt = courtManager.createClubCourt('Free Court');
+    const freeCourtId = freeCourt.id;
+    courtManager.activateCourt(freeCourtId);
+    courtManager.occupyClubCourt(freeCourtId, SPORT.PADEL);
+    courtManager.registerClubReferee(freeCourtId, freeSocket.id);
+
+    const endHandler = (freeSocket.on as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_END_SESSION,
+    );
+    endHandler[1]({ courtId: freeCourtId });
+
+    // Verify cost is 0
+    const emitMock = mockIo.to(freeCourtId);
+    const emitCall = emitMock.emit.mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.SERVER.CLUB_SESSION_ENDED,
+    );
+    const payload = emitCall![1];
+    expect(payload.cost).toBe(0);
+  });
+
+  it('should handle custom currency in broadcast', () => {
+    const usdFs = createFakeFs();
+    usdFs._files.set(
+      'data/club-config.json',
+      JSON.stringify({
+        clubName: 'USD Club',
+        sport: SPORT.PADEL,
+        adminPin: OWNER_PIN,
+        adminPinHash: 'dummy-hash',
+        configured: true,
+        createdAt: Date.now(),
+        costPerMinute: 100,
+        currency: 'USD',
+      }),
+    );
+    const usdStore = new ClubConfigStore(usdFs);
+    const usdHandler = new ClubPlayerHandler(mockIo, courtManager, OWNER_PIN, usdStore);
+
+    const usdSocket = createMockSocket('usd-socket', { isClubAdmin: false });
+    usdHandler.registerHandlers(usdSocket);
+
+    const usdCourt = courtManager.createClubCourt('USD Court');
+    const usdCourtId = usdCourt.id;
+    courtManager.activateCourt(usdCourtId);
+    courtManager.occupyClubCourt(usdCourtId, SPORT.PADEL);
+    courtManager.registerClubReferee(usdCourtId, usdSocket.id);
+
+    const endHandler = (usdSocket.on as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_END_SESSION,
+    );
+    endHandler[1]({ courtId: usdCourtId });
+
+    const emitMock = mockIo.to(usdCourtId);
+    const emitCall = emitMock.emit.mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.SERVER.CLUB_SESSION_ENDED,
+    );
+    const payload = emitCall![1];
+    expect(payload.currency).toBe('USD');
+  });
+});

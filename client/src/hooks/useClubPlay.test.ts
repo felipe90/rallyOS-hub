@@ -368,4 +368,84 @@ describe('useClubPlay', () => {
       expect(reconnectCalls).toHaveLength(1)
     })
   })
+
+  describe('sessionEnded', () => {
+    it('should set sessionEnded data on CLUB_SESSION_ENDED for the correct courtId', () => {
+      const { socket, trigger } = createMockSocket()
+
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      trigger(SocketEvents.SERVER.CLUB_SESSION_ENDED, {
+        courtId: MOCK_COURT_ID,
+        elapsedMinutes: 15,
+        cost: 750,
+        currency: 'ARS',
+        reason: 'player',
+      })
+
+      expect(result.current.sessionEnded).not.toBeNull()
+      expect(result.current.sessionEnded!.elapsedMinutes).toBe(15)
+      expect(result.current.sessionEnded!.cost).toBe(750)
+      expect(result.current.sessionEnded!.currency).toBe('ARS')
+      expect(result.current.sessionEnded!.reason).toBe('player')
+    })
+
+    it('should NOT set sessionEnded for a different courtId', () => {
+      const { socket, trigger } = createMockSocket()
+
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      trigger(SocketEvents.SERVER.CLUB_SESSION_ENDED, {
+        courtId: 'other-court',
+        elapsedMinutes: 10,
+        cost: 500,
+        currency: 'ARS',
+        reason: 'auto',
+      })
+
+      expect(result.current.sessionEnded).toBeNull()
+    })
+
+    it('should set sessionEnded with cost=0 for free sessions', () => {
+      const { socket, trigger } = createMockSocket()
+
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      trigger(SocketEvents.SERVER.CLUB_SESSION_ENDED, {
+        courtId: MOCK_COURT_ID,
+        elapsedMinutes: 5,
+        cost: 0,
+        currency: 'ARS',
+        reason: 'force',
+      })
+
+      expect(result.current.sessionEnded).not.toBeNull()
+      expect(result.current.sessionEnded!.cost).toBe(0)
+      expect(result.current.sessionEnded!.reason).toBe('force')
+    })
+  })
+
+  describe('endSession', () => {
+    it('should emit CLUB_END_SESSION with courtId', () => {
+      const { socket } = createMockSocket()
+
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      act(() => result.current.endSession())
+
+      expect(socket.emit).toHaveBeenCalledWith(SocketEvents.CLIENT.CLUB_END_SESSION, {
+        courtId: MOCK_COURT_ID,
+      })
+    })
+
+    it('should not emit when not connected', () => {
+      const { socket } = createMockSocket()
+
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, false))
+
+      act(() => result.current.endSession())
+
+      expect(socket.emit).not.toHaveBeenCalled()
+    })
+  })
 })

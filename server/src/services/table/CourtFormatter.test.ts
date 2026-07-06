@@ -40,8 +40,9 @@ function createMockCourt(overrides: Partial<Court> = {}): Court {
     players: [],
     createdAt: Date.now(),
     featured: false,
+    occupiedAt: null,
     ...overrides,
-  };
+  } as any;
 }
 
 describe('CourtFormatter', () => {

@@ -282,6 +282,10 @@ export interface ClubConfig {
   adminPin: string;
   /** Timestamp when the club was first configured */
   createdAt: number;
+  /** Cost per minute in the club's currency — 0 means free */
+  costPerMinute?: number;
+  /** Currency code for pricing display (e.g. ARS, USD) */
+  currency?: string;
 }
 
 /** Club court info exposed to admin clients */

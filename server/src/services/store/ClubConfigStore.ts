@@ -77,6 +77,8 @@ export class ClubConfigStore {
         adminPinHash: parsed.adminPinHash || '',
         adminPin: parsed.adminPin || '',
         createdAt: parsed.createdAt || Date.now(),
+        costPerMinute: typeof parsed.costPerMinute === 'number' ? parsed.costPerMinute : 0,
+        currency: typeof parsed.currency === 'string' ? parsed.currency : 'ARS',
       };
     } catch {
       return null;

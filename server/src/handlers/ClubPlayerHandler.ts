@@ -132,6 +132,22 @@ export class ClubPlayerHandler extends SocketHandlerBase {
    * Register all club player event handlers
    */
   public registerHandlers(socket: Socket): void {
+    // Wire onClubSessionEnd callback to calculate cost and broadcast to the room
+    this.tableManager.onClubSessionEnd = (courtId: string, elapsedMinutes: number, reason: string) => {
+      const clubConfig = this.clubConfigStore.load();
+      const costPerMinute = clubConfig?.costPerMinute ?? 0;
+      const currency = clubConfig?.currency ?? 'ARS';
+      const cost = Math.ceil(elapsedMinutes * costPerMinute);
+
+      this.io.to(courtId).emit(SocketEvents.SERVER.CLUB_SESSION_ENDED, {
+        courtId,
+        elapsedMinutes,
+        cost,
+        currency,
+        reason,
+      });
+    };
+
     // CLUB_JOIN: Player attempts to join a club court using a 4-digit PIN
     socket.on(SocketEvents.CLIENT.CLUB_JOIN, (data: { pin: string }) => {
       if (!validateSocketPayload(socket, data, {
@@ -278,6 +294,45 @@ export class ClubPlayerHandler extends SocketHandlerBase {
       logger.info(
         { courtId: court.id, socketId: socket.id },
         'CLUB_RECONNECT: bridge ownership re-established',
+      );
+    });
+
+    // CLUB_END_SESSION: Player-initiated session end
+    socket.on(SocketEvents.CLIENT.CLUB_END_SESSION, (data: { courtId: string }) => {
+      if (!data || typeof data.courtId !== 'string' || !data.courtId.trim()) {
+        socket.emit(SocketEvents.SERVER.ERROR, {
+          code: 'INVALID_PARAMS',
+          message: 'Se requiere courtId',
+        });
+        return;
+      }
+
+      // Validate socket is referee for this court
+      if (!this.validateReferee(socket, data.courtId)) return;
+
+      // Validate court exists and is OCCUPIED
+      const court = this.tableManager.getCourt(data.courtId);
+      if (!court || court.mode !== 'club' || court.clubStatus !== 'OCCUPIED') {
+        socket.emit(SocketEvents.SERVER.ERROR, {
+          code: 'SESSION_NOT_ACTIVE',
+          message: 'La sesión no está activa',
+        });
+        return;
+      }
+
+      // End the session — the onClubSessionEnd callback handles the broadcast
+      const result = this.tableManager.endSession(data.courtId, 'player');
+      if (!result) {
+        socket.emit(SocketEvents.SERVER.ERROR, {
+          code: 'END_SESSION_FAILED',
+          message: 'No se pudo finalizar la sesión',
+        });
+        return;
+      }
+
+      logger.info(
+        { courtId: data.courtId, elapsedMinutes: result.elapsedMinutes, reason: 'player' },
+        'CLUB_END_SESSION: player ended session',
       );
     });
   }

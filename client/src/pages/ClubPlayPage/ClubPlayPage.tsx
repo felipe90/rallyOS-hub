@@ -46,13 +46,19 @@ function LoadingView() {
   )
 }
 
-/** Finished state — final score + "Volver al inicio" button */
+/** Finished state — final score + session info + actions */
 function FinishedView({
   matchState,
+  sessionEnded,
+  onEndSession,
   onBack,
+  endingSession,
 }: {
   matchState: MatchStateExtended | null
+  sessionEnded: { elapsedMinutes: number; cost: number; currency: string; reason: string } | null
+  onEndSession: () => void
   onBack: () => void
+  endingSession: boolean
 }) {
   const { i18nText } = useI18n()
   const nameA = matchState?.playerNames?.a || i18nText('clubPlayScoreA')
@@ -63,11 +69,37 @@ function FinishedView({
 
   return (
     <div className="flex flex-col items-center justify-center min-h-dvh bg-surface gap-6 p-4">
-      <Typography variant="title">{i18nText('clubPlayFinished')}</Typography>
+      <Typography variant="title">
+        {sessionEnded ? i18nText('clubPlaySessionEnded') : i18nText('clubPlayFinished')}
+      </Typography>
       <Typography variant="headline" className="text-primary text-center">
         {nameA} {scoreA} — {scoreB} {nameB}
       </Typography>
-      <Button variant="primary" size="lg" onClick={onBack} animate={false}>
+
+      {sessionEnded && (
+        <div className="flex flex-col items-center gap-2 text-center">
+          <Typography variant="body" className="text-muted-foreground">
+            {i18nText('clubPlayElapsedTime', { minutes: String(sessionEnded.elapsedMinutes) })}
+          </Typography>
+          <Typography variant="body" className="font-semibold">
+            {i18nText('clubPlayTotalCost', { cost: String(sessionEnded.cost), currency: sessionEnded.currency })}
+          </Typography>
+        </div>
+      )}
+
+      {!sessionEnded && (
+        <Button
+          variant="primary"
+          size="lg"
+          onClick={onEndSession}
+          animate={false}
+          disabled={endingSession}
+        >
+          {endingSession ? i18nText('clubPlayLoading') : i18nText('clubPlayEndSession')}
+        </Button>
+      )}
+
+      <Button variant="ghost" size="lg" onClick={onBack} animate={false}>
         {i18nText('clubPlayGoHome')}
       </Button>
     </div>
@@ -82,11 +114,14 @@ export function ClubPlayPage() {
   const { isLandscape, toggle: toggleOrientation } = useOrientation()
   const {
     matchState, loading, error, finished, reconnecting, refereeReplaced,
-    scorePoint, subtractPoint, undoLast, swapSides, startMatch,
+    sessionEnded, scorePoint, subtractPoint, undoLast, swapSides, startMatch, endSession,
   } = useClubPlay(socket, courtId ?? '', connected)
 
   // History drawer
   const [historyOpen, setHistoryOpen] = useState(false)
+
+  // End session loading state
+  const [endingSession, setEndingSession] = useState(false)
 
   // Track whether we should show the name prompt.
   // The prompt is shown when match is WAITING (not yet started).
@@ -191,7 +226,18 @@ export function ClubPlayPage() {
 
   // Finished state
   if (finished || matchState.status === 'FINISHED') {
-    return <FinishedView matchState={matchState} onBack={handleBackToHome} />
+    return (
+      <FinishedView
+        matchState={matchState}
+        sessionEnded={sessionEnded}
+        onEndSession={() => {
+          setEndingSession(true)
+          endSession()
+        }}
+        onBack={handleBackToHome}
+        endingSession={endingSession}
+      />
+    )
   }
 
   // Playing state — full scoreboard experience

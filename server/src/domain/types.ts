@@ -119,6 +119,8 @@ export interface Court {
   mode?: CourtMode;
   /** Club-specific status — only used when mode === 'club' */
   clubStatus?: ClubStatus;
+  /** Epoch ms when the court was first occupied (set on RESERVED→OCCUPIED transition) */
+  occupiedAt: number | null;
   // Event callbacks — internal wiring, never exposed to client
   onTableUpdate?: () => void;
   onMatchEvent?: (event: MatchEvent) => void;

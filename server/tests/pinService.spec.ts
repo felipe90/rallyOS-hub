@@ -19,6 +19,7 @@ function createMockTable(pin: string): Table {
     players: [],
     createdAt: Date.now(),
     featured: false,
+    occupiedAt: null,
   };
 }
 

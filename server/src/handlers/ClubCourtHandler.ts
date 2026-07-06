@@ -95,11 +95,8 @@ export class ClubCourtHandler extends SocketHandlerBase {
         return this.emitError(socket, 'FORCE_END_FAILED', 'No se pudo finalizar la sesión. La cancha debe estar en estado OCCUPIED.');
       }
 
-      socket.emit(SocketEvents.SERVER.CLUB_SESSION_ENDED, {
-        courtId: ended.id,
-        status: ended.clubStatus,
-        reason: 'force',
-      });
+      // Broadcast is handled automatically by onClubSessionEnd callback
+      // (calculates cost, broadcasts CLUB_SESSION_ENDED to the room)
 
       logger.info({ courtId: data.courtId }, 'Club court session force-ended');
     });

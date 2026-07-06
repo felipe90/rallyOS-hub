@@ -19,6 +19,7 @@ export function useClubPlay(socket: Socket | null, courtId: string, connected: b
   const [finished, setFinished] = useState(false)
   const [reconnecting, setReconnecting] = useState(false)
   const [refereeReplaced, setRefereeReplaced] = useState(false)
+  const [sessionEnded, setSessionEnded] = useState<{ elapsedMinutes: number; cost: number; currency: string; reason: string } | null>(null)
   const reconnectAttempted = useRef(false)
 
   // Listen for MATCH_UPDATE events for this court
@@ -87,6 +88,28 @@ export function useClubPlay(socket: Socket | null, courtId: string, connected: b
     }
   }, [socket, courtId])
 
+  // Listen for CLUB_SESSION_ENDED
+  useEffect(() => {
+    if (!socket) return
+
+    const handleSessionEnded = (data: { courtId: string; elapsedMinutes: number; cost: number; currency: string; reason: string }) => {
+      if (data.courtId === courtId) {
+        setSessionEnded({
+          elapsedMinutes: data.elapsedMinutes,
+          cost: data.cost,
+          currency: data.currency,
+          reason: data.reason,
+        })
+      }
+    }
+
+    socket.on(SocketEvents.SERVER.CLUB_SESSION_ENDED, handleSessionEnded)
+
+    return () => {
+      socket.off(SocketEvents.SERVER.CLUB_SESSION_ENDED, handleSessionEnded)
+    }
+  }, [socket, courtId])
+
   // Request initial match state on mount
   useEffect(() => {
     if (!socket || !connected || !courtId) return
@@ -131,6 +154,15 @@ export function useClubPlay(socket: Socket | null, courtId: string, connected: b
     [socket, connected, courtId],
   )
 
+  // End session emit function
+  const endSession = useCallback(
+    () => {
+      if (!socket || !connected) return
+      socket.emit(SocketEvents.CLIENT.CLUB_END_SESSION, { courtId })
+    },
+    [socket, connected, courtId],
+  )
+
   // Start match with player names
   const startMatch = useCallback(
     (nameA: string, nameB: string) => {
@@ -145,5 +177,5 @@ export function useClubPlay(socket: Socket | null, courtId: string, connected: b
     [socket, connected, courtId],
   )
 
-  return { matchState, loading, error, finished, reconnecting, refereeReplaced, scorePoint, subtractPoint, undoLast, swapSides, startMatch }
+  return { matchState, loading, error, finished, reconnecting, refereeReplaced, sessionEnded, scorePoint, subtractPoint, undoLast, swapSides, startMatch, endSession }
 }

@@ -38,6 +38,7 @@ export class CourtManager {
   public onTableUpdate: (table: TableInfo) => void = () => {};
   public onTournamentFinish: () => void = () => {};
   public onMatchEvent: (courtId: string, event: any) => void = () => {};
+  public onClubSessionEnd: (courtId: string, elapsedMinutes: number, reason: string) => void = () => {};
 
   constructor(hubConfig: HubConfig, stateStore?: StateStore) {
     this.repository = new CourtRepository();
@@ -69,6 +70,7 @@ export class CourtManager {
       players: [],
       createdAt: Date.now(),
       featured: false,
+      occupiedAt: null,
     };
 
     court.sportRules.setCourtId(id, courtName);
@@ -127,6 +129,7 @@ export class CourtManager {
       featured: false,
       mode: COURT_MODE.CLUB,
       clubStatus: CLUB_STATUS.AVAILABLE,
+      occupiedAt: null,
     };
 
     court.sportRules.setCourtId(id, courtName);
@@ -257,6 +260,7 @@ export class CourtManager {
 
     // Transition RESERVED → OCCUPIED
     court.clubStatus = CLUB_STATUS.OCCUPIED;
+    court.occupiedAt = Date.now();
 
     // Set default player names
     court.playerNames = { a: 'Jugador 1', b: 'Jugador 2' };
@@ -304,22 +308,39 @@ export class CourtManager {
   }
 
   /**
-   * Force-end a club court session: transitions OCCUPIED → FINISHED,
-   * invalidates the session PIN by clearing it.
+   * End a club court session: validates OCCUPIED state, transitions to FINISHED,
+   * clears PIN, computes elapsed minutes, fires onClubSessionEnd callback.
+   *
+   * @returns { elapsedMinutes } on success, null on failure.
    */
-  forceEndSession(courtId: string): Court | null {
+  endSession(courtId: string, reason: string): { elapsedMinutes: number } | null {
     const court = this.repository.get(courtId);
     if (!court) return null;
     if (court.mode !== COURT_MODE.CLUB) return null;
     if (court.clubStatus !== CLUB_STATUS.OCCUPIED) return null;
 
+    const now = Date.now();
+    const elapsedMs = court.occupiedAt ? now - court.occupiedAt : 0;
+    const elapsedMinutes = Math.max(1, Math.ceil(elapsedMs / 60000));
+
     court.clubStatus = CLUB_STATUS.FINISHED;
     court.pin = '';
 
-    logger.info({ courtId, courtName: court.name }, 'Club court session force-ended');
+    logger.info({ courtId, courtName: court.name, reason, elapsedMinutes }, 'Club court session ended');
     this.notifyUpdate(court);
+    this.onClubSessionEnd(courtId, elapsedMinutes, reason);
 
-    return court;
+    return { elapsedMinutes };
+  }
+
+  /**
+   * Force-end a club court session: delegates to endSession('force').
+   * Keeps backward-compatible return (Court | null) by looking up the court.
+   */
+  forceEndSession(courtId: string): Court | null {
+    const result = this.endSession(courtId, 'force');
+    if (!result) return null;
+    return this.repository.get(courtId) ?? null;
   }
 
   finishTournament(): void {
@@ -434,6 +455,12 @@ export class CourtManager {
     if (state) {
       this.notifyUpdate(court);
     }
+
+    // Auto-finish: if the match just ended on a club OCCUPIED court, end the session
+    if (court.status === 'FINISHED' && court.mode === COURT_MODE.CLUB && court.clubStatus === CLUB_STATUS.OCCUPIED) {
+      this.endSession(courtId, 'auto');
+    }
+
     return state;
   }
 
@@ -635,6 +662,7 @@ export class CourtManager {
       createdAt: court.createdAt,
       mode: court.mode,
       clubStatus: court.clubStatus,
+      occupiedAt: court.occupiedAt ?? undefined,
       matchState: {
         config: { ...state.config },
         score: isPadel
@@ -719,6 +747,7 @@ export class CourtManager {
           featured: false,
           mode: pt.mode as CourtMode | undefined,
           clubStatus: pt.clubStatus as ClubStatus | undefined,
+          occupiedAt: pt.occupiedAt ?? null,
         };
 
         // Wire callbacks so Socket.io events work after restoration

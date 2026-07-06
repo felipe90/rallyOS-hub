@@ -41,6 +41,8 @@ export interface PersistedCourt {
   matchState: PersistedMatchState;
   mode?: string;
   clubStatus?: string;
+  /** Epoch ms when the court was first occupied — used after server restart to recalculate elapsed time */
+  occupiedAt?: number;
 }
 /** @deprecated Use PersistedCourt instead */
 export type PersistedTable = PersistedCourt;

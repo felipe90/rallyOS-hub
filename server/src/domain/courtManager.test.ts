@@ -768,5 +768,176 @@ describe('CourtManager with StateStore', () => {
       expect(result).not.toBeNull();
       expect(result!.court.playerNames).toEqual({ a: 'Jugador 1', b: 'Jugador 2' });
     });
+
+    it('should set occupiedAt on first occupy (RESERVED → OCCUPIED)', () => {
+      const court = manager.createClubCourt('OccupiedAt Test');
+      manager.activateCourt(court.id);
+
+      const before = Date.now();
+      const result = manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+      const after = Date.now();
+
+      expect(result).not.toBeNull();
+      expect(result!.court.occupiedAt).not.toBeNull();
+      expect(result!.court.occupiedAt!).toBeGreaterThanOrEqual(before);
+      expect(result!.court.occupiedAt!).toBeLessThanOrEqual(after);
+    });
+
+    it('should preserve occupiedAt on reconnection (already OCCUPIED)', () => {
+      const court = manager.createClubCourt('Reconnect OccTest');
+      manager.activateCourt(court.id);
+
+      const result1 = manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+      expect(result1).not.toBeNull();
+      const originalOccupiedAt = result1!.court.occupiedAt;
+
+      // Brief delay to ensure timestamps would differ if reset
+      const result2 = manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+      expect(result2).not.toBeNull();
+      expect(result2!.court.occupiedAt).toBe(originalOccupiedAt);
+    });
+  });
+
+  describe('club courts — endSession', () => {
+    let manager: CourtManager;
+
+    beforeEach(() => {
+      manager = new CourtManager(mockHubConfig, stateStore);
+    });
+
+    it('should return null for non-existent court', () => {
+      const result = manager.endSession('non-existent', 'test');
+      expect(result).toBeNull();
+    });
+
+    it('should return null for non-club court', () => {
+      const court = manager.createCourt('Tournament');
+      const result = manager.endSession(court.id, 'test');
+      expect(result).toBeNull();
+    });
+
+    it('should return null when clubStatus is not OCCUPIED (AVAILABLE)', () => {
+      const court = manager.createClubCourt('Avail Court');
+      const result = manager.endSession(court.id, 'test');
+      expect(result).toBeNull();
+    });
+
+    it('should return null when clubStatus is FINISHED', () => {
+      const court = manager.createClubCourt('Fin Court');
+      manager.activateCourt(court.id);
+      manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+      manager.forceEndSession(court.id);
+      const result = manager.endSession(court.id, 'test');
+      expect(result).toBeNull();
+    });
+
+    it('should transition OCCUPIED → FINISHED, clear pin, and return elapsedMinutes', () => {
+      const court = manager.createClubCourt('End Test');
+      manager.activateCourt(court.id);
+      const occ = manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+      expect(occ).not.toBeNull();
+      expect(occ!.court.pin).toBeTruthy();
+
+      const result = manager.endSession(court.id, 'player');
+      expect(result).not.toBeNull();
+      expect(result!.elapsedMinutes).toBeGreaterThanOrEqual(1);
+
+      const updatedCourt = manager.getCourt(court.id);
+      expect(updatedCourt).not.toBeNull();
+      expect(updatedCourt!.clubStatus).toBe('FINISHED');
+      expect(updatedCourt!.pin).toBe('');
+    });
+
+    it('should fire onClubSessionEnd callback with correct params', () => {
+      const court = manager.createClubCourt('Callback Test');
+      manager.activateCourt(court.id);
+      manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+
+      const callback = jest.fn();
+      manager.onClubSessionEnd = callback;
+
+      manager.endSession(court.id, 'force');
+
+      expect(callback).toHaveBeenCalledTimes(1);
+      expect(callback).toHaveBeenCalledWith(court.id, expect.any(Number), 'force');
+      const elapsedMinutes = callback.mock.calls[0][1];
+      expect(elapsedMinutes).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should compute elapsedMinutes = 1 even when occupiedAt is very recent (min 1)', () => {
+      const court = manager.createClubCourt('Min Time');
+      manager.activateCourt(court.id);
+      manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+
+      // Immediately end session — occupiedAt is now, so elapsed would be 0ms
+      // endSession should return minimum of 1
+      const result = manager.endSession(court.id, 'test');
+      expect(result).not.toBeNull();
+      expect(result!.elapsedMinutes).toBe(1);
+    });
+  });
+
+  describe('club courts — auto-finish in recordPoint', () => {
+    it('should auto-end session when match finishes on OCCUPIED club court', () => {
+      const manager = new CourtManager(mockHubConfig, stateStore);
+      const court = manager.createClubCourt('AutoFinish Court');
+      manager.activateCourt(court.id);
+      manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+
+      // Spy on endSession via onClubSessionEnd callback
+      const callback = jest.fn();
+      manager.onClubSessionEnd = callback;
+
+      // Record a point to get a match going, no need to fully finish a match
+      // Since Table Tennis bestOf=1, we need to reach 11 points with 2 difference
+      // Actually let's just verify the auto-finish hook by checking that endSession
+      // gets called when the match ends.
+      // For a single-point scenario, we just score many points to win (11-0):
+      for (let i = 0; i < 11; i++) {
+        manager.recordPoint(court.id, 'A');
+      }
+
+      // The match should be finished and auto-endSession should fire
+      const matchState = manager.getMatchState(court.id);
+      expect(matchState).not.toBeNull();
+      expect(matchState!.status).toBe('FINISHED');
+
+      // The callback should have fired (endSession called for 'auto')
+      expect(callback).toHaveBeenCalled();
+
+      // The court should be FINISHED
+      const updatedCourt = manager.getCourt(court.id);
+      expect(updatedCourt!.clubStatus).toBe('FINISHED');
+    });
+  });
+
+  describe('club courts — occupiedAt round-trip', () => {
+    it('should persist occupiedAt in toPersistedCourt and restore in loadTournament', () => {
+      const fs = makeFs();
+      const store = new StateStore(fs, 'data/rallyos-state.json');
+      const manager = new CourtManager(mockHubConfig, store);
+
+      const court = manager.createClubCourt('Roundtrip Court');
+      manager.activateCourt(court.id);
+      manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+
+      // Get the persisted version
+      const savedContent = fs._files.get('data/rallyos-state.json');
+      expect(savedContent).toBeDefined();
+      const parsed = JSON.parse(savedContent!);
+      const persisted = parsed.tables.find((t: any) => t.id === court.id);
+      expect(persisted).toBeDefined();
+      expect(persisted.occupiedAt).toBeDefined();
+      expect(typeof persisted.occupiedAt).toBe('number');
+
+      // Simulate restart
+      const newStore = new StateStore(fs, 'data/rallyos-state.json');
+      const newManager = new CourtManager(mockHubConfig, newStore);
+      newManager.loadTournament();
+
+      const restoredCourt = newManager.getCourt(court.id);
+      expect(restoredCourt).toBeDefined();
+      expect(restoredCourt!.occupiedAt).toBe(persisted.occupiedAt);
+    });
   });
 });

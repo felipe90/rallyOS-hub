@@ -119,7 +119,7 @@ export function useClubAdmin(socket: Socket | null, connected: boolean) {
     socket.emit(SocketEvents.CLIENT.CLUB_SETUP, { ...rest, pin: adminPin })
   }, [socket, connected])
 
-  // Listen for setup completion
+  // Listen for setup completion and socket disconnect
   useEffect(() => {
     if (!socket) return
 
@@ -133,12 +133,19 @@ export function useClubAdmin(socket: Socket | null, connected: boolean) {
       setSetupError(err.code || 'SETUP_FAILED')
     }
 
+    const handleDisconnect = () => {
+      setIsAdmin(false)
+      setVerifyError('DISCONNECTED')
+    }
+
     socket.on(SocketEvents.SERVER.CLUB_SETUP_COMPLETE, handleSetupComplete)
     socket.on(SocketEvents.SERVER.ERROR, handleError)
+    socket.on('disconnect', handleDisconnect)
 
     return () => {
       socket.off(SocketEvents.SERVER.CLUB_SETUP_COMPLETE, handleSetupComplete)
       socket.off(SocketEvents.SERVER.ERROR, handleError)
+      socket.off('disconnect', handleDisconnect)
     }
   }, [socket])
 

@@ -246,5 +246,7 @@
   "clubAdminDeactivate": "Deactivate",
   "clubAdminReset": "Reset",
   "clubAdminDeleteConfirm": "This court is not available. Delete anyway?",
-  "clubAdminBack": "Back"
+  "clubAdminBack": "Back",
+  "clubPlayReconnecting": "Reconnecting...",
+  "clubPlayRefereeReplaced": "Someone else took over the scoreboard"
 }

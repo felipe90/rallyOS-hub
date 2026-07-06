@@ -329,5 +329,53 @@ describe('StateStore', () => {
       expect(loaded!.tables[1].status).toBe('FINISHED');
       expect(loaded!.tables[1].playerNames.a).toBe('Carol');
     });
+
+    it('should persist and restore club court with mode and clubStatus fields', () => {
+      const clubCourt: PersistedCourt = {
+        ...makeTable({ id: 'club-1', status: 'WAITING' }),
+        mode: 'club',
+        clubStatus: 'OCCUPIED',
+      };
+
+      store.save([clubCourt]);
+      const loaded = store.load();
+
+      expect(loaded).not.toBeNull();
+      expect(loaded!.tables).toHaveLength(1);
+      expect(loaded!.tables[0].id).toBe('club-1');
+      expect(loaded!.tables[0].mode).toBe('club');
+      expect(loaded!.tables[0].clubStatus).toBe('OCCUPIED');
+    });
+
+    it('should persist and restore finished club court', () => {
+      const finishedClub: PersistedCourt = {
+        ...makeTable({ id: 'club-2', status: 'WAITING' }),
+        mode: 'club',
+        clubStatus: 'FINISHED',
+      };
+
+      store.save([finishedClub]);
+      const loaded = store.load();
+
+      expect(loaded).not.toBeNull();
+      expect(loaded!.tables).toHaveLength(1);
+      expect(loaded!.tables[0].mode).toBe('club');
+      expect(loaded!.tables[0].clubStatus).toBe('FINISHED');
+    });
+
+    it('should handle PersistedCourt without mode/clubStatus (backward compat)', () => {
+      const legacy: PersistedCourt = makeTable({ id: 'legacy-1' });
+      // Simulate a legacy record that never had mode/clubStatus
+      delete (legacy as any).mode;
+      delete (legacy as any).clubStatus;
+
+      store.save([legacy]);
+      const loaded = store.load();
+
+      expect(loaded).not.toBeNull();
+      expect(loaded!.tables).toHaveLength(1);
+      expect(loaded!.tables[0].mode).toBeUndefined();
+      expect(loaded!.tables[0].clubStatus).toBeUndefined();
+    });
   });
 });

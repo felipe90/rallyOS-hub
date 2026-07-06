@@ -199,7 +199,11 @@ export class ClubPlayerHandler extends SocketHandlerBase {
 
       // 6. Register socket as referee so they can score points
       //    Club courts are self-refereed — the player scoring IS the referee
-      this.tableManager.registerClubReferee(court.id, socket.id);
+      const displacedSocketId = this.tableManager.registerClubReferee(court.id, socket.id);
+      if (displacedSocketId) {
+        // Notify the old referee that their bridge ownership was replaced
+        this.io.to(displacedSocketId).emit(SocketEvents.SERVER.REF_REVOKED, { courtId: court.id, reason: 'replaced' });
+      }
 
       // Emit success result directly to the joining socket
       socket.emit(SocketEvents.SERVER.CLUB_JOIN_RESULT, {
@@ -215,6 +219,65 @@ export class ClubPlayerHandler extends SocketHandlerBase {
       logger.info(
         { courtId: court.id, ip: maskIp(clientIp) },
         'CLUB_JOIN: player joined club court',
+      );
+    });
+
+    // CLUB_RECONNECT: Re-establish bridge ownership after page refresh
+    socket.on(SocketEvents.CLIENT.CLUB_RECONNECT, (data: { courtId: string }) => {
+      if (!data || typeof data.courtId !== 'string' || !data.courtId.trim()) {
+        socket.emit(SocketEvents.SERVER.CLUB_RECONNECT_RESULT, {
+          success: false,
+          error: 'INVALID_PARAMS',
+        });
+        return;
+      }
+
+      const court = this.tableManager.getCourt(data.courtId);
+      if (!court) {
+        socket.emit(SocketEvents.SERVER.CLUB_RECONNECT_RESULT, {
+          success: false,
+          error: 'COURT_NOT_FOUND',
+        });
+        return;
+      }
+
+      if (court.mode !== 'club') {
+        socket.emit(SocketEvents.SERVER.CLUB_RECONNECT_RESULT, {
+          success: false,
+          error: 'NOT_CLUB_MODE',
+        });
+        return;
+      }
+
+      if (court.clubStatus !== 'OCCUPIED') {
+        socket.emit(SocketEvents.SERVER.CLUB_RECONNECT_RESULT, {
+          success: false,
+          error: 'COURT_NOT_OCCUPIED',
+        });
+        return;
+      }
+
+      // Register socket as referee (reconnection bypasses PIN rate limiting)
+      const displacedSocketId = this.tableManager.registerClubReferee(court.id, socket.id);
+      if (displacedSocketId) {
+        this.io.to(displacedSocketId).emit(SocketEvents.SERVER.REF_REVOKED, { courtId: court.id, reason: 'replaced' });
+      }
+
+      // Join socket to court room for match updates
+      socket.join(court.id);
+
+      // Get current match state
+      const matchState = this.tableManager.getMatchState(court.id);
+
+      socket.emit(SocketEvents.SERVER.CLUB_RECONNECT_RESULT, {
+        success: true,
+        courtId: court.id,
+        matchState,
+      });
+
+      logger.info(
+        { courtId: court.id, socketId: socket.id },
+        'CLUB_RECONNECT: bridge ownership re-established',
       );
     });
   }

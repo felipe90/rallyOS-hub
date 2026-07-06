@@ -243,4 +243,129 @@ describe('useClubPlay', () => {
       expect(socket.emit).not.toHaveBeenCalled()
     })
   })
+
+  describe('reconnection — CLUB_RECONNECT', () => {
+    it('should emit CLUB_RECONNECT when MATCH_UPDATE has mode=club and clubStatus=OCCUPIED', () => {
+      const { socket, trigger } = createMockSocket()
+
+      renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      trigger(SocketEvents.SERVER.MATCH_UPDATE, {
+        ...makeLiveMatch(),
+        mode: 'club',
+        clubStatus: 'OCCUPIED',
+      })
+
+      expect(socket.emit).toHaveBeenCalledWith(
+        SocketEvents.CLIENT.CLUB_RECONNECT,
+        { courtId: MOCK_COURT_ID },
+      )
+    })
+
+    it('should NOT emit CLUB_RECONNECT when match does not have club OCCUPIED status', () => {
+      const { socket, trigger } = createMockSocket()
+
+      // Clear any initial emit calls
+      socket.emit.mockClear()
+
+      renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      trigger(SocketEvents.SERVER.MATCH_UPDATE, makeLiveMatch())
+
+      expect(socket.emit).not.toHaveBeenCalledWith(
+        SocketEvents.CLIENT.CLUB_RECONNECT,
+        expect.any(Object),
+      )
+    })
+
+    it('should set reconnecting=true when emitting CLUB_RECONNECT', () => {
+      const { socket, trigger } = createMockSocket()
+
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      trigger(SocketEvents.SERVER.MATCH_UPDATE, {
+        ...makeLiveMatch(),
+        mode: 'club',
+        clubStatus: 'OCCUPIED',
+      })
+
+      expect(result.current.reconnecting).toBe(true)
+    })
+
+    it('should clear reconnecting on CLUB_RECONNECT_RESULT success', () => {
+      const { socket, trigger } = createMockSocket()
+
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      // Trigger reconnection
+      trigger(SocketEvents.SERVER.MATCH_UPDATE, {
+        ...makeLiveMatch(),
+        mode: 'club',
+        clubStatus: 'OCCUPIED',
+      })
+      expect(result.current.reconnecting).toBe(true)
+
+      // Receive success
+      trigger(SocketEvents.SERVER.CLUB_RECONNECT_RESULT, {
+        success: true,
+        courtId: MOCK_COURT_ID,
+        matchState: makeLiveMatch({ score: { currentSet: { a: 2, b: 1 }, sets: { a: 0, b: 0 } } }),
+      })
+
+      expect(result.current.reconnecting).toBe(false)
+      expect(result.current.matchState?.score.currentSet.a).toBe(2)
+    })
+
+    it('should set error on CLUB_RECONNECT_RESULT failure', () => {
+      const { socket, trigger } = createMockSocket()
+
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      trigger(SocketEvents.SERVER.CLUB_RECONNECT_RESULT, {
+        success: false,
+        error: 'COURT_NOT_OCCUPIED',
+      })
+
+      expect(result.current.error).toBe('COURT_NOT_OCCUPIED')
+    })
+
+    it('should set refereeReplaced=true on REF_REVOKED', () => {
+      const { socket, trigger } = createMockSocket()
+
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      trigger(SocketEvents.SERVER.REF_REVOKED, { courtId: MOCK_COURT_ID })
+
+      expect(result.current.refereeReplaced).toBe(true)
+    })
+
+    it('should NOT set refereeReplaced for a different courtId', () => {
+      const { socket, trigger } = createMockSocket()
+
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      trigger(SocketEvents.SERVER.REF_REVOKED, { courtId: 'other-court' })
+
+      expect(result.current.refereeReplaced).toBe(false)
+    })
+
+    it('should only emit CLUB_RECONNECT once even with multiple MATCH_UPDATE events', () => {
+      const { socket, trigger } = createMockSocket()
+
+      renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      const occupiedMatch = { ...makeLiveMatch(), mode: 'club' as const, clubStatus: 'OCCUPIED' as const }
+
+      // First MATCH_UPDATE with OCCUPIED
+      trigger(SocketEvents.SERVER.MATCH_UPDATE, occupiedMatch)
+
+      // Second MATCH_UPDATE (e.g., live score update) — should NOT emit again
+      trigger(SocketEvents.SERVER.MATCH_UPDATE, { ...occupiedMatch, score: { currentSet: { a: 1, b: 0 }, sets: { a: 0, b: 0 } } })
+
+      const reconnectCalls = (socket.emit as any).mock.calls.filter(
+        ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_RECONNECT,
+      )
+      expect(reconnectCalls).toHaveLength(1)
+    })
+  })
 })

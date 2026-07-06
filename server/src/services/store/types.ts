@@ -39,6 +39,8 @@ export interface PersistedCourt {
   playerNames: { a: string; b: string };
   createdAt: number;
   matchState: PersistedMatchState;
+  mode?: string;
+  clubStatus?: string;
 }
 /** @deprecated Use PersistedCourt instead */
 export type PersistedTable = PersistedCourt;

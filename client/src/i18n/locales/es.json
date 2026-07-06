@@ -246,5 +246,7 @@
   "clubAdminDeactivate": "Desactivar",
   "clubAdminReset": "Restablecer",
   "clubAdminDeleteConfirm": "Esta cancha no está disponible. ¿Eliminar de todas formas?",
-  "clubAdminBack": "Atrás"
+  "clubAdminBack": "Atrás",
+  "clubPlayReconnecting": "Reconectando...",
+  "clubPlayRefereeReplaced": "Alguien más tomó el control del marcador"
 }

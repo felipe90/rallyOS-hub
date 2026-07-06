@@ -81,7 +81,7 @@ export function ClubPlayPage() {
   const { i18nText } = useI18n()
   const { isLandscape, toggle: toggleOrientation } = useOrientation()
   const {
-    matchState, loading, error, finished,
+    matchState, loading, error, finished, reconnecting, refereeReplaced,
     scorePoint, subtractPoint, undoLast, swapSides, startMatch,
   } = useClubPlay(socket, courtId ?? '', connected)
 
@@ -143,6 +143,25 @@ export function ClubPlayPage() {
     return <LoadingView />
   }
 
+  // Reconnecting state (re-establishing bridge ownership after refresh)
+  if (reconnecting) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-dvh bg-surface gap-4 p-4">
+        <ConnectionStatus
+          labels={{
+            connected: i18nText('connectionConnected'),
+            connecting: i18nText('connectionConnecting'),
+            error: i18nText('connectionNoConnection'),
+            disconnected: i18nText('connectionDisconnected'),
+          }}
+        />
+        <Typography variant="body" className="text-muted-foreground">
+          {i18nText('clubPlayReconnecting')}
+        </Typography>
+      </div>
+    )
+  }
+
   // Error if no match state after loading
   if (!matchState) {
     return (
@@ -178,6 +197,11 @@ export function ClubPlayPage() {
   // Playing state — full scoreboard experience
   return (
     <div className="flex flex-col h-dvh bg-surface">
+      {refereeReplaced && (
+        <div className="bg-warning text-warning-foreground text-center py-2 px-4 text-sm font-medium">
+          {i18nText('clubPlayRefereeReplaced')}
+        </div>
+      )}
       <PageHeader
         title={`${matchState.playerNames?.a || i18nText('commonPlayerA')} vs ${matchState.playerNames?.b || i18nText('commonPlayerB')}`}
         landscape={isLandscape}
@@ -205,7 +229,7 @@ export function ClubPlayPage() {
           onSubtractPoint={subtractPoint}
           onUndo={undoLast}
           onSwapSides={swapSides}
-          isReferee={true}
+          isReferee={!refereeReplaced}
           isLandscape={isLandscape}
           onOrientationToggle={toggleOrientation}
         />

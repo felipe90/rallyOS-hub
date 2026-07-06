@@ -379,15 +379,17 @@ export class CourtManager {
    * Register a club player socket as referee — bypasses PIN validation
    * because club courts are self-refereed (the player IS the referee).
    * Only works for club-mode courts.
+   *
+   * @returns The old referee's socketId if one was displaced, null otherwise.
    */
-  registerClubReferee(courtId: string, socketId: string): boolean {
+  registerClubReferee(courtId: string, socketId: string): string | null {
     const court = this.repository.get(courtId);
-    if (!court) return false;
-    if (court.mode !== COURT_MODE.CLUB) return false;
+    if (!court) return null;
+    if (court.mode !== COURT_MODE.CLUB) return null;
 
-    this.playerService.setRefereeDirect(court, socketId, 'Club Player');
+    const displaced = this.playerService.setRefereeDirect(court, socketId, 'Club Player');
     this.notifyUpdate(court);
-    return true;
+    return displaced;
   }
 
   // Match orchestration
@@ -596,14 +598,16 @@ export class CourtManager {
   }
 
   /**
-   * Persist all LIVE and FINISHED courts to the state store.
+   * Persist LIVE, FINISHED, and OCCUPIED/FINISHED club courts to the state store.
+   * Club courts use `status: 'WAITING'` with `clubStatus` as the real discriminator,
+   * so we must also match OCCUPIED and FINISHED club states.
    * Errors are caught and logged — the caller is never affected.
    */
   private autoSave(): void {
     try {
       const allCourts = this.repository.getAll();
       const persisted: PersistedCourt[] = allCourts
-        .filter((c) => c.status === 'LIVE' || c.status === 'FINISHED')
+        .filter((c) => c.status === 'LIVE' || c.status === 'FINISHED' || c.clubStatus === 'OCCUPIED' || c.clubStatus === 'FINISHED')
         .map((c) => this.toPersistedCourt(c));
       this.stateStore!.save(persisted);
     } catch (err) {
@@ -629,6 +633,8 @@ export class CourtManager {
       pin: court.pin,
       playerNames: { ...court.playerNames },
       createdAt: court.createdAt,
+      mode: court.mode,
+      clubStatus: court.clubStatus,
       matchState: {
         config: { ...state.config },
         score: isPadel
@@ -681,8 +687,9 @@ export class CourtManager {
     let restored = 0;
 
     for (const pt of persisted.tables) {
-      // Only restore LIVE or FINISHED courts
-      if (pt.status !== 'LIVE' && pt.status !== 'FINISHED') {
+      // Only restore LIVE, FINISHED, or OCCUPIED/FINISHED club courts
+      // Club courts use status: 'WAITING' with clubStatus as the real discriminator
+      if (pt.status !== 'LIVE' && pt.status !== 'FINISHED' && pt.clubStatus !== 'OCCUPIED' && pt.clubStatus !== 'FINISHED') {
         continue;
       }
 
@@ -710,6 +717,8 @@ export class CourtManager {
           players: [],
           createdAt: pt.createdAt,
           featured: false,
+          mode: pt.mode as CourtMode | undefined,
+          clubStatus: pt.clubStatus as ClubStatus | undefined,
         };
 
         // Wire callbacks so Socket.io events work after restoration

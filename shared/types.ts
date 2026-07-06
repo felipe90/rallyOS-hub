@@ -200,6 +200,8 @@ export type MatchStateExtended = MatchState & {
   playerNames: { a: string; b: string };
   history: ScoreChange[];
   undoAvailable: boolean;
+  mode?: CourtMode;
+  clubStatus?: ClubStatus;
 };
 
 // ── Aggregated History (ALL_HISTORY event) ────────────────────────

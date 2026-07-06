@@ -7,7 +7,7 @@
  * Follows the same pattern as useScoreboardEvents but simplified for club mode.
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import type { Socket } from 'socket.io-client'
 import { SocketEvents } from '@shared/events'
 import type { MatchStateExtended } from '@shared/types'
@@ -17,6 +17,9 @@ export function useClubPlay(socket: Socket | null, courtId: string, connected: b
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [finished, setFinished] = useState(false)
+  const [reconnecting, setReconnecting] = useState(false)
+  const [refereeReplaced, setRefereeReplaced] = useState(false)
+  const reconnectAttempted = useRef(false)
 
   // Listen for MATCH_UPDATE events for this court
   useEffect(() => {
@@ -30,6 +33,12 @@ export function useClubPlay(socket: Socket | null, courtId: string, connected: b
         if (match.status === 'FINISHED') {
           setFinished(true)
         }
+        // Detect OCCUPIED club court after page refresh → emit CLUB_RECONNECT
+        if (match.mode === 'club' && match.clubStatus === 'OCCUPIED' && !reconnectAttempted.current) {
+          reconnectAttempted.current = true
+          setReconnecting(true)
+          socket.emit(SocketEvents.CLIENT.CLUB_RECONNECT, { courtId })
+        }
       }
     }
 
@@ -37,6 +46,44 @@ export function useClubPlay(socket: Socket | null, courtId: string, connected: b
 
     return () => {
       socket.off(SocketEvents.SERVER.MATCH_UPDATE, handleMatchUpdate)
+    }
+  }, [socket, courtId])
+
+  // Listen for CLUB_RECONNECT_RESULT
+  useEffect(() => {
+    if (!socket) return
+
+    const handleReconnectResult = (result: { success: boolean; courtId?: string; matchState?: MatchStateExtended; error?: string }) => {
+      setReconnecting(false)
+      if (result.success && result.matchState) {
+        setMatchState(result.matchState)
+        setError(null)
+      } else if (!result.success) {
+        setError(result.error || 'RECONNECT_FAILED')
+      }
+    }
+
+    socket.on(SocketEvents.SERVER.CLUB_RECONNECT_RESULT, handleReconnectResult)
+
+    return () => {
+      socket.off(SocketEvents.SERVER.CLUB_RECONNECT_RESULT, handleReconnectResult)
+    }
+  }, [socket])
+
+  // Listen for REF_REVOKED
+  useEffect(() => {
+    if (!socket) return
+
+    const handleRefRevoked = (data: { courtId: string }) => {
+      if (data.courtId === courtId) {
+        setRefereeReplaced(true)
+      }
+    }
+
+    socket.on(SocketEvents.SERVER.REF_REVOKED, handleRefRevoked)
+
+    return () => {
+      socket.off(SocketEvents.SERVER.REF_REVOKED, handleRefRevoked)
     }
   }, [socket, courtId])
 
@@ -98,5 +145,5 @@ export function useClubPlay(socket: Socket | null, courtId: string, connected: b
     [socket, connected, courtId],
   )
 
-  return { matchState, loading, error, finished, scorePoint, subtractPoint, undoLast, swapSides, startMatch }
+  return { matchState, loading, error, finished, reconnecting, refereeReplaced, scorePoint, subtractPoint, undoLast, swapSides, startMatch }
 }

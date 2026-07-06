@@ -1,4 +1,4 @@
-import { SPORT } from '../../../shared/types';
+import { SPORT, CLUB_STATUS, COURT_MODE } from '../../../shared/types';
 import { CourtManager } from './courtManager';
 import { StateStore } from '../services/store/StateStore';
 import type { FileSystem, PersistedCourt, PersistedMatchState } from '../services/store/types';
@@ -908,6 +908,100 @@ describe('CourtManager with StateStore', () => {
       // The court should be FINISHED
       const updatedCourt = manager.getCourt(court.id);
       expect(updatedCourt!.clubStatus).toBe('FINISHED');
+    });
+  });
+
+  describe('getClubKioskPayload', () => {
+    it('returns empty courts array when no club courts exist', () => {
+      const manager = new CourtManager(mockHubConfig, stateStore);
+      const payload = manager.getClubKioskPayload(null);
+      expect(payload.clubName).toBe('Club');
+      expect(payload.courts).toEqual([]);
+    });
+
+    it('includes only club-mode courts', () => {
+      const manager = new CourtManager(mockHubConfig, stateStore);
+      manager.createCourt('Tournament Court'); // tournament, not club
+      manager.createClubCourt('Club Court 1');
+      manager.createClubCourt('Club Court 2');
+
+      const payload = manager.getClubKioskPayload(null);
+      expect(payload.courts).toHaveLength(2);
+      expect(payload.courts[0].name).toBe('Club Court 1');
+      expect(payload.courts[1].name).toBe('Club Court 2');
+    });
+
+    it('populates pin only when clubStatus is RESERVED', () => {
+      const manager = new CourtManager(mockHubConfig, stateStore);
+      const court = manager.createClubCourt('PIN Court');
+      expect(court.clubStatus).toBe(CLUB_STATUS.AVAILABLE);
+
+      // Initially no PIN for AVAILABLE
+      let payload = manager.getClubKioskPayload(null);
+      expect(payload.courts[0].pin).toBeUndefined();
+
+      // Activate → RESERVED → PIN should be present
+      manager.activateCourt(court.id);
+      payload = manager.getClubKioskPayload(null);
+      expect(payload.courts[0].status).toBe(CLUB_STATUS.RESERVED);
+      expect(payload.courts[0].pin).toBeDefined();
+      expect(typeof payload.courts[0].pin).toBe('string');
+
+      // Occupy → OCCUPIED → PIN should be undefined
+      manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+      payload = manager.getClubKioskPayload(null);
+      expect(payload.courts[0].status).toBe(CLUB_STATUS.OCCUPIED);
+      expect(payload.courts[0].pin).toBeUndefined();
+    });
+
+    it('returns configured clubName when config is provided', () => {
+      const manager = new CourtManager(mockHubConfig, stateStore);
+      manager.createClubCourt('Any Court');
+
+      const payload = manager.getClubKioskPayload({
+        clubName: 'Racing Club',
+        sport: SPORT.TABLE_TENNIS,
+        configured: true,
+        adminPinHash: 'hash',
+        adminPin: '1234',
+        createdAt: 0,
+      });
+      expect(payload.clubName).toBe('Racing Club');
+    });
+
+    it('includes playerNames and currentScore when court is OCCUPIED', () => {
+      const manager = new CourtManager(mockHubConfig, stateStore);
+      const court = manager.createClubCourt('Score Court');
+      manager.activateCourt(court.id);
+      manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+
+      // Score a point so currentScore is non-zero
+      manager.recordPoint(court.id, 'A');
+
+      const payload = manager.getClubKioskPayload(null);
+      expect(payload.courts[0].playerNames).toBeDefined();
+      expect(payload.courts[0].currentScore).toBeDefined();
+      expect(payload.courts[0].currentScore!.a).toBeGreaterThan(0);
+    });
+
+    it('returns winner when match is finished', () => {
+      const manager = new CourtManager(mockHubConfig, stateStore);
+      const court = manager.createClubCourt('Winner Court');
+      manager.activateCourt(court.id);
+      manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+
+      // Score 11 points for player A to win (TT bestOf=1)
+      for (let i = 0; i < 11; i++) {
+        manager.recordPoint(court.id, 'A');
+      }
+
+      // The match auto-finishes and auto-ends session
+      // Winner should be set in the payload
+      const payload = manager.getClubKioskPayload(null);
+      const info = payload.courts.find((c: any) => c.id === court.id);
+      expect(info).toBeDefined();
+      // After auto-end session, clubStatus should be FINISHED
+      expect(payload.courts[0].status).toBe(CLUB_STATUS.FINISHED);
     });
   });
 

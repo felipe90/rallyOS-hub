@@ -39,6 +39,7 @@ export class SocketHandler {
   private ownerPin: string;
   private hubConfig: HubConfig;
   private connectionRateLimiter: RateLimiter;
+  private clubConfigStore?: ClubConfigStore;
   
   // Handler instances
   private courtHandler: CourtEventHandler;
@@ -62,6 +63,7 @@ export class SocketHandler {
     this.ownerPin = ownerPin;
     this.hubConfig = hubConfig;
     this.connectionRateLimiter = new RateLimiter(60_000, 20); // 20 connections per 60s per IP
+    this.clubConfigStore = clubConfigStore;
     
     // Initialize services
     const adminPinService = new AdminPinService();
@@ -77,11 +79,16 @@ export class SocketHandler {
     this.clubPlayerHandler = new ClubPlayerHandler(io, tableManager, ownerPin, clubConfigStore!);
     
     // Set up global court update listener once
-    this.tableManager.onTableUpdate = (tableInfo) => {
+      this.tableManager.onTableUpdate = (tableInfo) => {
       // TABLE_UPDATE goes only to clients in the court's room
       this.io.to(tableInfo.id).emit(SocketEvents.SERVER.COURT_UPDATE, tableInfo);
       // TABLE_LIST goes to ALL clients (global)
       this.io.emit(SocketEvents.SERVER.COURT_LIST, this.getPublicCourtList());
+
+      // CLUB_KIOSK_DATA goes to ALL clients — club-only court data for kiosk display
+      const clubConfig = this.clubConfigStore?.load() ?? null;
+      const kioskPayload = this.tableManager.getClubKioskPayload(clubConfig);
+      this.io.emit(SocketEvents.SERVER.CLUB_KIOSK_DATA, kioskPayload);
     };
 
     // On tournament finish, broadcast empty table list to all clients

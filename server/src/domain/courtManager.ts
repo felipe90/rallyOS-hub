@@ -13,7 +13,7 @@
 import crypto from 'crypto';
 import { MatchEngine } from './matchEngine';
 import { Court, TableInfo, TableInfoWithPin, Player, MatchConfig, MatchStateExtended, QRData, HubConfig, Sport, SPORT, CourtMode, COURT_MODE, ClubStatus, CLUB_STATUS } from './types';
-import { AllHistoryEntry } from '../../../shared/types';
+import { AllHistoryEntry, ClubKioskPayload, ClubKioskCourtInfo, ClubConfig } from '../../../shared/types';
 import { logger } from '../utils/logger';
 import { sanitizeInput } from '../utils/validation';
 import { CourtRepository } from '../services/table/CourtRepository';
@@ -165,6 +165,35 @@ export class CourtManager {
    */
   getClubCourts(): Court[] {
     return this.repository.getAll().filter((c) => c.mode === COURT_MODE.CLUB);
+  }
+
+  /**
+   * Build ClubKioskPayload for the public kiosk display.
+   * Filters to club-mode courts, maps each to ClubKioskCourtInfo using the
+   * formatter for scores/names/winner, and populates pin only when RESERVED.
+   * Returns empty courts array when no club courts exist.
+   */
+  getClubKioskPayload(clubConfig: ClubConfig | null): ClubKioskPayload {
+    const clubCourts = this.repository.getAll().filter((c) => c.mode === COURT_MODE.CLUB);
+
+    const courts: ClubKioskCourtInfo[] = clubCourts.map((c) => {
+      const info = this.formatter.toPublicInfo(c);
+      return {
+        id: c.id,
+        name: c.name,
+        status: c.clubStatus ?? CLUB_STATUS.AVAILABLE,
+        mode: COURT_MODE.CLUB,
+        pin: c.clubStatus === CLUB_STATUS.RESERVED ? c.pin : undefined,
+        playerNames: info.playerNames,
+        currentScore: info.currentScore,
+        winner: info.winner,
+      };
+    });
+
+    return {
+      clubName: clubConfig?.clubName ?? 'Club',
+      courts,
+    };
   }
 
   /**

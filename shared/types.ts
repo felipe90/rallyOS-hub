@@ -288,6 +288,24 @@ export interface ClubConfig {
   currency?: string;
 }
 
+/** Club kiosk court info — public kiosk display data for a single court */
+export interface ClubKioskCourtInfo {
+  id: string;
+  name: string;
+  status: string;
+  mode: string;
+  pin?: string;
+  playerNames?: { a: string; b: string };
+  currentScore?: { a: number; b: number };
+  winner?: string | null;
+}
+
+/** Club kiosk payload — emitted via CLUB_KIOSK_DATA server event */
+export interface ClubKioskPayload {
+  clubName: string;
+  courts: ClubKioskCourtInfo[];
+}
+
 /** Club court info exposed to admin clients */
 export interface ClubCourtInfo {
   id: string;

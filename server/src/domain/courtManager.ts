@@ -216,6 +216,12 @@ export class CourtManager {
 
     court.clubStatus = CLUB_STATUS.AVAILABLE;
     court.pin = '';
+    court.occupiedAt = null;
+    court.playerNames = { a: '', b: '' };
+    court.players = [];
+
+    // Reset match engine to fresh WAITING state
+    this.matchOrchestrator.resetTable(court);
 
     logger.info({ courtId, courtName: court.name }, 'Club court reset to available');
     this.notifyUpdate(court);

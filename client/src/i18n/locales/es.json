@@ -196,6 +196,8 @@
   "clubSetupConfirmPin": "Confirmar PIN",
   "clubSetupCourtCount": "Cantidad de Canchas (opcional)",
   "clubSetupCourtCountHint": "Entre 1 y 10 canchas",
+  "clubSetupCostPerMinute": "Costo por minuto ($)",
+  "clubSetupCurrency": "Moneda",
   "clubSetupComplete": "Completar Configuración",
   "clubSetupSuccessTitle": "¡Configuración Completa!",
   "clubSetupSuccessDesc": "{{name}} está listo.",

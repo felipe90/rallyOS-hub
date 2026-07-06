@@ -196,6 +196,8 @@
   "clubSetupConfirmPin": "Confirm PIN",
   "clubSetupCourtCount": "Number of Courts (optional)",
   "clubSetupCourtCountHint": "Between 1 and 10 courts",
+  "clubSetupCostPerMinute": "Cost per minute ($)",
+  "clubSetupCurrency": "Currency",
   "clubSetupComplete": "Complete Setup",
   "clubSetupSuccessTitle": "Club Setup Complete!",
   "clubSetupSuccessDesc": "{{name}} is ready to go.",

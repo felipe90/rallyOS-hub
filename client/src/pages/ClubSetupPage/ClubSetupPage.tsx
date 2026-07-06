@@ -36,6 +36,8 @@ export function ClubSetupPage() {
   const [adminPin, setAdminPin] = useState('')
   const [confirmPin, setConfirmPin] = useState('')
   const [courtCount, setCourtCount] = useState(3)
+  const [costPerMinute, setCostPerMinute] = useState(0)
+  const [currency, setCurrency] = useState('ARS')
   const [pinError, setPinError] = useState('')
 
   // Toast for setup errors (skip ALREADY_CONFIGURED — it's handled by the UI state)
@@ -92,6 +94,8 @@ export function ClubSetupPage() {
       sport,
       adminPin,
       courtCount: courtCount > 0 ? courtCount : undefined,
+      costPerMinute: costPerMinute > 0 ? costPerMinute : undefined,
+      currency,
     })
   }
 
@@ -183,6 +187,38 @@ export function ClubSetupPage() {
             disabled={setupLoading}
           />
           <Body className="text-xs text-text-muted">{i18nText('clubSetupCourtCountHint')}</Body>
+        </div>
+
+        <div className="flex gap-2">
+          <div className="flex-1 flex flex-col gap-1.5">
+            <label className="font-body text-sm font-medium text-text">
+              {i18nText('clubSetupCostPerMinute')}
+            </label>
+            <input
+              type="number"
+              min={0}
+              value={costPerMinute}
+              onChange={(e) => setCostPerMinute(parseInt(e.target.value) || 0)}
+              className="w-full px-4 py-3 rounded-[--radius-md] font-body text-base bg-surface-low text-text-h placeholder:text-text-muted transition-all duration-200 hover:bg-surface-high focus:outline-none focus:ring-2 focus:ring-primary/30 focus:bg-surface disabled:opacity-50"
+              disabled={setupLoading}
+            />
+          </div>
+          <div className="w-28">
+            <label className="font-body text-sm font-medium text-text block mb-1.5">
+              {i18nText('clubSetupCurrency')}
+            </label>
+            <select
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value)}
+              className="w-full px-3 py-3 rounded-[--radius-md] font-body text-base bg-surface-low text-text-h transition-all duration-200 hover:bg-surface-high focus:outline-none focus:ring-2 focus:ring-primary/30 focus:bg-surface disabled:opacity-50"
+              disabled={setupLoading}
+            >
+              <option value="ARS">ARS</option>
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+              <option value="BRL">BRL</option>
+            </select>
+          </div>
         </div>
 
         <Button

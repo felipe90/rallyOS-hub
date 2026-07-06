@@ -103,12 +103,16 @@ export class ClubAdminHandler extends SocketHandlerBase {
       sport: string;
       pin: string;
       courtCount?: number;
+      costPerMinute?: number;
+      currency?: string;
     }) => {
       if (!validateSocketPayload(socket, data, {
         clubName: { required: true, type: 'string', minLength: 1, maxLength: 100 },
         sport: { required: true, type: 'string', minLength: 1, maxLength: 50 },
         pin: { required: true, type: 'string', pattern: ADMIN_PIN_RULES.pattern },
         courtCount: { required: false, type: 'number', min: 0, max: 50 },
+        costPerMinute: { required: false, type: 'number', min: 0 },
+        currency: { required: false, type: 'string', minLength: 2, maxLength: 10 },
       }, 'CLUB_SETUP')) {
         return;
       }
@@ -130,6 +134,8 @@ export class ClubAdminHandler extends SocketHandlerBase {
         adminPinHash,
         adminPin: data.pin, // plaintext for CLI recovery
         createdAt: Date.now(),
+        costPerMinute: data.costPerMinute ?? 0,
+        currency: data.currency ?? 'ARS',
       };
       this.clubConfigStore.save(clubConfig);
 

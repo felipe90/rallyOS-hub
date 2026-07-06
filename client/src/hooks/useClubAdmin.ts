@@ -20,6 +20,8 @@ export interface ClubSetupData {
   sport: string
   adminPin: string
   courtCount?: number
+  costPerMinute?: number
+  currency?: string
 }
 
 export function useClubAdmin(socket: Socket | null, connected: boolean) {

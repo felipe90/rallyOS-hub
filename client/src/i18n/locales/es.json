@@ -255,5 +255,11 @@
   "clubAdminDeleteConfirm": "Esta cancha no está disponible. ¿Eliminar de todas formas?",
   "clubAdminBack": "Atrás",
   "clubPlayReconnecting": "Reconectando...",
-  "clubPlayRefereeReplaced": "Alguien más tomó el control del marcador"
+  "clubPlayRefereeReplaced": "Alguien más tomó el control del marcador",
+  "clubKioskAvailable": "Disponible",
+  "clubKioskReserved": "Reservada",
+  "clubKioskOccupied": "En Juego",
+  "clubKioskFinished": "Finalizada",
+  "clubKioskPIN": "PIN: {{pin}}",
+  "clubKioskNoCourts": "No hay canchas"
 }

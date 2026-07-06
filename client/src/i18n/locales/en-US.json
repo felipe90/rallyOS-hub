@@ -255,5 +255,11 @@
   "clubAdminDeleteConfirm": "This court is not available. Delete anyway?",
   "clubAdminBack": "Back",
   "clubPlayReconnecting": "Reconnecting...",
-  "clubPlayRefereeReplaced": "Someone else took over the scoreboard"
+  "clubPlayRefereeReplaced": "Someone else took over the scoreboard",
+  "clubKioskAvailable": "Available",
+  "clubKioskReserved": "Reserved",
+  "clubKioskOccupied": "In Play",
+  "clubKioskFinished": "Finished",
+  "clubKioskPIN": "PIN: {{pin}}",
+  "clubKioskNoCourts": "No courts yet"
 }

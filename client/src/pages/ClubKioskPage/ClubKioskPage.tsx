@@ -22,7 +22,7 @@ const ROTATION_INTERVAL_MS = 10_000
  * a responsive grid of ClubKioskCard components with auto-rotation.
  */
 export function ClubKioskPage() {
-  const { socket, connected, connecting, hubConfig } = useSocketContext()
+  const { socket, hubConfig } = useSocketContext()
   const { i18nText } = useI18n()
   const [courts, setCourts] = useState<ClubKioskPayload['courts']>([])
   const [clubName, setClubName] = useState('Club')

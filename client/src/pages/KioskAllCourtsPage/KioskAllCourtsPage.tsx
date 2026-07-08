@@ -174,15 +174,12 @@ export function KioskAllCourtsPage() {
   useEffect(() => {
     if (pages.length <= 1 || isPaused) return
 
-    let fadeTimeout: ReturnType<typeof setTimeout> | null = null
-
     const interval = setInterval(() => {
       setCurrentPage((prev) => (prev + 1) % pages.length)
     }, ROTATION_INTERVAL_MS)
 
     return () => {
       clearInterval(interval)
-      if (fadeTimeout) clearTimeout(fadeTimeout)
     }
   }, [pages.length, isPaused])
 

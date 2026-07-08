@@ -26,9 +26,10 @@ export interface PersistedMatchState {
 }
 
 /**
- * Serializable table snapshot.
+ * Serializable tournament table snapshot.
  * Excludes runtime-only fields: MatchEngine instances, PlayerConnection.socketId
  * values, and Socket.io callback references.
+ * Does NOT contain club-specific fields (clubStatus, occupiedAt, mode).
  */
 export interface PersistedCourt {
   id: string;
@@ -39,20 +40,39 @@ export interface PersistedCourt {
   playerNames: { a: string; b: string };
   createdAt: number;
   matchState: PersistedMatchState;
-  mode?: string;
-  clubStatus?: string;
-  /** Epoch ms when the court was first occupied — used after server restart to recalculate elapsed time */
-  occupiedAt?: number;
 }
 /** @deprecated Use PersistedCourt instead */
 export type PersistedTable = PersistedCourt;
 
 /**
+ * Serializable club court snapshot.
+ * Contains club-specific fields (clubStatus, occupiedAt) and no tournament
+ * fields (status). matchState is nullable because club courts may be saved
+ * before a match starts (AVAILABLE/RESERVED state).
+ */
+export interface PersistedClubCourt {
+  id: string;
+  number: number;
+  name: string;
+  kind?: 'club';
+  clubStatus: string;
+  /** Epoch ms when the court was first occupied — null when not occupied */
+  occupiedAt: number | null;
+  pin: string;
+  playerNames: { a: string; b: string };
+  createdAt: number;
+  matchState: PersistedMatchState | null;
+  config: Record<string, unknown> | null;
+  history: Record<string, unknown>[];
+}
+
+/**
  * Current persistence schema version.
  * - Version 1: Pre-multi-sport (no sport field in matchState).
  * - Version 2: Multi-sport support (sport field in matchState).
+ * - Version 3: Split tournamentCourts[] and clubCourts[] arrays.
  */
-export const PERSISTENCE_VERSION = 2;
+export const PERSISTENCE_VERSION = 3;
 
 /**
  * Top-level persistence wrapper written to disk.
@@ -61,6 +81,16 @@ export interface PersistedState {
   version: number;
   savedAt: number;
   tables: PersistedCourt[];
+}
+
+/**
+ * Version 3 state format with separate tournament and club court arrays.
+ */
+export interface PersistedStateV3 {
+  version: number;
+  savedAt: number;
+  tournamentCourts: PersistedCourt[];
+  clubCourts: PersistedClubCourt[];
 }
 
 /**

@@ -12,7 +12,7 @@
 
 import crypto from 'crypto';
 import { MatchEngine } from './matchEngine';
-import { Court, TableInfo, TableInfoWithPin, Player, MatchConfig, MatchStateExtended, QRData, HubConfig, Sport, SPORT, CourtMode, COURT_MODE, ClubStatus, CLUB_STATUS } from './types';
+import { Court, TournamentCourt, ClubCourt, isClubCourt, isTournamentCourt, TableInfo, TableInfoWithPin, Player, MatchConfig, MatchStateExtended, QRData, HubConfig, Sport, SPORT, CourtMode, COURT_MODE, CourtStatus, ClubStatus, CLUB_STATUS } from './types';
 import { AllHistoryEntry, ClubKioskPayload, ClubKioskCourtInfo, ClubConfig } from '../../../shared/types';
 import { logger } from '../utils/logger';
 import { sanitizeInput } from '../utils/validation';
@@ -24,7 +24,7 @@ import { CourtFormatter } from '../services/table/CourtFormatter';
 import { PinService } from '../services/security/PinService';
 import { QRService } from '../services/qr/QRService';
 import { StateStore } from '../services/store/StateStore';
-import { PersistedCourt } from '../services/store/types';
+import { PersistedCourt, PersistedClubCourt } from '../services/store/types';
 
 export class CourtManager {
   private repository: CourtRepository;
@@ -52,13 +52,14 @@ export class CourtManager {
   }
 
   // Table CRUD
-  createCourt(name?: string): Court {
+  createCourt(name?: string): TournamentCourt {
     const courtNumber = this.repository.getNextTableNumber();
     const courtName = name ? sanitizeInput(name, 256) : `Cancha ${courtNumber}`;
     const pin = this.pinService.generatePin();
     const id = crypto.randomUUID();
 
-    const court: Court = {
+    const court: TournamentCourt = {
+      kind: 'tournament',
       id,
       number: courtNumber,
       name: courtName,
@@ -70,7 +71,6 @@ export class CourtManager {
       players: [],
       createdAt: Date.now(),
       featured: false,
-      occupiedAt: null,
     };
 
     court.sportRules.setCourtId(id, courtName);
@@ -93,6 +93,16 @@ export class CourtManager {
     return this.formatter.toPublicList(this.repository.getAll());
   }
 
+  /**
+   * Get all tournament-mode courts (filtered via isClubCourt).
+   * Used for COURT_LIST events — club courts are excluded.
+   */
+  getAllTournamentCourts(): TableInfo[] {
+    return this.formatter.toPublicList(
+      this.repository.getAll().filter(c => !isClubCourt(c)),
+    );
+  }
+
   deleteCourt(courtId: string): boolean {
     const deleted = this.repository.delete(courtId);
     if (deleted) {
@@ -110,16 +120,17 @@ export class CourtManager {
    * Create a club-mode court (mode='club') with clubStatus='AVAILABLE' and no PIN.
    * Club courts don't need a match PIN — they use session PINs on activation.
    */
-  createClubCourt(name?: string): Court {
+  createClubCourt(name?: string): ClubCourt {
     const courtNumber = this.repository.getNextTableNumber();
     const courtName = name ? sanitizeInput(name, 256) : `Cancha ${courtNumber}`;
     const id = crypto.randomUUID();
 
-    const court: Court = {
+    const court: ClubCourt = {
+      kind: 'club',
       id,
       number: courtNumber,
       name: courtName,
-      status: 'WAITING',
+      clubStatus: CLUB_STATUS.AVAILABLE,
       pin: '',
       sportRules: new MatchEngine(),
       playerNames: { a: '', b: '' },
@@ -127,8 +138,6 @@ export class CourtManager {
       players: [],
       createdAt: Date.now(),
       featured: false,
-      mode: COURT_MODE.CLUB,
-      clubStatus: CLUB_STATUS.AVAILABLE,
       occupiedAt: null,
     };
 
@@ -149,8 +158,7 @@ export class CourtManager {
    */
   deleteClubCourt(courtId: string): boolean {
     const court = this.repository.get(courtId);
-    if (!court) return false;
-    if (court.mode !== COURT_MODE.CLUB) return false;
+    if (!court || !isClubCourt(court)) return false;
     if (court.clubStatus !== CLUB_STATUS.AVAILABLE) return false;
 
     const deleted = this.repository.delete(courtId);
@@ -163,8 +171,8 @@ export class CourtManager {
   /**
    * Get all club-mode courts.
    */
-  getClubCourts(): Court[] {
-    return this.repository.getAll().filter((c) => c.mode === COURT_MODE.CLUB);
+  getClubCourts(): ClubCourt[] {
+    return this.repository.getAll().filter(isClubCourt);
   }
 
   /**
@@ -174,14 +182,14 @@ export class CourtManager {
    * Returns empty courts array when no club courts exist.
    */
   getClubKioskPayload(clubConfig: ClubConfig | null): ClubKioskPayload {
-    const clubCourts = this.repository.getAll().filter((c) => c.mode === COURT_MODE.CLUB);
+    const clubCourts = this.repository.getAll().filter(isClubCourt);
 
     const courts: ClubKioskCourtInfo[] = clubCourts.map((c) => {
       const info = this.formatter.toPublicInfo(c);
       return {
         id: c.id,
         name: c.name,
-        status: c.clubStatus ?? CLUB_STATUS.AVAILABLE,
+        status: c.clubStatus,
         mode: COURT_MODE.CLUB,
         pin: c.clubStatus === CLUB_STATUS.RESERVED ? c.pin : undefined,
         playerNames: info.playerNames,
@@ -202,8 +210,7 @@ export class CourtManager {
    */
   activateCourt(courtId: string): Court | null {
     const court = this.repository.get(courtId);
-    if (!court) return null;
-    if (court.mode !== COURT_MODE.CLUB) return null;
+    if (!court || !isClubCourt(court)) return null;
     if (court.clubStatus !== CLUB_STATUS.AVAILABLE) return null;
 
     court.clubStatus = CLUB_STATUS.RESERVED;
@@ -221,8 +228,7 @@ export class CourtManager {
    */
   deactivateCourt(courtId: string): Court | null {
     const court = this.repository.get(courtId);
-    if (!court) return null;
-    if (court.mode !== COURT_MODE.CLUB) return null;
+    if (!court || !isClubCourt(court)) return null;
     if (court.clubStatus !== CLUB_STATUS.RESERVED) return null;
 
     court.clubStatus = CLUB_STATUS.AVAILABLE;
@@ -239,8 +245,7 @@ export class CourtManager {
    */
   resetCourt(courtId: string): Court | null {
     const court = this.repository.get(courtId);
-    if (!court) return null;
-    if (court.mode !== COURT_MODE.CLUB) return null;
+    if (!court || !isClubCourt(court)) return null;
     if (court.clubStatus !== CLUB_STATUS.FINISHED) return null;
 
     court.clubStatus = CLUB_STATUS.AVAILABLE;
@@ -265,7 +270,7 @@ export class CourtManager {
    */
   findClubCourtByPin(pin: string): Court | undefined {
     return this.repository.getAll().find(
-      (c) => c.mode === COURT_MODE.CLUB && c.pin === pin &&
+      (c) => isClubCourt(c) && c.pin === pin &&
             (c.clubStatus === CLUB_STATUS.RESERVED || c.clubStatus === CLUB_STATUS.OCCUPIED),
     );
   }
@@ -282,8 +287,7 @@ export class CourtManager {
    */
   occupyClubCourt(courtId: string, sport: Sport): { court: Court; matchState: MatchStateExtended } | null {
     const court = this.repository.get(courtId);
-    if (!court) return null;
-    if (court.mode !== COURT_MODE.CLUB) return null;
+    if (!court || !isClubCourt(court)) return null;
     if (court.clubStatus !== CLUB_STATUS.RESERVED && court.clubStatus !== CLUB_STATUS.OCCUPIED) return null;
 
     // Reconnection on already OCCUPIED court — return current match state
@@ -350,8 +354,7 @@ export class CourtManager {
    */
   endSession(courtId: string, reason: string): { elapsedMinutes: number } | null {
     const court = this.repository.get(courtId);
-    if (!court) return null;
-    if (court.mode !== COURT_MODE.CLUB) return null;
+    if (!court || !isClubCourt(court)) return null;
     if (court.clubStatus !== CLUB_STATUS.OCCUPIED) return null;
 
     const now = Date.now();
@@ -440,8 +443,7 @@ export class CourtManager {
    */
   registerClubReferee(courtId: string, socketId: string): string | null {
     const court = this.repository.get(courtId);
-    if (!court) return null;
-    if (court.mode !== COURT_MODE.CLUB) return null;
+    if (!court || !isClubCourt(court)) return null;
 
     const displaced = this.playerService.setRefereeDirect(court, socketId, 'Club Player');
     this.notifyUpdate(court);
@@ -492,8 +494,11 @@ export class CourtManager {
     }
 
     // Auto-finish: if the match just ended on a club OCCUPIED court, end the session
-    if (court.status === 'FINISHED' && court.mode === COURT_MODE.CLUB && court.clubStatus === CLUB_STATUS.OCCUPIED) {
-      this.endSession(courtId, 'auto');
+    if (isClubCourt(court) && court.clubStatus === CLUB_STATUS.OCCUPIED) {
+      const matchState = court.sportRules.getState();
+      if (matchState.status === 'FINISHED') {
+        this.endSession(courtId, 'auto');
+      }
     }
 
     return state;
@@ -585,7 +590,7 @@ export class CourtManager {
       return {
         courtId: court.id,
         courtName: court.name,
-        status: court.status,
+        status: isTournamentCourt(court) ? court.status : (isClubCourt(court) ? court.clubStatus : ''),
         playerNames,
         history,
         handicap,
@@ -611,8 +616,6 @@ export class CourtManager {
     court.sportRules.setEventCallback((event: any) => {
       this.onMatchEvent(courtId, event);
     });
-
-    court.status = 'WAITING';
 
     logger.info({ courtId, courtName: court.name, oldRefereeId: oldReferee || 'none', newPin: court.pin }, 'Court reset with new PIN');
     // Only autoSave — skip notifyUpdate (which broadcasts TABLE_LIST without PINs).
@@ -660,29 +663,36 @@ export class CourtManager {
   }
 
   /**
-   * Persist LIVE, FINISHED, and OCCUPIED/FINISHED club courts to the state store.
-   * Club courts use `status: 'WAITING'` with `clubStatus` as the real discriminator,
-   * so we must also match OCCUPIED and FINISHED club states.
+   * Persist LIVE/FINISHED tournament courts and OCCUPIED/FINISHED club courts
+   * to the state store in v3 format with separate arrays.
+   * Tournament courts use `status` as discriminator; club courts use `clubStatus`.
    * Errors are caught and logged — the caller is never affected.
    */
   private autoSave(): void {
     try {
       const allCourts = this.repository.getAll();
-      const persisted: PersistedCourt[] = allCourts
-        .filter((c) => c.status === 'LIVE' || c.status === 'FINISHED' || c.clubStatus === 'OCCUPIED' || c.clubStatus === 'FINISHED')
+
+      const tournamentCourts: PersistedCourt[] = allCourts
+        .filter((c): c is TournamentCourt => isTournamentCourt(c) && (c.status === 'LIVE' || c.status === 'FINISHED'))
         .map((c) => this.toPersistedCourt(c));
-      this.stateStore!.save(persisted);
+
+      const clubCourts: PersistedClubCourt[] = allCourts
+        .filter((c): c is ClubCourt => isClubCourt(c) && (c.clubStatus === 'OCCUPIED' || c.clubStatus === 'FINISHED'))
+        .map((c) => this.toPersistedClubCourt(c));
+
+      this.stateStore!.save(tournamentCourts, clubCourts);
     } catch (err) {
       logger.error({ err }, 'StateStore: auto-save failed');
     }
   }
 
   /**
-   * Convert a runtime Court into a serializable PersistedCourt.
+   * Convert a runtime tournament Court into a serializable PersistedCourt.
    * Excludes runtime-only fields: MatchEngine instance, PlayerConnection.socketId,
-   * and Socket.io callback references.
+   * and Socket.io callback references. Also excludes club-specific fields
+   * (mode, clubStatus, occupiedAt).
    */
-  private toPersistedCourt(court: Court): PersistedCourt {
+  private toPersistedCourt(court: TournamentCourt): PersistedCourt {
     const state = court.sportRules.getState();
     const isPadel = state.sport === SPORT.PADEL;
     const s = state as any;
@@ -695,9 +705,6 @@ export class CourtManager {
       pin: court.pin,
       playerNames: { ...court.playerNames },
       createdAt: court.createdAt,
-      mode: court.mode,
-      clubStatus: court.clubStatus,
-      occupiedAt: court.occupiedAt ?? undefined,
       matchState: {
         config: { ...state.config },
         score: isPadel
@@ -725,13 +732,63 @@ export class CourtManager {
   }
 
   /**
-   * Load tournament state from disk and reconstruct courts.
+   * Convert a runtime club Court into a serializable PersistedClubCourt.
+   * Excludes runtime-only fields (sportRules, players) and tournament-only
+   * field (status). Includes club-specific clubStatus and occupiedAt.
+   */
+  private toPersistedClubCourt(court: ClubCourt): PersistedClubCourt {
+    const state = court.sportRules.getState();
+    const s = state as any;
+
+    return {
+      id: court.id,
+      number: court.number,
+      name: court.name,
+      kind: 'club',
+      clubStatus: court.clubStatus,
+      occupiedAt: court.occupiedAt,
+      pin: court.pin,
+      playerNames: { ...court.playerNames },
+      createdAt: court.createdAt,
+      matchState: {
+        config: { ...state.config },
+        score: {
+          sets: s.sets ?? { a: 0, b: 0 },
+          currentSet: s.games ?? { a: 0, b: 0 },
+          serving: s.serving ?? 'A',
+        },
+        swappedSides: state.swappedSides,
+        midSetSwapped: state.midSetSwapped,
+        setHistory: (s.setHistory || []).map((sh: any) => ({ ...sh })),
+        status: state.status,
+        winner: state.winner,
+        sport: state.sport || SPORT.TABLE_TENNIS,
+        history: (s.history || []).map((h: any) => ({
+          ...h,
+          pointsBefore: { ...h.pointsBefore },
+          pointsAfter: { ...h.pointsAfter },
+        })),
+        ...(s.sport === SPORT.PADEL ? {
+          padelPoints: s.padelPoints ?? { a: 0, b: 0 },
+          isTiebreak: s.isTiebreak ?? false,
+          tiebreakPoints: s.tiebreakPoints ?? { a: 0, b: 0 },
+          goldenPoint: s.goldenPoint ?? false,
+        } : {}),
+      },
+      config: null,
+      history: court.history as unknown as Record<string, unknown>[],
+    };
+  }
+
+  /**
+   * Load state from disk and reconstruct both tournament and club courts.
    *
-   * Reads persisted state via StateStore.load(), reconstructs Court objects
-   * and MatchEngine instances via MatchEngine.fromState(), and rewires
-   * Socket.io callbacks.
+   * Reads persisted state via StateStore.load() (auto-migrated to v3 format),
+   * reconstructs Court objects and MatchEngine instances via
+   * MatchEngine.fromState(), and rewires Socket.io callbacks.
    *
-   * Only courts with LIVE or FINISHED status are restored.
+   * Tournament courts are restored from `tournamentCourts[]` (LIVE/FINISHED),
+   * club courts from `clubCourts[]` (OCCUPIED/FINISHED).
    * Corrupted entries are skipped with a warning.
    *
    * @returns true if at least one court was restored, false otherwise.
@@ -743,16 +800,22 @@ export class CourtManager {
     }
 
     const persisted = this.stateStore.load();
-    if (!persisted || !persisted.tables || persisted.tables.length === 0) {
+    if (!persisted) {
+      return false;
+    }
+
+    const hasTournament = persisted.tournamentCourts && persisted.tournamentCourts.length > 0;
+    const hasClub = persisted.clubCourts && persisted.clubCourts.length > 0;
+
+    if (!hasTournament && !hasClub) {
       return false;
     }
 
     let restored = 0;
 
-    for (const pt of persisted.tables) {
-      // Only restore LIVE, FINISHED, or OCCUPIED/FINISHED club courts
-      // Club courts use status: 'WAITING' with clubStatus as the real discriminator
-      if (pt.status !== 'LIVE' && pt.status !== 'FINISHED' && pt.clubStatus !== 'OCCUPIED' && pt.clubStatus !== 'FINISHED') {
+    // Restore tournament courts
+    for (const pt of persisted.tournamentCourts) {
+      if (pt.status !== 'LIVE' && pt.status !== 'FINISHED') {
         continue;
       }
 
@@ -768,11 +831,12 @@ export class CourtManager {
 
         engine.setCourtId(pt.id, pt.name);
 
-    const court: Court = {
+        const court: TournamentCourt = {
+          kind: 'tournament',
           id: pt.id,
           number: pt.number,
           name: pt.name,
-          status: pt.status,
+          status: pt.status as CourtStatus,
           pin: pt.pin,
           sportRules: engine,
           playerNames: { ...pt.playerNames },
@@ -780,9 +844,6 @@ export class CourtManager {
           players: [],
           createdAt: pt.createdAt,
           featured: false,
-          mode: pt.mode as CourtMode | undefined,
-          clubStatus: pt.clubStatus as ClubStatus | undefined,
-          occupiedAt: pt.occupiedAt ?? null,
         };
 
         // Wire callbacks so Socket.io events work after restoration
@@ -795,12 +856,66 @@ export class CourtManager {
 
         logger.info(
           { courtId: pt.id, courtName: pt.name, status: pt.status },
-          'CourtManager: restored court from state',
+          'CourtManager: restored tournament court from state',
         );
       } catch (err) {
         logger.warn(
           { err, courtId: pt.id },
-          'CourtManager.loadTournament: failed to restore court, skipping',
+          'CourtManager.loadTournament: failed to restore tournament court, skipping',
+        );
+      }
+    }
+
+    // Restore club courts
+    for (const pt of persisted.clubCourts) {
+      if (pt.clubStatus !== 'OCCUPIED' && pt.clubStatus !== 'FINISHED') {
+        continue;
+      }
+
+      try {
+        const engine = MatchEngine.fromState({
+          ...pt.matchState as any,
+          tableId: pt.id,
+          tableName: pt.name,
+          playerNames: pt.playerNames,
+          history: pt.matchState?.history || [],
+          undoAvailable: (pt.matchState?.history || []).length > 0,
+        } as MatchStateExtended);
+
+        engine.setCourtId(pt.id, pt.name);
+
+        const court: ClubCourt = {
+          kind: 'club',
+          id: pt.id,
+          number: pt.number,
+          name: pt.name,
+          clubStatus: pt.clubStatus as ClubStatus,
+          occupiedAt: pt.occupiedAt,
+          pin: pt.pin,
+          sportRules: engine,
+          playerNames: { ...pt.playerNames },
+          history: [],
+          players: [],
+          createdAt: pt.createdAt,
+          featured: false,
+        };
+
+        // Wire callbacks so Socket.io events work after restoration
+        engine.setEventCallback((event: any) => {
+          this.onMatchEvent(pt.id, event);
+        });
+
+        this.repository.create(court);
+        restored++;
+
+        logger.info(
+          { courtId: pt.id, courtName: pt.name, clubStatus: pt.clubStatus },
+          'CourtManager: restored club court from state',
+        );
+      } catch (err) {
+        logger.warn(
+          { err, courtId: pt.id },
+          'CourtManager.loadTournament: failed to restore club court, skipping',
         );
       }
     }

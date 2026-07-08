@@ -27,7 +27,7 @@ export function handleExport(
   res: Response,
 ): void {
   const loaded = stateStore.load();
-  const tables = loaded?.tables ?? [];
+  const tables = loaded?.tournamentCourts ?? [];
 
   const csv = csvExporter.export(tables);
 

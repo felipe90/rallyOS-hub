@@ -159,11 +159,11 @@ describe('CourtManager with StateStore', () => {
       const court = manager.createCourt('Mesa Test');
 
       // createCourt triggers notifyUpdate which calls save.
-      // The court is WAITING, so only an empty tables array is saved.
+      // The court is WAITING, so only an empty tournamentCourts array is saved.
       const afterCreate = fs._files.get('data/rallyos-state.json');
       expect(afterCreate).toBeDefined();
       const afterCreateParsed = JSON.parse(afterCreate!);
-      expect(afterCreateParsed.tables).toHaveLength(0);
+      expect(afterCreateParsed.tournamentCourts).toHaveLength(0);
 
       // Start the match → court becomes LIVE → should save with the court
       manager.startMatch(court.id, { playerNameA: 'Alice', playerNameB: 'Bob' });
@@ -171,11 +171,11 @@ describe('CourtManager with StateStore', () => {
       const savedContent = fs._files.get('data/rallyos-state.json');
       expect(savedContent).toBeDefined();
       const parsed = JSON.parse(savedContent!);
-      expect(parsed.version).toBe(2);
-      expect(parsed.tables).toHaveLength(1);
-      expect(parsed.tables[0].id).toBe(court.id);
-      expect(parsed.tables[0].pin).toBe(court.pin);
-      expect(parsed.tables[0].status).toBe('LIVE');
+      expect(parsed.version).toBe(3);
+      expect(parsed.tournamentCourts).toHaveLength(1);
+      expect(parsed.tournamentCourts[0].id).toBe(court.id);
+      expect(parsed.tournamentCourts[0].pin).toBe(court.pin);
+      expect(parsed.tournamentCourts[0].status).toBe('LIVE');
     });
 
     it('should save FINISHED courts', () => {
@@ -192,8 +192,9 @@ describe('CourtManager with StateStore', () => {
       // then verify the save contains LIVE courts
       const saved = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(saved!);
-      expect(parsed.tables[0].status).toBe('LIVE');
-      expect(parsed.tables[0].pin).toBe(court.pin);
+      expect(parsed.version).toBe(3);
+      expect(parsed.tournamentCourts[0].status).toBe('LIVE');
+      expect(parsed.tournamentCourts[0].pin).toBe(court.pin);
     });
 
     it('should filter out WAITING courts from save', () => {
@@ -210,8 +211,9 @@ describe('CourtManager with StateStore', () => {
       const savedContent = fs._files.get('data/rallyos-state.json');
       expect(savedContent).toBeDefined();
       const parsed = JSON.parse(savedContent!);
-      expect(parsed.tables).toHaveLength(1);
-      expect(parsed.tables[0].name).toBe('Live Court');
+      expect(parsed.version).toBe(3);
+      expect(parsed.tournamentCourts).toHaveLength(1);
+      expect(parsed.tournamentCourts[0].name).toBe('Live Court');
     });
 
     it('should save match state with scores and history', () => {
@@ -226,9 +228,10 @@ describe('CourtManager with StateStore', () => {
 
       const savedContent = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(savedContent!);
-      expect(parsed.tables).toHaveLength(1);
+      expect(parsed.version).toBe(3);
+      expect(parsed.tournamentCourts).toHaveLength(1);
 
-      const matchState = parsed.tables[0].matchState;
+      const matchState = parsed.tournamentCourts[0].matchState;
       expect(matchState.score.currentSet.a).toBe(2);
       expect(matchState.score.currentSet.b).toBe(1);
       expect(matchState.history.length).toBeGreaterThan(0);
@@ -247,10 +250,11 @@ describe('CourtManager with StateStore', () => {
 
       const savedContent = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(savedContent!);
-      expect(parsed.tables).toHaveLength(2);
-      const names = parsed.tables.map((t: PersistedCourt) => t.name).sort();
+      expect(parsed.version).toBe(3);
+      expect(parsed.tournamentCourts).toHaveLength(2);
+      const names = parsed.tournamentCourts.map((t: PersistedCourt) => t.name).sort();
       expect(names).toEqual(['Mesa 1', 'Mesa 2']);
-      const pins = parsed.tables.map((t: PersistedCourt) => t.pin);
+      const pins = parsed.tournamentCourts.map((t: PersistedCourt) => t.pin);
       expect(pins).toHaveLength(2);
       // Pins should be different (random generation)
       expect(pins[0]).not.toBe(pins[1]);
@@ -299,7 +303,8 @@ describe('CourtManager with StateStore', () => {
 
       const savedContent = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(savedContent!);
-      expect(parsed.tables[0].pin).toBe(originalPin);
+      expect(parsed.version).toBe(3);
+      expect(parsed.tournamentCourts[0].pin).toBe(originalPin);
     });
 
     it('should persist playerNames in saved state', () => {
@@ -309,7 +314,8 @@ describe('CourtManager with StateStore', () => {
 
       const savedContent = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(savedContent!);
-      expect(parsed.tables[0].playerNames).toEqual({
+      expect(parsed.version).toBe(3);
+      expect(parsed.tournamentCourts[0].playerNames).toEqual({
         a: 'Champion',
         b: 'Runner-up',
       });
@@ -322,7 +328,8 @@ describe('CourtManager with StateStore', () => {
 
       const savedContent = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(savedContent!);
-      const savedTable = parsed.tables[0];
+      expect(parsed.version).toBe(3);
+      const savedTable = parsed.tournamentCourts[0];
 
       expect(savedTable.sportRules).toBeUndefined();
       expect(savedTable.players).toBeUndefined();
@@ -391,7 +398,7 @@ describe('CourtManager with StateStore', () => {
       const fullCourt = manager.getCourt('t1');
       expect(fullCourt).toBeDefined();
       expect(fullCourt!.pin).toBe('1111');
-      expect(fullCourt!.status).toBe('LIVE');
+      expect((fullCourt as any)!.status).toBe('LIVE');
 
       // Verify match state
       const matchState = manager.getMatchState('t1') as any;
@@ -448,7 +455,7 @@ describe('CourtManager with StateStore', () => {
       expect(restoredCourt1!.pin).toBe('1111');
       const restoredCourt2 = manager.getCourt('table-2');
       expect(restoredCourt2!.pin).toBe('2222');
-      expect(restoredCourt2!.status).toBe('FINISHED');
+      expect((restoredCourt2 as any)!.status).toBe('FINISHED');
 
       const t2state = manager.getMatchState('table-2');
       expect(t2state!.status).toBe('FINISHED');
@@ -673,7 +680,7 @@ describe('CourtManager with StateStore', () => {
       expect(restoredCourt!.pin).toBe(pin);
       expect(restoredCourt!.name).toBe('Mesa Persistida');
       expect(restoredCourt!.playerNames).toEqual({ a: 'Alpha', b: 'Beta' });
-      expect(restoredCourt!.status).toBe('LIVE');
+      expect((restoredCourt as any)!.status).toBe('LIVE');
 
       const state = newManager.getMatchState(court.id) as any;
       expect(state!.score.currentSet.a).toBe(2);
@@ -726,7 +733,7 @@ describe('CourtManager with StateStore', () => {
 
       const result = manager.occupyClubCourt(court.id, SPORT.PADEL);
       expect(result).not.toBeNull();
-      expect(result!.court.clubStatus).toBe('OCCUPIED');
+      expect((result as any)!.court.clubStatus).toBe('OCCUPIED');
       expect(result!.court.id).toBe(court.id);
       expect(result!.matchState.status).toBe('LIVE');
       expect(result!.matchState.config.sport).toBe(SPORT.PADEL);
@@ -738,7 +745,7 @@ describe('CourtManager with StateStore', () => {
 
       const result = manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
       expect(result).not.toBeNull();
-      expect(result!.court.clubStatus).toBe('OCCUPIED');
+      expect((result as any)!.court.clubStatus).toBe('OCCUPIED');
       expect(result!.matchState.config.sport).toBe(SPORT.TABLE_TENNIS);
       expect(result!.matchState.config.bestOf).toBe(1);
     });
@@ -749,12 +756,12 @@ describe('CourtManager with StateStore', () => {
 
       const result1 = manager.occupyClubCourt(court.id, SPORT.PADEL);
       expect(result1).not.toBeNull();
-      expect(result1!.court.clubStatus).toBe('OCCUPIED');
+      expect((result1 as any)!.court.clubStatus).toBe('OCCUPIED');
 
       // Second call — reconnection path
       const result2 = manager.occupyClubCourt(court.id, SPORT.PADEL);
       expect(result2).not.toBeNull();
-      expect(result2!.court.clubStatus).toBe('OCCUPIED');
+      expect((result2 as any)!.court.clubStatus).toBe('OCCUPIED');
       // Should return same match state
       expect(result2!.matchState.status).toBe('LIVE');
       expect(result2!.matchState.courtId).toBe(court.id);
@@ -778,9 +785,9 @@ describe('CourtManager with StateStore', () => {
       const after = Date.now();
 
       expect(result).not.toBeNull();
-      expect(result!.court.occupiedAt).not.toBeNull();
-      expect(result!.court.occupiedAt!).toBeGreaterThanOrEqual(before);
-      expect(result!.court.occupiedAt!).toBeLessThanOrEqual(after);
+      expect((result as any)!.court.occupiedAt).not.toBeNull();
+      expect((result as any)!.court.occupiedAt).toBeGreaterThanOrEqual(before);
+      expect((result as any)!.court.occupiedAt).toBeLessThanOrEqual(after);
     });
 
     it('should preserve occupiedAt on reconnection (already OCCUPIED)', () => {
@@ -789,12 +796,12 @@ describe('CourtManager with StateStore', () => {
 
       const result1 = manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
       expect(result1).not.toBeNull();
-      const originalOccupiedAt = result1!.court.occupiedAt;
+      const originalOccupiedAt = (result1 as any)!.court.occupiedAt;
 
       // Brief delay to ensure timestamps would differ if reset
       const result2 = manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
       expect(result2).not.toBeNull();
-      expect(result2!.court.occupiedAt).toBe(originalOccupiedAt);
+      expect((result2 as any)!.court.occupiedAt).toBe(originalOccupiedAt);
     });
   });
 
@@ -844,7 +851,7 @@ describe('CourtManager with StateStore', () => {
 
       const updatedCourt = manager.getCourt(court.id);
       expect(updatedCourt).not.toBeNull();
-      expect(updatedCourt!.clubStatus).toBe('FINISHED');
+      expect((updatedCourt as any)!.clubStatus).toBe('FINISHED');
       expect(updatedCourt!.pin).toBe('');
     });
 
@@ -907,7 +914,7 @@ describe('CourtManager with StateStore', () => {
 
       // The court should be FINISHED
       const updatedCourt = manager.getCourt(court.id);
-      expect(updatedCourt!.clubStatus).toBe('FINISHED');
+      expect((updatedCourt as any)!.clubStatus).toBe('FINISHED');
     });
   });
 
@@ -1019,7 +1026,7 @@ describe('CourtManager with StateStore', () => {
       const savedContent = fs._files.get('data/rallyos-state.json');
       expect(savedContent).toBeDefined();
       const parsed = JSON.parse(savedContent!);
-      const persisted = parsed.tables.find((t: any) => t.id === court.id);
+      const persisted = parsed.tournamentCourts.find((t: any) => t.id === court.id) ?? parsed.clubCourts.find((t: any) => t.id === court.id);
       expect(persisted).toBeDefined();
       expect(persisted.occupiedAt).toBeDefined();
       expect(typeof persisted.occupiedAt).toBe('number');
@@ -1031,7 +1038,49 @@ describe('CourtManager with StateStore', () => {
 
       const restoredCourt = newManager.getCourt(court.id);
       expect(restoredCourt).toBeDefined();
-      expect(restoredCourt!.occupiedAt).toBe(persisted.occupiedAt);
+      expect((restoredCourt as any)!.occupiedAt).toBe(persisted.occupiedAt);
+    });
+  });
+
+  describe('finishTournament — club court preservation', () => {
+    it('should NOT wipe club courts when finishTournament is called', () => {
+      const fs = makeFs();
+      const store = new StateStore(fs, 'data/rallyos-state.json');
+      const manager = new CourtManager(mockHubConfig, store);
+
+      // Create both a tournament court and a club court
+      const tourCourt = manager.createCourt('Tournament Court');
+      const clubCourt = manager.createClubCourt('Club Court');
+      manager.activateCourt(clubCourt.id);
+
+      expect(manager.getAllCourts()).toHaveLength(2);
+
+      // finishTournament should only clear tournament courts
+      manager.finishTournament();
+
+      const remaining = manager.getAllCourts();
+      expect(remaining).toHaveLength(1);
+      expect(remaining[0].id).toBe(clubCourt.id);
+      expect(remaining[0].mode).toBe('club');
+    });
+
+    it('should preserve multiple club courts after finishTournament', () => {
+      const fs = makeFs();
+      const store = new StateStore(fs, 'data/rallyos-state.json');
+      const manager = new CourtManager(mockHubConfig, store);
+
+      manager.createCourt('Tourney 1');
+      manager.createCourt('Tourney 2');
+      const club1 = manager.createClubCourt('Club 1');
+      manager.activateCourt(club1.id);
+      const club2 = manager.createClubCourt('Club 2');
+      manager.activateCourt(club2.id);
+
+      manager.finishTournament();
+
+      const remaining = manager.getAllCourts();
+      expect(remaining).toHaveLength(2);
+      expect(remaining.every(c => c.mode === 'club')).toBe(true);
     });
   });
 });

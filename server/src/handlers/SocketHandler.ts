@@ -22,6 +22,7 @@ import { TableInfo, HubConfig } from '../domain/types';
 import { logger } from '../utils/logger';
 import { RateLimiter } from '../services/security/RateLimiter';
 import { SocketEvents } from '../../../shared/events';
+import { COURT_MODE } from '../../../shared/types';
 import { 
   CourtEventHandler, 
   MatchEventHandler, 
@@ -79,16 +80,21 @@ export class SocketHandler {
     this.clubPlayerHandler = new ClubPlayerHandler(io, tableManager, ownerPin, clubConfigStore!);
     
     // Set up global court update listener once
-      this.tableManager.onTableUpdate = (tableInfo) => {
-      // TABLE_UPDATE goes only to clients in the court's room
+    // COURT_UPDATE always goes to the court's room; COURT_LIST / CLUB_KIOSK_DATA
+    // are split by court kind so tournament clients never see club courts and vice versa.
+    this.tableManager.onTableUpdate = (tableInfo) => {
+      // COURT_UPDATE goes only to clients in the court's room (shared)
       this.io.to(tableInfo.id).emit(SocketEvents.SERVER.COURT_UPDATE, tableInfo);
-      // TABLE_LIST goes to ALL clients (global)
-      this.io.emit(SocketEvents.SERVER.COURT_LIST, this.getPublicCourtList());
 
-      // CLUB_KIOSK_DATA goes to ALL clients — club-only court data for kiosk display
-      const clubConfig = this.clubConfigStore?.load() ?? null;
-      const kioskPayload = this.tableManager.getClubKioskPayload(clubConfig);
-      this.io.emit(SocketEvents.SERVER.CLUB_KIOSK_DATA, kioskPayload);
+      if (tableInfo.mode === COURT_MODE.CLUB) {
+        // Club court change → only emit CLUB_KIOSK_DATA
+        const clubConfig = this.clubConfigStore?.load() ?? null;
+        const kioskPayload = this.tableManager.getClubKioskPayload(clubConfig);
+        this.io.emit(SocketEvents.SERVER.CLUB_KIOSK_DATA, kioskPayload);
+      } else {
+        // Tournament court change → only emit COURT_LIST
+        this.io.emit(SocketEvents.SERVER.COURT_LIST, this.getPublicCourtList());
+      }
     };
 
     // On tournament finish, broadcast empty table list to all clients
@@ -164,6 +170,11 @@ export class SocketHandler {
       // Send current courts to new client
       socket.emit(SocketEvents.SERVER.COURT_LIST, this.getPublicCourtList());
 
+      // Send club kiosk data to new client
+      const clubConfig = this.clubConfigStore?.load() ?? null;
+      const kioskPayload = this.tableManager.getClubKioskPayload(clubConfig);
+      socket.emit(SocketEvents.SERVER.CLUB_KIOSK_DATA, kioskPayload);
+
       // Send hub config to new client (WiFi QR credentials + domain)
       socket.emit(SocketEvents.SERVER.HUB_CONFIG, {
         ssid: this.hubConfig.ssid,
@@ -210,6 +221,6 @@ export class SocketHandler {
   }
 
   private getPublicCourtList(): TableInfo[] {
-    return this.tableManager.getAllCourts();
+    return this.tableManager.getAllTournamentCourts();
   }
 }

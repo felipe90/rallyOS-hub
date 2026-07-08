@@ -8,7 +8,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { Socket } from 'socket.io-client'
 import { SocketEvents } from '@shared/events'
-import type { ClubCourtInfo } from '@shared/types'
+import type { ClubCourtInfo, ClubKioskPayload } from '@shared/types'
 
 export type ClubOperationEvent = {
   type: 'court-created' | 'court-activated' | 'court-deactivated' | 'court-resetted' | 'session-ended' | 'court-deleted'
@@ -78,23 +78,19 @@ export function useClubCourtManagement(socket: Socket | null, connected: boolean
       setLastEvent({ type: 'error', code: err.code || 'UNKNOWN_ERROR' })
     }
 
-    // Listen for COURT_LIST to sync club court status changes
-    // COURT_UPDATE only goes to court room members; COURT_LIST is global.
-    // Club courts in COURT_LIST carry clubStatus in the status field.
-    const handleCourtList = (courtsList: Array<{ id: string; status: string; mode?: string }>) => {
-      const clubCourts = courtsList.filter(c => c.mode === 'club')
-      if (clubCourts.length > 0) {
-        setCourts(prev => {
-          const updated = [...prev]
-          for (const cc of clubCourts) {
-            const idx = updated.findIndex(c => c.id === cc.id)
-            if (idx >= 0) {
-              updated[idx] = { ...updated[idx], status: cc.status as ClubCourtInfo['status'] }
-            }
-          }
-          return updated
-        })
-      }
+    // Listen for CLUB_KIOSK_DATA to sync club court status changes
+    // COURT_LIST no longer includes club courts; CLUB_KIOSK_DATA is the
+    // global catch-all for club court state from onTableUpdate.
+    const handleKioskData = (payload: ClubKioskPayload) => {
+      setCourts(payload.courts.map(kc => ({
+        id: kc.id,
+        name: kc.name,
+        status: kc.status as ClubCourtInfo['status'],
+        mode: 'club' as const,
+        pin: kc.pin,
+      })))
+      setLoading(false)
+      setError(null)
     }
 
     socket.on(SocketEvents.SERVER.CLUB_COURT_CREATED, handleCourtCreated)
@@ -103,7 +99,7 @@ export function useClubCourtManagement(socket: Socket | null, connected: boolean
     socket.on(SocketEvents.SERVER.CLUB_COURT_RESETTED, handleCourtResetted)
     socket.on(SocketEvents.SERVER.CLUB_SESSION_ENDED, handleSessionEnded)
     socket.on(SocketEvents.SERVER.COURT_DELETED, handleCourtDeleted)
-    socket.on(SocketEvents.SERVER.COURT_LIST, handleCourtList)
+    socket.on(SocketEvents.SERVER.CLUB_KIOSK_DATA, handleKioskData)
     socket.on(SocketEvents.SERVER.ERROR, handleError)
 
     return () => {
@@ -113,7 +109,7 @@ export function useClubCourtManagement(socket: Socket | null, connected: boolean
       socket.off(SocketEvents.SERVER.CLUB_COURT_RESETTED, handleCourtResetted)
       socket.off(SocketEvents.SERVER.CLUB_SESSION_ENDED, handleSessionEnded)
       socket.off(SocketEvents.SERVER.COURT_DELETED, handleCourtDeleted)
-      socket.off(SocketEvents.SERVER.COURT_LIST, handleCourtList)
+      socket.off(SocketEvents.SERVER.CLUB_KIOSK_DATA, handleKioskData)
       socket.off(SocketEvents.SERVER.ERROR, handleError)
     }
   }, [socket])

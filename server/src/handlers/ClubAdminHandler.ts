@@ -17,6 +17,7 @@ import { SocketEvents } from '../../../shared/events';
 import { ADMIN_PIN_RULES } from '../../../shared/validation';
 import { COURT_MODE } from '../../../shared/types';
 import { SocketHandlerBase } from './SocketHandlerBase';
+import { isClubCourt } from '../domain/types';
 import type { SocketData } from '../domain/types';
 
 export class ClubAdminHandler extends SocketHandlerBase {
@@ -65,20 +66,7 @@ export class ClubAdminHandler extends SocketHandlerBase {
         socket.data = { ...socketData, isClubAdmin: true };
         socket.emit(SocketEvents.SERVER.CLUB_ADMIN_VERIFIED, { success: true });
 
-        // Send existing club courts to this admin socket on reconnect/re-auth
-        const allCourts = this.tableManager.getAllCourts();
-        for (const info of allCourts) {
-          if (info.mode === COURT_MODE.CLUB) {
-            const internal = this.tableManager.getCourt(info.id);
-            socket.emit(SocketEvents.SERVER.CLUB_COURT_CREATED, {
-              id: info.id,
-              name: info.name,
-              status: info.clubStatus,
-              mode: info.mode,
-              pin: internal?.pin || undefined,
-            });
-          }
-        }
+        // Club courts are already delivered via CLUB_KIOSK_DATA at connection time
 
         logger.info({ socketId: socket.id }, 'Club admin verified successfully');
       } else {
@@ -95,6 +83,14 @@ export class ClubAdminHandler extends SocketHandlerBase {
         clubName: config?.clubName || null,
         sport: config?.sport || null,
       });
+
+      // Send club kiosk data alongside config so ClubKioskPage
+      // receives it when it mounts (race condition: connection-time
+      // CLUB_KIOSK_DATA arrives before ClubKioskPage is rendered)
+      if (config?.configured) {
+        const kioskPayload = this.tableManager.getClubKioskPayload(config);
+        socket.emit(SocketEvents.SERVER.CLUB_KIOSK_DATA, kioskPayload);
+      }
     });
 
     // CLUB_SETUP: First-run club configuration
@@ -152,8 +148,8 @@ export class ClubAdminHandler extends SocketHandlerBase {
         this.io.emit(SocketEvents.SERVER.CLUB_COURT_CREATED, {
           id: court.id,
           name: court.name,
-          status: court.clubStatus,
-          mode: court.mode,
+          status: isClubCourt(court) ? court.clubStatus : COURT_MODE.CLUB,
+          mode: COURT_MODE.CLUB,
         });
       }
 

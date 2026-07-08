@@ -29,6 +29,9 @@ function AppRoutes() {
         {/* Public routes */}
         <Route path={Routes.AUTH} element={<AuthPage />} />
         <Route path={Routes.KIOSK} element={<KioskPage />} />
+        <Route path={Routes.KIOSK_CLUB} element={<KioskPage />} />
+        <Route path={Routes.KIOSK_TOURNAMENT} element={<KioskPage />} />
+        <Route path="/scoreboard/all/kiosk" element={<KioskPage />} />
 
         {/* Club Mode routes */}
         <Route path={Routes.CLUB_SETUP} element={<ClubSetupPage />} />

@@ -34,8 +34,10 @@ export function useClubPlay(socket: Socket | null, courtId: string, connected: b
         if (match.status === 'FINISHED') {
           setFinished(true)
         }
-        // Detect OCCUPIED club court after page refresh → emit CLUB_RECONNECT
-        if (match.mode === 'club' && match.clubStatus === 'OCCUPIED' && !reconnectAttempted.current) {
+        // Active match after page refresh → emit CLUB_RECONNECT to re-establish bridge.
+        // Club-only hook — mode/clubStatus are not on MatchStateExtended.
+        // SERVER validates OCCUPIED status before reconnecting.
+        if (match.status !== 'FINISHED' && !reconnectAttempted.current) {
           reconnectAttempted.current = true
           setReconnecting(true)
           socket.emit(SocketEvents.CLIENT.CLUB_RECONNECT, { courtId })

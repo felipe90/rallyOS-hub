@@ -51,7 +51,7 @@ describe('ClubKioskPage', () => {
   it('renders empty state when no courts', () => {
     const mockOn = vi.fn()
     mockUseSocketContext.mockReturnValue({
-      socket: { on: mockOn, off: vi.fn() },
+      socket: { on: mockOn, off: vi.fn(), emit: vi.fn() },
       connected: true,
       connecting: false,
     })
@@ -68,7 +68,7 @@ describe('ClubKioskPage', () => {
       handler = h
     })
     mockUseSocketContext.mockReturnValue({
-      socket: { on: mockOn, off: vi.fn() },
+      socket: { on: mockOn, off: vi.fn(), emit: vi.fn() },
       connected: true,
       connecting: false,
     })
@@ -90,7 +90,7 @@ describe('ClubKioskPage', () => {
   it('subscribes to CLUB_KIOSK_DATA on mount', () => {
     const mockOn = vi.fn()
     mockUseSocketContext.mockReturnValue({
-      socket: { on: mockOn, off: vi.fn() },
+      socket: { on: mockOn, off: vi.fn(), emit: vi.fn() },
       connected: true,
       connecting: false,
     })
@@ -104,7 +104,7 @@ describe('ClubKioskPage', () => {
     const mockOff = vi.fn()
     const mockOn = vi.fn()
     mockUseSocketContext.mockReturnValue({
-      socket: { on: mockOn, off: mockOff },
+      socket: { on: mockOn, off: mockOff, emit: vi.fn() },
       connected: true,
       connecting: false,
     })
@@ -121,7 +121,7 @@ describe('ClubKioskPage', () => {
       handler = h
     })
     mockUseSocketContext.mockReturnValue({
-      socket: { on: mockOn, off: vi.fn() },
+      socket: { on: mockOn, off: vi.fn(), emit: vi.fn() },
       connected: true,
       connecting: false,
     })
@@ -153,7 +153,7 @@ describe('ClubKioskPage', () => {
   it('shows ConnectionStatus in header', () => {
     const mockOn = vi.fn()
     mockUseSocketContext.mockReturnValue({
-      socket: { on: mockOn, off: vi.fn() },
+      socket: { on: mockOn, off: vi.fn(), emit: vi.fn() },
       connected: true,
       connecting: false,
     })

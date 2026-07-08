@@ -37,7 +37,7 @@ export function ClubSetupPage() {
   const [confirmPin, setConfirmPin] = useState('')
   const [courtCount, setCourtCount] = useState(3)
   const [costPerMinute, setCostPerMinute] = useState(0)
-  const [currency, setCurrency] = useState('ARS')
+  const [currency, setCurrency] = useState('COP')
   const [pinError, setPinError] = useState('')
 
   // Toast for setup errors (skip ALREADY_CONFIGURED — it's handled by the UI state)
@@ -217,6 +217,7 @@ export function ClubSetupPage() {
               <option value="USD">USD</option>
               <option value="EUR">EUR</option>
               <option value="BRL">BRL</option>
+              <option value="COP">COP</option>
             </select>
           </div>
         </div>

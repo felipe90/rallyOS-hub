@@ -376,8 +376,8 @@ describe('Tournament route handlers', () => {
       const fs = makeFs();
       const stateStore = new StateStore(fs, 'data/rallyos-state.json');
 
-      const tables = [makeTable({ id: 't1', pin: '9999' })];
-      const persisted = { version: 1, savedAt: 1700000000000, tables };
+      const tournamentCourts = [makeTable({ id: 't1', pin: '9999' })];
+      const persisted = { version: 3, savedAt: 1700000000000, tournamentCourts, clubCourts: [] };
       fs._files.set('data/rallyos-state.json', JSON.stringify(persisted));
 
       const req = mockReq();
@@ -392,8 +392,8 @@ describe('Tournament route handlers', () => {
         k.startsWith('data/archive/'),
       );
       const archivedContent = JSON.parse(fs._files.get(archiveKeys[0])!);
-      expect(archivedContent.tables).toHaveLength(1);
-      expect(archivedContent.tables[0].pin).toBe('9999');
+      expect(archivedContent.tournamentCourts).toHaveLength(1);
+      expect(archivedContent.tournamentCourts[0].pin).toBe('9999');
     });
   });
 });

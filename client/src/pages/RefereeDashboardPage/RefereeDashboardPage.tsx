@@ -127,7 +127,7 @@ export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashb
           disconnected: i18nText('connectionDisconnected'),
         }}
         actions={
-          <Button variant="ghost" onClick={handleLogout} size="sm" animate={false}>
+          <Button variant="ghost" onClick={handleLogout} size="sm">
             {i18nText('commonBack')}
           </Button>
         }

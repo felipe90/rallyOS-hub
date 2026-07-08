@@ -10,9 +10,11 @@
 
 import { Server, Socket } from 'socket.io';
 import { CourtManager } from '../domain/courtManager';
+import { isClubCourt } from '../domain/types';
 import { validateSocketPayload } from '../utils/validation';
 import { logger } from '../utils/logger';
 import { SocketEvents } from '../../../shared/events';
+import { COURT_MODE } from '../../../shared/types';
 import { SocketHandlerBase } from './SocketHandlerBase';
 
 export class ClubCourtHandler extends SocketHandlerBase {
@@ -36,16 +38,7 @@ export class ClubCourtHandler extends SocketHandlerBase {
 
       const court = this.tableManager.createClubCourt(data?.name);
 
-      // Broadcast to all clients (not just the admin)
-      this.io.emit(SocketEvents.SERVER.CLUB_COURT_CREATED, {
-        id: court.id,
-        name: court.name,
-        status: court.clubStatus,
-        mode: court.mode,
-      });
-
-      // Also update the global court list
-      this.io.emit(SocketEvents.SERVER.COURT_LIST, this.getPublicCourtList());
+      // CLUB_KIOSK_DATA update is handled by onTableUpdate (notifyUpdate inside createClubCourt)
 
       logger.info({ courtId: court.id, courtName: court.name }, 'Club court created by admin');
     });
@@ -70,8 +63,8 @@ export class ClubCourtHandler extends SocketHandlerBase {
       socket.emit(SocketEvents.SERVER.CLUB_COURT_ACTIVATED, {
         id: activated.id,
         name: activated.name,
-        status: activated.clubStatus,
-        mode: activated.mode,
+        status: isClubCourt(activated) ? activated.clubStatus : COURT_MODE.CLUB,
+        mode: COURT_MODE.CLUB,
         pin: activated.pin,
       });
 
@@ -120,7 +113,7 @@ export class ClubCourtHandler extends SocketHandlerBase {
 
       socket.emit(SocketEvents.SERVER.CLUB_COURT_DEACTIVATED, {
         courtId: deactivated.id,
-        status: deactivated.clubStatus,
+        status: isClubCourt(deactivated) ? deactivated.clubStatus : COURT_MODE.CLUB,
       });
 
       logger.info({ courtId: data.courtId }, 'Club court deactivated');
@@ -145,7 +138,7 @@ export class ClubCourtHandler extends SocketHandlerBase {
 
       socket.emit(SocketEvents.SERVER.CLUB_COURT_RESETTED, {
         courtId: reset.id,
-        status: reset.clubStatus,
+        status: isClubCourt(reset) ? reset.clubStatus : COURT_MODE.CLUB,
       });
 
       logger.info({ courtId: data.courtId }, 'Club court reset to available');
@@ -171,8 +164,9 @@ export class ClubCourtHandler extends SocketHandlerBase {
       // Broadcast deletion
       this.io.emit(SocketEvents.SERVER.COURT_DELETED, { courtId: data.courtId });
 
-      // Update global court list
-      this.io.emit(SocketEvents.SERVER.COURT_LIST, this.getPublicCourtList());
+      // Emit updated club kiosk data (deleteClubCourt does not call notifyUpdate)
+      const kioskPayload = this.tableManager.getClubKioskPayload(null);
+      this.io.emit(SocketEvents.SERVER.CLUB_KIOSK_DATA, kioskPayload);
 
       logger.info({ courtId: data.courtId }, 'Club court deleted by admin');
     });

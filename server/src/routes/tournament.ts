@@ -24,7 +24,7 @@ export function handleStatus(
 ): void {
   const loaded = stateStore.load();
 
-  if (!loaded || !loaded.tables || loaded.tables.length === 0) {
+  if (!loaded || !loaded.tournamentCourts || loaded.tournamentCourts.length === 0) {
     res.json({
       exists: false,
       matchCount: 0,
@@ -35,7 +35,7 @@ export function handleStatus(
 
   res.json({
     exists: true,
-    matchCount: loaded.tables.length,
+    matchCount: loaded.tournamentCourts.length,
     lastSaved: new Date(loaded.savedAt).toISOString(),
   });
 }

@@ -18,6 +18,7 @@ function makeCourt(overrides: Partial<Court> = {}): Court {
     id: 'court-1',
     number: 1,
     name: 'Cancha 1',
+    kind: 'tournament',
     status: 'WAITING',
     pin: '1234',
     sportRules: new MatchEngine(),
@@ -26,9 +27,8 @@ function makeCourt(overrides: Partial<Court> = {}): Court {
     players: [],
     createdAt: Date.now(),
     featured: false,
-    occupiedAt: null,
     ...overrides,
-  };
+  } as Court;
 }
 
 // ── Task 5.1: MatchOrchestrator resolves sport from registry ────────────
@@ -65,7 +65,7 @@ describe('MatchOrchestrator - Sport Registry Integration', () => {
         matchConfig: { sport: SPORT.TABLE_TENNIS, pointsPerSet: 11, bestOf: 3, minDifference: 2 },
       });
 
-      expect(court.status).toBe('CONFIGURING');
+      expect((court as any).status).toBe('CONFIGURING');
       const state = court.sportRules.getState();
       expect(state.sport).toBe(SPORT.TABLE_TENNIS);
     });
@@ -76,7 +76,7 @@ describe('MatchOrchestrator - Sport Registry Integration', () => {
 
       orchestrator.resetTable(court);
 
-      expect(court.status).toBe('WAITING');
+      expect((court as any).status).toBe('WAITING');
       const state = court.sportRules.getState();
       expect(state.sport).toBe(SPORT.TABLE_TENNIS);
     });
@@ -121,7 +121,7 @@ describe('MatchOrchestrator - Sport Registry Integration', () => {
         } as any,
       });
 
-      expect(court.status).toBe('CONFIGURING');
+      expect((court as any).status).toBe('CONFIGURING');
       const state = court.sportRules.getState();
       expect(state.sport).toBe(SPORT.PADEL);
       // Verify padel config passed through correctly
@@ -142,7 +142,7 @@ describe('MatchOrchestrator - Sport Registry Integration', () => {
         goldenPoint: false,
       } as any);
 
-      expect(court.status).toBe('WAITING');
+      expect((court as any).status).toBe('WAITING');
       const state = court.sportRules.getState();
       expect(state.sport).toBe(SPORT.PADEL);
     });
@@ -224,7 +224,7 @@ describe('MatchOrchestrator - Sport Registry Integration', () => {
         matchConfig: { sport: SPORT.TABLE_TENNIS, pointsPerSet: 11, bestOf: 3, minDifference: 2 },
       });
 
-      expect(court.status).toBe('CONFIGURING');
+      expect((court as any).status).toBe('CONFIGURING');
       // Event callback should be wired (verify by triggering an event)
       court.sportRules.getState(); // Should not throw
     });

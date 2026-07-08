@@ -63,7 +63,7 @@ export class MatchOrchestrator {
       court.sportRules = this.createEngine(court, config.matchConfig, court.playerNames);
     }
 
-    court.status = 'CONFIGURING';
+    (court as any).status = 'CONFIGURING';
   }
 
   startMatch(court: Court, config?: Partial<MatchConfig> & { playerNameA?: string; playerNameB?: string }): MatchStateExtended | null {
@@ -103,7 +103,7 @@ export class MatchOrchestrator {
       court.playerNames = playerNames;
     }
 
-    court.status = 'LIVE';
+    (court as any).status = 'LIVE';
     const state = court.sportRules.startMatch();
     logger.debug({ courtId: court.id, status: state?.status }, 'After startMatch, state status');
 
@@ -111,35 +111,40 @@ export class MatchOrchestrator {
   }
 
   recordPoint(court: Court, player: Player): MatchStateExtended | null {
-    if (court.status !== 'LIVE') return null;
+    const c = court as any;
+    if (c.status !== 'LIVE') return null;
 
     const state = court.sportRules.recordPoint(player);
     if (state) {
-      court.status = state.status;
+      c.status = state.status;
     }
     return state;
   }
 
   subtractPoint(court: Court, player: Player): MatchStateExtended | null {
-    if (court.status !== 'LIVE') return null;
+    const c = court as any;
+    if (c.status !== 'LIVE') return null;
 
     return court.sportRules.subtractPoint(player);
   }
 
   undoLast(court: Court): MatchStateExtended | null {
-    if (court.status !== 'LIVE') return null;
+    const c = court as any;
+    if (c.status !== 'LIVE') return null;
 
     return court.sportRules.undoLast();
   }
 
   setServer(court: Court, player: Player): MatchStateExtended | null {
-    if (court.status !== 'LIVE') return null;
+    const c = court as any;
+    if (c.status !== 'LIVE') return null;
 
     return court.sportRules.setServer(player);
   }
 
   swapSides(court: Court): MatchStateExtended | null {
-    if (court.status !== 'LIVE') return null;
+    const c = court as any;
+    if (c.status !== 'LIVE') return null;
 
     return court.sportRules.swapSides();
   }
@@ -147,16 +152,10 @@ export class MatchOrchestrator {
   resetTable(court: Court, config?: MatchConfig): void {
     const resolvedConfig = config || { sport: SPORT.TABLE_TENNIS, pointsPerSet: 11, bestOf: 3, minDifference: 2 } as MatchConfig;
     court.sportRules = this.createEngine(court, resolvedConfig, court.playerNames);
-    court.status = 'WAITING';
+    (court as any).status = 'WAITING';
   }
 
   getMatchState(court: Court): MatchStateExtended | null {
-    const state = court.sportRules.getState();
-    if (!state) return null;
-    return {
-      ...state,
-      mode: court.mode,
-      clubStatus: court.clubStatus,
-    };
+    return court.sportRules.getState();
   }
 }

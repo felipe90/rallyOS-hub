@@ -12,6 +12,7 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useSocketContext } from '@/contexts/SocketContext'
 import { useClubPlay } from '@/hooks/useClubPlay'
 import { useOrientation } from '@/hooks/useOrientation'
@@ -77,13 +78,24 @@ function FinishedView({
       </Typography>
 
       {sessionEnded && (
-        <div className="flex flex-col items-center gap-2 text-center">
-          <Typography variant="body" className="text-muted-foreground">
-            {i18nText('clubPlayElapsedTime', { minutes: String(sessionEnded.elapsedMinutes) })}
-          </Typography>
-          <Typography variant="body" className="font-semibold">
-            {i18nText('clubPlayTotalCost', { cost: String(sessionEnded.cost), currency: sessionEnded.currency })}
-          </Typography>
+        <div className="w-full max-w-sm bg-background rounded-xl p-6 shadow-md border border-border/50 flex flex-col gap-4 my-4 relative overflow-hidden">
+          {/* Ticket styling accents */}
+          <div className="absolute -left-3 top-1/2 w-6 h-6 bg-surface rounded-full border-r border-border/50 -translate-y-1/2"></div>
+          <div className="absolute -right-3 top-1/2 w-6 h-6 bg-surface rounded-full border-l border-border/50 -translate-y-1/2"></div>
+          
+          <div className="flex justify-between items-center border-b border-dashed border-border/50 pb-4">
+            <Typography variant="body" className="text-muted-foreground">
+              {i18nText('clubPlayElapsedTime', { minutes: String(sessionEnded.elapsedMinutes) })}
+            </Typography>
+          </div>
+          <div className="flex justify-between items-center pt-2">
+            <Typography variant="body" className="font-semibold text-muted-foreground">
+              Total
+            </Typography>
+            <Typography variant="headline" className="font-bold text-emerald-600 dark:text-emerald-400">
+              {i18nText('clubPlayTotalCost', { cost: String(sessionEnded.cost), currency: sessionEnded.currency })}
+            </Typography>
+          </div>
         </div>
       )}
 
@@ -92,14 +104,13 @@ function FinishedView({
           variant="primary"
           size="lg"
           onClick={onEndSession}
-          animate={false}
           disabled={endingSession}
         >
           {endingSession ? i18nText('clubPlayLoading') : i18nText('clubPlayEndSession')}
         </Button>
       )}
 
-      <Button variant="ghost" size="lg" onClick={onBack} animate={false}>
+      <Button variant="ghost" size="lg" onClick={onBack}>
         {i18nText('clubPlayGoHome')}
       </Button>
     </div>
@@ -152,142 +163,142 @@ export function ClubPlayPage() {
     navigate(Routes.AUTH)
   }
 
-  if (!courtId) {
-    return (
-      <div className="flex items-center justify-center min-h-dvh bg-surface">
-        <Typography variant="body">{i18nText('scoreboardInvalidCourtId')}</Typography>
-      </div>
-    )
-  }
+  const motionProps = {
+    initial: { opacity: 0, y: 20 },
+    animate: { opacity: 1, y: 0 },
+    exit: { opacity: 0, y: -20 },
+    transition: { duration: 0.2 },
+  } as const
 
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-dvh bg-surface gap-4 p-4">
-        <Typography variant="body" className="text-red-500">
-          {error === 'CONNECTION_ERROR' ? i18nText('toastConnectionError') : i18nText('scoreboardLoading')}
-        </Typography>
-        <Button variant="ghost" onClick={handleBackToHome} animate={false}>
-          {i18nText('clubPlayGoHome')}
-        </Button>
-      </div>
-    )
-  }
-
-  // Loading state
-  if (loading) {
-    return <LoadingView />
-  }
-
-  // Reconnecting state (re-establishing bridge ownership after refresh)
-  if (reconnecting) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-dvh bg-surface gap-4 p-4">
-        <ConnectionStatus
-          labels={{
-            connected: i18nText('connectionConnected'),
-            connecting: i18nText('connectionConnecting'),
-            error: i18nText('connectionNoConnection'),
-            disconnected: i18nText('connectionDisconnected'),
-          }}
-        />
-        <Typography variant="body" className="text-muted-foreground">
-          {i18nText('clubPlayReconnecting')}
-        </Typography>
-      </div>
-    )
-  }
-
-  // Error if no match state after loading
-  if (!matchState) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-dvh bg-surface gap-4 p-4">
-        <Typography variant="body" className="text-muted-foreground">
-          {i18nText('scoreboardLoading')}
-        </Typography>
-        <Button variant="ghost" onClick={handleBackToHome} animate={false}>
-          {i18nText('clubPlayGoHome')}
-        </Button>
-      </div>
-    )
-  }
-
-  // Player name prompt (before match starts)
-  if (showNamePrompt) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-dvh bg-surface gap-8 p-4">
-        <PlayerNamePrompt
-          onSubmit={handleNameSubmit}
-          defaultNameA={matchState.playerNames?.a || i18nText('clubPlayNameA')}
-          defaultNameB={matchState.playerNames?.b || i18nText('clubPlayNameB')}
-        />
-      </div>
-    )
-  }
-
-  // Finished state
-  if (finished || matchState.status === 'FINISHED') {
-    return (
-      <FinishedView
-        matchState={matchState}
-        sessionEnded={sessionEnded}
-        onEndSession={() => {
-          setEndingSession(true)
-          endSession()
-        }}
-        onBack={handleBackToHome}
-        endingSession={endingSession}
-      />
-    )
-  }
-
-  // Playing state — full scoreboard experience
   return (
-    <div className="flex flex-col h-dvh bg-surface">
-      {refereeReplaced && (
-        <div className="bg-warning text-warning-foreground text-center py-2 px-4 text-sm font-medium">
-          {i18nText('clubPlayRefereeReplaced')}
-        </div>
-      )}
-      <PageHeader
-        title={`${matchState.playerNames?.a || i18nText('commonPlayerA')} vs ${matchState.playerNames?.b || i18nText('commonPlayerB')}`}
-        landscape={isLandscape}
-        connectionLabels={{
-          connected: i18nText('connectionConnected'),
-          connecting: i18nText('connectionConnecting'),
-          error: i18nText('connectionNoConnection'),
-          disconnected: i18nText('connectionDisconnected'),
-        }}
-        actions={
-          <>
-            <Button variant="secondary" size="sm" onClick={() => setHistoryOpen(true)}>
-              {i18nText('scoreboardHistory')}
+    <AnimatePresence mode="wait">
+      {!courtId ? (
+        <motion.div key="no-court" {...motionProps}>
+          <div className="flex items-center justify-center min-h-dvh bg-surface">
+            <Typography variant="body">{i18nText('scoreboardInvalidCourtId')}</Typography>
+          </div>
+        </motion.div>
+      ) : error ? (
+        <motion.div key="error" {...motionProps}>
+          <div className="flex flex-col items-center justify-center min-h-dvh bg-surface gap-4 p-4">
+            <Typography variant="body" className="text-red-500">
+              {error === 'CONNECTION_ERROR' ? i18nText('toastConnectionError') : i18nText('scoreboardLoading')}
+            </Typography>
+            <Button variant="ghost" onClick={handleBackToHome}>
+              {i18nText('clubPlayGoHome')}
             </Button>
-            <Button variant="ghost" size="sm" onClick={handleBackToHome}>
-              {i18nText('scoreboardBack')}
+          </div>
+        </motion.div>
+      ) : loading ? (
+        <motion.div key="loading" {...motionProps}>
+          <LoadingView />
+        </motion.div>
+      ) : reconnecting ? (
+        <motion.div key="reconnecting" {...motionProps}>
+          <div className="flex flex-col items-center justify-center min-h-dvh bg-surface gap-4 p-4">
+            <ConnectionStatus
+              labels={{
+                connected: i18nText('connectionConnected'),
+                connecting: i18nText('connectionConnecting'),
+                error: i18nText('connectionNoConnection'),
+                disconnected: i18nText('connectionDisconnected'),
+              }}
+            />
+            <Typography variant="body" className="text-muted-foreground">
+              {i18nText('clubPlayReconnecting')}
+            </Typography>
+          </div>
+        </motion.div>
+      ) : !matchState ? (
+        <motion.div key="no-match" {...motionProps}>
+          <div className="flex flex-col items-center justify-center min-h-dvh bg-surface gap-4 p-4">
+            <Typography variant="body" className="text-muted-foreground">
+              {i18nText('scoreboardLoading')}
+            </Typography>
+            <Button variant="ghost" onClick={handleBackToHome}>
+              {i18nText('clubPlayGoHome')}
             </Button>
-          </>
-        }
-      />
-      <main id="main-content" className="flex-1 overflow-auto bg-primary">
-        <ScoreboardMain
-          match={matchState}
-          onScorePoint={scorePoint}
-          onSubtractPoint={subtractPoint}
-          onUndo={undoLast}
-          onSwapSides={swapSides}
-          isReferee={!refereeReplaced}
-          isLandscape={isLandscape}
-          onOrientationToggle={toggleOrientation}
-        />
-      </main>
+          </div>
+        </motion.div>
+      ) : showNamePrompt ? (
+        <motion.div key="prompt" {...motionProps}>
+          <div className="flex flex-col items-center justify-center min-h-dvh bg-surface gap-8 p-4">
+            <PlayerNamePrompt
+              onSubmit={handleNameSubmit}
+              defaultNameA={matchState.playerNames?.a || i18nText('clubPlayNameA')}
+              defaultNameB={matchState.playerNames?.b || i18nText('clubPlayNameB')}
+            />
+          </div>
+        </motion.div>
+      ) : finished || matchState.status === 'FINISHED' ? (
+        <motion.div key="finished" {...motionProps}>
+          <FinishedView
+            matchState={matchState}
+            sessionEnded={sessionEnded}
+            onEndSession={() => {
+              setEndingSession(true)
+              endSession()
+            }}
+            onBack={handleBackToHome}
+            endingSession={endingSession}
+          />
+        </motion.div>
+      ) : (
+        <motion.div key="playing" {...motionProps} className="flex flex-col h-dvh bg-surface relative">
+          <AnimatePresence>
+            {refereeReplaced && (
+              <motion.div 
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="absolute top-16 left-1/2 -translate-x-1/2 z-50 bg-warning text-warning-foreground py-2 px-6 rounded-full shadow-lg border border-warning/20 text-sm font-semibold tracking-wide whitespace-nowrap"
+              >
+                {i18nText('clubPlayRefereeReplaced')}
+              </motion.div>
+            )}
+          </AnimatePresence>
+          <PageHeader
+            title={`${matchState.playerNames?.a || i18nText('commonPlayerA')} vs ${matchState.playerNames?.b || i18nText('commonPlayerB')}`}
+            landscape={isLandscape}
+            connectionLabels={{
+              connected: i18nText('connectionConnected'),
+              connecting: i18nText('connectionConnecting'),
+              error: i18nText('connectionNoConnection'),
+              disconnected: i18nText('connectionDisconnected'),
+            }}
+            actions={
+              <>
+                <Button variant="secondary" size="sm" onClick={() => setHistoryOpen(true)}>
+                  {i18nText('scoreboardHistory')}
+                </Button>
+                <Button variant="ghost" size="sm" onClick={handleBackToHome}>
+                  {i18nText('scoreboardBack')}
+                </Button>
+              </>
+            }
+          />
+          <main id="main-content" className="flex-1 overflow-auto bg-primary">
+            <ScoreboardMain
+              match={matchState}
+              onScorePoint={scorePoint}
+              onSubtractPoint={subtractPoint}
+              onUndo={undoLast}
+              onSwapSides={swapSides}
+              isReferee={!refereeReplaced}
+              isLandscape={isLandscape}
+              onOrientationToggle={toggleOrientation}
+            />
+          </main>
 
-      {/* History Drawer */}
-      <HistoryDrawer
-        isOpen={historyOpen}
-        events={matchState.history || []}
-        onClose={() => setHistoryOpen(false)}
-        onUndo={undoLast}
-      />
-    </div>
+          {/* History Drawer */}
+          <HistoryDrawer
+            isOpen={historyOpen}
+            events={matchState.history || []}
+            onClose={() => setHistoryOpen(false)}
+            onUndo={undoLast}
+          />
+        </motion.div>
+      )}
+    </AnimatePresence>
   )
 }

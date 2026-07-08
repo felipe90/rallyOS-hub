@@ -500,7 +500,7 @@ describe('ClubPlayerHandler — CLUB_END_SESSION', () => {
     // Court should be FINISHED
     const court = courtManager.getCourt(courtId);
     expect(court).not.toBeNull();
-    expect(court!.clubStatus).toBe('FINISHED');
+    expect((court as any)!.clubStatus).toBe('FINISHED');
     expect(court!.pin).toBe('');
   });
 

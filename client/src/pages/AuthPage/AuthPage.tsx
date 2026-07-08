@@ -8,6 +8,8 @@ import { useToast } from '@/components/molecules/Toast'
 import { Button } from '@/components/atoms/Button'
 import { PinInput } from '@/components/atoms/PinInput'
 import { Typography } from '@/components/atoms/Typography'
+
+import { LanguageSwitcher } from '@/components/atoms/LanguageSwitcher'
 import { TournamentResumeModal } from '@/components/molecules/TournamentResumeModal'
 import { SportDisplayRegistry } from '@/adapters/SportDisplayRegistry'
 import { SPORT } from '@shared/types'
@@ -15,6 +17,9 @@ import type { Sport } from '@shared/types'
 import { SocketEvents } from '@shared/events'
 import logoBig from '@/assets/logo-big.png'
 import { Routes } from '@/routes'
+import { CirclePlay, Trophy, Settings } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+
 
 export type AuthMode = 'select' | 'owner-pin' | 'sport-select' | 'club-pin'
 
@@ -31,10 +36,8 @@ export function AuthPage() {
   const [clubLoading, setClubLoading] = useState(false)
   const [clubError, setClubError] = useState<string | null>(null)
   const [clubRetryAfter, setClubRetryAfter] = useState<number | null>(null)
-  // Tournament section state
-  const [tournamentExpanded, setTournamentExpanded] = useState(false)
   const navigate = useNavigate()
-  const { i18nText } = useI18n()
+  const { i18nText, language, changeLanguage } = useI18n()
   const { login, setOwner, setTournamentToken } = useAuthContext()
   const { socket, connected } = useSocketContext()
 
@@ -188,217 +191,252 @@ export function AuthPage() {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-dvh bg-surface gap-8 p-4">
-      <div className="flex flex-col items-center gap-4">
-        <img src={logoBig} alt="RallyOS" className="w-32 h-auto mb-2 rounded-[--radius-md]" />
-        <Typography variant="title">
-          {mode === 'select' ? i18nText('authSelectRole')
-           : mode === 'sport-select' ? i18nText('configSportLabel')
-           : mode === 'club-pin' ? i18nText('authClubPlayTitle')
-           : i18nText('authEnterOwnerPin')}
-        </Typography>
+    <motion.div
+      className="flex flex-col items-center justify-center min-h-dvh bg-background gap-6 p-4"
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: 'easeOut' }}
+    >
+      {/* Header — logo + tagline */}
+      <div className="flex flex-col items-center gap-2">
+        <img src={logoBig} alt="RallyOS" className="w-16 h-auto mb-1 rounded-[--radius-md]" />
+        {mode === 'select' ? (
+          <Typography variant="body" className="text-center text-muted-foreground">
+            {i18nText('authTagline')}
+          </Typography>
+        ) : (
+          <Typography variant="title">
+            {mode === 'sport-select' ? i18nText('configSportLabel')
+             : mode === 'club-pin' ? i18nText('authClubPlayTitle')
+             : i18nText('authEnterOwnerPin')}
+          </Typography>
+        )}
       </div>
 
-      {mode === 'select' ? (
-        // Selection Mode — 3-entry layout: Play, Tournament (expandable), Admin
-        <div className="flex flex-col gap-4 w-full max-w-sm">
-          {/* "Quiero jugar" — primary green CTA button */}
-          <Button
-            variant="success"
-            size="xl"
-            onClick={handlePlayClick}
-            animate={false}
+      <AnimatePresence mode="wait">
+        {mode === 'select' ? (
+          <motion.div
+            key="select"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.2 }}
+            className="flex flex-col gap-4 w-full max-w-sm"
           >
-            {i18nText('authClubPlay')}
-          </Button>
-
-          {/* "Torneo" — expandable section with sub-roles */}
-          <div className="flex flex-col gap-2">
-            <Button
-              variant="secondary"
-              size="lg"
-              onClick={() => setTournamentExpanded(!tournamentExpanded)}
-              animate={false}
+            {/* Club card — primary CTA */}
+            <motion.button
+              onClick={handlePlayClick}
+              whileTap={{ scale: 0.97 }}
+              whileHover={{ scale: 1.01 }}
+              className="flex flex-col items-center gap-2 p-6 rounded-2xl cursor-pointer border-none outline-none
+                bg-gradient-to-br from-primary to-primary-light
+                shadow-md hover:shadow-lg
+                text-white transition-shadow duration-200"
             >
-              <span className="flex-1 text-left">{i18nText('authTournament')}</span>
-              <span>{tournamentExpanded ? '▲' : '▼'}</span>
+              <CirclePlay size={32} strokeWidth={1.75} />
+              <span className="text-lg font-semibold font-heading">{i18nText('authClubPlay')}</span>
+              <span className="text-sm text-white/80 font-body">{i18nText('authClubPlaySubtitle')}</span>
+            </motion.button>
+
+            {/* Divider with Tournament label */}
+            <div className="flex items-center gap-3 text-muted-foreground">
+              <span className="flex-1 h-px bg-border" />
+              <span className="flex items-center gap-1.5 text-xs font-heading font-semibold tracking-widest uppercase text-text-muted">
+                <Trophy size={12} />
+                {i18nText('authTournament')}
+              </span>
+              <span className="flex-1 h-px bg-border" />
+            </div>
+
+            {/* Tournament section — 3 inline buttons, all outline style */}
+            <div className="flex flex-col gap-2">
+              <Button variant="primary" size="lg" onClick={handleOwnerClick} animate fullWidth>
+                {i18nText('authRoleOwner')}
+              </Button>
+              <Button variant="outline" size="lg" onClick={handleRefereeClick} animate fullWidth>
+                {i18nText('authRoleReferee')}
+              </Button>
+              <Button variant="outline" size="lg" onClick={handleSpectatorClick} animate fullWidth>
+                {i18nText('authRoleSpectator')}
+              </Button>
+            </div>
+
+            {/* Footer row — admin link + connection status */}
+            <div className="flex items-center justify-between pt-1 border-t border-border/50">
+              <button
+                onClick={handleAdminClick}
+                className="flex items-center gap-1.5 text-xs text-text-muted hover:text-text transition-colors duration-150 bg-transparent border-none cursor-pointer font-body"
+              >
+                <Settings size={13} strokeWidth={1.75} />
+                {i18nText('authAdminClub')}
+              </button>
+              <div className="flex items-center gap-1.5">
+                <motion.span
+                  className={`inline-block w-2 h-2 rounded-full ${connected ? 'bg-emerald-400' : 'bg-slate-300'}`}
+                  animate={connected ? { scale: [1, 1.25, 1] } : { scale: 1 }}
+                  transition={connected ? { duration: 2, repeat: Infinity, ease: 'easeInOut' } : {}}
+                />
+                <span className="text-xs text-text-muted font-body">
+                  {connected ? i18nText('connectionConnected') : i18nText('connectionDisconnected')}
+                </span>
+              </div>
+            </div>
+          </motion.div>
+        ) : mode === 'club-pin' ? (
+          <motion.div
+            key="club-pin"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.2 }}
+            className="flex flex-col gap-4 w-full max-w-sm"
+          >
+            <Typography variant="body" className="text-center text-muted-foreground">
+              {i18nText('authClubPlayDesc')}
+            </Typography>
+            <PinInput
+              length={4}
+              value={clubPin}
+              onChange={handleClubPinChange}
+              onComplete={() => {}}
+              disabled={clubLoading}
+              error={clubError ?? undefined}
+              autoFocus
+              placeholder="••••"
+            />
+
+            {clubError === 'INVALID_PIN' && (
+              <Typography variant="label" className="text-red-500 text-center">
+                {i18nText('authPinErrorInvalid')}
+              </Typography>
+            )}
+            {clubError === 'RATE_LIMITED' && (
+              <Typography variant="label" className="text-red-500 text-center">
+                {i18nText('authPinErrorRateLimited', { seconds: clubRetryAfter })}
+              </Typography>
+            )}
+
+            <Button
+              variant="primary"
+              disabled={clubPin.length !== 4 || clubLoading}
+              onClick={handleClubPinSubmit}
+              animate
+              fullWidth
+            >
+              {clubLoading ? (
+                <span className="animate-spin inline-block h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
+              ) : i18nText('authPinSubmit')}
             </Button>
 
-            {tournamentExpanded && (
-              <div className="flex flex-col gap-2 pl-4 pt-1">
+            <Button
+              variant="ghost"
+              onClick={handleClubPinBack}
+              disabled={clubLoading}
+              animate
+              fullWidth
+            >
+              {i18nText('authPinBack')}
+            </Button>
+          </motion.div>
+        ) : mode === 'sport-select' ? (
+          <motion.div
+            key="sport-select"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.2 }}
+            className="flex flex-col gap-4 w-full max-w-sm items-center"
+          >
+            <Typography variant="body" className="text-center text-muted-foreground">
+              {i18nText('authSelectSportDescription')}
+            </Typography>
+            <div className="flex gap-3 w-full">
+              {registry.getAvailableSports().map(s => (
                 <Button
+                  key={s}
                   variant="primary"
                   size="lg"
-                  onClick={handleOwnerClick}
-                  disabled={loading}
-                  animate={false}
+                  fullWidth
+                  icon={registry.resolve(s).icon}
+                  onClick={() => handleSelectSport(s)}
+                  animate
                 >
-                  {i18nText('authRoleOwner')}
+                  {i18nText(registry.resolve(s).displayKey)}
                 </Button>
-                <Button
-                  variant="secondary"
-                  size="lg"
-                  onClick={handleRefereeClick}
-                  disabled={loading}
-                  animate={false}
-                >
-                  {i18nText('authRoleReferee')}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  onClick={handleSpectatorClick}
-                  disabled={loading}
-                  animate={false}
-                >
-                  {i18nText('authRoleSpectator')}
-                </Button>
-              </div>
-            )}
-          </div>
-
-          {/* "Administrar" — ghost/link style */}
-          <Button
-            variant="ghost"
-            size="lg"
-            onClick={handleAdminClick}
-            animate={false}
+              ))}
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="owner-pin"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.2 }}
+            className="flex flex-col gap-4 w-full max-w-sm"
           >
-            {i18nText('authAdminClub')}
-          </Button>
-        </div>
-      ) : mode === 'club-pin' ? (
-        // Club PIN Entry Mode
-        <div className="flex flex-col gap-4 w-full max-w-sm">
-          <Typography variant="body" className="text-center text-muted-foreground">
-            {i18nText('authClubPlayDesc')}
-          </Typography>
-          <PinInput
-            length={4}
-            value={clubPin}
-            onChange={handleClubPinChange}
-            onComplete={() => {}}
-            disabled={clubLoading}
-            error={clubError ?? undefined}
-            autoFocus
-            placeholder="••••"
-          />
-
-          {clubError === 'INVALID_PIN' && (
-            <Typography variant="label" className="text-red-500 text-center">
-              {i18nText('authPinErrorInvalid')}
-            </Typography>
-          )}
-          {clubError === 'RATE_LIMITED' && (
-            <Typography variant="label" className="text-red-500 text-center">
-              {i18nText('authPinErrorRateLimited', { seconds: clubRetryAfter })}
-            </Typography>
-          )}
-
-          <Button
-            variant="primary"
-            disabled={clubPin.length !== 4 || clubLoading}
-            onClick={handleClubPinSubmit}
-            animate={false}
-          >
-            {clubLoading ? (
-              <span className="animate-spin inline-block h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
-            ) : i18nText('authPinSubmit')}
-          </Button>
-
-          <Button
-            variant="ghost"
-            onClick={handleClubPinBack}
-            disabled={clubLoading}
-            animate={false}
-          >
-            {i18nText('authPinBack')}
-          </Button>
-        </div>
-      ) : mode === 'sport-select' ? (
-        // Sport Selection Mode — shown after owner PIN verification
-        <div className="flex flex-col gap-4 w-full max-w-sm items-center">
-          <Typography variant="body" className="text-center text-muted-foreground">
-            {i18nText('authSelectSportDescription')}
-          </Typography>
-          <div className="flex gap-3 w-full">
-            {registry.getAvailableSports().map(s => (
-              <Button
-                key={s}
-                variant="primary"
-                size="lg"
-                fullWidth
-                icon={registry.resolve(s).icon}
-                onClick={() => handleSelectSport(s)}
-                animate={false}
-              >
-                {i18nText(registry.resolve(s).displayKey)}
-              </Button>
-            ))}
-          </div>
-        </div>
-      ) : (
-        // Owner PIN Mode
-        <div className="flex flex-col gap-4 w-full max-w-sm">
-          {randomOwnerPin ? (
-            <>
+            {randomOwnerPin ? (
+              <>
+                <Typography variant="body" className="text-center text-muted-foreground">
+                  {i18nText('authOwnerPinDescription')}
+                </Typography>
+                <div className="card flex flex-col items-center gap-2 p-4 bg-surface-low rounded-lg border border-outline/20">
+                  <Typography variant="label" className="text-muted-foreground">
+                    {i18nText('authOwnerPinYourPinIs')}
+                  </Typography>
+                  <Typography variant="headline" className="font-mono text-primary tracking-widest">
+                    {randomOwnerPin}
+                  </Typography>
+                  <Typography variant="label" className="text-xs text-muted-foreground">
+                    {i18nText('authOwnerPinUseHint')}
+                  </Typography>
+                </div>
+              </>
+            ) : (
               <Typography variant="body" className="text-center text-muted-foreground">
-                {i18nText('authOwnerPinDescription')}
+                {i18nText('authOwnerPinEnterPin')}
               </Typography>
-              <div className="card flex flex-col items-center gap-2 p-4 bg-surface-low rounded-lg border border-outline/20">
-                <Typography variant="label" className="text-muted-foreground">
-                  {i18nText('authOwnerPinYourPinIs')}
-                </Typography>
-                <Typography variant="headline" className="font-mono text-primary tracking-widest">
-                  {randomOwnerPin}
-                </Typography>
-                <Typography variant="label" className="text-xs text-muted-foreground">
-                  {i18nText('authOwnerPinUseHint')}
-                </Typography>
-              </div>
-            </>
-          ) : (
-            <Typography variant="body" className="text-center text-muted-foreground">
-              {i18nText('authOwnerPinEnterPin')}
-            </Typography>
-          )}
-          <PinInput
-            length={8}
-            value={pin}
-            onChange={handlePinChange}
-            onComplete={() => {}} // Auto-submit disabled - user must click button
-            disabled={loading}
-            error={error}
-            autoFocus
-            placeholder="••••••••"
-          />
+            )}
+            <PinInput
+              length={8}
+              value={pin}
+              onChange={handlePinChange}
+              onComplete={() => {}} // Auto-submit disabled - user must click button
+              disabled={loading}
+              error={error}
+              autoFocus
+              placeholder="••••••••"
+            />
 
-          {error && (
-            <Typography variant="label" className="text-red-500 text-center">
-              ⚠️ {translateAuthError(error)}
-            </Typography>
-          )}
+            {error && (
+              <Typography variant="label" className="text-red-500 text-center">
+                ⚠️ {translateAuthError(error)}
+              </Typography>
+            )}
 
-          <Button
-            className='bg-primary text-primary-foreground hover:bg-primary/90'
-            variant="primary"
-            disabled={pin.length < 5 || pin.length > 8 || loading}
-            onClick={handlePinSubmit}
-            animate={false}
-          >
-            {loading ? i18nText('authVerifying') : i18nText('authEnter')}
-          </Button>
+            <Button
+              className='bg-primary text-primary-foreground hover:bg-primary/90'
+              variant="primary"
+              disabled={pin.length < 5 || pin.length > 8 || loading}
+              onClick={handlePinSubmit}
+              animate
+              fullWidth
+            >
+              {loading ? i18nText('authVerifying') : i18nText('authEnter')}
+            </Button>
 
-          <Button
-            variant="ghost"
-            onClick={handleBack}
-            disabled={loading}
-            animate={false}
-          >
-            {i18nText('commonBack')}
-          </Button>
-        </div>
-      )}
+            <Button
+              variant="ghost"
+              onClick={handleBack}
+              disabled={loading}
+              animate
+              fullWidth
+            >
+              {i18nText('commonBack')}
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Tournament Resume Modal — shown after owner verification if prior tournament exists */}
       <TournamentResumeModal
@@ -408,6 +446,9 @@ export function AuthPage() {
         onLoad={() => resolveTournament('load')}
         onNew={() => resolveTournament('new')}
       />
-    </div>
+
+      {/* Language switcher — repositioned to float bottom-right, always available */}
+      <LanguageSwitcher language={language} onChangeLanguage={changeLanguage} />
+    </motion.div>
   )
 }

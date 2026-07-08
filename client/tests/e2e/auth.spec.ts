@@ -7,7 +7,8 @@ test.describe('Auth Flow', () => {
   })
 
   test('shows role selection by default', async ({ page }) => {
-    await expect(page.locator('text=Elige tu rol')).toBeVisible()
+    await expect(page.locator('text=Jugá sin complicaciones')).toBeVisible()
+    await expect(page.locator('text=Quiero jugar')).toBeVisible()
     await expect(page.locator('button:has-text("Organizador")')).toBeVisible()
     await expect(page.locator('button:has-text("Árbitro")')).toBeVisible()
     await expect(page.locator('button:has-text("Espectador")')).toBeVisible()

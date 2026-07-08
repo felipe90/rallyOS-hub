@@ -10,6 +10,8 @@ export const Routes = {
   DASHBOARD_REFEREE: '/dashboard/referee',
   DASHBOARD_SPECTATOR: '/dashboard/spectator',
   KIOSK: '/kiosk',
+  KIOSK_CLUB: '/kiosk/club',
+  KIOSK_TOURNAMENT: '/kiosk/tournament',
   SCOREBOARD_REFEREE: '/scoreboard/:tableId/referee',
   SCOREBOARD_VIEW: '/scoreboard/:tableId/view',
   HISTORY: '/history',

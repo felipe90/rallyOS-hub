@@ -78,11 +78,13 @@ function createMockTableManager(): CourtManager {
     onTableUpdate: () => {},
     onMatchEvent: () => {},
     getAllCourts: () => [],
+    getAllTournamentCourts: () => [],
     getCourt: () => undefined,
     getMatchState: () => null,
     courtToInfo: () => undefined,
     onTournamentFinish: () => {},
     leaveTable: () => {},
+    getClubKioskPayload: () => ({ clubName: 'Test Club', courts: [] }),
   } as unknown as CourtManager;
 }
 

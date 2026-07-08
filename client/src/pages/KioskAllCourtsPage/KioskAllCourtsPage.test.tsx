@@ -464,12 +464,9 @@ describe('KioskAllCourtsPage — featured court spotlight', () => {
     expect(mockScoreboardMount).toHaveBeenLastCalledWith('t1')
 
     const spotlightMain = screen.getByRole('main')
-    expect(spotlightMain).toHaveClass('transition-opacity', 'duration-500')
-
-    act(() => {
-      vi.advanceTimersByTime(500)
-    })
-    expect(spotlightMain).toHaveClass('opacity-100')
+    // The <main> container uses CSS layout classes; fade transitions are handled
+    // by Framer Motion <AnimatePresence> on the inner motion.div
+    expect(spotlightMain).toHaveClass('flex-1', 'flex', 'flex-col', 'relative')
 
     const updatedCourts = [
       makeTable({ id: 't1', name: 'Court A', status: 'LIVE', featured: false }),
@@ -487,9 +484,6 @@ describe('KioskAllCourtsPage — featured court spotlight', () => {
         <KioskAllCourtsPage />
       </MemoryRouter>,
     )
-
-    // Fade should be hidden immediately after switching featured courts
-    expect(spotlightMain).toHaveClass('opacity-0')
 
     act(() => {
       matchUpdateHandler({
@@ -511,12 +505,6 @@ describe('KioskAllCourtsPage — featured court spotlight', () => {
     })
 
     expect(mockScoreboardMount.mock.calls[mockScoreboardMount.mock.calls.length - 1]).toEqual(['t2'])
-
-    act(() => {
-      vi.advanceTimersByTime(500)
-    })
-
-    expect(spotlightMain).toHaveClass('opacity-100')
   })
 
   it('unsubscribes on unmount when featured court active', () => {

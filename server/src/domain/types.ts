@@ -97,12 +97,13 @@ export interface PlayerConnection {
 }
 
 /**
- * Court (internal server-only type)
+ * TournamentCourt — A court in tournament mode.
  *
- * This type adds server-internal fields (callbacks, internal state)
- * that must never be serialized and sent to the client.
+ * Has `status: CourtStatus` to track match lifecycle.
+ * Does NOT have club-specific fields (clubStatus, occupiedAt, mode).
  */
-export interface Court {
+export interface TournamentCourt {
+  kind: 'tournament';
   id: string;
   number: number;
   name: string;
@@ -115,15 +116,50 @@ export interface Court {
   createdAt: number;
   /** Whether this court is currently featured/spotlight on the kiosk */
   featured: boolean;
-  /** Court mode discriminator — 'club' for club-managed courts, undefined for legacy tournament courts */
-  mode?: CourtMode;
-  /** Club-specific status — only used when mode === 'club' */
-  clubStatus?: ClubStatus;
+  // Event callbacks — internal wiring, never exposed to client
+  onTableUpdate?: () => void;
+  onMatchEvent?: (event: MatchEvent) => void;
+}
+
+/**
+ * ClubCourt — A court in club mode.
+ *
+ * Has `clubStatus: ClubStatus` for club lifecycle (AVAILABLE, RESERVED,
+ * OCCUPIED, FINISHED, MAINTENANCE) and `occupiedAt` for session tracking.
+ * Does NOT have tournament-specific fields (status).
+ */
+export interface ClubCourt {
+  kind: 'club';
+  id: string;
+  number: number;
+  name: string;
+  clubStatus: ClubStatus;
+  pin: string;
+  sportRules: MatchEngine;
+  playerNames: { a: string; b: string };
+  history: MatchEvent[];
+  players: PlayerConnection[];
+  createdAt: number;
+  /** Whether this court is currently featured/spotlight on the kiosk */
+  featured: boolean;
   /** Epoch ms when the court was first occupied (set on RESERVED→OCCUPIED transition) */
   occupiedAt: number | null;
   // Event callbacks — internal wiring, never exposed to client
   onTableUpdate?: () => void;
   onMatchEvent?: (event: MatchEvent) => void;
+}
+
+/** Discriminated union — use `kind` to narrow. */
+export type Court = TournamentCourt | ClubCourt;
+
+/** Type guard: narrow Court → ClubCourt */
+export function isClubCourt(court: Court): court is ClubCourt {
+  return court.kind === 'club';
+}
+
+/** Type guard: narrow Court → TournamentCourt */
+export function isTournamentCourt(court: Court): court is TournamentCourt {
+  return court.kind === 'tournament';
 }
 
 /** @deprecated Use Court instead — legacy alias for backward compat */

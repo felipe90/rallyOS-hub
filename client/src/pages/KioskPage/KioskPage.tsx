@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useSocketContext } from '@/contexts/SocketContext'
 import { SocketEvents } from '@shared/events'
 import type { ClubConfig } from '@shared/types'
@@ -8,19 +9,32 @@ import { ClubKioskPage } from '@/pages/ClubKioskPage'
 type Mode = 'loading' | 'club' | 'tournament'
 
 /**
- * KioskPage — auto-detect wrapper
+ * KioskPage — auto-detect wrapper with URL override
  *
- * On mount, emits CLUB_GET_CONFIG to determine hub type.
- * - Club hub (configured === true) → renders ClubKioskPage
- * - Tournament hub → renders KioskAllCourtsPage (unchanged behavior)
- * Falls back to tournament kiosk after 5s timeout.
+ * Route-based mode selection:
+ * - /kiosk/club       → always club kiosk
+ * - /kiosk/tournament → always tournament kiosk
+ * - /kiosk            → auto-detect (club if configured, else tournament)
  */
 export function KioskPage() {
   const { socket } = useSocketContext()
+  const location = useLocation()
   const [mode, setMode] = useState<Mode>('loading')
   const hasResolved = useRef(false)
 
+  // URL-based mode override — bypasses auto-detect
+  const forceMode = location.pathname.includes('/kiosk/club') ? 'club'
+    : location.pathname.includes('/kiosk/tournament') || location.pathname.includes('/scoreboard/all/kiosk') ? 'tournament'
+    : null
+
   useEffect(() => {
+    // If URL forces a mode, skip auto-detect entirely
+    if (forceMode) {
+      setMode(forceMode)
+      hasResolved.current = true
+      return
+    }
+
     if (!socket) return
 
     const handleClubConfig = (config: ClubConfig) => {
@@ -43,7 +57,7 @@ export function KioskPage() {
       socket.off(SocketEvents.SERVER.CLUB_CONFIG, handleClubConfig)
       clearTimeout(timeout)
     }
-  }, [socket])
+  }, [socket, forceMode])
 
   if (mode === 'loading') {
     return (

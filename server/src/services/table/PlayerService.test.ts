@@ -18,6 +18,7 @@ function makeCourt(overrides: Partial<Court> = {}): Court {
     id: 'court-1',
     number: 1,
     name: 'Test Court',
+    kind: 'tournament',
     status: 'WAITING',
     pin: '1234',
     sportRules: new MatchEngine(),
@@ -26,9 +27,8 @@ function makeCourt(overrides: Partial<Court> = {}): Court {
     players: [],
     createdAt: Date.now(),
     featured: false,
-    occupiedAt: null,
     ...overrides,
-  };
+  } as Court;
 }
 
 describe('PlayerService — setRefereeDirect', () => {

@@ -184,7 +184,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
       const res = await fetch('/api/export/matches.csv', {
         headers: { Authorization: `Bearer ${token}` },
       })
-      if (!res.ok) return
+      if (!res.ok) throw new Error('Export failed')
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -193,9 +193,9 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
       a.click()
       URL.revokeObjectURL(url)
     } catch {
-      // Silently fail — CSV is optional
+      addToast('error', i18nText('toastErrorGeneric') || 'Export failed')
     }
-  }, [tournamentToken])
+  }, [tournamentToken, addToast, i18nText])
 
   /** ── Finish Tournament ── */
   const handleFinishConfirm = useCallback(async () => {
@@ -239,32 +239,37 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
     return map[code] || code
   }
 
-  const dashboardActions = <div className="flex gap-2 items-center">
-    {!courtMgmt.isCreatingCourt ? (
+  const handleOneClickCreate = () => {
+    if (courtMgmt.isCreating) return;
+    
+    // Auto-calculate the next sequential court number
+    let nextNum = 1;
+    let newName = i18nText('clubAdminDefaultCourtName', { number: String(nextNum) });
+    
+    while (courts.some(c => c.name === newName)) {
+      nextNum++;
+      newName = i18nText('clubAdminDefaultCourtName', { number: String(nextNum) });
+    }
+    
+    courtMgmt.setCourtName(newName);
+    courtMgmt.createCourt();
+  };
+
+  const dashboardActions = <div className="flex flex-wrap gap-2 items-center">
+    {!courtMgmt.isCreating ? (
       <>
         <Button
-          variant="primary"
-          onClick={courtMgmt.startCreating}
-          size="sm" animate={false}
-          icon={<Plus size={18}
-          />}
-        >
-          {i18nText('ownerCreateCourt')}
-        </Button>
-        <Button
-          variant="primary"
+          variant="ghost"
           size="sm"
           onClick={() => setNotifModalOpen(true)}
-          animate={false}
           icon={<Bell size={18} />}
         >
           {i18nText('ownerCreateNotification')}
         </Button>
             <Button
-          variant="primary"
+          variant="ghost"
           size="sm"
           onClick={() => navigate(Routes.HISTORY)}
-          animate={false}
           icon={<FileText size={18} />}
         >
           {i18nText('ownerViewHistory')}
@@ -272,10 +277,9 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
         {/* Export CSV button — only for owners when FINISHED courts exist */}
         {isOwner && hasFinishedCourts && (
           <Button
-            variant="primary"
+            variant="ghost"
             size="sm"
             onClick={downloadCsv}
-            animate={false}
             icon={<Download size={18} />}
           >
             {i18nText('exportCsv')}
@@ -287,7 +291,6 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
             variant="danger"
             size="sm"
             onClick={() => setFinishDialogOpen(true)}
-            animate={false}
             icon={<Flag size={18} />}
           >
             {i18nText('finishTournament')}
@@ -296,34 +299,13 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
       </>
     ) : (
       <div className="flex flex-col gap-1">
-        <div className="flex gap-2 items-center">
-          <input
-            type="text"
-            placeholder={i18nText('ownerCourtNamePlaceholder')}
-            value={courtMgmt.courtName}
-            onChange={(e) => courtMgmt.setCourtName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !courtMgmt.isCreating) courtMgmt.createCourt()
-            }}
-            className="px-3 py-2 rounded border border-border bg-background text-text focus:outline-none focus:ring-2 focus:ring-primary"
-            autoFocus
-            disabled={courtMgmt.isCreating}
-          />
-          {courtMgmt.isCreating ? (
-            <span className="text-sm text-amber-600 font-medium whitespace-nowrap">{i18nText('ownerCreating')}</span>
-          ) : (
-            <>
-              <Button variant="primary" onClick={courtMgmt.createCourt} size="sm" animate={false}>
-                {i18nText('ownerCreate')}
-              </Button>
-              <Button variant="ghost" onClick={courtMgmt.cancelCreating} size="sm" animate={false}>
-                {i18nText('commonCancel')}
-              </Button>
-            </>
-          )}
+        <div className="flex items-center gap-2 px-3 py-2 bg-surface-low rounded border border-border">
+          <span className="text-sm text-primary font-medium whitespace-nowrap animate-pulse">
+            {i18nText('ownerCreating')}
+          </span>
         </div>
         {appError && (
-          <div role="alert" className="flex items-center gap-2">
+          <div role="alert" className="flex items-center gap-2 mt-1">
             <AlertTriangle size={16} className="text-red-500 shrink-0" />
             <p className="text-red-500 text-sm">{appError}</p>
           </div>
@@ -346,14 +328,29 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
           disconnected: i18nText('connectionDisconnected'),
         }}
         actions={
-          <Button variant="ghost" onClick={() => { sessionStorage.removeItem('rallyos-owner-restored'); logout(); navigate(Routes.AUTH) }} size="sm" animate={false}>
+          <Button variant="ghost" onClick={() => { sessionStorage.removeItem('rallyos-owner-restored'); logout(); navigate(Routes.AUTH) }} size="sm">
             {i18nText('commonBack')}
           </Button>
         }
       />
 
       <main id="main-content" className="flex-1 overflow-auto bg-primary/10">
-        <div className="p-4 ">
+        <div className="p-4 space-y-4">
+          {/* Create court — big dashed button like ClubAdmin */}
+          {!courtMgmt.isCreating && (
+            <div className="flex justify-center">
+              <Button
+                variant="outline"
+                className="w-full border-dashed border-2 py-6 text-text/70 hover:text-primary hover:border-primary/50"
+                onClick={handleOneClickCreate}
+                disabled={courtMgmt.isCreating}
+                loading={courtMgmt.isCreating}
+              >
+                <Plus size={18} className="mr-2" />
+                {i18nText('ownerCreateCourt')}
+              </Button>
+            </div>
+          )}
           <DashboardHeader
             totalTables={stats.totalTables}
             liveMatches={stats.liveMatches}

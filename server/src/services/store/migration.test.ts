@@ -1,17 +1,23 @@
 import { SPORT } from '../../../../shared/types';
 /**
- * Migration tests: v1 → v2 state transformation.
+ * Migration tests: v1 → v2 → v3 state transformation.
  *
- * Tests cover:
+ * v1→v2 tests cover:
  * - Normal v1→v2 migration (adds sport field)
  * - v2 state passes through unchanged (idempotency)
  * - Corrupt table handling (skip + warn)
  * - Edge cases: missing matchState, empty tables, all tables corrupt
  * - Sport field defaults to SPORT.TABLE_TENNIS
+ *
+ * v2→v3 tests cover:
+ * - Mixed courts split into tournamentCourts[] and clubCourts[]
+ * - v3 state passes through unchanged (idempotent)
+ * - v2 with only tournament courts → empties clubCourts[]
+ * - v2 with mode='club' but missing clubStatus → defaults to AVAILABLE
  */
 
-import { migrateV1toV2 } from './migration';
-import type { PersistedState, PersistedCourt } from './types';
+import { migrateV1toV2, migrateV2toV3 } from './migration';
+import type { PersistedState, PersistedCourt, PersistedClubCourt, PersistedStateV3 } from './types';
 
 // ── Helpers ───────────────────────────────────────────────────────────
 
@@ -320,6 +326,218 @@ describe('migrateV1toV2', () => {
 
       expect(result.tables[0].matchState.sport).toBe(SPORT.TABLE_TENNIS);
       expect(result.tables[0].matchState.status).toBe('WAITING');
+    });
+  });
+});
+
+// ── v2 → v3 Migration ─────────────────────────────────────────────────
+
+/**
+ * Create a v2-style table (with sport field in matchState).
+ */
+function makeV2Table(overrides: Partial<PersistedCourt> & { mode?: string; clubStatus?: string; occupiedAt?: number } = {}): PersistedCourt {
+  return {
+    id: 'table-1',
+    number: 1,
+    name: 'Mesa 1',
+    status: 'LIVE',
+    pin: '4821',
+    playerNames: { a: 'Alice', b: 'Bob' },
+    createdAt: 1700000000000,
+    matchState: {
+      config: { sport: SPORT.TABLE_TENNIS, pointsPerSet: 11, bestOf: 3, minDifference: 2 },
+      score: { sets: { a: 0, b: 0 }, currentSet: { a: 5, b: 3 }, serving: 'B' },
+      swappedSides: false,
+      midSetSwapped: false,
+      setHistory: [],
+      status: 'LIVE',
+      winner: null,
+      sport: SPORT.TABLE_TENNIS,
+      history: [],
+    },
+    mode: overrides.mode,
+    clubStatus: overrides.clubStatus,
+    occupiedAt: overrides.occupiedAt,
+    ...overrides,
+  };
+}
+
+function makeV2State(tables: PersistedCourt[] = [makeV2Table()]): PersistedState {
+  return {
+    version: 2,
+    savedAt: 1700000000000,
+    tables,
+  };
+}
+
+describe('migrateV2toV3', () => {
+  describe('court split', () => {
+    it('should split mixed tournament and club courts into separate arrays', () => {
+      const tournament = makeV2Table({ id: 't1', status: 'LIVE' });
+      const club = makeV2Table({
+        id: 'c1',
+        status: 'WAITING' as any,
+        mode: 'club',
+        clubStatus: 'OCCUPIED',
+        occupiedAt: 1700000001000,
+      });
+      const state = makeV2State([tournament, club]);
+
+      const result = migrateV2toV3(state);
+
+      expect(result.version).toBe(3);
+      expect(typeof result.savedAt).toBe('number');
+      expect(result.tournamentCourts).toHaveLength(1);
+      expect(result.clubCourts).toHaveLength(1);
+
+      // Tournament court preserved with status
+      expect(result.tournamentCourts[0].id).toBe('t1');
+      expect(result.tournamentCourts[0].status).toBe('LIVE');
+      // Club fields stripped from tournament
+      expect((result.tournamentCourts[0] as any).mode).toBeUndefined();
+      expect((result.tournamentCourts[0] as any).clubStatus).toBeUndefined();
+
+      // Club court has correct shape
+      expect(result.clubCourts[0].id).toBe('c1');
+      expect(result.clubCourts[0].kind).toBe('club');
+      expect(result.clubCourts[0].clubStatus).toBe('OCCUPIED');
+      expect(result.clubCourts[0].occupiedAt).toBe(1700000001000);
+    });
+
+    it('should handle v2 state with only tournament courts — clubCourts is empty', () => {
+      const t1 = makeV2Table({ id: 't1', status: 'LIVE' });
+      const t2 = makeV2Table({ id: 't2', status: 'FINISHED' });
+      const state = makeV2State([t1, t2]);
+
+      const result = migrateV2toV3(state);
+
+      expect(result.version).toBe(3);
+      expect(result.tournamentCourts).toHaveLength(2);
+      expect(result.clubCourts).toHaveLength(0);
+    });
+
+    it('should handle v2 state with only club courts — tournamentCourts is empty', () => {
+      const c1 = makeV2Table({
+        id: 'c1',
+        status: 'WAITING' as any,
+        mode: 'club',
+        clubStatus: 'FINISHED',
+      });
+      const state = makeV2State([c1]);
+
+      const result = migrateV2toV3(state);
+
+      expect(result.tournamentCourts).toHaveLength(0);
+      expect(result.clubCourts).toHaveLength(1);
+      expect(result.clubCourts[0].kind).toBe('club');
+      expect(result.clubCourts[0].clubStatus).toBe('FINISHED');
+    });
+
+    it('should default clubStatus to AVAILABLE when mode=club but clubStatus is missing', () => {
+      const club = makeV2Table({
+        id: 'c1',
+        status: 'WAITING' as any,
+        mode: 'club',
+        // no clubStatus set
+      });
+      const state = makeV2State([club]);
+
+      const result = migrateV2toV3(state);
+
+      expect(result.clubCourts).toHaveLength(1);
+      expect(result.clubCourts[0].clubStatus).toBe('AVAILABLE');
+      expect(result.clubCourts[0].occupiedAt).toBeNull();
+      expect(result.clubCourts[0].kind).toBe('club');
+    });
+
+    it('should default occupiedAt to null when mode=club but occupiedAt is missing', () => {
+      const club = makeV2Table({
+        id: 'c1',
+        status: 'WAITING' as any,
+        mode: 'club',
+        clubStatus: 'AVAILABLE',
+        // no occupiedAt set
+      });
+      const state = makeV2State([club]);
+
+      const result = migrateV2toV3(state);
+
+      expect(result.clubCourts).toHaveLength(1);
+      expect(result.clubCourts[0].occupiedAt).toBeNull();
+    });
+
+    it('should preserve all tournament fields (pin, playerNames, matchState) after migration', () => {
+      const table = makeV2Table({
+        id: 't1',
+        number: 5,
+        name: 'Final',
+        pin: '9999',
+        playerNames: { a: 'Carlos', b: 'Diana' },
+        createdAt: 1234567890,
+      });
+      const state = makeV2State([table]);
+
+      const result = migrateV2toV3(state);
+
+      expect(result.tournamentCourts).toHaveLength(1);
+      expect(result.tournamentCourts[0].id).toBe('t1');
+      expect(result.tournamentCourts[0].number).toBe(5);
+      expect(result.tournamentCourts[0].name).toBe('Final');
+      expect(result.tournamentCourts[0].pin).toBe('9999');
+      expect(result.tournamentCourts[0].playerNames).toEqual({ a: 'Carlos', b: 'Diana' });
+      expect(result.tournamentCourts[0].createdAt).toBe(1234567890);
+      expect(result.tournamentCourts[0].matchState).toBeDefined();
+    });
+
+    it('should preserve club fields (pin, playerNames, matchState) after migration', () => {
+      const club = makeV2Table({
+        id: 'c1',
+        number: 3,
+        name: 'Club Court 3',
+        pin: '1234',
+        playerNames: { a: 'Eve', b: 'Frank' },
+        createdAt: 1234567890,
+        status: 'WAITING' as any,
+        mode: 'club',
+        clubStatus: 'RESERVED',
+      });
+      const state = makeV2State([club]);
+
+      const result = migrateV2toV3(state);
+
+      expect(result.clubCourts).toHaveLength(1);
+      expect(result.clubCourts[0].id).toBe('c1');
+      expect(result.clubCourts[0].number).toBe(3);
+      expect(result.clubCourts[0].name).toBe('Club Court 3');
+      expect(result.clubCourts[0].pin).toBe('1234');
+      expect(result.clubCourts[0].playerNames).toEqual({ a: 'Eve', b: 'Frank' });
+      expect(result.clubCourts[0].createdAt).toBe(1234567890);
+      // matchState is preserved (non-null for club courts with match data)
+      expect(result.clubCourts[0].matchState).toBeDefined();
+    });
+
+    it('should not mutate the input v2 state', () => {
+      const tournament = makeV2Table({ id: 't1' });
+      const club = makeV2Table({
+        id: 'c1', status: 'WAITING' as any, mode: 'club', clubStatus: 'OCCUPIED',
+      });
+      const state = makeV2State([tournament, club]);
+      const originalVersion = state.version;
+
+      migrateV2toV3(state);
+
+      // Original should still be v2 with tables array
+      expect(state.version).toBe(originalVersion);
+      expect(Array.isArray((state as any).tables)).toBe(true);
+    });
+
+    it('should handle empty tables array', () => {
+      const state = makeV2State([]);
+
+      const result = migrateV2toV3(state);
+
+      expect(result.tournamentCourts).toEqual([]);
+      expect(result.clubCourts).toEqual([]);
     });
   });
 });

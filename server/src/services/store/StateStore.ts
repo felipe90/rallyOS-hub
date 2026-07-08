@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { FileSystem, PersistedState, PersistedCourt, PERSISTENCE_VERSION } from './types';
-import { migrateV1toV2 } from './migration';
+import { FileSystem, PersistedCourt, PersistedClubCourt, PersistedState, PersistedStateV3, PERSISTENCE_VERSION } from './types';
+import { migrateV1toV2, migrateV2toV3 } from './migration';
 import { logger } from '../../utils/logger';
 
 const DEFAULT_PATH = 'data/rallyos-state.json';
@@ -22,14 +22,15 @@ export class StateStore {
 
   /**
    * Persist courts to disk atomically (tmp + rename).
-   * Always writes version 2 format (with sport field on matchState).
-   * Only the caller is responsible for filtering to LIVE/FINISHED courts.
+   * Always writes version 3 format with separate tournament and club arrays.
+   * Only the caller is responsible for filtering to LIVE/FINISHED/OCCUPIED courts.
    */
-  save(tables: PersistedCourt[]): void {
-    const persisted: PersistedState = {
+  save(tournamentCourts: PersistedCourt[], clubCourts: PersistedClubCourt[]): void {
+    const persisted: PersistedStateV3 = {
       version: PERSISTENCE_VERSION,
       savedAt: Date.now(),
-      tables,
+      tournamentCourts,
+      clubCourts,
     };
 
     const dir = path.dirname(this.filePath);
@@ -46,10 +47,10 @@ export class StateStore {
 
   /**
    * Load persisted state from disk.
-   * Auto-migrates v1 state to v2 (in-memory only — disk file is not rewritten).
+   * Auto-migrates v1→v2→v3 in-memory (disk file is not rewritten).
    * Returns `null` if the file is missing, empty, or contains invalid JSON.
    */
-  load(): PersistedState | null {
+  load(): PersistedStateV3 | null {
     try {
       if (!this.fs.existsSync(this.filePath)) {
         return null;
@@ -67,17 +68,37 @@ export class StateStore {
       if (
         !parsed ||
         typeof parsed !== 'object' ||
-        typeof parsed.version !== 'number' ||
-        !Array.isArray(parsed.tables)
+        typeof parsed.version !== 'number'
       ) {
         logger.warn('StateStore: invalid state format, returning null');
         return null;
       }
 
-      // Auto-migrate v1→v2 (adds sport: SPORT.TABLE_TENNIS to matchState)
-      const migrated = migrateV1toV2(parsed as PersistedState);
+      // Chain migration: v1 → v2 → v3
+      let state: PersistedStateV3;
 
-      return migrated;
+      if (parsed.version >= 3) {
+        // v3 — validate structure and return as-is
+        if (!Array.isArray(parsed.tournamentCourts) || !Array.isArray(parsed.clubCourts)) {
+          logger.warn('StateStore: invalid v3 format, returning null');
+          return null;
+        }
+        state = parsed as PersistedStateV3;
+      } else {
+        // v1 or v2 — must have tables array
+        if (!Array.isArray(parsed.tables)) {
+          logger.warn('StateStore: invalid state format (no tables array), returning null');
+          return null;
+        }
+
+        // v1 → v2
+        const v2 = migrateV1toV2(parsed as PersistedState);
+
+        // v2 → v3
+        state = migrateV2toV3(v2);
+      }
+
+      return state;
     } catch (err) {
       logger.warn({ err }, 'StateStore: failed to load state, returning null');
       return null;

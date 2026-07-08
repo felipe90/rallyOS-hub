@@ -4,10 +4,28 @@
  * Responsibility: Format tables for public/owner consumption.
  */
 
-import { Court, TableInfo, TableInfoWithPin, CourtStatus, COURT_MODE } from '../../domain/types';
+import { Court, TableInfo, TableInfoWithPin, CourtStatus, COURT_MODE, isClubCourt } from '../../domain/types';
 
 export class CourtFormatter {
   toPublicInfo(table: Court): TableInfo {
+    // Courts without an active match (AVAILABLE club court) have null sportRules
+    if (!table.sportRules) {
+      const isClub = isClubCourt(table);
+      return {
+        id: table.id,
+        number: table.number,
+        name: table.name,
+        status: isClub ? (table.clubStatus as unknown as CourtStatus) : 'WAITING' as CourtStatus,
+        playerCount: 0,
+        playerNames: { a: 'Player A', b: 'Player B' },
+        currentScore: { a: 0, b: 0 },
+        currentSets: { a: 0, b: 0 },
+        winner: null,
+        featured: table.featured,
+        ...(isClub ? { mode: COURT_MODE.CLUB, clubStatus: table.clubStatus } : {}),
+      };
+    }
+
     const state = table.sportRules.getState();
     const s = state as any;
     // Handle discriminated union: TT has score.currentSet/sets, padel has games/sets top-level
@@ -29,11 +47,11 @@ export class CourtFormatter {
 
     // Club courts: expose clubStatus as the public status, pass through mode and clubStatus
     // Cast status to CourtStatus — the client-side UI for club mode reads clubStatus directly
-    if (table.mode === COURT_MODE.CLUB) {
+    if (isClubCourt(table)) {
       return {
         ...base,
         status: (table.clubStatus ?? base.status) as CourtStatus,
-        mode: table.mode,
+        mode: COURT_MODE.CLUB,
         clubStatus: table.clubStatus,
       };
     }

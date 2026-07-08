@@ -15,7 +15,8 @@ import { validateSocketPayload } from '../utils/validation';
 import { logger, maskIp } from '../utils/logger';
 import { SocketEvents } from '../../../shared/events';
 import { PIN_RULES } from '../../../shared/validation';
-import { SPORT } from '../../../shared/types';
+import { SPORT, CLUB_STATUS } from '../../../shared/types';
+import { isClubCourt } from '../domain/types';
 import { SocketHandlerBase } from './SocketHandlerBase';
 
 // ═══════════════════════════════════════════════════════════════
@@ -257,7 +258,7 @@ export class ClubPlayerHandler extends SocketHandlerBase {
         return;
       }
 
-      if (court.mode !== 'club') {
+      if (!isClubCourt(court)) {
         socket.emit(SocketEvents.SERVER.CLUB_RECONNECT_RESULT, {
           success: false,
           error: 'NOT_CLUB_MODE',
@@ -265,7 +266,7 @@ export class ClubPlayerHandler extends SocketHandlerBase {
         return;
       }
 
-      if (court.clubStatus !== 'OCCUPIED') {
+      if (court.clubStatus !== CLUB_STATUS.OCCUPIED) {
         socket.emit(SocketEvents.SERVER.CLUB_RECONNECT_RESULT, {
           success: false,
           error: 'COURT_NOT_OCCUPIED',
@@ -312,7 +313,7 @@ export class ClubPlayerHandler extends SocketHandlerBase {
 
       // Validate court exists and is OCCUPIED
       const court = this.tableManager.getCourt(data.courtId);
-      if (!court || court.mode !== 'club' || court.clubStatus !== 'OCCUPIED') {
+      if (!court || !isClubCourt(court) || court.clubStatus !== CLUB_STATUS.OCCUPIED) {
         socket.emit(SocketEvents.SERVER.ERROR, {
           code: 'SESSION_NOT_ACTIVE',
           message: 'La sesión no está activa',

@@ -11,6 +11,7 @@ function createMockTable(pin: string): Table {
     id: 'test-table',
     number: 1,
     name: 'Test Table',
+    kind: 'tournament',
     status: 'WAITING',
     pin,
     sportRules: new MatchEngine(),
@@ -19,8 +20,7 @@ function createMockTable(pin: string): Table {
     players: [],
     createdAt: Date.now(),
     featured: false,
-    occupiedAt: null,
-  };
+  } as Table;
 }
 
 describe('PinService', () => {

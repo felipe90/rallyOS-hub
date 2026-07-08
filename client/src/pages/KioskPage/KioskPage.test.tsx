@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, act } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { KioskPage } from './KioskPage'
 import { useSocketContext } from '@/contexts/SocketContext'
 import type { ClubConfig } from '@shared/types'
@@ -36,7 +37,7 @@ describe('KioskPage', () => {
       socket: { on: mockOn, emit: vi.fn(), off: vi.fn() },
     })
 
-    render(<KioskPage />)
+    render(<MemoryRouter><KioskPage /></MemoryRouter>)
 
     // Should show spinner in loading state
     expect(screen.getByText('Cargando...')).toBeInTheDocument()
@@ -49,7 +50,7 @@ describe('KioskPage', () => {
       socket: { on: mockOn, emit: mockEmit, off: vi.fn() },
     })
 
-    render(<KioskPage />)
+    render(<MemoryRouter><KioskPage /></MemoryRouter>)
 
     expect(mockEmit).toHaveBeenCalledWith('CLUB_GET_CONFIG')
   })
@@ -63,7 +64,7 @@ describe('KioskPage', () => {
       socket: { on: mockOn, emit: vi.fn(), off: vi.fn() },
     })
 
-    render(<KioskPage />)
+    render(<MemoryRouter><KioskPage /></MemoryRouter>)
 
     act(() => {
       handler({ configured: true, clubName: 'Mi Club', sport: 'tableTennis', adminPinHash: '', adminPin: '', createdAt: 0 } satisfies ClubConfig)
@@ -82,7 +83,7 @@ describe('KioskPage', () => {
       socket: { on: mockOn, emit: vi.fn(), off: vi.fn() },
     })
 
-    render(<KioskPage />)
+    render(<MemoryRouter><KioskPage /></MemoryRouter>)
 
     act(() => {
       handler({ configured: false, clubName: '', sport: '', adminPinHash: '', adminPin: '', createdAt: 0 } satisfies ClubConfig)
@@ -99,7 +100,7 @@ describe('KioskPage', () => {
       socket: { on: mockOn, emit: vi.fn(), off: mockOff },
     })
 
-    render(<KioskPage />)
+    render(<MemoryRouter><KioskPage /></MemoryRouter>)
 
     // Before timeout, should be loading
     expect(screen.getByText('Cargando...')).toBeInTheDocument()
@@ -120,7 +121,7 @@ describe('KioskPage', () => {
       socket: { on: mockOn, emit: vi.fn(), off: mockOff },
     })
 
-    const { unmount } = render(<KioskPage />)
+    const { unmount } = render(<MemoryRouter><KioskPage /></MemoryRouter>)
     unmount()
 
     expect(mockOff).toHaveBeenCalledWith('CLUB_CONFIG', expect.any(Function))
@@ -131,6 +132,6 @@ describe('KioskPage', () => {
       socket: null,
     })
 
-    expect(() => render(<KioskPage />)).not.toThrow()
+    expect(() => render(<MemoryRouter><KioskPage /></MemoryRouter>)).not.toThrow()
   })
 })

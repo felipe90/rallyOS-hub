@@ -10,10 +10,10 @@ import logoBig from '@/assets/logo-big.png'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Table2 } from 'lucide-react'
 import { SocketEvents } from '@shared/events'
-import type { TableInfo, KioskNotificationData, MatchStateExtended } from '@shared/types'
+import type { CourtInfo, KioskNotificationData, MatchStateExtended } from '@shared/types'
 
 /** Active table statuses shown on the kiosk */
-const ACTIVE_STATUSES: TableInfo['status'][] = ['LIVE', 'WAITING']
+const ACTIVE_STATUSES: CourtInfo['status'][] = ['LIVE', 'WAITING']
 
 /** Layout constants for page calculation */
 export const HEADER_HEIGHT = 180
@@ -29,10 +29,10 @@ export const ROTATION_INTERVAL_MS = 10_000
  * @returns Array of page chunks; always at least `[[]]` for zero tables.
  */
 export function calculatePages(
-  tables: TableInfo[],
+  tables: CourtInfo[],
   viewportWidth: number,
   viewportHeight: number,
-): TableInfo[][] {
+): CourtInfo[][] {
   const COLUMNS = viewportWidth >= 1280 ? 3 : viewportWidth >= 768 ? 2 : 1
   const availableHeight = viewportHeight - HEADER_HEIGHT
   const rowsPerPage = Math.max(1, Math.floor(availableHeight / (CARD_HEIGHT + CARD_GAP)))
@@ -40,7 +40,7 @@ export function calculatePages(
 
   if (tables.length === 0) return [[]]
 
-  const pages: TableInfo[][] = []
+  const pages: CourtInfo[][] = []
   for (let i = 0; i < tables.length; i += cardsPerPage) {
     pages.push(tables.slice(i, i + cardsPerPage))
   }
@@ -52,7 +52,7 @@ export function KioskAllCourtsPage() {
   const { i18nText } = useI18n()
 
   // Rotation state
-  const [pages, setPages] = useState<TableInfo[][]>([[]])
+  const [pages, setPages] = useState<CourtInfo[][]>([[]])
   const [currentPage, setCurrentPage] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
 

@@ -7,7 +7,7 @@
 import { useEffect, useState } from 'react'
 import type { Socket } from 'socket.io-client'
 import { SocketEvents } from '@shared/events'
-import type { TableInfo, TableInfoWithPin, MatchStateExtended, ScoreChange, AllHistoryEntry, KioskNotificationData } from '@shared/types'
+import type { CourtInfo, CourtInfoWithPin, MatchStateExtended, ScoreChange, AllHistoryEntry, KioskNotificationData } from '@shared/types'
 
 export interface HubConfigData {
   ssid: string
@@ -18,9 +18,9 @@ export interface HubConfigData {
 }
 
 export function useSocketState(socket: Socket | null) {
-  const [courts, setCourts] = useState<TableInfo[]>([])
+  const [courts, setCourts] = useState<CourtInfo[]>([])
   const [currentMatch, setCurrentMatch] = useState<MatchStateExtended | null>(null)
-  const [currentCourt, setCurrentCourt] = useState<TableInfo | null>(null)
+  const [currentCourt, setCurrentCourt] = useState<CourtInfo | null>(null)
   const [appError, setAppError] = useState<string | null>(null)
   const [allHistories, setAllHistories] = useState<AllHistoryEntry[] | null>(null)
   const [hubConfig, setHubConfig] = useState<HubConfigData | null>(null)
@@ -29,7 +29,7 @@ export function useSocketState(socket: Socket | null) {
   useEffect(() => {
     if (!socket) return
 
-    const handleCourtUpdate = (court: TableInfo) => {
+    const handleCourtUpdate = (court: CourtInfo) => {
       setCourts(prev =>
         prev.find(t => t.id === court.id)
           ? prev.map(t => (t.id === court.id ? { ...t, ...court } : t))
@@ -38,17 +38,17 @@ export function useSocketState(socket: Socket | null) {
       setCurrentCourt(court)
     }
 
-    const handleCourtList = (list: TableInfo[]) => setCourts(list)
+    const handleCourtList = (list: CourtInfo[]) => setCourts(list)
 
-    const handleCourtListWithPins = (data: { courts?: TableInfoWithPin[]; tables?: TableInfoWithPin[] }) => {
-      setCourts((data.courts || data.tables || []) as TableInfo[])
+    const handleCourtListWithPins = (data: { courts?: CourtInfoWithPin[]; tables?: CourtInfoWithPin[] }) => {
+      setCourts((data.courts || data.tables || []) as CourtInfo[])
     }
 
     const handleCourtDeleted = (data: { courtId?: string; tableId?: string }) => {
       setCourts(prev => prev.filter(t => t.id !== (data.courtId || data.tableId)))
     }
 
-    const handleCourtCreated = (court: TableInfo) => {
+    const handleCourtCreated = (court: CourtInfo) => {
       setCourts(prev => {
         if (prev.find(t => t.id === court.id)) {
           return prev.map(t => (t.id === court.id ? { ...t, ...court } : t))

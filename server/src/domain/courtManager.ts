@@ -12,7 +12,7 @@
 
 import crypto from 'crypto';
 import { MatchEngine } from './matchEngine';
-import { Court, TournamentCourt, ClubCourt, isClubCourt, isTournamentCourt, TableInfo, TableInfoWithPin, Player, MatchConfig, MatchStateExtended, QRData, HubConfig, Sport, SPORT, CourtMode, COURT_MODE, CourtStatus, ClubStatus, CLUB_STATUS } from './types';
+import { Court, TournamentCourt, ClubCourt, isClubCourt, isTournamentCourt, CourtInfo, CourtInfoWithPin, Player, MatchConfig, MatchStateExtended, QRData, HubConfig, Sport, SPORT, CourtMode, COURT_MODE, CourtStatus, TournamentStatus, ClubStatus, CLUB_STATUS } from './types';
 import { AllHistoryEntry, ClubKioskPayload, ClubKioskCourtInfo, ClubConfig } from '../../../shared/types';
 import { logger } from '../utils/logger';
 import { sanitizeInput } from '../utils/validation';
@@ -35,7 +35,7 @@ export class CourtManager {
   private qrService: QRService;
   private stateStore?: StateStore;
 
-  public onTableUpdate: (table: TableInfo) => void = () => {};
+  public onTableUpdate: (table: CourtInfo) => void = () => {};
   public onTournamentFinish: () => void = () => {};
   public onMatchEvent: (courtId: string, event: any) => void = () => {};
   public onClubSessionEnd: (courtId: string, elapsedMinutes: number, reason: string) => void = () => {};
@@ -89,7 +89,7 @@ export class CourtManager {
     return this.repository.get(courtId);
   }
 
-  getAllCourts(): TableInfo[] {
+  getAllCourts(): CourtInfo[] {
     return this.formatter.toPublicList(this.repository.getAll());
   }
 
@@ -97,7 +97,7 @@ export class CourtManager {
    * Get all tournament-mode courts (filtered via isClubCourt).
    * Used for COURT_LIST events — club courts are excluded.
    */
-  getAllTournamentCourts(): TableInfo[] {
+  getAllTournamentCourts(): CourtInfo[] {
     return this.formatter.toPublicList(
       this.repository.getAll().filter(c => !isClubCourt(c)),
     );
@@ -636,17 +636,17 @@ export class CourtManager {
   }
 
   // Formatting
-  courtToInfo(court: Court): TableInfo {
+  courtToInfo(court: Court): CourtInfo {
     return this.formatter.toPublicInfo(court);
   }
 
-  getCourtWithPin(courtId: string): TableInfoWithPin | null {
+  getCourtWithPin(courtId: string): CourtInfoWithPin | null {
     const court = this.repository.get(courtId);
     if (!court) return null;
     return this.formatter.toInfoWithPin(court);
   }
 
-  getAllCourtsWithPins(): TableInfoWithPin[] {
+  getAllCourtsWithPins(): CourtInfoWithPin[] {
     return this.formatter.toListWithPins(this.repository.getAll());
   }
 
@@ -836,7 +836,7 @@ export class CourtManager {
           id: pt.id,
           number: pt.number,
           name: pt.name,
-          status: pt.status as CourtStatus,
+          status: pt.status as TournamentStatus,
           pin: pt.pin,
           sportRules: engine,
           playerNames: { ...pt.playerNames },

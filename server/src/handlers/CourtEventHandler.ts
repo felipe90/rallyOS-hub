@@ -17,7 +17,7 @@ import { logger } from '../utils/logger';
 import { SocketEvents } from '../../../shared/events';
 import { PIN_RULES } from '../../../shared/validation';
 import { SocketHandlerBase } from './SocketHandlerBase';
-import type { SocketData, TableInfo } from '../domain/types';
+import type { SocketData, CourtInfo } from '../domain/types';
 
 export class CourtEventHandler extends SocketHandlerBase {
   constructor(io: Server, tableManager: CourtManager, ownerPin: string) {
@@ -28,7 +28,7 @@ export class CourtEventHandler extends SocketHandlerBase {
    * Override: COURT_LIST only includes tournament courts.
    * Club courts are emitted via CLUB_KIOSK_DATA instead.
    */
-  protected getPublicCourtList(): TableInfo[] {
+  protected getPublicCourtList(): CourtInfo[] {
     return this.tableManager.getAllTournamentCourts();
   }
 

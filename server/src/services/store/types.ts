@@ -1,4 +1,4 @@
-import { ScoreChange, CourtStatus, Score, PadelPoint } from '../../domain/types';
+import { ScoreChange, CourtStatus, TournamentStatus, Score, PadelPoint } from '../../domain/types';
 import type { MatchConfig } from '../../domain/types';
 
 /**
@@ -14,7 +14,7 @@ export interface PersistedMatchState {
   swappedSides: boolean;
   midSetSwapped: boolean;
   setHistory: Score[];
-  status: CourtStatus;
+  status: TournamentStatus;
   winner: string | null;
   sport: string;
   history: ScoreChange[];
@@ -35,7 +35,7 @@ export interface PersistedCourt {
   id: string;
   number: number;
   name: string;
-  status: CourtStatus;
+  status: TournamentStatus;
   pin: string;
   playerNames: { a: string; b: string };
   createdAt: number;

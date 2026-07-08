@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { calculateDashboardStats } from './calculateStats'
-import type { TableInfo } from '@shared/types'
+import type { CourtInfo } from '@shared/types'
 
 describe('calculateDashboardStats', () => {
   it('returns zeros for empty tables', () => {
@@ -12,7 +12,7 @@ describe('calculateDashboardStats', () => {
   })
 
   it('counts total tables', () => {
-    const tables: TableInfo[] = [
+    const tables: CourtInfo[] = [
       { id: '1', number: 1, name: 'T1', status: 'WAITING', playerCount: 0 },
       { id: '2', number: 2, name: 'T2', status: 'LIVE', playerCount: 2 },
     ]
@@ -20,7 +20,7 @@ describe('calculateDashboardStats', () => {
   })
 
   it('counts live and configuring as live matches', () => {
-    const tables: TableInfo[] = [
+    const tables: CourtInfo[] = [
       { id: '1', number: 1, name: 'T1', status: 'WAITING', playerCount: 0 },
       { id: '2', number: 2, name: 'T2', status: 'LIVE', playerCount: 2 },
       { id: '3', number: 3, name: 'T3', status: 'CONFIGURING', playerCount: 0 },
@@ -30,21 +30,21 @@ describe('calculateDashboardStats', () => {
   })
 
   it('counts 2 active players when playerNames exist', () => {
-    const tables: TableInfo[] = [
+    const tables: CourtInfo[] = [
       { id: '1', number: 1, name: 'T1', status: 'LIVE', playerCount: 0, playerNames: { a: 'A', b: 'B' } },
     ]
     expect(calculateDashboardStats(tables).activePlayers).toBe(2)
   })
 
   it('falls back to playerCount when no playerNames', () => {
-    const tables: TableInfo[] = [
+    const tables: CourtInfo[] = [
       { id: '1', number: 1, name: 'T1', status: 'LIVE', playerCount: 3 },
     ]
     expect(calculateDashboardStats(tables).activePlayers).toBe(3)
   })
 
   it('sums players across multiple tables', () => {
-    const tables: TableInfo[] = [
+    const tables: CourtInfo[] = [
       { id: '1', number: 1, name: 'T1', status: 'LIVE', playerCount: 0, playerNames: { a: 'A', b: 'B' } },
       { id: '2', number: 2, name: 'T2', status: 'LIVE', playerCount: 4 },
     ]

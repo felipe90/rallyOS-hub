@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { KioskAllCourtsPage, calculatePages } from './KioskAllCourtsPage'
 import { useSocketContext } from '@/contexts/SocketContext'
-import type { TableInfo, KioskNotificationData } from '@shared/types'
+import type { CourtInfo, KioskNotificationData } from '@shared/types'
 
 // Mock KioskNotificationToast to verify it renders without testing it again
 vi.mock('@/components/organisms/KioskNotificationToast', () => ({
@@ -53,7 +53,7 @@ vi.mock('@/i18n', () => ({
 
 const mockUseSocketContext = useSocketContext as ReturnType<typeof vi.fn>
 
-function makeTable(overrides: Partial<TableInfo> = {}): TableInfo {
+function makeTable(overrides: Partial<CourtInfo> = {}): CourtInfo {
   return {
     id: 'table-1',
     number: 1,
@@ -67,7 +67,7 @@ function makeTable(overrides: Partial<TableInfo> = {}): TableInfo {
 }
 
 function renderPage(
-  courts: TableInfo[] = [],
+  courts: CourtInfo[] = [],
   socketOverrides?: { on?: ReturnType<typeof vi.fn>; off?: ReturnType<typeof vi.fn>; emit?: ReturnType<typeof vi.fn> },
 ) {
   const mockSocket = socketOverrides || { on: vi.fn(), off: vi.fn(), emit: vi.fn() }
@@ -636,7 +636,7 @@ describe('KioskAllCourtsPage — featured court spotlight', () => {
 })
 
 describe('calculatePages', () => {
-  function makeTables(count: number): TableInfo[] {
+  function makeTables(count: number): CourtInfo[] {
     return Array.from({ length: count }, (_, i) => makeTable({ id: `t-${i}`, name: `Table ${i}` }))
   }
 
@@ -700,7 +700,7 @@ describe('KioskAllCourtsPage — rotation behavior', () => {
     vi.useRealTimers()
   })
 
-  function makeTables(count: number, baseName = 'Table'): TableInfo[] {
+  function makeTables(count: number, baseName = 'Table'): CourtInfo[] {
     return Array.from({ length: count }, (_, i) =>
       makeTable({ id: `rt-${i}`, name: `${baseName} ${i}`, status: 'LIVE' }),
     )

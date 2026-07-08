@@ -1,8 +1,8 @@
-import type { CourtStatus } from '@shared/types';
+import type { TournamentStatus } from '@shared/types';
 
 export interface MatchContextProps {
   phase: 'quarterfinal' | 'semifinal' | 'final';
-  status: CourtStatus;
+  status: TournamentStatus;
   matchNumber?: number;
   totalMatches?: number;
   bestOf?: number;

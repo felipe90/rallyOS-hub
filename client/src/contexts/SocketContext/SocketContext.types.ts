@@ -1,4 +1,4 @@
-import type { TableInfo, MatchStateExtended, AllHistoryEntry, KioskNotificationData } from '@shared/types'
+import type { CourtInfo, MatchStateExtended, AllHistoryEntry, KioskNotificationData } from '@shared/types'
 import type { Socket } from 'socket.io-client'
 import type { HubConfigData } from '../../hooks/useSocketState'
 
@@ -16,8 +16,8 @@ export interface SocketContextType {
   error: string | null
   errorCode: string | null
   appError: string | null
-  courts: TableInfo[]
-  currentCourt: TableInfo | null
+  courts: CourtInfo[]
+  currentCourt: CourtInfo | null
   currentMatch: MatchStateExtended | null
   allHistories: AllHistoryEntry[] | null
   hubConfig: HubConfigData | null

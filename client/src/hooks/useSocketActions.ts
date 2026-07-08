@@ -7,10 +7,10 @@
 import { useCallback } from 'react'
 import type { Socket } from 'socket.io-client'
 import { SocketEvents } from '@shared/events'
-import type { TableInfo } from '@shared/types'
+import type { CourtInfo } from '@shared/types'
 import { validateCourtName } from '@/services/validation'
 
-export function useSocketActions(socket: Socket | null, currentCourt: TableInfo | null) {
+export function useSocketActions(socket: Socket | null, currentCourt: CourtInfo | null) {
   const emit = useCallback(
     (event: string, data?: unknown) => {
       if (socket?.connected) {

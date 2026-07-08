@@ -18,7 +18,7 @@ import { usePinSubmission } from '@/hooks/usePinSubmission'
 import { useRefereeSession } from '@/hooks/useRefereeSession'
 import { Button } from '@/components/atoms/Button'
 import { Routes, buildScoreboardRoute } from '@/routes'
-import type { TableInfoWithPin } from '@shared/types'
+import type { CourtInfoWithPin } from '@shared/types'
 import { Table2, Swords, Users } from 'lucide-react'
 
 export interface RefereeDashboardPageProps {
@@ -28,7 +28,7 @@ export interface RefereeDashboardPageProps {
 export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashboardPageProps) {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(initialViewMode || 'grid')
   const [pinModalOpen, setPinModalOpen] = useState(false)
-  const [selectedCourt, setSelectedCourt] = useState<TableInfoWithPin | null>(null)
+  const [selectedCourt, setSelectedCourt] = useState<CourtInfoWithPin | null>(null)
   const navigate = useNavigate()
   const { i18nText } = useI18n()
   const { courts, connected, socket, requestCourts } = useSocketContext()
@@ -78,7 +78,7 @@ export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashb
   const handleCourtClick = (courtId: string) => {
     const court = courts.find(t => t.id === courtId)
     if (court) {
-      setSelectedCourt(court as TableInfoWithPin)
+      setSelectedCourt(court as CourtInfoWithPin)
       setPinModalOpen(true)
       clearError()
     }

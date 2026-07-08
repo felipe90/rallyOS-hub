@@ -30,7 +30,7 @@ import {
   MatchStateExtended,
   ScoreChange,
   MatchEvent,
-  CourtStatus, TableStatus,
+  CourtStatus, TournamentStatus,
   PadelPoint,
   SPORT,
 } from './types';
@@ -56,7 +56,7 @@ interface InternalMatchState {
   swappedSides: boolean;
   midSetSwapped: boolean;
   setHistory: Score[];
-  status: CourtStatus;
+  status: TournamentStatus;
   winner: Player | null;
   sport: import('./types').Sport;
   /** Padel-specific: current point values (0, 15, 30, 40, AD) */
@@ -143,7 +143,7 @@ export class MatchEngine {
       swappedSides: false,
       midSetSwapped: false,
       setHistory: [],
-      status: 'WAITING' as CourtStatus,
+      status: 'WAITING' as TournamentStatus,
       winner: null,
       sport,
       // Initialize padel-specific root-level fields from config

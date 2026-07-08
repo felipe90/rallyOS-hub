@@ -19,7 +19,7 @@ import {
   SportDisplayScore,
   MatchEvent,
   Score,
-  CourtStatus, TableStatus,
+  CourtStatus, TournamentStatus,
   MatchConfig,
   PadelPoint,
   MatchState,
@@ -48,7 +48,7 @@ export interface InternalGameState {
   swappedSides: boolean;
   midSetSwapped: boolean;
   setHistory: Score[];
-  status: CourtStatus;
+  status: TournamentStatus;
   winner: Player | null;
   sport: Sport;
   /** Padel-specific: current point values (0, 15, 30, 40, AD) */
@@ -157,7 +157,7 @@ export type {
   MatchStateExtended,
   MatchEvent,
   Score,
-  CourtStatus, TableStatus,
+  CourtStatus, TournamentStatus,
   MatchConfig,
   PadelPoint,
   TableTennisMatchConfig,

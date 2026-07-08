@@ -18,7 +18,7 @@ import { Server, Socket } from 'socket.io';
 import { CourtManager } from '../domain/courtManager';
 import { ClubConfigStore } from '../services/store/ClubConfigStore';
 import { AdminPinService } from '../services/security/AdminPinService';
-import { TableInfo, HubConfig } from '../domain/types';
+import { CourtInfo, HubConfig } from '../domain/types';
 import { logger } from '../utils/logger';
 import { RateLimiter } from '../services/security/RateLimiter';
 import { SocketEvents } from '../../../shared/events';
@@ -220,7 +220,7 @@ export class SocketHandler {
     return this.tableManager.getAllCourts().find(c => c.id === courtId);
   }
 
-  private getPublicCourtList(): TableInfo[] {
+  private getPublicCourtList(): CourtInfo[] {
     return this.tableManager.getAllTournamentCourts();
   }
 }

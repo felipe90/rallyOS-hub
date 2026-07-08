@@ -24,7 +24,7 @@ import { Button } from '@/components/atoms/Button'
 import { Body } from '@/components/atoms/Typography'
 import { SocketEvents } from '@shared/events'
 import { Routes, buildScoreboardRoute } from '@/routes'
-import type { TableInfoWithPin, KioskNotificationType } from '@shared/types'
+import type { CourtInfoWithPin, KioskNotificationType } from '@shared/types'
 import { Plus, FileText, Table2, Swords, Users, Bell, Flag, Download, AlertTriangle } from 'lucide-react'
 
 
@@ -38,7 +38,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
   const [notifModalOpen, setNotifModalOpen] = useState(false)
   const [finishDialogOpen, setFinishDialogOpen] = useState(false)
   const [exportCsvChecked, setExportCsvChecked] = useState(true)
-  const [selectedCourt, setSelectedCourt] = useState<TableInfoWithPin | null>(null)
+  const [selectedCourt, setSelectedCourt] = useState<CourtInfoWithPin | null>(null)
   const navigate = useNavigate()
   const { i18nText } = useI18n()
   const { courts, connected, socket, requestCourtsWithPins, appError } = useSocketContext()
@@ -127,7 +127,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
   const handleCourtClick = (courtId: string) => {
     const court = courts.find(t => t.id === courtId)
     if (court) {
-      setSelectedCourt(court as TableInfoWithPin)
+      setSelectedCourt(court as CourtInfoWithPin)
       setPinModalOpen(true)
       clearError()
     }

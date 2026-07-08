@@ -12,7 +12,7 @@
 import {
   Player,
   Score,
-  CourtStatus, TableStatus,
+  CourtStatus, TournamentStatus,
   ScoreChange,
   MatchEventType,
   SetWonEvent,
@@ -22,8 +22,8 @@ import {
   MatchConfigExtended,
   MatchState,
   MatchStateExtended,
-  TableInfo,
-  TableInfoWithPin,
+  CourtInfo,
+  CourtInfoWithPin,
   QRData,
   ErrorResponse,
   ValidationError,
@@ -43,7 +43,7 @@ import type { MatchEngine } from './matchEngine';
 export {
   Player,
   Score,
-  CourtStatus, TableStatus,
+  CourtStatus, TournamentStatus,
   ScoreChange,
   MatchEventType,
   SetWonEvent,
@@ -53,8 +53,8 @@ export {
   MatchConfigExtended,
   MatchState,
   MatchStateExtended,
-  TableInfo,
-  TableInfoWithPin,
+  CourtInfo,
+  CourtInfoWithPin,
   QRData,
   ErrorResponse,
   ValidationError,
@@ -99,7 +99,7 @@ export interface PlayerConnection {
 /**
  * TournamentCourt — A court in tournament mode.
  *
- * Has `status: CourtStatus` to track match lifecycle.
+ * Has `status: TournamentStatus` to track match lifecycle.
  * Does NOT have club-specific fields (clubStatus, occupiedAt, mode).
  */
 export interface TournamentCourt {
@@ -107,7 +107,7 @@ export interface TournamentCourt {
   id: string;
   number: number;
   name: string;
-  status: CourtStatus;
+  status: TournamentStatus;
   pin: string;
   sportRules: MatchEngine;
   playerNames: { a: string; b: string };

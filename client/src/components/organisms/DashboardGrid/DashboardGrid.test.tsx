@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { DashboardGrid, DashboardHeader } from './DashboardGrid';
-import type { TableInfo } from '@shared/types';
+import type { CourtInfo } from '@shared/types';
 
 // Provide default aria-labels for DashboardHeader buttons
 const defaultHeaderProps = {
@@ -9,7 +9,7 @@ const defaultHeaderProps = {
   listViewLabel: 'List view',
 }
 
-const mockCourts: TableInfo[] = [
+const mockCourts: CourtInfo[] = [
   {
     id: 'court-1',
     number: 1,

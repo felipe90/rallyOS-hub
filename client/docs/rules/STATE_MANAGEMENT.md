@@ -142,7 +142,7 @@ export function AuthProvider({ children }) {
   // ...
 }
 ```
-**Design decision:** Auth state is NOT persisted to localStorage. Every page load requires PIN re-entry. This prevents the dead state where UI shows authenticated but socket is not. The server-side `socket.data.isAuthenticated` is the source of truth — only set during `VERIFY_OWNER` flow.
+**Design decision:** Auth state persists via signed JWT stored in `sessionStorage` (key: `rallyos.sessionToken`). On page reload, `AuthContext` restores the JWT and passes it in `socket.handshake.auth.sessionToken` on reconnect. The server validates the JWT signature (HMAC-SHA256) and restores `socket.data.isOwner` / `isAuthenticated` / `isClubAdmin` without requiring PIN re-entry. If the JWT is expired or invalid, the client falls back to unauthenticated and the user must re-enter PIN. See `docs/auth-architecture.md` for the full flow.
 
 **Good — `SocketContext`:**
 ```typescript
@@ -346,7 +346,7 @@ const formatted = formatEvent(event)
 
 | Priority | Issue | Solution | Status |
 |----------|-------|----------|--------|
-| 1 | `AuthContext` is memory-only, no persistence | Design decision: PIN re-entry on page load prevents dead auth state. Future: JWT-based session tokens. | ✅ Complete |
+| 1 | `AuthContext` restores from signed JWT in `sessionStorage` | JWT-based session persistence implemented. HMAC-SHA256 JWT restores `socket.data` flags on reconnect without PIN re-entry. See `docs/auth-architecture.md`. | ✅ Complete |
 | 2 | `useSocket.ts` is 256-line God Object | Split into `useSocketConnection`, `useSocketState`, `useSocketActions` | ✅ Complete |
 | 3 | `useScoreboardAuth` (deprecated) still used | Replace with `usePermissions` + `useCan` | ✅ Complete |
 | 4 | `AuthPage` handles socket events directly | Extract to `hooks/useAuthFlow.ts` | ✅ Complete |

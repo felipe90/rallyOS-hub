@@ -16,6 +16,7 @@ import { PageHeader } from '@/components/molecules/PageHeader'
 import { ConfirmDialog } from '@/components/molecules/ConfirmDialog'
 import { useToast } from '@/components/molecules/Toast'
 import { useSocketContext } from '@/contexts/SocketContext'
+import { useAuthContext } from '@/contexts/AuthContext'
 import { useClubAdmin } from '@/hooks/useClubAdmin'
 import { useClubCourtManagement } from '@/hooks/useClubCourtManagement'
 import type { ClubOperationEvent } from '@/hooks/useClubCourtManagement'
@@ -78,8 +79,9 @@ export function ClubAdminPage() {
   const { socket, connected } = useSocketContext()
   const navigate = useNavigate()
   const { i18nText } = useI18n()
+  const { setSessionToken } = useAuthContext()
   const { isAdmin, verifyAdminPin, verifyLoading, verifyError, clearVerifyError } =
-    useClubAdmin(socket, connected)
+    useClubAdmin(socket, connected, { setSessionToken })
   const courtMgmt = useClubCourtManagement(socket, connected)
 
   const { addToast } = useToast()

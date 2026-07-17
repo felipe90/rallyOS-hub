@@ -18,15 +18,18 @@ import { Server, Socket } from 'socket.io';
 import { CourtManager } from '../domain/courtManager';
 import type { IClubConfigRepository } from '../domain/ports/IClubConfigRepository';
 import { AdminPinService } from '../services/security/AdminPinService';
+import { SessionTokenService } from '../services/security/SessionTokenService';
+import type { SessionClaims } from '../services/security/SessionTokenService';
 import { CourtInfo, HubConfig } from '../domain/types';
+import type { SocketData } from '../domain/types';
 import { logger } from '../utils/logger';
 import { RateLimiter } from '../services/security/RateLimiter';
 import { SocketEvents } from '../../../shared/events';
 import { COURT_MODE } from '../../../shared/types';
-import { 
-  CourtEventHandler, 
-  MatchEventHandler, 
-  AuthHandler, 
+import {
+  CourtEventHandler,
+  MatchEventHandler,
+  AuthHandler,
   AdminHandler,
   SpotlightHandler,
   ClubAdminHandler,
@@ -68,14 +71,15 @@ export class SocketHandler {
     
     // Initialize services
     const adminPinService = new AdminPinService();
-    
+    const sessionTokenService = new SessionTokenService();
+
     // Initialize handlers
     this.courtHandler = new CourtEventHandler(io, tableManager, ownerPin);
     this.matchHandler = new MatchEventHandler(io, tableManager, ownerPin);
-    this.authHandler = new AuthHandler(io, tableManager, ownerPin);
+    this.authHandler = new AuthHandler(io, tableManager, ownerPin, sessionTokenService);
     this.adminHandler = new AdminHandler(io, tableManager, ownerPin);
     this.spotlightHandler = new SpotlightHandler(io, tableManager, ownerPin);
-    this.clubAdminHandler = new ClubAdminHandler(io, tableManager, ownerPin, clubConfigStore!, adminPinService);
+    this.clubAdminHandler = new ClubAdminHandler(io, tableManager, ownerPin, clubConfigStore!, adminPinService, sessionTokenService);
     this.clubCourtHandler = new ClubCourtHandler(io, tableManager, ownerPin);
     this.clubPlayerHandler = new ClubPlayerHandler(io, tableManager, ownerPin, clubConfigStore!);
     
@@ -151,6 +155,26 @@ export class SocketHandler {
       next();
     });
 
+    // JWT session reconnect — restore socket.data auth flags from a signed
+    // JWT in handshake.auth.sessionToken WITHOUT re-PIN (REQ-07/11).
+    // Registered AFTER the rate limiter, BEFORE io.on('connection') so the
+    // crypto cost is only paid for non-rate-limited sockets. Invalid/expired/
+    // missing tokens pass through unauthenticated (REQ: never reject).
+    const sessionTokenService = new SessionTokenService();
+    this.io.use((socket: Socket, next: (err?: Error) => void) => {
+      const token = (socket.handshake.auth as { sessionToken?: unknown } | undefined)
+        ?.sessionToken;
+      if (typeof token !== 'string' || token.length === 0) {
+        return next(); // unauthenticated — client must re-PIN
+      }
+      const claims = sessionTokenService.verifyToken(token);
+      if (!claims) {
+        return next(); // unauthenticated — invalid/expired, pass through
+      }
+      this.applySessionClaims(socket, claims);
+      next();
+    });
+
     this.io.on('connection', (socket: Socket) => {
       logger.info({ socketId: socket.id }, 'Client connected');
       logger.debug({ socketId: socket.id, count: this.io.engine.clientsCount }, 'Connected clients');
@@ -182,6 +206,13 @@ export class SocketHandler {
       this.clubCourtHandler.registerHandlers(socket);
       this.clubPlayerHandler.registerHandlers(socket);
 
+      // Signal club admin that their session was restored from JWT on reload
+      // (REQ-11). The io.use() middleware already set isClubAdmin; this
+      // lets the client restore the admin UI without re-entering the PIN.
+      if ((socket.data as SocketData).isClubAdmin) {
+        socket.emit(SocketEvents.SERVER.CLUB_SESSION_RESTORED);
+      }
+
       // Handle disconnection
       socket.on('disconnect', (reason) => {
         logger.info({ socketId: socket.id, reason }, 'Client disconnected');
@@ -206,6 +237,27 @@ export class SocketHandler {
   
   public getCourtInfo(courtId: string) {
     return this.tableManager.getAllCourts().find(c => c.id === courtId);
+  }
+
+  /**
+   * Apply verified JWT claims to socket.data based on role (REQ-07/11).
+   * Pure — no I/O. Exposed as a method for clarity and testability of the
+   * role→flags mapping.
+   */
+  private applySessionClaims(socket: Socket, claims: SessionClaims): void {
+    const socketData = socket.data as SocketData;
+    if (claims.role === 'tournament_owner') {
+      socket.data = {
+        ...socketData,
+        isOwner: true,
+        isAuthenticated: true,
+      };
+    } else if (claims.role === 'club_admin') {
+      socket.data = {
+        ...socketData,
+        isClubAdmin: true,
+      };
+    }
   }
 
   private getPublicCourtList(): CourtInfo[] {

@@ -6,6 +6,7 @@
 
 import { useCallback, useRef, useState } from 'react'
 import { io, Socket } from 'socket.io-client'
+import { authStorage } from '@/services/storage/authStorage'
 
 export interface SocketConnectionState {
   connected: boolean
@@ -42,11 +43,15 @@ export function useSocketConnection(serverUrl: string = getDefaultServerUrl()) {
 
     setState(s => ({ ...s, connecting: true, error: null }))
 
+    // REQ-13: send the stored session JWT on every connect so the server
+    // io.use() reconnect middleware can restore auth state without re-PIN.
+    const sessionToken = authStorage.getSessionToken() ?? undefined
     const socket = io(serverUrl, {
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionAttempts: 5,
+      auth: { sessionToken },
     })
 
     socket.on('connect', () => {

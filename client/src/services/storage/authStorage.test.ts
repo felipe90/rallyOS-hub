@@ -35,6 +35,7 @@ describe('authStorage', () => {
     authStorage.setCourtId('table-1')
     authStorage.setOwnerPin('12345678')
     authStorage.setCourtPin('1234')
+    authStorage.setSessionToken('jwt-token')
 
     authStorage.clear()
 
@@ -42,5 +43,27 @@ describe('authStorage', () => {
     expect(authStorage.getCourtId()).toBeNull()
     expect(authStorage.getOwnerPin()).toBeNull()
     expect(authStorage.getCourtPin()).toBeNull()
+    expect(authStorage.getSessionToken()).toBeNull()
+  })
+
+  // ── Session Token (REQ-12: sessionStorage, key rallyos.sessionToken) ──
+
+  it('stores and retrieves the session JWT in sessionStorage', () => {
+    authStorage.setSessionToken('abc.def.ghi')
+    expect(sessionStorage.getItem('rallyos.sessionToken')).toBe('abc.def.ghi')
+    expect(authStorage.getSessionToken()).toBe('abc.def.ghi')
+  })
+
+  it('removes the session JWT when set to null', () => {
+    authStorage.setSessionToken('abc.def.ghi')
+    authStorage.setSessionToken(null as unknown as string)
+    expect(authStorage.getSessionToken()).toBeNull()
+    expect(sessionStorage.getItem('rallyos.sessionToken')).toBeNull()
+  })
+
+  it('roundtrips README-like JWT with 3 segments intact', () => {
+    const jwt = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJvd25lciJ9.xYz'
+    authStorage.setSessionToken(jwt)
+    expect(authStorage.getSessionToken()).toBe(jwt)
   })
 })

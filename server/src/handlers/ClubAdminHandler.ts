@@ -11,6 +11,7 @@ import { Server, Socket } from 'socket.io';
 import { CourtManager } from '../domain/courtManager';
 import type { IClubConfigRepository } from '../domain/ports/IClubConfigRepository';
 import { AdminPinService } from '../services/security/AdminPinService';
+import { SessionTokenService } from '../services/security/SessionTokenService';
 import { validateSocketPayload } from '../utils/validation';
 import { logger, maskIp } from '../utils/logger';
 import { SocketEvents } from '../../../shared/events';
@@ -23,6 +24,7 @@ import type { SocketData } from '../domain/types';
 export class ClubAdminHandler extends SocketHandlerBase {
   private clubConfigStore: IClubConfigRepository;
   private adminPinService: AdminPinService;
+  private sessionTokenService: SessionTokenService;
 
   constructor(
     io: Server,
@@ -30,10 +32,12 @@ export class ClubAdminHandler extends SocketHandlerBase {
     ownerPin: string,
     clubConfigStore: IClubConfigRepository,
     adminPinService: AdminPinService,
+    sessionTokenService: SessionTokenService,
   ) {
     super(io, tableManager, ownerPin);
     this.clubConfigStore = clubConfigStore;
     this.adminPinService = adminPinService;
+    this.sessionTokenService = sessionTokenService;
   }
 
   /**
@@ -64,7 +68,11 @@ export class ClubAdminHandler extends SocketHandlerBase {
       if (this.adminPinService.verifyPin(data.pin, config.adminPinHash)) {
         const socketData = socket.data as SocketData;
         socket.data = { ...socketData, isClubAdmin: true };
-        socket.emit(SocketEvents.SERVER.CLUB_ADMIN_VERIFIED, { success: true });
+        const token = this.sessionTokenService.signToken({
+          sub: (config as any).clubId ?? 'club',
+          role: 'club_admin',
+        });
+        socket.emit(SocketEvents.SERVER.CLUB_ADMIN_VERIFIED, { success: true, token });
 
         // Club courts are already delivered via CLUB_KIOSK_DATA at connection time
 

@@ -8,7 +8,6 @@ import { SPORT } from '../../../shared/types';
  */
 
 import { createTournamentRouter } from './tournament';
-import { generateToken, activeTokens } from '../middleware/ownerAuth';
 import { StateStore } from '../services/store/StateStore';
 import type { FileSystem, PersistedCourt } from '../services/store/types';
 import type { Request, Response, NextFunction } from 'express';
@@ -100,7 +99,6 @@ describe('Tournament router integration', () => {
   let router: Router;
 
   beforeEach(() => {
-    activeTokens.clear();
     fs = makeFs();
     stateStore = new StateStore(fs, 'data/rallyos-state.json');
 

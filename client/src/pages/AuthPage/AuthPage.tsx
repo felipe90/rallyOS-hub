@@ -38,7 +38,7 @@ export function AuthPage() {
   const [clubRetryAfter, setClubRetryAfter] = useState<number | null>(null)
   const navigate = useNavigate()
   const { i18nText, language, changeLanguage } = useI18n()
-  const { login, setOwner, setTournamentToken } = useAuthContext()
+  const { login, setOwner, setTournamentToken, setSessionToken } = useAuthContext()
   const { socket, connected } = useSocketContext()
 
   const { submitPin, error, loading, clearError, tournamentStatus, resolveTournament } = useAuthFlow({
@@ -47,6 +47,7 @@ export function AuthPage() {
     setOwner,
     login,
     setTournamentToken,
+    setSessionToken,
     onOwnerResolved: () => setMode('sport-select'),
   })
 

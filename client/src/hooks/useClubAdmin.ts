@@ -24,7 +24,20 @@ export interface ClubSetupData {
   currency?: string
 }
 
-export function useClubAdmin(socket: Socket | null, connected: boolean) {
+export interface UseClubAdminOptions {
+  /**
+   * Called with the signed JWT returned by CLUB_ADMIN_VERIFIED so AuthContext
+   * can persist it for socket reconnect (REQ-10/12). Optional so the hook
+   * stays usable in pages that don't need session persistence.
+   */
+  setSessionToken?: (token: string) => void
+}
+
+export function useClubAdmin(
+  socket: Socket | null,
+  connected: boolean,
+  options: UseClubAdminOptions = {},
+) {
   const [clubConfig, setClubConfig] = useState<ClubConfigData | null>(null)
   const [configLoading, setConfigLoading] = useState(false)
   const [configError, setConfigError] = useState<string | null>(null)
@@ -72,9 +85,14 @@ export function useClubAdmin(socket: Socket | null, connected: boolean) {
         resolve(false)
       }, 5000)
 
-      const handleVerified = () => {
+      const handleVerified = (data: { success?: boolean; token?: string }) => {
         cleanup()
         setIsAdmin(true)
+        // Store the JWT for socket reconnect (REQ-10/12). The presence of a
+        // token is optional for older flows — only persist when present.
+        if (data?.token && options.setSessionToken) {
+          options.setSessionToken(data.token)
+        }
         resolve(true)
       }
 
@@ -121,7 +139,7 @@ export function useClubAdmin(socket: Socket | null, connected: boolean) {
     socket.emit(SocketEvents.CLIENT.CLUB_SETUP, { ...rest, pin: adminPin })
   }, [socket, connected])
 
-  // Listen for setup completion and socket disconnect
+  // Listen for setup completion and socket lifecycle events
   useEffect(() => {
     if (!socket) return
 
@@ -140,14 +158,24 @@ export function useClubAdmin(socket: Socket | null, connected: boolean) {
       setVerifyError('DISCONNECTED')
     }
 
+    /** Session restored from JWT on page reload (REQ-11). The server
+     *  verified the JWT in the io.use() middleware and set socket.data.
+     *  isClubAdmin — this lets us restore the admin UI without asking
+     *  for the PIN again. */
+    const handleSessionRestored = () => {
+      setIsAdmin(true)
+    }
+
     socket.on(SocketEvents.SERVER.CLUB_SETUP_COMPLETE, handleSetupComplete)
     socket.on(SocketEvents.SERVER.ERROR, handleError)
     socket.on('disconnect', handleDisconnect)
+    socket.on(SocketEvents.SERVER.CLUB_SESSION_RESTORED, handleSessionRestored)
 
     return () => {
       socket.off(SocketEvents.SERVER.CLUB_SETUP_COMPLETE, handleSetupComplete)
       socket.off(SocketEvents.SERVER.ERROR, handleError)
       socket.off('disconnect', handleDisconnect)
+      socket.off(SocketEvents.SERVER.CLUB_SESSION_RESTORED, handleSessionRestored)
     }
   }, [socket])
 

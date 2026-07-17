@@ -56,7 +56,6 @@ function makeConfig(overrides: Partial<ClubConfig> = {}): ClubConfig {
     sport: 'padel',
     configured: true,
     adminPinHash: 'salt:hash',
-    adminPin: '123456',
     createdAt: 1_000_000,
     ...overrides,
   };
@@ -130,7 +129,7 @@ describe('ClubConfigStore', () => {
     it('should return configured=false when saved with configured=false', () => {
       fs._files.set('data/club-config.json', JSON.stringify({
         clubName: '', sport: '', configured: false,
-        adminPinHash: '', adminPin: '', createdAt: 0,
+        adminPinHash: '', createdAt: 0,
       }));
 
       const result = store.load();

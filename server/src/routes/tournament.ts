@@ -10,21 +10,21 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { StateStore } from '../services/store/StateStore';
 import type { CourtManager } from '../domain/courtManager';
+import type { ICourtPersistence } from '../domain/ports';
 
 /**
  * GET /status
  * Returns whether a persisted tournament exists and how many tables it contains.
  */
 export function handleStatus(
-  stateStore: StateStore,
+  stateStore: ICourtPersistence,
   _req: Request,
   res: Response,
 ): void {
   const loaded = stateStore.load();
 
-  if (!loaded || !loaded.tables || loaded.tables.length === 0) {
+  if (!loaded || !loaded.tournamentCourts || loaded.tournamentCourts.length === 0) {
     res.json({
       exists: false,
       matchCount: 0,
@@ -35,7 +35,7 @@ export function handleStatus(
 
   res.json({
     exists: true,
-    matchCount: loaded.tables.length,
+    matchCount: loaded.tournamentCourts.length,
     lastSaved: new Date(loaded.savedAt).toISOString(),
   });
 }
@@ -45,7 +45,7 @@ export function handleStatus(
  * Restores tables from persisted state via CourtManager.loadTournament().
  */
 export function handleLoad(
-  stateStore: StateStore,
+  stateStore: ICourtPersistence,
   tableManager: CourtManager,
   _req: Request,
   res: Response,
@@ -70,7 +70,7 @@ export function handleLoad(
  * Discards any persisted tournament state. Idempotent.
  */
 export function handleNew(
-  stateStore: StateStore,
+  stateStore: ICourtPersistence,
   _req: Request,
   res: Response,
 ): void {
@@ -80,10 +80,10 @@ export function handleNew(
 
 /**
  * POST /finish
- * Archives the current state file and clears active state.
+ * Clears the active tournament state.
  */
 export function handleFinish(
-  stateStore: StateStore,
+  stateStore: ICourtPersistence,
   tableManager: CourtManager,
   _req: Request,
   res: Response,
@@ -96,10 +96,10 @@ export function handleFinish(
     return;
   }
 
-  const archivePath = stateStore.archive();
+  stateStore.clear();
   tableManager.finishTournament();
 
-  res.json({ success: true, archivePath });
+  res.json({ success: true });
 }
 
 /**
@@ -112,7 +112,7 @@ export function handleFinish(
  * @returns  Configured Express Router.
  */
 export function createTournamentRouter(
-  stateStore: StateStore,
+  stateStore: ICourtPersistence,
   tableManager: CourtManager,
   authMiddleware: (req: Request, res: Response, next: () => void) => void,
 ): Router {

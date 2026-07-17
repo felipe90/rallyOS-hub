@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { KioskAllCourtsPage, calculatePages } from './KioskAllCourtsPage'
 import { useSocketContext } from '@/contexts/SocketContext'
-import type { TableInfo, KioskNotificationData } from '@shared/types'
+import type { CourtInfo, KioskNotificationData } from '@shared/types'
 
 // Mock KioskNotificationToast to verify it renders without testing it again
 vi.mock('@/components/organisms/KioskNotificationToast', () => ({
@@ -53,7 +53,7 @@ vi.mock('@/i18n', () => ({
 
 const mockUseSocketContext = useSocketContext as ReturnType<typeof vi.fn>
 
-function makeTable(overrides: Partial<TableInfo> = {}): TableInfo {
+function makeTable(overrides: Partial<CourtInfo> = {}): CourtInfo {
   return {
     id: 'table-1',
     number: 1,
@@ -67,7 +67,7 @@ function makeTable(overrides: Partial<TableInfo> = {}): TableInfo {
 }
 
 function renderPage(
-  courts: TableInfo[] = [],
+  courts: CourtInfo[] = [],
   socketOverrides?: { on?: ReturnType<typeof vi.fn>; off?: ReturnType<typeof vi.fn>; emit?: ReturnType<typeof vi.fn> },
 ) {
   const mockSocket = socketOverrides || { on: vi.fn(), off: vi.fn(), emit: vi.fn() }
@@ -464,12 +464,9 @@ describe('KioskAllCourtsPage — featured court spotlight', () => {
     expect(mockScoreboardMount).toHaveBeenLastCalledWith('t1')
 
     const spotlightMain = screen.getByRole('main')
-    expect(spotlightMain).toHaveClass('transition-opacity', 'duration-500')
-
-    act(() => {
-      vi.advanceTimersByTime(500)
-    })
-    expect(spotlightMain).toHaveClass('opacity-100')
+    // The <main> container uses CSS layout classes; fade transitions are handled
+    // by Framer Motion <AnimatePresence> on the inner motion.div
+    expect(spotlightMain).toHaveClass('flex-1', 'flex', 'flex-col', 'relative')
 
     const updatedCourts = [
       makeTable({ id: 't1', name: 'Court A', status: 'LIVE', featured: false }),
@@ -487,9 +484,6 @@ describe('KioskAllCourtsPage — featured court spotlight', () => {
         <KioskAllCourtsPage />
       </MemoryRouter>,
     )
-
-    // Fade should be hidden immediately after switching featured courts
-    expect(spotlightMain).toHaveClass('opacity-0')
 
     act(() => {
       matchUpdateHandler({
@@ -511,12 +505,6 @@ describe('KioskAllCourtsPage — featured court spotlight', () => {
     })
 
     expect(mockScoreboardMount.mock.calls[mockScoreboardMount.mock.calls.length - 1]).toEqual(['t2'])
-
-    act(() => {
-      vi.advanceTimersByTime(500)
-    })
-
-    expect(spotlightMain).toHaveClass('opacity-100')
   })
 
   it('unsubscribes on unmount when featured court active', () => {
@@ -648,7 +636,7 @@ describe('KioskAllCourtsPage — featured court spotlight', () => {
 })
 
 describe('calculatePages', () => {
-  function makeTables(count: number): TableInfo[] {
+  function makeTables(count: number): CourtInfo[] {
     return Array.from({ length: count }, (_, i) => makeTable({ id: `t-${i}`, name: `Table ${i}` }))
   }
 
@@ -712,7 +700,7 @@ describe('KioskAllCourtsPage — rotation behavior', () => {
     vi.useRealTimers()
   })
 
-  function makeTables(count: number, baseName = 'Table'): TableInfo[] {
+  function makeTables(count: number, baseName = 'Table'): CourtInfo[] {
     return Array.from({ length: count }, (_, i) =>
       makeTable({ id: `rt-${i}`, name: `${baseName} ${i}`, status: 'LIVE' }),
     )

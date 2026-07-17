@@ -23,7 +23,6 @@ export function NotFoundPage() {
         variant="primary"
         size="lg"
         onClick={() => navigate(Routes.AUTH)}
-        animate={false}
       >
         {i18nText('notFoundGoHome')}
       </Button>

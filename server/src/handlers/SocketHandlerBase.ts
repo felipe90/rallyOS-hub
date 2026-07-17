@@ -8,7 +8,7 @@
 import { Server, Socket } from 'socket.io';
 import crypto from 'crypto';
 import { CourtManager } from '../domain/courtManager';
-import { TableInfo, TableInfoWithPin } from '../domain/types';
+import { CourtInfo, CourtInfoWithPin } from '../domain/types';
 import { logger, maskIp } from '../utils/logger';
 import { RateLimiter } from '../services/security/RateLimiter';
 
@@ -29,21 +29,21 @@ export abstract class SocketHandlerBase {
   /**
    * Convert court to public info
    */
-  protected toPublicCourtInfo(court: TableInfo): TableInfo {
+  protected toPublicCourtInfo(court: CourtInfo): CourtInfo {
     return court;
   }
 
   /**
    * Get public court list
    */
-  protected getPublicCourtList(): TableInfo[] {
+  protected getPublicCourtList(): CourtInfo[] {
     return this.tableManager.getAllCourts().map((court) => this.toPublicCourtInfo(court));
   }
 
   /**
    * Get courts with PINs (owner only)
    */
-  protected getCourtsWithPins(): TableInfoWithPin[] {
+  protected getCourtsWithPins(): CourtInfoWithPin[] {
     return this.tableManager.getAllCourtsWithPins();
   }
 

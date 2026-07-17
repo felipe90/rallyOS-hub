@@ -66,10 +66,13 @@ export interface Score {
 }
 
 // ── Table Status ────────────────────────────────────────────────────
+export type TournamentStatus = 'WAITING' | 'CONFIGURING' | 'LIVE' | 'FINISHED';
 
-export type CourtStatus = 'WAITING' | 'CONFIGURING' | 'LIVE' | 'FINISHED';
-/** @deprecated Use CourtStatus instead */
-export type TableStatus = CourtStatus;
+/** @deprecated Use TournamentStatus instead */
+export type TableStatus = TournamentStatus;
+
+/** @deprecated Use TournamentStatus instead */
+export type CourtStatus = TournamentStatus;
 
 // ── Score Change (for history / undo) ───────────────────────────────
 
@@ -200,8 +203,6 @@ export type MatchStateExtended = MatchState & {
   playerNames: { a: string; b: string };
   history: ScoreChange[];
   undoAvailable: boolean;
-  mode?: CourtMode;
-  clubStatus?: ClubStatus;
 };
 
 // ── Aggregated History (ALL_HISTORY event) ────────────────────────
@@ -224,7 +225,7 @@ export interface CourtInfo {
   id: string;
   number: number;
   name: string;
-  status: CourtStatus;
+  status: TournamentStatus | ClubStatus;
   playerCount: number;
   playerNames?: { a: string; b: string };
   currentScore?: Score;
@@ -232,7 +233,7 @@ export interface CourtInfo {
   winner?: Player | null;
   /** Whether this court is the featured/spotlight court for the kiosk */
   featured?: boolean;
-  /** Court mode discriminator — undefined for backward compat with tournament-only courts */
+  /** Court mode discriminator — 'tournament' | 'club'. Undefined accepted for backward compat. */
   mode?: CourtMode;
   /** Club-specific status — only present when mode === 'club' */
   clubStatus?: ClubStatus;
@@ -278,8 +279,6 @@ export interface ClubConfig {
   configured: boolean;
   /** scrypt hash (salt:hash format) for admin PIN verification */
   adminPinHash: string;
-  /** Plaintext admin PIN for CLI recovery — stored alongside hash for recovery use case */
-  adminPin: string;
   /** Timestamp when the club was first configured */
   createdAt: number;
   /** Cost per minute in the club's currency — 0 means free */
@@ -323,7 +322,6 @@ export interface QRData {
   hubPort: number;
   courtId: string;
   courtName: string;
-  pin: string;
   encryptedPin: string;  // required: format {iv}:{ciphertext}:{authTag}:{timestamp}
   url: string;           // rallyhub://join/{tableId}?ePin={encryptedPin}
 }
@@ -391,4 +389,9 @@ export function isTableTennisStateExtended(state: MatchStateExtended): state is 
 /** Narrow a MatchStateExtended to the padel variant. */
 export function isPadelStateExtended(state: MatchStateExtended): state is MatchStateExtended & PadelMatchState {
   return state.sport === SPORT.PADEL;
+}
+
+/** Check if a court is in tournament mode — accepts undefined for backward compat */
+export function isTournamentMode(info: { mode?: CourtMode }): boolean {
+  return info.mode === undefined || info.mode === COURT_MODE.TOURNAMENT;
 }

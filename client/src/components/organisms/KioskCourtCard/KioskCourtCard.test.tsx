@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { KioskCourtCard } from './KioskCourtCard'
-import type { TableInfo } from '@shared/types'
+import type { CourtInfo } from '@shared/types'
 
 // Mock i18n — return the key itself so we can verify the key was called
 vi.mock('@/i18n', () => ({
@@ -18,7 +18,7 @@ vi.mock('@/i18n', () => ({
   }),
 }))
 
-function makeTable(overrides: Partial<TableInfo> = {}): TableInfo {
+function makeTable(overrides: Partial<CourtInfo> = {}): CourtInfo {
   return {
     id: 'table-1',
     number: 1,

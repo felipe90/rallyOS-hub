@@ -70,7 +70,6 @@ export function PlayerNamePrompt({
         variant="primary"
         size="lg"
         onClick={handleSubmit}
-        animate={false}
         className="mt-2"
       >
         {i18nText('clubPlayStartMatch')}

@@ -224,3 +224,17 @@ import { Table } from './types';
 
 - `server/src/types.ts` re-exports everything from `shared/types.ts` for backward compatibility, but new code should import directly from `shared/types.ts`.
 - If you need a type on both sides, add it to `shared/types.ts`, not `server/src/types.ts`.
+
+---
+
+## Authentication & Session Persistence
+
+rallyOS uses signed JWT (HMAC-SHA256) for session persistence across
+page reloads. The `SessionTokenService` in
+`server/src/services/security/SessionTokenService.ts` signs and
+verifies tokens using `ENCRYPTION_SECRET`. Two `io.use()` middlewares
+in `SocketHandler` run before connection: rate limiter, then JWT
+reconnect.
+
+See [`docs/auth-architecture.md`](../../docs/auth-architecture.md) for
+the full architecture, flow diagrams, and file map.

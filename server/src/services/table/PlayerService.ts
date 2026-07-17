@@ -8,11 +8,12 @@ import { Court, PlayerConnection } from '../../domain/types';
 import { logger } from '../../utils/logger';
 import { sanitizeInput } from '../../utils/validation';
 import { PinService } from '../security/PinService';
+import type { IPinService, IPlayerService } from '../../domain/ports';
 
-export class PlayerService {
-  private pinService: PinService;
+export class PlayerService implements IPlayerService {
+  private pinService: IPinService;
 
-  constructor(pinService: PinService) {
+  constructor(pinService: IPinService) {
     this.pinService = pinService;
   }
 

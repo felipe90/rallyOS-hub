@@ -17,11 +17,19 @@ import { logger } from '../utils/logger';
 import { SocketEvents } from '../../../shared/events';
 import { PIN_RULES } from '../../../shared/validation';
 import { SocketHandlerBase } from './SocketHandlerBase';
-import type { SocketData } from '../domain/types';
+import type { SocketData, CourtInfo } from '../domain/types';
 
 export class CourtEventHandler extends SocketHandlerBase {
   constructor(io: Server, tableManager: CourtManager, ownerPin: string) {
     super(io, tableManager, ownerPin);
+  }
+
+  /**
+   * Override: COURT_LIST only includes tournament courts.
+   * Club courts are emitted via CLUB_KIOSK_DATA instead.
+   */
+  protected getPublicCourtList(): CourtInfo[] {
+    return this.tableManager.getAllTournamentCourts();
   }
 
   /**
@@ -75,16 +83,22 @@ export class CourtEventHandler extends SocketHandlerBase {
 
     // GET_TABLES_WITH_PINS: Owner only
     socket.on(SocketEvents.CLIENT.GET_COURTS_WITH_PINS, (data?: { ownerPin?: string }) => {
-      if (!validateSocketPayload(socket, data || {}, { ownerPin: { required: false, type: 'string', pattern: PIN_RULES.ownerPin.pattern } }, 'GET_COURTS_WITH_PINS')) {
-        return;
-      }
-
+      // When the socket is already authenticated as owner via JWT (reload
+      // session restore), skip PIN validation — the owner PIN is not
+      // persisted to storage for security (REQ-15).
       const isSocketOwner = (socket.data as SocketData)?.isOwner === true;
-      const isValidOwner = !!data?.ownerPin && this.comparePin(data.ownerPin, this.ownerPin);
 
-      if (!isSocketOwner && !isValidOwner) {
-        logger.warn({ socketId: socket.id }, 'GET_TABLES_WITH_PINS rejected - not owner');
-        return this.emitError(socket, 'NOT_OWNER', 'No autorizado');
+      if (!isSocketOwner) {
+        if (!validateSocketPayload(socket, data || {}, { ownerPin: { required: false, type: 'string', pattern: PIN_RULES.ownerPin.pattern } }, 'GET_COURTS_WITH_PINS')) {
+          return;
+        }
+
+        const isValidOwner = !!data?.ownerPin && this.comparePin(data.ownerPin, this.ownerPin);
+
+        if (!isValidOwner) {
+          logger.warn({ socketId: socket.id }, 'GET_TABLES_WITH_PINS rejected - not owner');
+          return this.emitError(socket, 'NOT_OWNER', 'No autorizado');
+        }
       }
 
       const courts = this.getCourtsWithPins();

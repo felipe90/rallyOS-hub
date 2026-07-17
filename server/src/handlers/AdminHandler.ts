@@ -43,10 +43,13 @@ export class AdminHandler extends SocketHandlerBase {
         return this.emitError(socket, 'TABLE_NOT_FOUND', 'Cancha no encontrada');
       }
 
-      // Verify the requester is the owner (timing-safe comparison)
-      const isOwnerAuthorizing = !data.pin || this.comparePin(data.pin, this.ownerPin);
+      // Verify the requester is authorized: must provide a valid PIN
+      if (!data.pin) {
+        return this.emitError(socket, 'UNAUTHORIZED', 'PIN requerido');
+      }
 
-      if (!isOwnerAuthorizing && !this.comparePin(data.pin!, court.pin)) {
+      const isOwnerAuthorizing = this.comparePin(data.pin, this.ownerPin);
+      if (!isOwnerAuthorizing && !this.comparePin(data.pin, court.pin)) {
         return this.emitError(socket, 'UNAUTHORIZED', 'No autorizado');
       }
 

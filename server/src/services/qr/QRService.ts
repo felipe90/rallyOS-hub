@@ -6,8 +6,9 @@
 
 import { Court, QRData, HubConfig } from '../../domain/types';
 import { encryptPin } from '../../utils/pinEncryption';
+import type { IQRService } from '../../domain/ports';
 
-export class QRService {
+export class QRService implements IQRService {
   private hubConfig: HubConfig;
 
   constructor(hubConfig: HubConfig) {
@@ -25,7 +26,6 @@ export class QRService {
       hubPort: this.hubConfig.port,
       courtId: court.id,
       courtName: court.name,
-      pin: court.pin,
       encryptedPin,
       url: `rallyhub://join/${court.id}?ePin=${encodeURIComponent(encryptedPin)}`
     };

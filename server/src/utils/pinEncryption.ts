@@ -12,8 +12,11 @@ import { logger } from './logger';
 /**
  * Get or generate server secret from environment.
  * In production, ENCRYPTION_SECRET is required — server will fail to start if not set.
+ *
+ * Exported so SessionTokenService can reuse the same single source of truth
+ * for the JWT HMAC key (design decision: export getServerSecret vs duplicate).
  */
-function getServerSecret(): string {
+export function getServerSecret(): string {
   const envSecret = process.env.ENCRYPTION_SECRET;
   if (envSecret) {
     return envSecret;

@@ -5,7 +5,7 @@
  * No React dependencies - testable in isolation.
  */
 
-import type { TableInfo } from '@shared/types'
+import type { CourtInfo } from '@shared/types'
 
 export interface DashboardStats {
   totalTables: number
@@ -16,7 +16,7 @@ export interface DashboardStats {
 /**
  * Calculate dashboard statistics from a list of tables.
  */
-export function calculateDashboardStats(tables: TableInfo[]): DashboardStats {
+export function calculateDashboardStats(tables: CourtInfo[]): DashboardStats {
   return {
     totalTables: tables.length,
     liveMatches: tables.filter(

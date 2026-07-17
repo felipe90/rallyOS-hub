@@ -23,6 +23,7 @@ export interface AuthContextValue {
   ownerPin: string | null
   courtPin: string | null
   tournamentToken: string | null
+  sessionToken: string | null
   isOwner: boolean
   isReferee: boolean
   isViewer: boolean
@@ -33,6 +34,7 @@ export interface AuthContextValue {
   setOwner: (isOwner: boolean, pin?: string) => void
   setCourtPin: (pin: string) => void
   setTournamentToken: (token: string) => void
+  setSessionToken: (token: string) => void
 }
 
 export interface AuthProviderProps {

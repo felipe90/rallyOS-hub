@@ -10,97 +10,15 @@
 
 import { Server, Socket } from 'socket.io';
 import { CourtManager } from '../domain/courtManager';
-import { ClubConfigStore } from '../services/store/ClubConfigStore';
+import type { IClubConfigRepository } from '../domain/ports/IClubConfigRepository';
 import { validateSocketPayload } from '../utils/validation';
 import { logger, maskIp } from '../utils/logger';
 import { SocketEvents } from '../../../shared/events';
 import { PIN_RULES } from '../../../shared/validation';
-import { SPORT } from '../../../shared/types';
+import { SPORT, CLUB_STATUS } from '../../../shared/types';
+import { isClubCourt } from '../domain/types';
 import { SocketHandlerBase } from './SocketHandlerBase';
-
-// ═══════════════════════════════════════════════════════════════
-// PinRateLimiter — dedicated rate limiter for club PIN attempts
-// ═══════════════════════════════════════════════════════════════
-
-const MAX_ATTEMPTS = 5;
-const WINDOW_MS = 60_000;
-const BLOCK_DURATION_MS = 60_000;
-
-class PinRateLimiter {
-  private attempts: Map<string, { count: number; blockedUntil: number }> = new Map();
-  private cleanupTimer: NodeJS.Timeout | null = null;
-
-  constructor() {
-    this.startCleanup();
-  }
-
-  private startCleanup(): void {
-    if (this.cleanupTimer) return;
-    this.cleanupTimer = setInterval(() => this.cleanup(), 60_000);
-    this.cleanupTimer.unref();
-  }
-
-  /**
-   * Remove stale entries (block expired or no activity in 2 windows).
-   */
-  private cleanup(): void {
-    const now = Date.now();
-    for (const [ip, entry] of this.attempts.entries()) {
-      if (entry.blockedUntil > 0 && now >= entry.blockedUntil) {
-        this.attempts.delete(ip);
-      }
-    }
-  }
-
-  /**
-   * Check if an IP is allowed to attempt PIN entry.
-   * Returns whether the attempt is allowed and remaining block time if blocked.
-   */
-  check(ip: string): { allowed: boolean; remainingBlockSeconds?: number } {
-    const entry = this.attempts.get(ip);
-    if (!entry) return { allowed: true };
-
-    const now = Date.now();
-
-    // Currently blocked
-    if (entry.blockedUntil > now) {
-      const remaining = Math.ceil((entry.blockedUntil - now) / 1000);
-      return { allowed: false, remainingBlockSeconds: remaining };
-    }
-
-    // Block expired — clean slate
-    if (entry.blockedUntil > 0 && now >= entry.blockedUntil) {
-      this.attempts.delete(ip);
-      return { allowed: true };
-    }
-
-    // Under the limit — allowed
-    if (entry.count < MAX_ATTEMPTS) {
-      return { allowed: true };
-    }
-
-    // Exceeded limit — activate block
-    entry.blockedUntil = now + BLOCK_DURATION_MS;
-    const remaining = Math.ceil(BLOCK_DURATION_MS / 1000);
-    return { allowed: false, remainingBlockSeconds: remaining };
-  }
-
-  /**
-   * Record a failed attempt from an IP.
-   */
-  recordAttempt(ip: string): void {
-    const entry = this.attempts.get(ip) ?? { count: 0, blockedUntil: 0 };
-    entry.count++;
-    this.attempts.set(ip, entry);
-  }
-
-  /**
-   * Reset the rate limiter for a given IP (on successful join).
-   */
-  reset(ip: string): void {
-    this.attempts.delete(ip);
-  }
-}
+import { PinRateLimiter } from '../services/security/PinRateLimiter';
 
 // ═══════════════════════════════════════════════════════════════
 // ClubPlayerHandler
@@ -114,14 +32,14 @@ class PinRateLimiter {
  * common utilities.
  */
 export class ClubPlayerHandler extends SocketHandlerBase {
-  private clubConfigStore: ClubConfigStore;
+  private clubConfigStore: IClubConfigRepository;
   private pinRateLimiter: PinRateLimiter;
 
   constructor(
     io: Server,
     tableManager: CourtManager,
     ownerPin: string,
-    clubConfigStore: ClubConfigStore,
+    clubConfigStore: IClubConfigRepository,
   ) {
     super(io, tableManager, ownerPin);
     this.clubConfigStore = clubConfigStore;
@@ -239,12 +157,12 @@ export class ClubPlayerHandler extends SocketHandlerBase {
     });
 
     // CLUB_RECONNECT: Re-establish bridge ownership after page refresh
-    socket.on(SocketEvents.CLIENT.CLUB_RECONNECT, (data: { courtId: string }) => {
-      if (!data || typeof data.courtId !== 'string' || !data.courtId.trim()) {
-        socket.emit(SocketEvents.SERVER.CLUB_RECONNECT_RESULT, {
-          success: false,
-          error: 'INVALID_PARAMS',
-        });
+    socket.on(SocketEvents.CLIENT.CLUB_RECONNECT, (data: { courtId: string; pin: string }) => {
+      // Validate payload with required PIN
+      if (!validateSocketPayload(socket, data, {
+        courtId: { required: true, type: 'string', maxLength: 36 },
+        pin: { required: true, type: 'string', pattern: PIN_RULES.tablePin.pattern },
+      }, 'CLUB_RECONNECT')) {
         return;
       }
 
@@ -257,7 +175,7 @@ export class ClubPlayerHandler extends SocketHandlerBase {
         return;
       }
 
-      if (court.mode !== 'club') {
+      if (!isClubCourt(court)) {
         socket.emit(SocketEvents.SERVER.CLUB_RECONNECT_RESULT, {
           success: false,
           error: 'NOT_CLUB_MODE',
@@ -265,7 +183,7 @@ export class ClubPlayerHandler extends SocketHandlerBase {
         return;
       }
 
-      if (court.clubStatus !== 'OCCUPIED') {
+      if (court.clubStatus !== CLUB_STATUS.OCCUPIED) {
         socket.emit(SocketEvents.SERVER.CLUB_RECONNECT_RESULT, {
           success: false,
           error: 'COURT_NOT_OCCUPIED',
@@ -273,7 +191,19 @@ export class ClubPlayerHandler extends SocketHandlerBase {
         return;
       }
 
-      // Register socket as referee (reconnection bypasses PIN rate limiting)
+      // Validate PIN — timing-safe comparison (required, no bypass)
+      if (!this.comparePin(data.pin, court.pin)) {
+        this.pinRateLimiter.recordAttempt(socket.handshake.address);
+        logger.warn({ courtId: court.id, ip: maskIp(socket.handshake.address) }, 'CLUB_RECONNECT: invalid PIN');
+        socket.emit(SocketEvents.SERVER.CLUB_RECONNECT_RESULT, {
+          success: false,
+          error: 'INVALID_PIN',
+        });
+        return;
+      }
+      this.pinRateLimiter.reset(socket.handshake.address);
+
+      // Register socket as referee
       const displacedSocketId = this.tableManager.registerClubReferee(court.id, socket.id);
       if (displacedSocketId) {
         this.io.to(displacedSocketId).emit(SocketEvents.SERVER.REF_REVOKED, { courtId: court.id, reason: 'replaced' });
@@ -312,7 +242,7 @@ export class ClubPlayerHandler extends SocketHandlerBase {
 
       // Validate court exists and is OCCUPIED
       const court = this.tableManager.getCourt(data.courtId);
-      if (!court || court.mode !== 'club' || court.clubStatus !== 'OCCUPIED') {
+      if (!court || !isClubCourt(court) || court.clubStatus !== CLUB_STATUS.OCCUPIED) {
         socket.emit(SocketEvents.SERVER.ERROR, {
           code: 'SESSION_NOT_ACTIVE',
           message: 'La sesión no está activa',

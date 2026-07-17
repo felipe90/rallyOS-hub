@@ -9,8 +9,8 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { StateStore } from '../services/store/StateStore';
 import { CsvExporter } from '../services/store/CsvExporter';
+import type { ICourtPersistence } from '../domain/ports';
 
 const csvExporter = new CsvExporter();
 
@@ -22,12 +22,12 @@ const csvExporter = new CsvExporter();
  * and sets appropriate headers for file download.
  */
 export function handleExport(
-  stateStore: StateStore,
+  stateStore: ICourtPersistence,
   _req: Request,
   res: Response,
 ): void {
   const loaded = stateStore.load();
-  const tables = loaded?.tables ?? [];
+  const tables = loaded?.tournamentCourts ?? [];
 
   const csv = csvExporter.export(tables);
 
@@ -48,7 +48,7 @@ export function handleExport(
  * @returns  Configured Express Router.
  */
 export function createExportRouter(
-  stateStore: StateStore,
+  stateStore: ICourtPersistence,
   authMiddleware: (req: Request, res: Response, next: () => void) => void,
 ): Router {
   const router = Router();

@@ -10,11 +10,20 @@ import { app, spaFallback } from './app';
 import { createSecureServer, gracefulShutdown } from './server';
 import { createSocketServer } from './socket';
 import { CourtManager } from './domain/courtManager';
+import { CourtRepository } from './services/table/CourtRepository';
+import { PlayerService } from './services/table/PlayerService';
+import { MatchOrchestrator } from './services/table/MatchOrchestrator';
+import { CourtFormatter } from './services/table/CourtFormatter';
+import { PinService } from './services/security/PinService';
+import { QRService } from './services/qr/QRService';
+import { SportRegistry } from './domain/sports/sport.registry';
+import { DefaultMatchEngineFactory } from './domain/ports';
 import { StateStore } from './services/store/StateStore';
 import { ClubConfigStore } from './services/store/ClubConfigStore';
 import { createTournamentRouter } from './routes/tournament';
 import { createExportRouter } from './routes/export';
-import { ownerAuthMiddleware } from './middleware/ownerAuth';
+import { createOwnerAuthMiddleware } from './middleware/ownerAuth';
+import { SessionTokenService } from './services/security/SessionTokenService';
 import { logger } from './utils/logger';
 import { initOwnerPin } from './config/ownerPin';
 import { getHubDomain } from './config/allowedOrigins';
@@ -51,9 +60,36 @@ const hubConfig = {
 const stateStore = new StateStore();
 const clubConfigStore = new ClubConfigStore();
 
-// Create CourtManager with persistence
-const courtManager = new CourtManager(hubConfig, stateStore);
+// Create infrastructure services
+const repository = new CourtRepository();
+const pinService = new PinService();
+const playerService = new PlayerService(pinService);
+const registry = new SportRegistry();
+const engineFactory = new DefaultMatchEngineFactory(registry);
+const matchOrchestrator = new MatchOrchestrator(engineFactory, registry);
+const formatter = new CourtFormatter();
+const qrService = new QRService(hubConfig);
+
+// Create CourtManager with all dependencies wired explicitly
+const courtManager = new CourtManager({
+  repository,
+  pinService,
+  playerService,
+  matchOrchestrator,
+  formatter,
+  qrService,
+  persistence: stateStore,
+});
+
+// Session token service — shared by SocketHandler (JWT reconnect) and
+// the Express ownerAuth middleware (Bearer JWT). Single HMAC secret source
+// of truth (ENCRYPTION_SECRET via pinEncryption.getServerSecret).
+const sessionTokenService = new SessionTokenService();
+
 createSocketServer(io, courtManager, ownerPin, hubConfig, clubConfigStore);
+
+// Express owner auth — bound to the same SessionTokenService used by sockets.
+const ownerAuthMiddleware = createOwnerAuthMiddleware(sessionTokenService);
 
 // GET /api/club/config — public endpoint to check if club is configured
 app.get('/api/club/config', (_req, res) => {

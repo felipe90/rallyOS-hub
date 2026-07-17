@@ -30,11 +30,13 @@ export interface AuthFlowConfig {
   setOwner: (isOwner: boolean, pin?: string) => void
   login: (role: 'owner', tableId?: string, pin?: string) => void
   setTournamentToken: (token: string) => void
+  /** Stores the session JWT in sessionStorage for reconnect (REQ-12) */
+  setSessionToken: (token: string) => void
   /** Called after owner is verified and tournament status is resolved */
   onOwnerResolved?: () => void
 }
 
-export function useAuthFlow({ socket, connected, setOwner, login, setTournamentToken, onOwnerResolved }: AuthFlowConfig) {
+export function useAuthFlow({ socket, connected, setOwner, login, setTournamentToken, setSessionToken, onOwnerResolved }: AuthFlowConfig) {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [tournamentStatus, setTournamentStatus] = useState<TournamentStatus>({
@@ -64,6 +66,10 @@ export function useAuthFlow({ socket, connected, setOwner, login, setTournamentT
       const tToken = data.tournamentToken || ''
       tokenRef.current = tToken
       setTournamentToken(tToken)
+      // Store the same JWT as the session token for socket reconnect (REQ-12).
+      if (tToken) {
+        setSessionToken(tToken)
+      }
 
       // Check if a prior tournament exists
       setTournamentStatus(prev => ({ ...prev, checking: true }))
@@ -109,7 +115,7 @@ export function useAuthFlow({ socket, connected, setOwner, login, setTournamentT
       socket.off(SocketEvents.SERVER.OWNER_VERIFIED, handleOwnerVerified)
       socket.off('ERROR', handleError)
     }
-  }, [socket, login, navigate, setOwner, setTournamentToken])
+  }, [socket, login, navigate, setOwner, setTournamentToken, setSessionToken])
 
   // Resolve tournament status — user clicked Load or New
   const resolveTournament = useCallback(

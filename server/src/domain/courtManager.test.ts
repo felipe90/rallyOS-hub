@@ -1,8 +1,9 @@
-import { SPORT, CLUB_STATUS, COURT_MODE } from '../../../shared/types';
+import { SPORT, CLUB_STATUS } from '../../../shared/types';
 import { CourtManager } from './courtManager';
+import { createTestCourtManager } from './courtManager.test-factory';
 import { StateStore } from '../services/store/StateStore';
 import type { FileSystem, PersistedCourt, PersistedMatchState } from '../services/store/types';
-import type { HubConfig, MatchStateExtended, MatchEvent } from './types';
+import type { MatchStateExtended, MatchEvent } from './types';
 import { MatchEngine } from './matchEngine';
 
 // ── Fake FileSystem for DI (same pattern as StateStore.test.ts) ──────────
@@ -60,14 +61,6 @@ function makeFs(): FileSystem & { _written: Map<string, string>; _files: Map<str
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────
-
-const mockHubConfig: HubConfig = {
-  ssid: 'test-ssid',
-  ip: '127.0.0.1',
-  port: 3000,
-  domain: 'test.local',
-  wifiPassword: 'test-password',
-};
 
 /**
  * Create a PersistedCourt fixture for pre-seeding the fake FS.
@@ -137,17 +130,17 @@ describe('CourtManager with StateStore', () => {
 
   describe('constructor', () => {
     it('should accept optional StateStore parameter', () => {
-      expect(() => new CourtManager(mockHubConfig, stateStore)).not.toThrow();
+      expect(() => createTestCourtManager({ persistence: stateStore })).not.toThrow();
     });
 
     it('should accept undefined StateStore (backward compatible)', () => {
-      expect(() => new CourtManager(mockHubConfig)).not.toThrow();
-      expect(() => new CourtManager(mockHubConfig, undefined)).not.toThrow();
+      expect(() => createTestCourtManager()).not.toThrow();
+      expect(() => createTestCourtManager()).not.toThrow();
     });
 
     it('should not call notifyUpdate during construction', () => {
       // Construction should be silent — no tables, no save
-      new CourtManager(mockHubConfig, stateStore);
+      createTestCourtManager({ persistence: stateStore });
       // FS should be empty since no mutations happened
       expect(fs._files.has('data/rallyos-state.json')).toBe(false);
     });
@@ -155,15 +148,15 @@ describe('CourtManager with StateStore', () => {
 
   describe('notifyUpdate triggers save', () => {
     it('should save LIVE court after createCourt + startMatch', () => {
-      const manager = new CourtManager(mockHubConfig, stateStore);
+      const manager = createTestCourtManager({ persistence: stateStore });
       const court = manager.createCourt('Mesa Test');
 
       // createCourt triggers notifyUpdate which calls save.
-      // The court is WAITING, so only an empty tables array is saved.
+      // The court is WAITING, so only an empty tournamentCourts array is saved.
       const afterCreate = fs._files.get('data/rallyos-state.json');
       expect(afterCreate).toBeDefined();
       const afterCreateParsed = JSON.parse(afterCreate!);
-      expect(afterCreateParsed.tables).toHaveLength(0);
+      expect(afterCreateParsed.tournamentCourts).toHaveLength(0);
 
       // Start the match → court becomes LIVE → should save with the court
       manager.startMatch(court.id, { playerNameA: 'Alice', playerNameB: 'Bob' });
@@ -171,15 +164,15 @@ describe('CourtManager with StateStore', () => {
       const savedContent = fs._files.get('data/rallyos-state.json');
       expect(savedContent).toBeDefined();
       const parsed = JSON.parse(savedContent!);
-      expect(parsed.version).toBe(2);
-      expect(parsed.tables).toHaveLength(1);
-      expect(parsed.tables[0].id).toBe(court.id);
-      expect(parsed.tables[0].pin).toBe(court.pin);
-      expect(parsed.tables[0].status).toBe('LIVE');
+      expect(parsed.version).toBe(3);
+      expect(parsed.tournamentCourts).toHaveLength(1);
+      expect(parsed.tournamentCourts[0].id).toBe(court.id);
+      expect(parsed.tournamentCourts[0].pin).toBe(court.pin);
+      expect(parsed.tournamentCourts[0].status).toBe('LIVE');
     });
 
     it('should save FINISHED courts', () => {
-      const manager = new CourtManager(mockHubConfig, stateStore);
+      const manager = createTestCourtManager({ persistence: stateStore });
       const court = manager.createCourt('Mesa Test');
       manager.startMatch(court.id, { playerNameA: 'Alice', playerNameB: 'Bob' });
 
@@ -192,12 +185,13 @@ describe('CourtManager with StateStore', () => {
       // then verify the save contains LIVE courts
       const saved = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(saved!);
-      expect(parsed.tables[0].status).toBe('LIVE');
-      expect(parsed.tables[0].pin).toBe(court.pin);
+      expect(parsed.version).toBe(3);
+      expect(parsed.tournamentCourts[0].status).toBe('LIVE');
+      expect(parsed.tournamentCourts[0].pin).toBe(court.pin);
     });
 
     it('should filter out WAITING courts from save', () => {
-      const manager = new CourtManager(mockHubConfig, stateStore);
+      const manager = createTestCourtManager({ persistence: stateStore });
 
       // Create a court (WAITING) and start it (LIVE)
       const liveCourt = manager.createCourt('Live Court');
@@ -210,12 +204,13 @@ describe('CourtManager with StateStore', () => {
       const savedContent = fs._files.get('data/rallyos-state.json');
       expect(savedContent).toBeDefined();
       const parsed = JSON.parse(savedContent!);
-      expect(parsed.tables).toHaveLength(1);
-      expect(parsed.tables[0].name).toBe('Live Court');
+      expect(parsed.version).toBe(3);
+      expect(parsed.tournamentCourts).toHaveLength(1);
+      expect(parsed.tournamentCourts[0].name).toBe('Live Court');
     });
 
     it('should save match state with scores and history', () => {
-      const manager = new CourtManager(mockHubConfig, stateStore);
+      const manager = createTestCourtManager({ persistence: stateStore });
       const court = manager.createCourt('Mesa Test');
       manager.startMatch(court.id, { playerNameA: 'Alice', playerNameB: 'Bob' });
 
@@ -226,9 +221,10 @@ describe('CourtManager with StateStore', () => {
 
       const savedContent = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(savedContent!);
-      expect(parsed.tables).toHaveLength(1);
+      expect(parsed.version).toBe(3);
+      expect(parsed.tournamentCourts).toHaveLength(1);
 
-      const matchState = parsed.tables[0].matchState;
+      const matchState = parsed.tournamentCourts[0].matchState;
       expect(matchState.score.currentSet.a).toBe(2);
       expect(matchState.score.currentSet.b).toBe(1);
       expect(matchState.history.length).toBeGreaterThan(0);
@@ -236,7 +232,7 @@ describe('CourtManager with StateStore', () => {
     });
 
     it('should save multiple LIVE/FINISHED tables', () => {
-      const manager = new CourtManager(mockHubConfig, stateStore);
+      const manager = createTestCourtManager({ persistence: stateStore });
 
       // Create two tables, start both
       const t1 = manager.createCourt('Mesa 1');
@@ -247,10 +243,11 @@ describe('CourtManager with StateStore', () => {
 
       const savedContent = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(savedContent!);
-      expect(parsed.tables).toHaveLength(2);
-      const names = parsed.tables.map((t: PersistedCourt) => t.name).sort();
+      expect(parsed.version).toBe(3);
+      expect(parsed.tournamentCourts).toHaveLength(2);
+      const names = parsed.tournamentCourts.map((t: PersistedCourt) => t.name).sort();
       expect(names).toEqual(['Mesa 1', 'Mesa 2']);
-      const pins = parsed.tables.map((t: PersistedCourt) => t.pin);
+      const pins = parsed.tournamentCourts.map((t: PersistedCourt) => t.pin);
       expect(pins).toHaveLength(2);
       // Pins should be different (random generation)
       expect(pins[0]).not.toBe(pins[1]);
@@ -258,7 +255,7 @@ describe('CourtManager with StateStore', () => {
 
     it('should NOT save when stateStore is undefined', () => {
       // Backward-compatible: no StateStore → no errors
-      const manager = new CourtManager(mockHubConfig); // no StateStore
+      const manager = createTestCourtManager(); // no StateStore
       const court = manager.createCourt('Mesa Test');
       manager.startMatch(court.id, { playerNameA: 'A', playerNameB: 'B' });
 
@@ -273,7 +270,7 @@ describe('CourtManager with StateStore', () => {
         throw new Error('Disk full');
       };
       const brokenStore = new StateStore(brokenFs, 'data/rallyos-state.json');
-      const manager = new CourtManager(mockHubConfig, brokenStore);
+      const manager = createTestCourtManager({ persistence: brokenStore });
 
       // Should not throw — errors are swallowed
       const court = manager.createCourt('Mesa Test');
@@ -291,7 +288,7 @@ describe('CourtManager with StateStore', () => {
     });
 
     it('should persist exact PIN after mutations', () => {
-      const manager = new CourtManager(mockHubConfig, stateStore);
+      const manager = createTestCourtManager({ persistence: stateStore });
       const court = manager.createCourt('Mesa Test');
       const originalPin = court.pin;
 
@@ -299,30 +296,33 @@ describe('CourtManager with StateStore', () => {
 
       const savedContent = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(savedContent!);
-      expect(parsed.tables[0].pin).toBe(originalPin);
+      expect(parsed.version).toBe(3);
+      expect(parsed.tournamentCourts[0].pin).toBe(originalPin);
     });
 
     it('should persist playerNames in saved state', () => {
-      const manager = new CourtManager(mockHubConfig, stateStore);
+      const manager = createTestCourtManager({ persistence: stateStore });
       const court = manager.createCourt('Mesa Test');
       manager.startMatch(court.id, { playerNameA: 'Champion', playerNameB: 'Runner-up' });
 
       const savedContent = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(savedContent!);
-      expect(parsed.tables[0].playerNames).toEqual({
+      expect(parsed.version).toBe(3);
+      expect(parsed.tournamentCourts[0].playerNames).toEqual({
         a: 'Champion',
         b: 'Runner-up',
       });
     });
 
     it('should NOT persist socketId or runtime callbacks', () => {
-      const manager = new CourtManager(mockHubConfig, stateStore);
+      const manager = createTestCourtManager({ persistence: stateStore });
       const court = manager.createCourt('Mesa Test');
       manager.startMatch(court.id, { playerNameA: 'Alice', playerNameB: 'Bob' });
 
       const savedContent = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(savedContent!);
-      const savedTable = parsed.tables[0];
+      expect(parsed.version).toBe(3);
+      const savedTable = parsed.tournamentCourts[0];
 
       expect(savedTable.sportRules).toBeUndefined();
       expect(savedTable.players).toBeUndefined();
@@ -333,7 +333,7 @@ describe('CourtManager with StateStore', () => {
 
   describe('loadTournament', () => {
     it('should return false when no persisted state exists', () => {
-      const manager = new CourtManager(mockHubConfig, stateStore);
+      const manager = createTestCourtManager({ persistence: stateStore });
 
       const result = manager.loadTournament();
       expect(result).toBe(false);
@@ -342,14 +342,14 @@ describe('CourtManager with StateStore', () => {
 
     it('should return false when state file exists but has no tables', () => {
       seedStateFile(fs, []);
-      const manager = new CourtManager(mockHubConfig, stateStore);
+      const manager = createTestCourtManager({ persistence: stateStore });
 
       const result = manager.loadTournament();
       expect(result).toBe(false);
     });
 
     it('should return false when no StateStore is configured', () => {
-      const manager = new CourtManager(mockHubConfig); // no StateStore
+      const manager = createTestCourtManager(); // no StateStore
       
       const result = manager.loadTournament();
       expect(result).toBe(false);
@@ -378,7 +378,7 @@ describe('CourtManager with StateStore', () => {
       });
 
       seedStateFile(fs, [t1]);
-      const manager = new CourtManager(mockHubConfig, stateStore);
+      const manager = createTestCourtManager({ persistence: stateStore });
 
       const result = manager.loadTournament();
       expect(result).toBe(true);
@@ -391,7 +391,7 @@ describe('CourtManager with StateStore', () => {
       const fullCourt = manager.getCourt('t1');
       expect(fullCourt).toBeDefined();
       expect(fullCourt!.pin).toBe('1111');
-      expect(fullCourt!.status).toBe('LIVE');
+      expect((fullCourt as any)!.status).toBe('LIVE');
 
       // Verify match state
       const matchState = manager.getMatchState('t1') as any;
@@ -435,7 +435,7 @@ describe('CourtManager with StateStore', () => {
       });
 
       seedStateFile(fs, [t1, t2]);
-      const manager = new CourtManager(mockHubConfig, stateStore);
+      const manager = createTestCourtManager({ persistence: stateStore });
 
       const result = manager.loadTournament();
       expect(result).toBe(true);
@@ -448,7 +448,7 @@ describe('CourtManager with StateStore', () => {
       expect(restoredCourt1!.pin).toBe('1111');
       const restoredCourt2 = manager.getCourt('table-2');
       expect(restoredCourt2!.pin).toBe('2222');
-      expect(restoredCourt2!.status).toBe('FINISHED');
+      expect((restoredCourt2 as any)!.status).toBe('FINISHED');
 
       const t2state = manager.getMatchState('table-2');
       expect(t2state!.status).toBe('FINISHED');
@@ -501,7 +501,7 @@ describe('CourtManager with StateStore', () => {
       });
 
       seedStateFile(fs, [t1]);
-      const manager = new CourtManager(mockHubConfig, stateStore);
+      const manager = createTestCourtManager({ persistence: stateStore });
 
       manager.loadTournament();
 
@@ -530,7 +530,7 @@ describe('CourtManager with StateStore', () => {
       });
 
       seedStateFile(fs, [t1, t2, t3]);
-      const manager = new CourtManager(mockHubConfig, stateStore);
+      const manager = createTestCourtManager({ persistence: stateStore });
 
       const result = manager.loadTournament();
       expect(result).toBe(true);
@@ -544,7 +544,7 @@ describe('CourtManager with StateStore', () => {
     it('should NOT auto-load on construction', () => {
       // Even with state in the file, construction starts empty
       seedStateFile(fs, [makePersistedTable()]);
-      const manager = new CourtManager(mockHubConfig, stateStore);
+      const manager = createTestCourtManager({ persistence: stateStore });
 
       expect(manager.getAllCourts()).toHaveLength(0);
     });
@@ -574,7 +574,7 @@ describe('CourtManager with StateStore', () => {
       const goodTable = makePersistedTable({ id: 'good-table' });
 
       seedStateFile(fs, [badTable, goodTable]);
-      const manager = new CourtManager(mockHubConfig, stateStore);
+      const manager = createTestCourtManager({ persistence: stateStore });
 
       const result = manager.loadTournament();
       // Both tables are restored — fromState recovers gracefully
@@ -591,7 +591,7 @@ describe('CourtManager with StateStore', () => {
       const t2 = makePersistedTable({ id: 'live', status: 'LIVE' });
 
       seedStateFile(fs, [t1, t2]);
-      const manager = new CourtManager(mockHubConfig, stateStore);
+      const manager = createTestCourtManager({ persistence: stateStore });
 
       manager.loadTournament();
 
@@ -606,7 +606,7 @@ describe('CourtManager with StateStore', () => {
       const t1 = makePersistedTable({ id: 'table-1' });
       seedStateFile(fs, [t1]);
 
-      const manager = new CourtManager(mockHubConfig, stateStore);
+      const manager = createTestCourtManager({ persistence: stateStore });
 
       // Spy on the onMatchEvent callback
       const events: { tableId: string; event: MatchEvent }[] = [];
@@ -629,7 +629,7 @@ describe('CourtManager with StateStore', () => {
       const t1 = makePersistedTable({ id: 'table-1' });
       seedStateFile(fs, [t1]);
 
-      const manager = new CourtManager(mockHubConfig, stateStore);
+      const manager = createTestCourtManager({ persistence: stateStore });
 
       const updates: any[] = [];
       manager.onTableUpdate = (info) => {
@@ -647,7 +647,7 @@ describe('CourtManager with StateStore', () => {
 
   describe('round-trip: save → load', () => {
     it('should restore tables with identical data after save + load', () => {
-      const manager = new CourtManager(mockHubConfig, stateStore);
+      const manager = createTestCourtManager({ persistence: stateStore });
 
       // Create and start a table
       const court = manager.createCourt('Mesa Persistida');
@@ -663,7 +663,7 @@ describe('CourtManager with StateStore', () => {
 
       // Create a NEW CourtManager (simulating restart) and load
       const newStore = new StateStore(fs, 'data/rallyos-state.json');
-      const newManager = new CourtManager(mockHubConfig, newStore);
+      const newManager = createTestCourtManager({ persistence: newStore });
 
       const loaded = newManager.loadTournament();
       expect(loaded).toBe(true);
@@ -673,7 +673,7 @@ describe('CourtManager with StateStore', () => {
       expect(restoredCourt!.pin).toBe(pin);
       expect(restoredCourt!.name).toBe('Mesa Persistida');
       expect(restoredCourt!.playerNames).toEqual({ a: 'Alpha', b: 'Beta' });
-      expect(restoredCourt!.status).toBe('LIVE');
+      expect((restoredCourt as any)!.status).toBe('LIVE');
 
       const state = newManager.getMatchState(court.id) as any;
       expect(state!.score.currentSet.a).toBe(2);
@@ -686,7 +686,7 @@ describe('CourtManager with StateStore', () => {
     let manager: CourtManager;
 
     beforeEach(() => {
-      manager = new CourtManager(mockHubConfig, stateStore);
+      manager = createTestCourtManager({ persistence: stateStore });
     });
 
     it('should return null for non-existent court', () => {
@@ -726,7 +726,7 @@ describe('CourtManager with StateStore', () => {
 
       const result = manager.occupyClubCourt(court.id, SPORT.PADEL);
       expect(result).not.toBeNull();
-      expect(result!.court.clubStatus).toBe('OCCUPIED');
+      expect((result as any)!.court.clubStatus).toBe('OCCUPIED');
       expect(result!.court.id).toBe(court.id);
       expect(result!.matchState.status).toBe('LIVE');
       expect(result!.matchState.config.sport).toBe(SPORT.PADEL);
@@ -738,7 +738,7 @@ describe('CourtManager with StateStore', () => {
 
       const result = manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
       expect(result).not.toBeNull();
-      expect(result!.court.clubStatus).toBe('OCCUPIED');
+      expect((result as any)!.court.clubStatus).toBe('OCCUPIED');
       expect(result!.matchState.config.sport).toBe(SPORT.TABLE_TENNIS);
       expect(result!.matchState.config.bestOf).toBe(1);
     });
@@ -749,12 +749,12 @@ describe('CourtManager with StateStore', () => {
 
       const result1 = manager.occupyClubCourt(court.id, SPORT.PADEL);
       expect(result1).not.toBeNull();
-      expect(result1!.court.clubStatus).toBe('OCCUPIED');
+      expect((result1 as any)!.court.clubStatus).toBe('OCCUPIED');
 
       // Second call — reconnection path
       const result2 = manager.occupyClubCourt(court.id, SPORT.PADEL);
       expect(result2).not.toBeNull();
-      expect(result2!.court.clubStatus).toBe('OCCUPIED');
+      expect((result2 as any)!.court.clubStatus).toBe('OCCUPIED');
       // Should return same match state
       expect(result2!.matchState.status).toBe('LIVE');
       expect(result2!.matchState.courtId).toBe(court.id);
@@ -778,9 +778,9 @@ describe('CourtManager with StateStore', () => {
       const after = Date.now();
 
       expect(result).not.toBeNull();
-      expect(result!.court.occupiedAt).not.toBeNull();
-      expect(result!.court.occupiedAt!).toBeGreaterThanOrEqual(before);
-      expect(result!.court.occupiedAt!).toBeLessThanOrEqual(after);
+      expect((result as any)!.court.occupiedAt).not.toBeNull();
+      expect((result as any)!.court.occupiedAt).toBeGreaterThanOrEqual(before);
+      expect((result as any)!.court.occupiedAt).toBeLessThanOrEqual(after);
     });
 
     it('should preserve occupiedAt on reconnection (already OCCUPIED)', () => {
@@ -789,12 +789,12 @@ describe('CourtManager with StateStore', () => {
 
       const result1 = manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
       expect(result1).not.toBeNull();
-      const originalOccupiedAt = result1!.court.occupiedAt;
+      const originalOccupiedAt = (result1 as any)!.court.occupiedAt;
 
       // Brief delay to ensure timestamps would differ if reset
       const result2 = manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
       expect(result2).not.toBeNull();
-      expect(result2!.court.occupiedAt).toBe(originalOccupiedAt);
+      expect((result2 as any)!.court.occupiedAt).toBe(originalOccupiedAt);
     });
   });
 
@@ -802,7 +802,7 @@ describe('CourtManager with StateStore', () => {
     let manager: CourtManager;
 
     beforeEach(() => {
-      manager = new CourtManager(mockHubConfig, stateStore);
+      manager = createTestCourtManager({ persistence: stateStore });
     });
 
     it('should return null for non-existent court', () => {
@@ -844,7 +844,7 @@ describe('CourtManager with StateStore', () => {
 
       const updatedCourt = manager.getCourt(court.id);
       expect(updatedCourt).not.toBeNull();
-      expect(updatedCourt!.clubStatus).toBe('FINISHED');
+      expect((updatedCourt as any)!.clubStatus).toBe('FINISHED');
       expect(updatedCourt!.pin).toBe('');
     });
 
@@ -879,7 +879,7 @@ describe('CourtManager with StateStore', () => {
 
   describe('club courts — auto-finish in recordPoint', () => {
     it('should auto-end session when match finishes on OCCUPIED club court', () => {
-      const manager = new CourtManager(mockHubConfig, stateStore);
+      const manager = createTestCourtManager({ persistence: stateStore });
       const court = manager.createClubCourt('AutoFinish Court');
       manager.activateCourt(court.id);
       manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
@@ -907,20 +907,20 @@ describe('CourtManager with StateStore', () => {
 
       // The court should be FINISHED
       const updatedCourt = manager.getCourt(court.id);
-      expect(updatedCourt!.clubStatus).toBe('FINISHED');
+      expect((updatedCourt as any)!.clubStatus).toBe('FINISHED');
     });
   });
 
   describe('getClubKioskPayload', () => {
     it('returns empty courts array when no club courts exist', () => {
-      const manager = new CourtManager(mockHubConfig, stateStore);
+      const manager = createTestCourtManager({ persistence: stateStore });
       const payload = manager.getClubKioskPayload(null);
       expect(payload.clubName).toBe('Club');
       expect(payload.courts).toEqual([]);
     });
 
     it('includes only club-mode courts', () => {
-      const manager = new CourtManager(mockHubConfig, stateStore);
+      const manager = createTestCourtManager({ persistence: stateStore });
       manager.createCourt('Tournament Court'); // tournament, not club
       manager.createClubCourt('Club Court 1');
       manager.createClubCourt('Club Court 2');
@@ -932,7 +932,7 @@ describe('CourtManager with StateStore', () => {
     });
 
     it('populates pin only when clubStatus is RESERVED', () => {
-      const manager = new CourtManager(mockHubConfig, stateStore);
+      const manager = createTestCourtManager({ persistence: stateStore });
       const court = manager.createClubCourt('PIN Court');
       expect(court.clubStatus).toBe(CLUB_STATUS.AVAILABLE);
 
@@ -955,7 +955,7 @@ describe('CourtManager with StateStore', () => {
     });
 
     it('returns configured clubName when config is provided', () => {
-      const manager = new CourtManager(mockHubConfig, stateStore);
+      const manager = createTestCourtManager({ persistence: stateStore });
       manager.createClubCourt('Any Court');
 
       const payload = manager.getClubKioskPayload({
@@ -963,14 +963,13 @@ describe('CourtManager with StateStore', () => {
         sport: SPORT.TABLE_TENNIS,
         configured: true,
         adminPinHash: 'hash',
-        adminPin: '1234',
         createdAt: 0,
       });
       expect(payload.clubName).toBe('Racing Club');
     });
 
     it('includes playerNames and currentScore when court is OCCUPIED', () => {
-      const manager = new CourtManager(mockHubConfig, stateStore);
+      const manager = createTestCourtManager({ persistence: stateStore });
       const court = manager.createClubCourt('Score Court');
       manager.activateCourt(court.id);
       manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
@@ -985,7 +984,7 @@ describe('CourtManager with StateStore', () => {
     });
 
     it('returns winner when match is finished', () => {
-      const manager = new CourtManager(mockHubConfig, stateStore);
+      const manager = createTestCourtManager({ persistence: stateStore });
       const court = manager.createClubCourt('Winner Court');
       manager.activateCourt(court.id);
       manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
@@ -1009,7 +1008,7 @@ describe('CourtManager with StateStore', () => {
     it('should persist occupiedAt in toPersistedCourt and restore in loadTournament', () => {
       const fs = makeFs();
       const store = new StateStore(fs, 'data/rallyos-state.json');
-      const manager = new CourtManager(mockHubConfig, store);
+      const manager = createTestCourtManager({ persistence: store });
 
       const court = manager.createClubCourt('Roundtrip Court');
       manager.activateCourt(court.id);
@@ -1019,19 +1018,61 @@ describe('CourtManager with StateStore', () => {
       const savedContent = fs._files.get('data/rallyos-state.json');
       expect(savedContent).toBeDefined();
       const parsed = JSON.parse(savedContent!);
-      const persisted = parsed.tables.find((t: any) => t.id === court.id);
+      const persisted = parsed.tournamentCourts.find((t: any) => t.id === court.id) ?? parsed.clubCourts.find((t: any) => t.id === court.id);
       expect(persisted).toBeDefined();
       expect(persisted.occupiedAt).toBeDefined();
       expect(typeof persisted.occupiedAt).toBe('number');
 
       // Simulate restart
       const newStore = new StateStore(fs, 'data/rallyos-state.json');
-      const newManager = new CourtManager(mockHubConfig, newStore);
+      const newManager = createTestCourtManager({ persistence: newStore });
       newManager.loadTournament();
 
       const restoredCourt = newManager.getCourt(court.id);
       expect(restoredCourt).toBeDefined();
-      expect(restoredCourt!.occupiedAt).toBe(persisted.occupiedAt);
+      expect((restoredCourt as any)!.occupiedAt).toBe(persisted.occupiedAt);
+    });
+  });
+
+  describe('finishTournament — club court preservation', () => {
+    it('should NOT wipe club courts when finishTournament is called', () => {
+      const fs = makeFs();
+      const store = new StateStore(fs, 'data/rallyos-state.json');
+      const manager = createTestCourtManager({ persistence: store });
+
+      // Create both a tournament court and a club court
+      const tourCourt = manager.createCourt('Tournament Court');
+      const clubCourt = manager.createClubCourt('Club Court');
+      manager.activateCourt(clubCourt.id);
+
+      expect(manager.getAllCourts()).toHaveLength(2);
+
+      // finishTournament should only clear tournament courts
+      manager.finishTournament();
+
+      const remaining = manager.getAllCourts();
+      expect(remaining).toHaveLength(1);
+      expect(remaining[0].id).toBe(clubCourt.id);
+      expect(remaining[0].mode).toBe('club');
+    });
+
+    it('should preserve multiple club courts after finishTournament', () => {
+      const fs = makeFs();
+      const store = new StateStore(fs, 'data/rallyos-state.json');
+      const manager = createTestCourtManager({ persistence: store });
+
+      manager.createCourt('Tourney 1');
+      manager.createCourt('Tourney 2');
+      const club1 = manager.createClubCourt('Club 1');
+      manager.activateCourt(club1.id);
+      const club2 = manager.createClubCourt('Club 2');
+      manager.activateCourt(club2.id);
+
+      manager.finishTournament();
+
+      const remaining = manager.getAllCourts();
+      expect(remaining).toHaveLength(2);
+      expect(remaining.every(c => c.mode === 'club')).toBe(true);
     });
   });
 });

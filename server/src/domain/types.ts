@@ -12,7 +12,7 @@
 import {
   Player,
   Score,
-  CourtStatus, TableStatus,
+  CourtStatus, TournamentStatus,
   ScoreChange,
   MatchEventType,
   SetWonEvent,
@@ -22,8 +22,8 @@ import {
   MatchConfigExtended,
   MatchState,
   MatchStateExtended,
-  TableInfo,
-  TableInfoWithPin,
+  CourtInfo,
+  CourtInfoWithPin,
   QRData,
   ErrorResponse,
   ValidationError,
@@ -39,11 +39,21 @@ import {
 } from '../../../shared/types';
 import type { MatchEngine } from './matchEngine';
 
+// Re-export persistence types from domain/ports for backward compatibility
+// Consumers can now import PersistedCourt, PersistedClubCourt, etc. from
+// either domain/types or domain/ports/persistence-types.
+export type {
+  PersistedCourt,
+  PersistedClubCourt,
+  PersistedMatchState,
+  PersistedTable,
+} from './ports/persistence-types';
+
 // Re-export everything from shared so consumers can still `import { X } from './types'`
 export {
   Player,
   Score,
-  CourtStatus, TableStatus,
+  CourtStatus, TournamentStatus,
   ScoreChange,
   MatchEventType,
   SetWonEvent,
@@ -53,8 +63,8 @@ export {
   MatchConfigExtended,
   MatchState,
   MatchStateExtended,
-  TableInfo,
-  TableInfoWithPin,
+  CourtInfo,
+  CourtInfoWithPin,
   QRData,
   ErrorResponse,
   ValidationError,
@@ -97,16 +107,17 @@ export interface PlayerConnection {
 }
 
 /**
- * Court (internal server-only type)
+ * TournamentCourt — A court in tournament mode.
  *
- * This type adds server-internal fields (callbacks, internal state)
- * that must never be serialized and sent to the client.
+ * Has `status: TournamentStatus` to track match lifecycle.
+ * Does NOT have club-specific fields (clubStatus, occupiedAt, mode).
  */
-export interface Court {
+export interface TournamentCourt {
+  kind: 'tournament';
   id: string;
   number: number;
   name: string;
-  status: CourtStatus;
+  status: TournamentStatus;
   pin: string;
   sportRules: MatchEngine;
   playerNames: { a: string; b: string };
@@ -115,15 +126,50 @@ export interface Court {
   createdAt: number;
   /** Whether this court is currently featured/spotlight on the kiosk */
   featured: boolean;
-  /** Court mode discriminator — 'club' for club-managed courts, undefined for legacy tournament courts */
-  mode?: CourtMode;
-  /** Club-specific status — only used when mode === 'club' */
-  clubStatus?: ClubStatus;
+  // Event callbacks — internal wiring, never exposed to client
+  onTableUpdate?: () => void;
+  onMatchEvent?: (event: MatchEvent) => void;
+}
+
+/**
+ * ClubCourt — A court in club mode.
+ *
+ * Has `clubStatus: ClubStatus` for club lifecycle (AVAILABLE, RESERVED,
+ * OCCUPIED, FINISHED, MAINTENANCE) and `occupiedAt` for session tracking.
+ * Does NOT have tournament-specific fields (status).
+ */
+export interface ClubCourt {
+  kind: 'club';
+  id: string;
+  number: number;
+  name: string;
+  clubStatus: ClubStatus;
+  pin: string;
+  sportRules: MatchEngine;
+  playerNames: { a: string; b: string };
+  history: MatchEvent[];
+  players: PlayerConnection[];
+  createdAt: number;
+  /** Whether this court is currently featured/spotlight on the kiosk */
+  featured: boolean;
   /** Epoch ms when the court was first occupied (set on RESERVED→OCCUPIED transition) */
   occupiedAt: number | null;
   // Event callbacks — internal wiring, never exposed to client
   onTableUpdate?: () => void;
   onMatchEvent?: (event: MatchEvent) => void;
+}
+
+/** Discriminated union — use `kind` to narrow. */
+export type Court = TournamentCourt | ClubCourt;
+
+/** Type guard: narrow Court → ClubCourt */
+export function isClubCourt(court: Court): court is ClubCourt {
+  return court.kind === 'club';
+}
+
+/** Type guard: narrow Court → TournamentCourt */
+export function isTournamentCourt(court: Court): court is TournamentCourt {
+  return court.kind === 'tournament';
 }
 
 /** @deprecated Use Court instead — legacy alias for backward compat */

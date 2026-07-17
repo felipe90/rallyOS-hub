@@ -10,7 +10,6 @@ import { handleExport, createExportRouter } from './export';
 import { StateStore } from '../services/store/StateStore';
 import type { FileSystem, PersistedCourt } from '../services/store/types';
 import type { Request, Response } from 'express';
-import { generateToken, activeTokens } from '../middleware/ownerAuth';
 
 // ── Fake FileSystem ────────────────────────────────────────────────────
 
@@ -218,14 +217,9 @@ describe('handleExport', () => {
 // ── Tests: Router ───────────────────────────────────────────────────────
 
 describe('createExportRouter', () => {
-  beforeEach(() => {
-    activeTokens.clear();
-  });
-
   it('should configure GET / route with auth middleware', () => {
     const fs = makeFs();
     const stateStore = new StateStore(fs, 'data/rallyos-state.json');
-    const token = generateToken();
 
     const router = createExportRouter(stateStore, (req, res, next) => next());
 
@@ -244,7 +238,6 @@ describe('createExportRouter', () => {
   it('should return 401 when auth middleware rejects', () => {
     const fs = makeFs();
     const stateStore = new StateStore(fs, 'data/rallyos-state.json');
-    const token = generateToken();
 
     // Use the real ownerAuth middleware (imported below to avoid circular deps)
     const router = createExportRouter(stateStore, (req, res, next) => next());

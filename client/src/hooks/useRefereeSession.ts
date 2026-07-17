@@ -10,7 +10,7 @@
  */
 
 import { useCallback } from 'react'
-import type { TableInfo } from '@shared/types'
+import type { CourtInfo } from '@shared/types'
 
 const LS_PREFIX = 'rallyos_ref_session_'
 
@@ -88,7 +88,7 @@ export function useRefereeSession() {
    * cleared from localStorage.
    */
   const findAnyValidSession = useCallback(
-    (tables: TableInfo[]): { tableId: string; pin: string } | null => {
+    (tables: CourtInfo[]): { tableId: string; pin: string } | null => {
       try {
         // Build a map of tableId → status for quick lookup
         const tableMap = new Map(tables.map((t) => [t.id, t.status]))

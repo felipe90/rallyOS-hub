@@ -8,6 +8,7 @@
 
 import { ClubPlayerHandler } from './ClubPlayerHandler';
 import { CourtManager } from '../domain/courtManager';
+import { createTestCourtManager } from '../domain/courtManager.test-factory';
 import { ClubConfigStore } from '../services/store/ClubConfigStore';
 import { SocketEvents } from '../../../shared/events';
 import { SPORT } from '../../../shared/types';
@@ -86,14 +87,13 @@ const OWNER_PIN = '123456';
 
 beforeEach(() => {
   mockIo = createMockIo();
-  courtManager = new CourtManager({ ssid: 'test', ip: '127.0.0.1', port: 3000, domain: 'test.local', wifiPassword: 'test' });
+  courtManager = createTestCourtManager();
   const fakeFs = createFakeFs();
   clubConfigStore = new ClubConfigStore(fakeFs);
   // Seed club config with padel
   clubConfigStore.save({
     clubName: 'Test Club',
     sport: SPORT.PADEL,
-    adminPin: OWNER_PIN,
     adminPinHash: 'dummy-hash',
     configured: true,
     createdAt: Date.now(),
@@ -285,13 +285,12 @@ describe('ClubPlayerHandler — CLUB_RECONNECT', () => {
   beforeEach(() => {
     // Create fresh mocks and handler for each test
     mockIo = createMockIo();
-    courtManager = new CourtManager({ ssid: 'test', ip: '127.0.0.1', port: 3000, domain: 'test.local', wifiPassword: 'test' });
+    courtManager = createTestCourtManager();
     const fakeFs = createFakeFs();
     clubConfigStore = new ClubConfigStore(fakeFs);
     clubConfigStore.save({
       clubName: 'Test Club',
       sport: SPORT.PADEL,
-      adminPin: OWNER_PIN,
       adminPinHash: 'dummy-hash',
       configured: true,
       createdAt: Date.now(),
@@ -320,7 +319,7 @@ describe('ClubPlayerHandler — CLUB_RECONNECT', () => {
     const reconnectHandler = (socket.on as jest.Mock).mock.calls.find(
       ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_RECONNECT,
     );
-    reconnectHandler[1]({ courtId });
+    reconnectHandler[1]({ courtId, pin: courtPin });
 
     expect(socket.emit).toHaveBeenCalledWith(
       SocketEvents.SERVER.CLUB_RECONNECT_RESULT,
@@ -332,7 +331,7 @@ describe('ClubPlayerHandler — CLUB_RECONNECT', () => {
     const reconnectHandler = (socket.on as jest.Mock).mock.calls.find(
       ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_RECONNECT,
     );
-    reconnectHandler[1]({ courtId });
+    reconnectHandler[1]({ courtId, pin: courtPin });
 
     const emitCall = (socket.emit as jest.Mock).mock.calls.find(
       ([event]: [string]) => event === SocketEvents.SERVER.CLUB_RECONNECT_RESULT,
@@ -346,7 +345,7 @@ describe('ClubPlayerHandler — CLUB_RECONNECT', () => {
     const reconnectHandler = (socket.on as jest.Mock).mock.calls.find(
       ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_RECONNECT,
     );
-    reconnectHandler[1]({ courtId });
+    reconnectHandler[1]({ courtId, pin: courtPin });
 
     expect(courtManager.isReferee(courtId, 'reconnect-socket')).toBe(true);
   });
@@ -355,7 +354,7 @@ describe('ClubPlayerHandler — CLUB_RECONNECT', () => {
     const reconnectHandler = (socket.on as jest.Mock).mock.calls.find(
       ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_RECONNECT,
     );
-    reconnectHandler[1]({ courtId });
+    reconnectHandler[1]({ courtId, pin: courtPin });
 
     expect(socket.join).toHaveBeenCalledWith(courtId);
   });
@@ -364,7 +363,7 @@ describe('ClubPlayerHandler — CLUB_RECONNECT', () => {
     const reconnectHandler = (socket.on as jest.Mock).mock.calls.find(
       ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_RECONNECT,
     );
-    reconnectHandler[1]({ courtId: 'non-existent' });
+    reconnectHandler[1]({ courtId: 'non-existent', pin: '1234' });
 
     expect(socket.emit).toHaveBeenCalledWith(
       SocketEvents.SERVER.CLUB_RECONNECT_RESULT,
@@ -378,7 +377,7 @@ describe('ClubPlayerHandler — CLUB_RECONNECT', () => {
     const reconnectHandler = (socket.on as jest.Mock).mock.calls.find(
       ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_RECONNECT,
     );
-    reconnectHandler[1]({ courtId: regCourt.id });
+    reconnectHandler[1]({ courtId: regCourt.id, pin: '1234' });
 
     expect(socket.emit).toHaveBeenCalledWith(
       SocketEvents.SERVER.CLUB_RECONNECT_RESULT,
@@ -395,7 +394,7 @@ describe('ClubPlayerHandler — CLUB_RECONNECT', () => {
     const reconnectHandler = (socket.on as jest.Mock).mock.calls.find(
       ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_RECONNECT,
     );
-    reconnectHandler[1]({ courtId: reservedId });
+    reconnectHandler[1]({ courtId: reservedId, pin: '1234' });
 
     expect(socket.emit).toHaveBeenCalledWith(
       SocketEvents.SERVER.CLUB_RECONNECT_RESULT,
@@ -403,15 +402,15 @@ describe('ClubPlayerHandler — CLUB_RECONNECT', () => {
     );
   });
 
-  it('should emit CLUB_RECONNECT_RESULT with error INVALID_PARAMS for missing courtId', () => {
+  it('should emit VALIDATION_ERROR for missing required fields', () => {
     const reconnectHandler = (socket.on as jest.Mock).mock.calls.find(
       ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_RECONNECT,
     );
     reconnectHandler[1]({});
 
     expect(socket.emit).toHaveBeenCalledWith(
-      SocketEvents.SERVER.CLUB_RECONNECT_RESULT,
-      expect.objectContaining({ success: false, error: 'INVALID_PARAMS' }),
+      'ERROR',
+      expect.objectContaining({ code: 'VALIDATION_ERROR', field: 'courtId' }),
     );
   });
 
@@ -420,7 +419,7 @@ describe('ClubPlayerHandler — CLUB_RECONNECT', () => {
     const reconnectHandler = (socket.on as jest.Mock).mock.calls.find(
       ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_RECONNECT,
     );
-    reconnectHandler[1]({ courtId });
+    reconnectHandler[1]({ courtId, pin: courtPin });
 
     // Now register another socket that reconnects — it should displace the first
     const secondSocket = createMockSocket('displacing-sock');
@@ -428,7 +427,7 @@ describe('ClubPlayerHandler — CLUB_RECONNECT', () => {
     const reconnectHandler2 = (secondSocket.on as jest.Mock).mock.calls.find(
       ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_RECONNECT,
     );
-    reconnectHandler2[1]({ courtId });
+    reconnectHandler2[1]({ courtId, pin: courtPin });
 
     // The original socket should receive REF_REVOKED
     const toCalls = (mockIo.to as jest.Mock).mock.calls;
@@ -450,7 +449,7 @@ describe('ClubPlayerHandler — CLUB_END_SESSION', () => {
 
   beforeEach(() => {
     mockIo = createMockIo();
-    courtManager = new CourtManager({ ssid: 'test', ip: '127.0.0.1', port: 3000, domain: 'test.local', wifiPassword: 'test' });
+    courtManager = createTestCourtManager();
     const fakeFs = createFakeFs();
     // Seed club config with costPerMinute for cost calc tests
     fakeFs._files.set(
@@ -500,7 +499,7 @@ describe('ClubPlayerHandler — CLUB_END_SESSION', () => {
     // Court should be FINISHED
     const court = courtManager.getCourt(courtId);
     expect(court).not.toBeNull();
-    expect(court!.clubStatus).toBe('FINISHED');
+    expect((court as any)!.clubStatus).toBe('FINISHED');
     expect(court!.pin).toBe('');
   });
 

@@ -1,6 +1,6 @@
 import { SPORT } from '../../../../shared/types';
 import { StateStore } from './StateStore';
-import { FileSystem, PersistedCourt } from './types';
+import { FileSystem, PersistedCourt, PersistedClubCourt, PersistedStateV3 } from './types';
 
 // ── Fake FileSystem for DI ────────────────────────────────────────────
 
@@ -51,7 +51,7 @@ function makeFs(): FileSystem & { _written: Map<string, string>; _files: Map<str
 
 // ── Helpers ───────────────────────────────────────────────────────────
 
-function makeTable(overrides: Partial<PersistedCourt> = {}): PersistedCourt {
+function makeTournamentCourt(overrides: Partial<PersistedCourt> = {}): PersistedCourt {
   return {
     id: 'table-1',
     number: 1,
@@ -79,6 +79,24 @@ function makeTable(overrides: Partial<PersistedCourt> = {}): PersistedCourt {
   };
 }
 
+function makeClubCourt(overrides: Partial<PersistedClubCourt> = {}): PersistedClubCourt {
+  return {
+    id: 'club-1',
+    number: 2,
+    name: 'Club Court 1',
+    kind: 'club',
+    clubStatus: 'OCCUPIED',
+    occupiedAt: 1700000001000,
+    pin: '',
+    playerNames: { a: '', b: '' },
+    createdAt: 1700000000000,
+    matchState: null,
+    config: null,
+    history: [],
+    ...overrides,
+  };
+}
+
 // ── Tests ────────────────────────────────────────────────────────────
 
 describe('StateStore', () => {
@@ -91,23 +109,36 @@ describe('StateStore', () => {
   });
 
   describe('save', () => {
-    it('should write JSON with version, savedAt, and tables', () => {
-      const tables = [makeTable()];
-      store.save(tables);
+    it('should write v3 JSON with tournamentCourts and clubCourts', () => {
+      store.save([makeTournamentCourt()], [makeClubCourt()]);
 
       // After atomic write, content is at the final path (rename moved it from .tmp)
       const savedContent = fs._files.get('data/rallyos-state.json');
       expect(savedContent).toBeDefined();
 
       const parsed = JSON.parse(savedContent!);
-      expect(parsed.version).toBe(2);
+      expect(parsed.version).toBe(3);
       expect(typeof parsed.savedAt).toBe('number');
-      expect(parsed.tables).toHaveLength(1);
-      expect(parsed.tables[0].id).toBe('table-1');
+      // v3 uses separate arrays
+      expect(parsed.tournamentCourts).toHaveLength(1);
+      expect(parsed.clubCourts).toHaveLength(1);
+      expect(parsed.tournamentCourts[0].id).toBe('table-1');
+      expect(parsed.clubCourts[0].id).toBe('club-1');
+      // v2-style tables array should NOT exist
+      expect(parsed.tables).toBeUndefined();
+    });
+
+    it('should accept empty arrays', () => {
+      store.save([], []);
+
+      const finalContent = fs._files.get('data/rallyos-state.json');
+      const parsed = JSON.parse(finalContent!);
+      expect(parsed.tournamentCourts).toHaveLength(0);
+      expect(parsed.clubCourts).toHaveLength(0);
     });
 
     it('should rename tmp file to final path for atomic write', () => {
-      store.save([makeTable()]);
+      store.save([makeTournamentCourt()], [makeClubCourt()]);
 
       // After rename, tmp content should be moved to final path
       const finalContent = fs._files.get('data/rallyos-state.json');
@@ -120,61 +151,100 @@ describe('StateStore', () => {
     it('should create data directory if it does not exist (no-op with fake fs)', () => {
       // The fake fs directory is always available, so this just tests
       // that save doesn't throw
-      expect(() => store.save([makeTable()])).not.toThrow();
+      expect(() => store.save([makeTournamentCourt()], [makeClubCourt()])).not.toThrow();
     });
 
     it('should write before rename for atomic guarantee', () => {
-      // This is inherently tested by the rename moving content from _written to _files.
-      // The tmp file is written first, then rename moves it.
-      store.save([makeTable()]);
-
-      // The final file should contain valid JSON
-      const finalContent = fs._files.get('data/rallyos-state.json');
-      expect(finalContent).toBeDefined();
-      const parsed = JSON.parse(finalContent!);
-      expect(parsed.version).toBe(2);
-    });
-
-    it('should save empty tables array', () => {
-      store.save([]);
+      store.save([makeTournamentCourt()], [makeClubCourt()]);
 
       const finalContent = fs._files.get('data/rallyos-state.json');
       expect(finalContent).toBeDefined();
       const parsed = JSON.parse(finalContent!);
-      expect(parsed.tables).toHaveLength(0);
+      expect(parsed.version).toBe(3);
     });
 
-    it('should save multiple tables', () => {
-      const tables = [
-        makeTable({ id: 't1', number: 1 }),
-        makeTable({ id: 't2', number: 2 }),
-      ];
-      store.save(tables);
+    it('should save multiple tournament courts', () => {
+      const t1 = makeTournamentCourt({ id: 't1', number: 1 });
+      const t2 = makeTournamentCourt({ id: 't2', number: 2 });
+      store.save([t1, t2], []);
 
       const finalContent = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(finalContent!);
-      expect(parsed.tables).toHaveLength(2);
-      expect(parsed.tables[0].id).toBe('t1');
-      expect(parsed.tables[1].id).toBe('t2');
+      expect(parsed.tournamentCourts).toHaveLength(2);
+      expect(parsed.tournamentCourts[0].id).toBe('t1');
+      expect(parsed.tournamentCourts[1].id).toBe('t2');
+    });
+
+    it('should save multiple club courts', () => {
+      const c1 = makeClubCourt({ id: 'c1' });
+      const c2 = makeClubCourt({ id: 'c2', clubStatus: 'FINISHED' });
+      store.save([], [c1, c2]);
+
+      const finalContent = fs._files.get('data/rallyos-state.json');
+      const parsed = JSON.parse(finalContent!);
+      expect(parsed.clubCourts).toHaveLength(2);
+      expect(parsed.clubCourts[0].id).toBe('c1');
+      expect(parsed.clubCourts[1].id).toBe('c2');
     });
   });
 
   describe('load', () => {
-    it('should return PersistedState when valid JSON file exists', () => {
-      const tables = [makeTable()];
+    it('should return v3 state when valid v3 JSON file exists', () => {
+      const state: PersistedStateV3 = {
+        version: 3,
+        savedAt: 1700000000000,
+        tournamentCourts: [makeTournamentCourt()],
+        clubCourts: [makeClubCourt()],
+      };
+      fs._files.set('data/rallyos-state.json', JSON.stringify(state));
+
+      const result = store.load();
+
+      expect(result).not.toBeNull();
+      expect(result!.version).toBe(3);
+      expect(result!.savedAt).toBe(1700000000000);
+      expect(result!.tournamentCourts).toHaveLength(1);
+      expect(result!.clubCourts).toHaveLength(1);
+      expect(result!.tournamentCourts[0].id).toBe('table-1');
+      expect(result!.clubCourts[0].id).toBe('club-1');
+    });
+
+    it('should migrate v1 state to v3 on load', () => {
+      const tables = [makeTournamentCourt({ status: 'LIVE' })];
+      // Remove matchState.sport to simulate v1
+      delete (tables[0].matchState as any).sport;
       const stored = { version: 1, savedAt: 1700000000000, tables };
       fs._files.set('data/rallyos-state.json', JSON.stringify(stored));
 
       const result = store.load();
 
       expect(result).not.toBeNull();
-      // v1 state is auto-migrated to v2 on load
-      expect(result!.version).toBe(2);
-      expect(result!.savedAt).toBe(1700000000000);
-      expect(result!.tables).toHaveLength(1);
-      expect(result!.tables[0].id).toBe('table-1');
-      // sport field added by migration
-      expect(result!.tables[0].matchState.sport).toBe(SPORT.TABLE_TENNIS);
+      expect(result!.version).toBe(3);
+      // sport field added by v1→v2 migration
+      expect(result!.tournamentCourts[0].matchState.sport).toBe(SPORT.TABLE_TENNIS);
+    });
+
+    it('should migrate v2 state to v3 on load', () => {
+      const tables = [
+        makeTournamentCourt({ id: 't1', status: 'LIVE' }),
+        {
+          ...makeTournamentCourt({ id: 'c1', status: 'WAITING' }),
+          mode: 'club' as any,
+          clubStatus: 'OCCUPIED',
+        },
+      ];
+      const stored = { version: 2, savedAt: 1700000000000, tables };
+      fs._files.set('data/rallyos-state.json', JSON.stringify(stored));
+
+      const result = store.load();
+
+      expect(result).not.toBeNull();
+      expect(result!.version).toBe(3);
+      expect(result!.tournamentCourts).toHaveLength(1);
+      expect(result!.tournamentCourts[0].id).toBe('t1');
+      expect(result!.clubCourts).toHaveLength(1);
+      expect(result!.clubCourts[0].id).toBe('c1');
+      expect(result!.clubCourts[0].clubStatus).toBe('OCCUPIED');
     });
 
     it('should return null when file does not exist', () => {
@@ -200,14 +270,14 @@ describe('StateStore', () => {
     });
 
     it('should return null when JSON is valid but missing version', () => {
-      fs._files.set('data/rallyos-state.json', JSON.stringify({ tables: [] }));
+      fs._files.set('data/rallyos-state.json', JSON.stringify({ tournamentCourts: [], clubCourts: [] }));
 
       const result = store.load();
 
       expect(result).toBeNull();
     });
 
-    it('should return null when JSON is valid but tables is not an array', () => {
+    it('should return null when JSON is v1/v2 but tables is not an array', () => {
       fs._files.set('data/rallyos-state.json', JSON.stringify({ version: 1, tables: 'not-array' }));
 
       const result = store.load();
@@ -215,19 +285,20 @@ describe('StateStore', () => {
       expect(result).toBeNull();
     });
 
-    it('should load with multiple tables and preserve all fields', () => {
-      const table1 = makeTable({ id: 't1', number: 1, pin: '1111', status: 'LIVE' });
-      const table2 = makeTable({ id: 't2', number: 2, pin: '2222', status: 'FINISHED' });
-      const stored = { version: 1, savedAt: 1700000000000, tables: [table1, table2] };
-      fs._files.set('data/rallyos-state.json', JSON.stringify(stored));
+    it('should return null when JSON is v3 but tournamentCourts is not an array', () => {
+      fs._files.set('data/rallyos-state.json', JSON.stringify({ version: 3, tournamentCourts: 'bad', clubCourts: [] }));
 
       const result = store.load();
 
-      expect(result!.tables).toHaveLength(2);
-      expect(result!.tables[0].pin).toBe('1111');
-      expect(result!.tables[1].pin).toBe('2222');
-      expect(result!.tables[0].status).toBe('LIVE');
-      expect(result!.tables[1].status).toBe('FINISHED');
+      expect(result).toBeNull();
+    });
+
+    it('should return null when JSON is v3 but clubCourts is not an array', () => {
+      fs._files.set('data/rallyos-state.json', JSON.stringify({ version: 3, tournamentCourts: [], clubCourts: 'bad' }));
+
+      const result = store.load();
+
+      expect(result).toBeNull();
     });
   });
 
@@ -259,7 +330,7 @@ describe('StateStore', () => {
 
   describe('archive', () => {
     it('should rename file to archive path and return the path', () => {
-      fs._files.set('data/rallyos-state.json', JSON.stringify({ version: 1, savedAt: 0, tables: [] }));
+      fs._files.set('data/rallyos-state.json', JSON.stringify({ version: 3, savedAt: 0, tournamentCourts: [], clubCourts: [] }));
 
       const result = store.archive();
 
@@ -271,7 +342,7 @@ describe('StateStore', () => {
     });
 
     it('should preserve content in archive', () => {
-      const stored = JSON.stringify({ version: 1, savedAt: 1700000000000, tables: [makeTable()] });
+      const stored = JSON.stringify({ version: 3, savedAt: 1700000000000, tournamentCourts: [makeTournamentCourt()], clubCourts: [] });
       fs._files.set('data/rallyos-state.json', stored);
 
       const result = store.archive();
@@ -311,71 +382,55 @@ describe('StateStore', () => {
   });
 
   describe('save + load round-trip', () => {
-    it('should produce identical data after save and load', () => {
-      const tables = [
-        makeTable({ id: 't1' }),
-        makeTable({ id: 't2', status: 'FINISHED', playerNames: { a: 'Carol', b: 'Dave' } }),
+    it('should produce identical tournament data after save and load', () => {
+      const tournamentCourts = [
+        makeTournamentCourt({ id: 't1' }),
+        makeTournamentCourt({ id: 't2', status: 'FINISHED', playerNames: { a: 'Carol', b: 'Dave' } }),
       ];
 
-      store.save(tables);
+      store.save(tournamentCourts, []);
       const loaded = store.load();
 
       expect(loaded).not.toBeNull();
-      expect(loaded!.tables).toHaveLength(2);
-      expect(loaded!.tables[0].id).toBe('t1');
-      expect(loaded!.tables[0].playerNames.a).toBe('Alice');
-      expect(loaded!.tables[0].pin).toBe('4821');
-      expect(loaded!.tables[1].id).toBe('t2');
-      expect(loaded!.tables[1].status).toBe('FINISHED');
-      expect(loaded!.tables[1].playerNames.a).toBe('Carol');
+      expect(loaded!.tournamentCourts).toHaveLength(2);
+      expect(loaded!.tournamentCourts[0].id).toBe('t1');
+      expect(loaded!.tournamentCourts[0].playerNames.a).toBe('Alice');
+      expect(loaded!.tournamentCourts[0].pin).toBe('4821');
+      expect(loaded!.tournamentCourts[1].id).toBe('t2');
+      expect(loaded!.tournamentCourts[1].status).toBe('FINISHED');
+      expect(loaded!.tournamentCourts[1].playerNames.a).toBe('Carol');
     });
 
-    it('should persist and restore club court with mode and clubStatus fields', () => {
-      const clubCourt: PersistedCourt = {
-        ...makeTable({ id: 'club-1', status: 'WAITING' }),
-        mode: 'club',
-        clubStatus: 'OCCUPIED',
-      };
+    it('should produce identical club data after save and load', () => {
+      const clubCourts = [
+        makeClubCourt({ id: 'c1', clubStatus: 'OCCUPIED' }),
+        makeClubCourt({ id: 'c2', clubStatus: 'FINISHED', playerNames: { a: 'X', b: 'Y' } }),
+      ];
 
-      store.save([clubCourt]);
+      store.save([], clubCourts);
       const loaded = store.load();
 
       expect(loaded).not.toBeNull();
-      expect(loaded!.tables).toHaveLength(1);
-      expect(loaded!.tables[0].id).toBe('club-1');
-      expect(loaded!.tables[0].mode).toBe('club');
-      expect(loaded!.tables[0].clubStatus).toBe('OCCUPIED');
+      expect(loaded!.clubCourts).toHaveLength(2);
+      expect(loaded!.clubCourts[0].id).toBe('c1');
+      expect(loaded!.clubCourts[0].clubStatus).toBe('OCCUPIED');
+      expect(loaded!.clubCourts[1].id).toBe('c2');
+      expect(loaded!.clubCourts[1].clubStatus).toBe('FINISHED');
+      expect(loaded!.clubCourts[1].playerNames.a).toBe('X');
     });
 
-    it('should persist and restore finished club court', () => {
-      const finishedClub: PersistedCourt = {
-        ...makeTable({ id: 'club-2', status: 'WAITING' }),
-        mode: 'club',
-        clubStatus: 'FINISHED',
-      };
+    it('should persist and restore both tournament and club courts together', () => {
+      const tournamentCourts = [makeTournamentCourt({ id: 't1', status: 'LIVE' })];
+      const clubCourts = [makeClubCourt({ id: 'c1', clubStatus: 'OCCUPIED' })];
 
-      store.save([finishedClub]);
+      store.save(tournamentCourts, clubCourts);
       const loaded = store.load();
 
       expect(loaded).not.toBeNull();
-      expect(loaded!.tables).toHaveLength(1);
-      expect(loaded!.tables[0].mode).toBe('club');
-      expect(loaded!.tables[0].clubStatus).toBe('FINISHED');
-    });
-
-    it('should handle PersistedCourt without mode/clubStatus (backward compat)', () => {
-      const legacy: PersistedCourt = makeTable({ id: 'legacy-1' });
-      // Simulate a legacy record that never had mode/clubStatus
-      delete (legacy as any).mode;
-      delete (legacy as any).clubStatus;
-
-      store.save([legacy]);
-      const loaded = store.load();
-
-      expect(loaded).not.toBeNull();
-      expect(loaded!.tables).toHaveLength(1);
-      expect(loaded!.tables[0].mode).toBeUndefined();
-      expect(loaded!.tables[0].clubStatus).toBeUndefined();
+      expect(loaded!.tournamentCourts).toHaveLength(1);
+      expect(loaded!.tournamentCourts[0].id).toBe('t1');
+      expect(loaded!.clubCourts).toHaveLength(1);
+      expect(loaded!.clubCourts[0].id).toBe('c1');
     });
   });
 });

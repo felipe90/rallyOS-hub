@@ -13,6 +13,7 @@
 
 import { Server } from 'socket.io';
 import { CourtManager } from '../domain/courtManager';
+import { createTestCourtManager } from '../domain/courtManager.test-factory';
 import { MatchEventHandler } from './MatchEventHandler';
 import { SocketEvents } from '../../../shared/events';
 import type { MatchStateExtended } from '../domain/matchEngine';
@@ -66,15 +67,6 @@ function createCapturingMockIo() {
   };
   return io;
 }
-
-/** Hub config for real CourtManager instantiation */
-const HUB_CONFIG = {
-  ssid: 'test',
-  ip: '127.0.0.1',
-  port: 3000,
-  domain: 'test.local',
-  wifiPassword: 'test',
-};
 
 /** Common MATCH_UPDATE field set expected from RECORD_POINT (sorted for .sort() comparison) */
 const MATCH_UPDATE_EXPECTED_FIELDS = [
@@ -285,7 +277,7 @@ describe('RECORD_POINT — club mode', () => {
   beforeEach(() => {
     mockSocket = createMockSocket('club-ref-socket');
     mockIo = createCapturingMockIo();
-    courtManager = new CourtManager(HUB_CONFIG);
+    courtManager = createTestCourtManager();
     handler = new MatchEventHandler(mockIo, courtManager, '12345678');
 
     // Intercept socket.on to capture registered handlers
@@ -467,7 +459,7 @@ describe('RECORD_POINT — tournament mode', () => {
   beforeEach(() => {
     mockSocket = createMockSocket('tournament-ref-socket');
     mockIo = createCapturingMockIo();
-    courtManager = new CourtManager(HUB_CONFIG);
+    courtManager = createTestCourtManager();
     handler = new MatchEventHandler(mockIo, courtManager, '12345678');
 
     // Capture registered handlers

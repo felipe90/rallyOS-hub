@@ -1,10 +1,10 @@
-import type { TableStatus } from '@shared/types';
+import type { TournamentStatus } from '@shared/types';
 import { Body, Label } from '../../atoms/Typography';
 import { LiveBadge } from '../../atoms/Badge';
 
 export interface MatchContextProps {
   phase: 'quarterfinal' | 'semifinal' | 'final';
-  status: TableStatus;
+  status: TournamentStatus;
   matchNumber?: number;
   totalMatches?: number;
   bestOf?: number;

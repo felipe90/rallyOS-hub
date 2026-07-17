@@ -13,12 +13,20 @@ import { logger } from '../utils/logger';
 import { SocketEvents } from '../../../shared/events';
 import { PIN_RULES } from '../../../shared/validation';
 import { SocketHandlerBase } from './SocketHandlerBase';
-import { generateToken } from '../middleware/ownerAuth';
+import { SessionTokenService } from '../services/security/SessionTokenService';
 import type { SocketData } from '../domain/types';
 
 export class AuthHandler extends SocketHandlerBase {
-  constructor(io: Server, tableManager: CourtManager, ownerPin: string) {
+  private sessionTokenService: SessionTokenService;
+
+  constructor(
+    io: Server,
+    tableManager: CourtManager,
+    ownerPin: string,
+    sessionTokenService: SessionTokenService,
+  ) {
     super(io, tableManager, ownerPin);
+    this.sessionTokenService = sessionTokenService;
   }
 
   /**
@@ -106,7 +114,10 @@ export class AuthHandler extends SocketHandlerBase {
       if (this.comparePin(data.pin, this.ownerPin)) {
         const socketData = socket.data as SocketData;
         socket.data = { ...socketData, isOwner: true, isAuthenticated: true };
-        const tournamentToken = generateToken();
+        const tournamentToken = this.sessionTokenService.signToken({
+          sub: 'owner',
+          role: 'tournament_owner',
+        });
         socket.emit(SocketEvents.SERVER.OWNER_VERIFIED, { token: 'owner-session', tournamentToken });
         logger.info({ socketId: socket.id }, 'Owner verified successfully');
       } else {

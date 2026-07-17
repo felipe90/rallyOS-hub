@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { TableStatus } from '@shared/types';
+import type { TournamentStatus, ClubStatus } from '@shared/types';
 import { WaitingBadge, ConfiguringBadge, LiveBadge, FinishedBadge } from '../../atoms/Badge';
 import { Body } from '../../atoms/Typography';
 import { Button } from '../../atoms/Button';
@@ -11,7 +11,7 @@ import { useI18n } from '@/i18n';
 export interface TableStatusChipProps {
   tableNumber: number;
   tableName: string;
-  status: TableStatus;
+  status: TournamentStatus | ClubStatus;
   playerNames?: { a: string; b: string };
   playerCount?: number;
   currentSets?: { a: number; b: number };  // Sets score for display

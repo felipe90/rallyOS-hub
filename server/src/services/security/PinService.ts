@@ -7,8 +7,9 @@
 
 import crypto from 'crypto';
 import { Court } from '../../domain/types';
+import type { IPinService } from '../../domain/ports';
 
-export class PinService {
+export class PinService implements IPinService {
   generatePin(): string {
     return crypto.randomInt(1000, 9999).toString();
   }

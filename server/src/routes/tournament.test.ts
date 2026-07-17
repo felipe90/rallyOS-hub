@@ -324,7 +324,7 @@ describe('Tournament route handlers', () => {
   describe('handleFinish', () => {
     const mockTableManager = { finishTournament: jest.fn() };
 
-    it('should archive file and clear state when tournament exists', () => {
+    it('should clear state when tournament exists', () => {
       const fs = makeFs();
       const stateStore = new StateStore(fs, 'data/rallyos-state.json');
 
@@ -342,17 +342,11 @@ describe('Tournament route handlers', () => {
 
       expect(mockTableManager.finishTournament).toHaveBeenCalled();
 
-      // Source file should be gone (archived)
+      // Source file should be gone (cleared)
       expect(fs._files.has('data/rallyos-state.json')).toBe(false);
-      // Archive should exist
-      const archiveKeys = Array.from(fs._files.keys()).filter((k) =>
-        k.startsWith('data/archive/torneo-'),
-      );
-      expect(archiveKeys.length).toBe(1);
 
       expect(json).toHaveBeenCalledWith({
         success: true,
-        archivePath: expect.stringMatching(/^data\/archive\/torneo-.*\.json$/),
       });
     });
 
@@ -370,30 +364,6 @@ describe('Tournament route handlers', () => {
         error: 'No hay torneo activo',
         code: 'NO_ACTIVE_TOURNAMENT',
       });
-    });
-
-    it('should preserve archived content', () => {
-      const fs = makeFs();
-      const stateStore = new StateStore(fs, 'data/rallyos-state.json');
-
-      const tables = [makeTable({ id: 't1', pin: '9999' })];
-      const persisted = { version: 1, savedAt: 1700000000000, tables };
-      fs._files.set('data/rallyos-state.json', JSON.stringify(persisted));
-
-      const req = mockReq();
-      const { json } = mockRes();
-
-      handleFinish(stateStore, mockTableManager as never, req, {
-        status: jest.fn().mockReturnValue({ json }),
-        json,
-      } as unknown as Response);
-
-      const archiveKeys = Array.from(fs._files.keys()).filter((k) =>
-        k.startsWith('data/archive/'),
-      );
-      const archivedContent = JSON.parse(fs._files.get(archiveKeys[0])!);
-      expect(archivedContent.tables).toHaveLength(1);
-      expect(archivedContent.tables[0].pin).toBe('9999');
     });
   });
 });

@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useRefereeSession } from './useRefereeSession'
-import type { TableInfo } from '@shared/types'
+import type { CourtInfo } from '@shared/types'
 
-function createTable(overrides: Partial<TableInfo> = {}): TableInfo {
+function createTable(overrides: Partial<CourtInfo> = {}): CourtInfo {
   return {
     id: 'table-1',
     number: 1,
@@ -78,7 +78,7 @@ describe('useRefereeSession', () => {
         'rallyos_ref_session_table-1',
         JSON.stringify({ pin: '4821', joinedAt: Date.now() }),
       )
-      const tables: TableInfo[] = [createTable({ id: 'table-1', status: 'LIVE' })]
+      const tables: CourtInfo[] = [createTable({ id: 'table-1', status: 'LIVE' })]
       const { result } = renderHook(() => useRefereeSession())
 
       const found = result.current.findAnyValidSession(tables)
@@ -92,7 +92,7 @@ describe('useRefereeSession', () => {
         'rallyos_ref_session_table-2',
         JSON.stringify({ pin: '9999', joinedAt: Date.now() }),
       )
-      const tables: TableInfo[] = [createTable({ id: 'table-2', status: 'WAITING' })]
+      const tables: CourtInfo[] = [createTable({ id: 'table-2', status: 'WAITING' })]
       const { result } = renderHook(() => useRefereeSession())
 
       const found = result.current.findAnyValidSession(tables)
@@ -105,7 +105,7 @@ describe('useRefereeSession', () => {
         'rallyos_ref_session_table-3',
         JSON.stringify({ pin: '5678', joinedAt: Date.now() }),
       )
-      const tables: TableInfo[] = [createTable({ id: 'table-3', status: 'CONFIGURING' })]
+      const tables: CourtInfo[] = [createTable({ id: 'table-3', status: 'CONFIGURING' })]
       const { result } = renderHook(() => useRefereeSession())
 
       const found = result.current.findAnyValidSession(tables)
@@ -118,7 +118,7 @@ describe('useRefereeSession', () => {
         'rallyos_ref_session_table-1',
         JSON.stringify({ pin: '4821', joinedAt: Date.now() }),
       )
-      const tables: TableInfo[] = [createTable({ id: 'table-1', status: 'FINISHED' })]
+      const tables: CourtInfo[] = [createTable({ id: 'table-1', status: 'FINISHED' })]
       const { result } = renderHook(() => useRefereeSession())
 
       const found = result.current.findAnyValidSession(tables)
@@ -132,7 +132,7 @@ describe('useRefereeSession', () => {
         'rallyos_ref_session_table-missing',
         JSON.stringify({ pin: '0000', joinedAt: Date.now() }),
       )
-      const tables: TableInfo[] = [createTable({ id: 'table-1', status: 'LIVE' })]
+      const tables: CourtInfo[] = [createTable({ id: 'table-1', status: 'LIVE' })]
       const { result } = renderHook(() => useRefereeSession())
 
       const found = result.current.findAnyValidSession(tables)
@@ -141,7 +141,7 @@ describe('useRefereeSession', () => {
     })
 
     it('returns null when localStorage is empty', () => {
-      const tables: TableInfo[] = [createTable({ id: 'table-1', status: 'LIVE' })]
+      const tables: CourtInfo[] = [createTable({ id: 'table-1', status: 'LIVE' })]
       const { result } = renderHook(() => useRefereeSession())
 
       expect(result.current.findAnyValidSession(tables)).toBeNull()
@@ -156,7 +156,7 @@ describe('useRefereeSession', () => {
       Storage.prototype.getItem = () => { throw new Error('Storage unavailable') }
       Storage.prototype.setItem = () => { throw new Error('Storage unavailable') }
 
-      const tables: TableInfo[] = [createTable({ id: 'table-1', status: 'LIVE' })]
+      const tables: CourtInfo[] = [createTable({ id: 'table-1', status: 'LIVE' })]
       const { result } = renderHook(() => useRefereeSession())
 
       // All operations should return null / not throw

@@ -7,11 +7,13 @@ import { KioskNotificationToast } from '@/components/organisms/KioskNotification
 import { KioskScoreboard } from '@/components/organisms/KioskScoreboard'
 import { QRCodeSVG } from 'qrcode.react'
 import logoBig from '@/assets/logo-big.png'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Table2 } from 'lucide-react'
 import { SocketEvents } from '@shared/events'
-import type { TableInfo, KioskNotificationData, MatchStateExtended } from '@shared/types'
+import type { CourtInfo, KioskNotificationData, MatchStateExtended } from '@shared/types'
 
 /** Active table statuses shown on the kiosk */
-const ACTIVE_STATUSES: TableInfo['status'][] = ['LIVE', 'WAITING']
+const ACTIVE_STATUSES: CourtInfo['status'][] = ['LIVE', 'WAITING']
 
 /** Layout constants for page calculation */
 export const HEADER_HEIGHT = 180
@@ -27,10 +29,10 @@ export const ROTATION_INTERVAL_MS = 10_000
  * @returns Array of page chunks; always at least `[[]]` for zero tables.
  */
 export function calculatePages(
-  tables: TableInfo[],
+  tables: CourtInfo[],
   viewportWidth: number,
   viewportHeight: number,
-): TableInfo[][] {
+): CourtInfo[][] {
   const COLUMNS = viewportWidth >= 1280 ? 3 : viewportWidth >= 768 ? 2 : 1
   const availableHeight = viewportHeight - HEADER_HEIGHT
   const rowsPerPage = Math.max(1, Math.floor(availableHeight / (CARD_HEIGHT + CARD_GAP)))
@@ -38,7 +40,7 @@ export function calculatePages(
 
   if (tables.length === 0) return [[]]
 
-  const pages: TableInfo[][] = []
+  const pages: CourtInfo[][] = []
   for (let i = 0; i < tables.length; i += cardsPerPage) {
     pages.push(tables.slice(i, i + cardsPerPage))
   }
@@ -50,15 +52,13 @@ export function KioskAllCourtsPage() {
   const { i18nText } = useI18n()
 
   // Rotation state
-  const [pages, setPages] = useState<TableInfo[][]>([[]])
+  const [pages, setPages] = useState<CourtInfo[][]>([[]])
   const [currentPage, setCurrentPage] = useState(0)
-  const [fadeState, setFadeState] = useState<'visible' | 'hidden'>('visible')
   const [isPaused, setIsPaused] = useState(false)
 
   // Featured court spotlight state
   const [featuredCourtId, setFeaturedCourtId] = useState<string | null>(null)
   const [spotlightMatch, setSpotlightMatch] = useState<MatchStateExtended | null>(null)
-  const [spotlightFadeState, setSpotlightFadeState] = useState<'visible' | 'hidden'>('visible')
   const prevFeaturedIdRef = useRef<string | null>(null)
   const previousFeaturedIdForFadeRef = useRef<string | null>(null)
 
@@ -147,39 +147,15 @@ export function KioskAllCourtsPage() {
     }
   }, [socket, featuredCourtId])
 
-  // Reset match state when featured court changes and apply cross-court fade
+  // Reset match state when featured court changes
   useEffect(() => {
-    const prevId = previousFeaturedIdForFadeRef.current
     const currentId = featuredCourtId
+
+    if (inSpotlight && previousFeaturedIdForFadeRef.current !== null && previousFeaturedIdForFadeRef.current !== currentId) {
+      setSpotlightMatch(null)
+    }
     previousFeaturedIdForFadeRef.current = currentId
-
-    setSpotlightMatch(null)
-
-    if (inSpotlight && prevId !== null && prevId !== currentId) {
-      setSpotlightFadeState('hidden')
-      const t = setTimeout(() => {
-        setSpotlightFadeState('visible')
-      }, 500)
-      return () => clearTimeout(t)
-    }
-
-    setSpotlightFadeState('visible')
   }, [featuredCourtId, inSpotlight])
-
-  // Fade transitions between grid and spotlight modes
-  const [transitioning, setTransitioning] = useState(false)
-  useEffect(() => {
-    if (inSpotlight) {
-      // Grid → spotlight: start hidden, then fade in
-      setSpotlightFadeState('hidden')
-      setTransitioning(true)
-      const t = setTimeout(() => {
-        setSpotlightFadeState('visible')
-        setTransitioning(false)
-      }, 500)
-      return () => clearTimeout(t)
-    }
-  }, [inSpotlight])
 
   // Page calculation — recalculate when courts change or window resizes
   useEffect(() => {
@@ -198,21 +174,12 @@ export function KioskAllCourtsPage() {
   useEffect(() => {
     if (pages.length <= 1 || isPaused) return
 
-    let fadeTimeout: ReturnType<typeof setTimeout> | null = null
-
     const interval = setInterval(() => {
-      // Fade out current page
-      setFadeState('hidden')
-      // After fade-out duration, advance page and fade in
-      fadeTimeout = setTimeout(() => {
-        setCurrentPage((prev) => (prev + 1) % pages.length)
-        setFadeState('visible')
-      }, 500)
+      setCurrentPage((prev) => (prev + 1) % pages.length)
     }, ROTATION_INTERVAL_MS)
 
     return () => {
       clearInterval(interval)
-      if (fadeTimeout) clearTimeout(fadeTimeout)
     }
   }, [pages.length, isPaused])
 
@@ -247,21 +214,35 @@ export function KioskAllCourtsPage() {
           </div>
 
           {/* Spotlight KioskScoreboard with fade */}
-          <main
-            id="main-content"
-            className={`flex-1 flex flex-col transition-opacity duration-500 ${
-              spotlightFadeState === 'visible' ? 'opacity-100' : 'opacity-0'
-            }`}
-          >
-            {spotlightMatch ? (
-              <KioskScoreboard key={featuredCourtId ?? 'none'} match={spotlightMatch} />
-            ) : (
-              <div className="flex-1 flex items-center justify-center">
-                <Typography variant="title" className="text-2xl text-text-muted text-center px-4">
-                  {i18nText('kioskNoActiveMatches')}
-                </Typography>
-              </div>
-            )}
+          <main id="main-content" className="flex-1 flex flex-col relative">
+            <AnimatePresence mode="wait">
+              {spotlightMatch ? (
+                <motion.div
+                  key={featuredCourtId ?? 'none'}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.5 }}
+                  className="flex-1 flex flex-col absolute inset-0"
+                >
+                  <KioskScoreboard match={spotlightMatch} />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="empty"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.5 }}
+                  className="flex-1 flex flex-col items-center justify-center gap-4 absolute inset-0"
+                >
+                  <Table2 size={64} className="text-border" />
+                  <Typography variant="title" className="text-2xl text-text-muted text-center px-4">
+                    {i18nText('kioskNoActiveMatches')}
+                  </Typography>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </main>
         </>
       ) : (
@@ -317,26 +298,31 @@ export function KioskAllCourtsPage() {
           {/* Content — Grid / Rotation / Empty */}
           <main id="main-content" className="flex-1 flex flex-col">
           {activeCourts.length === 0 ? (
-            <div className="flex-1 flex items-center justify-center">
+            <div className="flex-1 flex flex-col items-center justify-center gap-4">
+              <Table2 size={64} className="text-border" />
               <Typography variant="title" className="text-2xl text-text-muted text-center px-4">
                 {i18nText('kioskNoActiveMatches')}
               </Typography>
             </div>
           ) : isRotating ? (
             /* Rotation mode — show one page at a time with fade + indicators */
-            <div className="flex-1 flex flex-col">
-              <div
-                key={currentPage}
-                className={`grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 p-6 flex-1 content-start transition-opacity duration-500 ${
-                  fadeState === 'visible' ? 'opacity-100' : 'opacity-0'
-                }`}
-              >
-                {pages[currentPage]?.map((court) => (
-                  <KioskCourtCard key={court.id} table={court} />
-                ))}
-              </div>
+            <div className="flex-1 flex flex-col relative">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={currentPage}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.5 }}
+                  className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 p-6 absolute inset-0 content-start"
+                >
+                  {pages[currentPage]?.map((court) => (
+                    <KioskCourtCard key={court.id} table={court} />
+                  ))}
+                </motion.div>
+              </AnimatePresence>
               {/* Page indicators */}
-              <div className="flex justify-center gap-2 pb-4">
+              <div className="flex justify-center gap-2 pb-4 mt-auto z-10">
                 {pages.map((_, i) => (
                   <div
                     key={i}

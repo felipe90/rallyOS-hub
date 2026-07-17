@@ -370,7 +370,7 @@ describe('OwnerDashboardPage – appError display', () => {
       createCourt: vi.fn(),
       cancelCreating: vi.fn(),
       startCreating: vi.fn(),
-      isCreating: false,
+      isCreating: true,
       requestClean: vi.fn(),
       cleanConfirmCourtId: null,
       confirmClean: vi.fn(),

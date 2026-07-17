@@ -1,71 +1,72 @@
 /**
- * Owner Tournament Auth Middleware
+ * Owner Tournament Auth Middleware (JWT-based)
  *
- * Provides in-memory token-based authentication for HTTP tournament endpoints.
- * Token is generated on successful VERIFY_OWNER (WebSocket) and stored in
- * a module-level Set. Server restart clears all tokens — re-auth is required.
+ * Validates an `Authorization: Bearer <jwt>` header against the
+ * SessionTokenService (HMAC-SHA256 JWT), accepting only tokens whose
+ * `role` claim is `tournament_owner` (REQ-08). On success, the decoded
+ * `sub` is exposed on `req.owner` for downstream handlers.
+ *
+ * Migration (clean break, REQ-09): the previous UUID in-memory `activeTokens`
+ * Set and `generateToken()` helper are removed. Legacy UUID tokens are no
+ * longer accepted — clients must obtain a JWT via VERIFY_OWNER.
  *
  * Usage:
- *   import { generateToken, ownerAuthMiddleware } from './middleware/ownerAuth';
+ *   const service = new SessionTokenService();
+ *   const ownerAuthMiddleware = createOwnerAuthMiddleware(service);
+ *   app.use('/api/tournament', createTournamentRouter(..., ownerAuthMiddleware));
  */
 
-import crypto from 'crypto';
 import type { Request, Response, NextFunction } from 'express';
+import type { SessionTokenService } from '../services/security/SessionTokenService';
 
-/** Module-level in-memory store for active tournament tokens. */
-export const activeTokens = new Set<string>();
-
-/**
- * Generate a new tournament auth token and store it.
- * Called from AuthHandler.VERIFY_OWNER on successful PIN verification.
- *
- * @returns The generated UUID v4 token string.
- */
-export function generateToken(): string {
-  const token = crypto.randomUUID();
-  activeTokens.add(token);
-  return token;
+export interface OwnerAuthRequest extends Request {
+  owner?: { sub: string; role: string };
 }
 
 /**
- * Express middleware that validates the Authorization: Bearer <token> header
- * against the in-memory `activeTokens` Set.
- *
- * Responds with 401 JSON if the token is missing or invalid.
+ * Factory: builds an Express middleware bound to a specific SessionTokenService.
+ * Replaces the previous module-level activeTokens Set (which did not survive
+ * server restarts).
  */
-export function ownerAuthMiddleware(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): void {
-  const authHeader = req.headers?.authorization;
+export function createOwnerAuthMiddleware(
+  sessionTokenService: SessionTokenService,
+): (req: Request, res: Response, next: NextFunction) => void {
+  return function ownerAuthMiddleware(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): void {
+    const authHeader = req.headers?.authorization;
 
-  if (!authHeader || typeof authHeader !== 'string') {
-    res.status(401).json({
-      error: 'Authentication required',
-      code: 'UNAUTHORIZED',
-    });
-    return;
-  }
+    if (!authHeader || typeof authHeader !== 'string') {
+      res.status(401).json({
+        error: 'Authentication required',
+        code: 'UNAUTHORIZED',
+      });
+      return;
+    }
 
-  const parts = authHeader.split(' ');
-  if (parts.length !== 2 || parts[0] !== 'Bearer') {
-    res.status(401).json({
-      error: 'Authentication required',
-      code: 'UNAUTHORIZED',
-    });
-    return;
-  }
+    const parts = authHeader.split(' ');
+    if (parts.length !== 2 || parts[0] !== 'Bearer') {
+      res.status(401).json({
+        error: 'Authentication required',
+        code: 'UNAUTHORIZED',
+      });
+      return;
+    }
 
-  const token = parts[1];
+    const token = parts[1];
+    const claims = sessionTokenService.verifyToken(token);
+    if (!claims || claims.role !== 'tournament_owner') {
+      res.status(401).json({
+        error: 'Authentication required',
+        code: 'UNAUTHORIZED',
+      });
+      return;
+    }
 
-  if (!activeTokens.has(token)) {
-    res.status(401).json({
-      error: 'Authentication required',
-      code: 'UNAUTHORIZED',
-    });
-    return;
-  }
-
-  next();
+    // Surface the decoded owner context for downstream handlers (REQ-08).
+    (req as OwnerAuthRequest).owner = { sub: claims.sub, role: claims.role };
+    next();
+  };
 }

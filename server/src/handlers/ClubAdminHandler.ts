@@ -9,30 +9,35 @@
 
 import { Server, Socket } from 'socket.io';
 import { CourtManager } from '../domain/courtManager';
-import { ClubConfigStore } from '../services/store/ClubConfigStore';
+import type { IClubConfigRepository } from '../domain/ports/IClubConfigRepository';
 import { AdminPinService } from '../services/security/AdminPinService';
+import { SessionTokenService } from '../services/security/SessionTokenService';
 import { validateSocketPayload } from '../utils/validation';
 import { logger, maskIp } from '../utils/logger';
 import { SocketEvents } from '../../../shared/events';
 import { ADMIN_PIN_RULES } from '../../../shared/validation';
 import { COURT_MODE } from '../../../shared/types';
 import { SocketHandlerBase } from './SocketHandlerBase';
+import { isClubCourt } from '../domain/types';
 import type { SocketData } from '../domain/types';
 
 export class ClubAdminHandler extends SocketHandlerBase {
-  private clubConfigStore: ClubConfigStore;
+  private clubConfigStore: IClubConfigRepository;
   private adminPinService: AdminPinService;
+  private sessionTokenService: SessionTokenService;
 
   constructor(
     io: Server,
     tableManager: CourtManager,
     ownerPin: string,
-    clubConfigStore: ClubConfigStore,
+    clubConfigStore: IClubConfigRepository,
     adminPinService: AdminPinService,
+    sessionTokenService: SessionTokenService,
   ) {
     super(io, tableManager, ownerPin);
     this.clubConfigStore = clubConfigStore;
     this.adminPinService = adminPinService;
+    this.sessionTokenService = sessionTokenService;
   }
 
   /**
@@ -63,22 +68,13 @@ export class ClubAdminHandler extends SocketHandlerBase {
       if (this.adminPinService.verifyPin(data.pin, config.adminPinHash)) {
         const socketData = socket.data as SocketData;
         socket.data = { ...socketData, isClubAdmin: true };
-        socket.emit(SocketEvents.SERVER.CLUB_ADMIN_VERIFIED, { success: true });
+        const token = this.sessionTokenService.signToken({
+          sub: (config as any).clubId ?? 'club',
+          role: 'club_admin',
+        });
+        socket.emit(SocketEvents.SERVER.CLUB_ADMIN_VERIFIED, { success: true, token });
 
-        // Send existing club courts to this admin socket on reconnect/re-auth
-        const allCourts = this.tableManager.getAllCourts();
-        for (const info of allCourts) {
-          if (info.mode === COURT_MODE.CLUB) {
-            const internal = this.tableManager.getCourt(info.id);
-            socket.emit(SocketEvents.SERVER.CLUB_COURT_CREATED, {
-              id: info.id,
-              name: info.name,
-              status: info.clubStatus,
-              mode: info.mode,
-              pin: internal?.pin || undefined,
-            });
-          }
-        }
+        // Club courts are already delivered via CLUB_KIOSK_DATA at connection time
 
         logger.info({ socketId: socket.id }, 'Club admin verified successfully');
       } else {
@@ -95,6 +91,14 @@ export class ClubAdminHandler extends SocketHandlerBase {
         clubName: config?.clubName || null,
         sport: config?.sport || null,
       });
+
+      // Send club kiosk data alongside config so ClubKioskPage
+      // receives it when it mounts (race condition: connection-time
+      // CLUB_KIOSK_DATA arrives before ClubKioskPage is rendered)
+      if (config?.configured) {
+        const kioskPayload = this.tableManager.getClubKioskPayload(config);
+        socket.emit(SocketEvents.SERVER.CLUB_KIOSK_DATA, kioskPayload);
+      }
     });
 
     // CLUB_SETUP: First-run club configuration
@@ -126,13 +130,12 @@ export class ClubAdminHandler extends SocketHandlerBase {
       // Hash the admin PIN
       const adminPinHash = this.adminPinService.hashPin(data.pin);
 
-      // Save club config
+      // Save club config (only the scrypt hash — never plaintext)
       const clubConfig = {
         clubName: data.clubName,
         sport: data.sport,
         configured: true,
         adminPinHash,
-        adminPin: data.pin, // plaintext for CLI recovery
         createdAt: Date.now(),
         costPerMinute: data.costPerMinute ?? 0,
         currency: data.currency ?? 'ARS',
@@ -152,8 +155,8 @@ export class ClubAdminHandler extends SocketHandlerBase {
         this.io.emit(SocketEvents.SERVER.CLUB_COURT_CREATED, {
           id: court.id,
           name: court.name,
-          status: court.clubStatus,
-          mode: court.mode,
+          status: isClubCourt(court) ? court.clubStatus : COURT_MODE.CLUB,
+          mode: COURT_MODE.CLUB,
         });
       }
 

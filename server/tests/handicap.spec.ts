@@ -6,13 +6,14 @@
  */
 
 import { CourtManager } from '../src/domain/courtManager';
+import { createTestCourtManager } from '../src/domain/courtManager.test-factory';
 import type { Court } from '../src/domain/types';
 
 describe('getAllHistories — handicap', () => {
   let manager: CourtManager;
 
   beforeEach(() => {
-    manager = new CourtManager({ ssid: 'TestHub', ip: '127.0.0.1', port: 3000, domain: 'localhost', wifiPassword: 'test123' });
+    manager = createTestCourtManager({ hubConfig: { ssid: 'TestHub', ip: '127.0.0.1', port: 3000, domain: 'localhost', wifiPassword: 'test123' } });
   });
 
   it('includes handicap in payload when config has handicapA and handicapB', () => {

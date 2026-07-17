@@ -8,8 +8,9 @@
  */
 
 import { Court, TournamentCourt, ClubCourt } from '../../domain/types';
+import type { ICourtRepository } from '../../domain/ports';
 
-export class CourtRepository {
+export class CourtRepository implements ICourtRepository {
   private tournamentCourts: Map<string, TournamentCourt> = new Map();
   private clubCourts: Map<string, ClubCourt> = new Map();
 

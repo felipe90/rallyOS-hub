@@ -2,33 +2,44 @@
  * MatchOrchestrator - Match lifecycle management
  *
  * Responsibility: Configure, start, score, and reset matches.
- * Phase 5: Accepts SportRegistry to resolve sport-specific rules
- * when creating MatchEngine instances. Defaults to TableTennisRules
- * when no sport is specified (backward-compatible).
+ *
+ * Phase 2: Receives IMatchEngineFactory to decouple from direct
+ * MatchEngine construction. Replaces `(court as any).status` patterns
+ * with type-safe isMatchActive / setMatchStatus helpers.
+ *
+ * Backward-compatible constructor: accepts either IMatchEngineFactory
+ * (new) or SportRegistry (old) as the first argument.
  */
 
-import { Court, MatchEvent, SPORT } from '../../domain/types';
-import { MatchEngine, Player, MatchConfig, MatchStateExtended } from '../../domain/matchEngine';
+import { Court, MatchEvent, Player, SPORT } from '../../domain/types';
+import { MatchEngine, MatchConfig, MatchStateExtended } from '../../domain/matchEngine';
 import { logger } from '../../utils/logger';
 import { SportRegistry } from '../../domain/sports/sport.registry';
-import type { SportRules } from '../../domain/sports/types';
+import { DefaultMatchEngineFactory } from '../../domain/ports';
+import type { IMatchEngineFactory, IMatchOrchestrator } from '../../domain/ports';
+import { isMatchActive, setMatchStatus } from '../../domain/ports/match-guards';
 
-export class MatchOrchestrator {
+export class MatchOrchestrator implements IMatchOrchestrator {
+  private engineFactory: IMatchEngineFactory;
   private registry: SportRegistry;
 
-  constructor(registry?: SportRegistry) {
-    this.registry = registry || new SportRegistry();
-  }
-
   /**
-   * Resolve the correct SportRules for the given sport.
-   * Defaults to table tennis when sport is absent (backward-compatible).
+   * @param engineFactoryOrRegistry IMatchEngineFactory (new) or SportRegistry (old, backward-compat)
+   * @param registry SportRegistry — only used when first arg is IMatchEngineFactory
    */
-  private resolveRules(sport?: string): SportRules {
-    if (sport && sport === SPORT.PADEL) {
-      return this.registry.getRules(SPORT.PADEL);
+  constructor(
+    engineFactoryOrRegistry?: IMatchEngineFactory | SportRegistry,
+    registry?: SportRegistry,
+  ) {
+    if (engineFactoryOrRegistry && 'createMatchEngine' in engineFactoryOrRegistry) {
+      // New-style: first arg is IMatchEngineFactory
+      this.engineFactory = engineFactoryOrRegistry;
+      this.registry = registry || new SportRegistry();
+    } else {
+      // Old-style: first arg was SportRegistry (or undefined)
+      this.registry = (engineFactoryOrRegistry as SportRegistry) || new SportRegistry();
+      this.engineFactory = new DefaultMatchEngineFactory(this.registry);
     }
-    return this.registry.getRules(SPORT.TABLE_TENNIS);
   }
 
   /**
@@ -40,8 +51,7 @@ export class MatchOrchestrator {
     playerNames?: { a: string; b: string },
   ): MatchEngine {
     const sport = (config as any).sport;
-    const rules = this.resolveRules(sport);
-    const engine = new MatchEngine(config, rules);
+    const engine = this.engineFactory.createMatchEngine(sport || SPORT.TABLE_TENNIS, config);
     engine.setCourtId(court.id, court.name);
     if (playerNames) {
       engine.setPlayerNames(playerNames);
@@ -53,6 +63,7 @@ export class MatchOrchestrator {
     });
     return engine;
   }
+
   configureMatch(court: Court, config: { playerNames?: { a: string; b: string }; matchConfig?: MatchConfig }): void {
     if (config.playerNames) {
       court.playerNames = config.playerNames;
@@ -63,7 +74,7 @@ export class MatchOrchestrator {
       court.sportRules = this.createEngine(court, config.matchConfig, court.playerNames);
     }
 
-    (court as any).status = 'CONFIGURING';
+    setMatchStatus(court, 'CONFIGURING');
   }
 
   startMatch(court: Court, config?: Partial<MatchConfig> & { playerNameA?: string; playerNameB?: string }): MatchStateExtended | null {
@@ -103,7 +114,7 @@ export class MatchOrchestrator {
       court.playerNames = playerNames;
     }
 
-    (court as any).status = 'LIVE';
+    setMatchStatus(court, 'LIVE');
     const state = court.sportRules.startMatch();
     logger.debug({ courtId: court.id, status: state?.status }, 'After startMatch, state status');
 
@@ -111,40 +122,35 @@ export class MatchOrchestrator {
   }
 
   recordPoint(court: Court, player: Player): MatchStateExtended | null {
-    const c = court as any;
-    if (c.status !== 'LIVE') return null;
+    if (!isMatchActive(court)) return null;
 
     const state = court.sportRules.recordPoint(player);
     if (state) {
-      c.status = state.status;
+      setMatchStatus(court, state.status);
     }
     return state;
   }
 
   subtractPoint(court: Court, player: Player): MatchStateExtended | null {
-    const c = court as any;
-    if (c.status !== 'LIVE') return null;
+    if (!isMatchActive(court)) return null;
 
     return court.sportRules.subtractPoint(player);
   }
 
   undoLast(court: Court): MatchStateExtended | null {
-    const c = court as any;
-    if (c.status !== 'LIVE') return null;
+    if (!isMatchActive(court)) return null;
 
     return court.sportRules.undoLast();
   }
 
   setServer(court: Court, player: Player): MatchStateExtended | null {
-    const c = court as any;
-    if (c.status !== 'LIVE') return null;
+    if (!isMatchActive(court)) return null;
 
     return court.sportRules.setServer(player);
   }
 
   swapSides(court: Court): MatchStateExtended | null {
-    const c = court as any;
-    if (c.status !== 'LIVE') return null;
+    if (!isMatchActive(court)) return null;
 
     return court.sportRules.swapSides();
   }
@@ -152,7 +158,7 @@ export class MatchOrchestrator {
   resetTable(court: Court, config?: MatchConfig): void {
     const resolvedConfig = config || { sport: SPORT.TABLE_TENNIS, pointsPerSet: 11, bestOf: 3, minDifference: 2 } as MatchConfig;
     court.sportRules = this.createEngine(court, resolvedConfig, court.playerNames);
-    (court as any).status = 'WAITING';
+    setMatchStatus(court, 'WAITING');
   }
 
   getMatchState(court: Court): MatchStateExtended | null {

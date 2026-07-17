@@ -9,10 +9,11 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { FileSystem } from './types';
 import type { ClubConfig } from '../../../../shared/types';
+import type { IClubConfigRepository } from '../../domain/ports/IClubConfigRepository';
 
 const DEFAULT_PATH = 'data/club-config.json';
 
-export class ClubConfigStore {
+export class ClubConfigStore implements IClubConfigRepository {
   private readonly fs: FileSystem;
   private readonly filePath: string;
 
@@ -75,7 +76,6 @@ export class ClubConfigStore {
         sport: parsed.sport,
         configured: parsed.configured === true,
         adminPinHash: parsed.adminPinHash || '',
-        adminPin: parsed.adminPin || '',
         createdAt: parsed.createdAt || Date.now(),
         costPerMinute: typeof parsed.costPerMinute === 'number' ? parsed.costPerMinute : 0,
         currency: typeof parsed.currency === 'string' ? parsed.currency : 'ARS',

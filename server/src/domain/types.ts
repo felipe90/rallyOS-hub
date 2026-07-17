@@ -39,6 +39,16 @@ import {
 } from '../../../shared/types';
 import type { MatchEngine } from './matchEngine';
 
+// Re-export persistence types from domain/ports for backward compatibility
+// Consumers can now import PersistedCourt, PersistedClubCourt, etc. from
+// either domain/types or domain/ports/persistence-types.
+export type {
+  PersistedCourt,
+  PersistedClubCourt,
+  PersistedMatchState,
+  PersistedTable,
+} from './ports/persistence-types';
+
 // Re-export everything from shared so consumers can still `import { X } from './types'`
 export {
   Player,

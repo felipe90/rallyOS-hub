@@ -5,8 +5,9 @@
  */
 
 import { Court, ClubCourt, CourtInfo, CourtInfoWithPin, CourtStatus, TournamentStatus, ClubStatus, COURT_MODE, isClubCourt } from '../../domain/types';
+import type { ICourtFormatter } from '../../domain/ports';
 
-export class CourtFormatter {
+export class CourtFormatter implements ICourtFormatter {
   toPublicInfo(table: Court): CourtInfo {
     // Courts without an active match (AVAILABLE club court) have null sportRules
     if (!table.sportRules) {

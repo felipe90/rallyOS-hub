@@ -9,7 +9,7 @@
 
 import { Server, Socket } from 'socket.io';
 import { CourtManager } from '../domain/courtManager';
-import { ClubConfigStore } from '../services/store/ClubConfigStore';
+import type { IClubConfigRepository } from '../domain/ports/IClubConfigRepository';
 import { AdminPinService } from '../services/security/AdminPinService';
 import { validateSocketPayload } from '../utils/validation';
 import { logger, maskIp } from '../utils/logger';
@@ -21,14 +21,14 @@ import { isClubCourt } from '../domain/types';
 import type { SocketData } from '../domain/types';
 
 export class ClubAdminHandler extends SocketHandlerBase {
-  private clubConfigStore: ClubConfigStore;
+  private clubConfigStore: IClubConfigRepository;
   private adminPinService: AdminPinService;
 
   constructor(
     io: Server,
     tableManager: CourtManager,
     ownerPin: string,
-    clubConfigStore: ClubConfigStore,
+    clubConfigStore: IClubConfigRepository,
     adminPinService: AdminPinService,
   ) {
     super(io, tableManager, ownerPin);
@@ -122,13 +122,12 @@ export class ClubAdminHandler extends SocketHandlerBase {
       // Hash the admin PIN
       const adminPinHash = this.adminPinService.hashPin(data.pin);
 
-      // Save club config
+      // Save club config (only the scrypt hash — never plaintext)
       const clubConfig = {
         clubName: data.clubName,
         sport: data.sport,
         configured: true,
         adminPinHash,
-        adminPin: data.pin, // plaintext for CLI recovery
         createdAt: Date.now(),
         costPerMinute: data.costPerMinute ?? 0,
         currency: data.currency ?? 'ARS',

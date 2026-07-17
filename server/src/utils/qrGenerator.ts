@@ -24,7 +24,7 @@ export async function generateQRDataUrl(data: QRData): Promise<string> {
 export function parseQRCode(qrString: string): QRData | null {
   try {
     const data = JSON.parse(qrString);
-    if ((data.tableId || data.courtId) && data.pin) {
+    if ((data.tableId || data.courtId) && data.encryptedPin) {
       return data as QRData;
     }
     return null;

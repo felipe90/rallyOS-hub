@@ -21,6 +21,8 @@ export function useClubPlay(socket: Socket | null, courtId: string, connected: b
   const [refereeReplaced, setRefereeReplaced] = useState(false)
   const [sessionEnded, setSessionEnded] = useState<{ elapsedMinutes: number; cost: number; currency: string; reason: string } | null>(null)
   const reconnectAttempted = useRef(false)
+  // Read PIN from sessionStorage (set on CLUB_JOIN) for secure reconnection
+  const courtPinRef = useRef<string | null>(sessionStorage.getItem('rallyos-club-pin'))
 
   // Listen for MATCH_UPDATE events for this court
   useEffect(() => {
@@ -36,11 +38,17 @@ export function useClubPlay(socket: Socket | null, courtId: string, connected: b
         }
         // Active match after page refresh → emit CLUB_RECONNECT to re-establish bridge.
         // Club-only hook — mode/clubStatus are not on MatchStateExtended.
-        // SERVER validates OCCUPIED status before reconnecting.
+        // SERVER validates OCCUPIED status + PIN before reconnecting.
         if (match.status !== 'FINISHED' && !reconnectAttempted.current) {
           reconnectAttempted.current = true
           setReconnecting(true)
-          socket.emit(SocketEvents.CLIENT.CLUB_RECONNECT, { courtId })
+          const pin = courtPinRef.current
+          if (!pin) {
+            setError('SESSION_EXPIRED')
+            setReconnecting(false)
+            return
+          }
+          socket.emit(SocketEvents.CLIENT.CLUB_RECONNECT, { courtId, pin })
         }
       }
     }
@@ -96,6 +104,9 @@ export function useClubPlay(socket: Socket | null, courtId: string, connected: b
 
     const handleSessionEnded = (data: { courtId: string; elapsedMinutes: number; cost: number; currency: string; reason: string }) => {
       if (data.courtId === courtId) {
+        // Clear PIN from sessionStorage when session ends
+        sessionStorage.removeItem('rallyos-club-pin')
+        courtPinRef.current = null
         setSessionEnded({
           elapsedMinutes: data.elapsedMinutes,
           cost: data.cost,

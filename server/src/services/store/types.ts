@@ -1,70 +1,27 @@
-import { ScoreChange, CourtStatus, TournamentStatus, Score, PadelPoint } from '../../domain/types';
-import type { MatchConfig } from '../../domain/types';
-
 /**
- * Serializable match state for persistence.
- * Flat interface (not the discriminated union MatchState) to handle
- * migration from v1 (no sport field) and to keep serialization simple.
- * Excludes runtime fields (tableId, tableName, playerNames, undoAvailable)
- * which live on the PersistedCourt level.
+ * Store Types — backward-compat re-exports from domain/ports/persistence-types.
+ *
+ * Persistence types have moved to domain/ports/persistence-types.ts to
+ * enforce Dependency Inversion. This file re-exports those types for
+ * backward compatibility so existing imports continue to work.
+ *
+ * Store-specific types (PersistedState, PersistedStateV3, PERSISTENCE_VERSION)
+ * remain here as they belong to the storage layer.
  */
-export interface PersistedMatchState {
-  config: MatchConfig;
-  score: { sets: Score; currentSet: Score; serving: string };
-  swappedSides: boolean;
-  midSetSwapped: boolean;
-  setHistory: Score[];
-  status: TournamentStatus;
-  winner: string | null;
-  sport: string;
-  history: ScoreChange[];
-  /** Padel-specific fields (optional, for backward compat with v2) */
-  padelPoints?: { a: PadelPoint; b: PadelPoint };
-  isTiebreak?: boolean;
-  tiebreakPoints?: { a: number; b: number };
-  goldenPoint?: boolean;
-}
 
-/**
- * Serializable tournament table snapshot.
- * Excludes runtime-only fields: MatchEngine instances, PlayerConnection.socketId
- * values, and Socket.io callback references.
- * Does NOT contain club-specific fields (clubStatus, occupiedAt, mode).
- */
-export interface PersistedCourt {
-  id: string;
-  number: number;
-  name: string;
-  status: TournamentStatus;
-  pin: string;
-  playerNames: { a: string; b: string };
-  createdAt: number;
-  matchState: PersistedMatchState;
-}
-/** @deprecated Use PersistedCourt instead */
-export type PersistedTable = PersistedCourt;
-
-/**
- * Serializable club court snapshot.
- * Contains club-specific fields (clubStatus, occupiedAt) and no tournament
- * fields (status). matchState is nullable because club courts may be saved
- * before a match starts (AVAILABLE/RESERVED state).
- */
-export interface PersistedClubCourt {
-  id: string;
-  number: number;
-  name: string;
-  kind?: 'club';
-  clubStatus: string;
-  /** Epoch ms when the court was first occupied — null when not occupied */
-  occupiedAt: number | null;
-  pin: string;
-  playerNames: { a: string; b: string };
-  createdAt: number;
-  matchState: PersistedMatchState | null;
-  config: Record<string, unknown> | null;
-  history: Record<string, unknown>[];
-}
+import type {
+  PersistedCourt as DomainPersistedCourt,
+  PersistedClubCourt as DomainPersistedClubCourt,
+} from '../../domain/ports/persistence-types';
+export type {
+  PersistedMatchState,
+  PersistedCourt,
+  PersistedTable,
+  PersistedClubCourt,
+  PersistedStateV3,
+  MatchExporter,
+  FileSystem,
+} from '../../domain/ports/persistence-types';
 
 /**
  * Current persistence schema version.
@@ -80,36 +37,7 @@ export const PERSISTENCE_VERSION = 3;
 export interface PersistedState {
   version: number;
   savedAt: number;
-  tables: PersistedCourt[];
+  tables: DomainPersistedCourt[];
 }
 
-/**
- * Version 3 state format with separate tournament and club court arrays.
- */
-export interface PersistedStateV3 {
-  version: number;
-  savedAt: number;
-  tournamentCourts: PersistedCourt[];
-  clubCourts: PersistedClubCourt[];
-}
-
-/**
- * Adapter interface for export formats (CSV, JSON, etc.).
- * StateStore does NOT implement this — separate adapters do.
- */
-export interface MatchExporter {
-  export(tables: PersistedCourt[]): string;
-}
-
-/**
- * Minimal filesystem abstraction for dependency injection.
- * Enables unit testing without jest.mock (avoids Jest 30 compat issues).
- */
-export interface FileSystem {
-  writeFileSync(path: string, data: string, encoding: BufferEncoding): void;
-  readFileSync(path: string, encoding: BufferEncoding): string;
-  renameSync(oldPath: string, newPath: string): void;
-  existsSync(path: string): boolean;
-  unlinkSync(path: string): void;
-  mkdirSync(path: string, options?: { recursive: boolean }): string | undefined;
-}
+// PersistedStateV3 re-exported from domain/ports/persistence-types.ts

@@ -169,6 +169,8 @@ export function AuthPage() {
     }
     setClubLoading(true)
     setClubError(null)
+    // Store PIN in sessionStorage for CLUB_RECONNECT after navigation
+    sessionStorage.setItem('rallyos-club-pin', clubPin)
     socket.emit(SocketEvents.CLIENT.CLUB_JOIN, { pin: clubPin })
   }
 

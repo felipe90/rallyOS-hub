@@ -3,10 +3,11 @@ import * as path from 'path';
 import { FileSystem, PersistedCourt, PersistedClubCourt, PersistedState, PersistedStateV3, PERSISTENCE_VERSION } from './types';
 import { migrateV1toV2, migrateV2toV3 } from './migration';
 import { logger } from '../../utils/logger';
+import type { ICourtPersistence } from '../../domain/ports/ICourtPersistence';
 
 const DEFAULT_PATH = 'data/rallyos-state.json';
 
-export class StateStore {
+export class StateStore implements ICourtPersistence {
   private readonly fs: FileSystem;
   private readonly filePath: string;
 

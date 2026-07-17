@@ -12,43 +12,50 @@
 
 import crypto from 'crypto';
 import { MatchEngine } from './matchEngine';
-import { Court, TournamentCourt, ClubCourt, isClubCourt, isTournamentCourt, CourtInfo, CourtInfoWithPin, Player, MatchConfig, MatchStateExtended, QRData, HubConfig, Sport, SPORT, CourtMode, COURT_MODE, CourtStatus, TournamentStatus, ClubStatus, CLUB_STATUS } from './types';
+import { Court, TournamentCourt, ClubCourt, isClubCourt, isTournamentCourt, CourtInfo, CourtInfoWithPin, Player, MatchConfig, MatchStateExtended, QRData, Sport, SPORT, COURT_MODE, TournamentStatus, ClubStatus, CLUB_STATUS } from './types';
 import { AllHistoryEntry, ClubKioskPayload, ClubKioskCourtInfo, ClubConfig } from '../../../shared/types';
 import { logger } from '../utils/logger';
 import { sanitizeInput } from '../utils/validation';
-import { CourtRepository } from '../services/table/CourtRepository';
-import { PlayerService } from '../services/table/PlayerService';
-import { MatchOrchestrator } from '../services/table/MatchOrchestrator';
-import { SportRegistry } from './sports/sport.registry';
-import { CourtFormatter } from '../services/table/CourtFormatter';
-import { PinService } from '../services/security/PinService';
-import { QRService } from '../services/qr/QRService';
-import { StateStore } from '../services/store/StateStore';
-import { PersistedCourt, PersistedClubCourt } from '../services/store/types';
+import type { PersistedCourt, PersistedClubCourt } from './ports/persistence-types';
+import type { ICourtRepository, IPlayerService, IMatchOrchestrator, ICourtPersistence, ICourtFormatter, IPinService, IQRService } from './ports';
+
+/**
+ * Dependency container for CourtManager.
+ * All infrastructure dependencies are injected at construction —
+ * no inline `new` instantiations.
+ */
+export interface CourtManagerDeps {
+  repository: ICourtRepository;
+  playerService: IPlayerService;
+  matchOrchestrator: IMatchOrchestrator;
+  formatter: ICourtFormatter;
+  pinService: IPinService;
+  qrService: IQRService;
+  persistence?: ICourtPersistence;
+}
 
 export class CourtManager {
-  private repository: CourtRepository;
-  private playerService: PlayerService;
-  private matchOrchestrator: MatchOrchestrator;
-  private formatter: CourtFormatter;
-  private pinService: PinService;
-  private qrService: QRService;
-  private stateStore?: StateStore;
+  private repository: ICourtRepository;
+  private playerService: IPlayerService;
+  private matchOrchestrator: IMatchOrchestrator;
+  private formatter: ICourtFormatter;
+  private pinService: IPinService;
+  private qrService: IQRService;
+  private stateStore?: ICourtPersistence;
 
   public onTableUpdate: (table: CourtInfo) => void = () => {};
   public onTournamentFinish: () => void = () => {};
   public onMatchEvent: (courtId: string, event: any) => void = () => {};
   public onClubSessionEnd: (courtId: string, elapsedMinutes: number, reason: string) => void = () => {};
 
-  constructor(hubConfig: HubConfig, stateStore?: StateStore) {
-    this.repository = new CourtRepository();
-    this.pinService = new PinService();
-    this.playerService = new PlayerService(this.pinService);
-    const registry = new SportRegistry();
-    this.matchOrchestrator = new MatchOrchestrator(registry);
-    this.formatter = new CourtFormatter();
-    this.qrService = new QRService(hubConfig);
-    this.stateStore = stateStore;
+  constructor(deps: CourtManagerDeps) {
+    this.repository = deps.repository;
+    this.pinService = deps.pinService;
+    this.playerService = deps.playerService;
+    this.matchOrchestrator = deps.matchOrchestrator;
+    this.formatter = deps.formatter;
+    this.qrService = deps.qrService;
+    this.stateStore = deps.persistence;
   }
 
   // Table CRUD

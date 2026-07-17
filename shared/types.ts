@@ -279,8 +279,6 @@ export interface ClubConfig {
   configured: boolean;
   /** scrypt hash (salt:hash format) for admin PIN verification */
   adminPinHash: string;
-  /** Plaintext admin PIN for CLI recovery — stored alongside hash for recovery use case */
-  adminPin: string;
   /** Timestamp when the club was first configured */
   createdAt: number;
   /** Cost per minute in the club's currency — 0 means free */
@@ -324,7 +322,6 @@ export interface QRData {
   hubPort: number;
   courtId: string;
   courtName: string;
-  pin: string;
   encryptedPin: string;  // required: format {iv}:{ciphertext}:{authTag}:{timestamp}
   url: string;           // rallyhub://join/{tableId}?ePin={encryptedPin}
 }

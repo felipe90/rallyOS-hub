@@ -16,7 +16,7 @@
 
 import { Server, Socket } from 'socket.io';
 import { CourtManager } from '../domain/courtManager';
-import { ClubConfigStore } from '../services/store/ClubConfigStore';
+import type { IClubConfigRepository } from '../domain/ports/IClubConfigRepository';
 import { AdminPinService } from '../services/security/AdminPinService';
 import { CourtInfo, HubConfig } from '../domain/types';
 import { logger } from '../utils/logger';
@@ -40,7 +40,7 @@ export class SocketHandler {
   private ownerPin: string;
   private hubConfig: HubConfig;
   private connectionRateLimiter: RateLimiter;
-  private clubConfigStore?: ClubConfigStore;
+  private clubConfigStore?: IClubConfigRepository;
   
   // Handler instances
   private courtHandler: CourtEventHandler;
@@ -57,7 +57,7 @@ export class SocketHandler {
     tableManager: CourtManager,
     ownerPin: string,
     hubConfig: HubConfig,
-    clubConfigStore?: ClubConfigStore,
+    clubConfigStore?: IClubConfigRepository,
   ) {
     this.io = io;
     this.tableManager = tableManager;
@@ -147,18 +147,6 @@ export class SocketHandler {
       if (this.connectionRateLimiter.isRateLimited(rateLimitKey)) {
         logger.warn({ ip: clientIp }, 'Connection rate limit exceeded');
         return next(new Error('RATE_LIMITED: Too many connections. Please wait.'));
-      }
-      next();
-    });
-
-    // Socket.io auth middleware — validate session token on connection
-    this.io.use((socket, next) => {
-      const token = socket.handshake.auth?.sessionToken as string | undefined;
-      if (token) {
-        // Token present — mark as authenticated
-        // Full JWT validation can be added later
-        (socket.data as import('../domain/types').SocketData).isAuthenticated = true;
-        (socket.data as import('../domain/types').SocketData).sessionToken = token;
       }
       next();
     });

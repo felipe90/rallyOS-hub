@@ -96,6 +96,9 @@ describe('useClubPlay', () => {
   })
 
   it('should update matchState on MATCH_UPDATE for the correct courtId', () => {
+    // Set up the club PIN so the CLUB_RECONNECT logic (REQ-10) does not
+    // set SESSION_EXPIRED on non-FINISHED matches.
+    sessionStorage.setItem('rallyos-club-pin', '1111')
     const { socket, trigger } = createMockSocket()
 
     const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
@@ -245,16 +248,30 @@ describe('useClubPlay', () => {
   })
 
   describe('reconnection — CLUB_RECONNECT', () => {
+    beforeEach(() => {
+      // The hook reads the club PIN from sessionStorage for CLUB_RECONNECT
+      // (REQ-10). Without it, a non-FINISHED MATCH_UPDATE sets
+      // SESSION_EXPIRED instead of emitting CLUB_RECONNECT.
+      sessionStorage.setItem('rallyos-club-pin', '1111')
+    })
+
+    afterEach(() => {
+      sessionStorage.removeItem('rallyos-club-pin')
+    })
+
     it('should emit CLUB_RECONNECT when MATCH_UPDATE has LIVE status (active club court)', () => {
       const { socket, trigger } = createMockSocket()
 
       renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
 
+      // Clear the initial GET_MATCH_STATE emit
+      socket.emit.mockClear()
+
       trigger(SocketEvents.SERVER.MATCH_UPDATE, makeLiveMatch())
 
       expect(socket.emit).toHaveBeenCalledWith(
         SocketEvents.CLIENT.CLUB_RECONNECT,
-        { courtId: MOCK_COURT_ID },
+        { courtId: MOCK_COURT_ID, pin: '1111' },
       )
     })
 
@@ -344,6 +361,9 @@ describe('useClubPlay', () => {
       const { socket, trigger } = createMockSocket()
 
       renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      // Clear the initial GET_MATCH_STATE emit
+      socket.emit.mockClear()
 
       // First MATCH_UPDATE with LIVE status
       trigger(SocketEvents.SERVER.MATCH_UPDATE, makeLiveMatch())

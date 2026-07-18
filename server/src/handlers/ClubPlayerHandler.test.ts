@@ -730,3 +730,261 @@ describe('ClubPlayerHandler — CLUB_END_SESSION', () => {
     expect(payload.currency).toBe('USD');
   });
 });
+
+// ═══════════════════════════════════════════════════════════════
+// CLUB_START_FREE / CLUB_RESET_MATCH / CLUB_NEW_MATCH Tests (spec scenarios 1, 2, reset)
+// ═══════════════════════════════════════════════════════════════
+
+describe('ClubPlayerHandler — CLUB_START_FREE (spec scenario 1)', () => {
+  let socket: jest.Mocked<Socket>;
+  let courtId: string;
+
+  beforeEach(() => {
+    mockIo = createMockIo();
+    courtManager = createTestCourtManager();
+    const fakeFs = createFakeFs();
+    clubConfigStore = new ClubConfigStore(fakeFs);
+    clubConfigStore.save({
+      clubName: 'Test Club',
+      sport: SPORT.PADEL,
+      adminPinHash: 'dummy-hash',
+      configured: true,
+      createdAt: Date.now(),
+    });
+    handler = new ClubPlayerHandler(mockIo, courtManager, OWNER_PIN, clubConfigStore);
+
+    socket = createMockSocket('start-free-socket');
+    handler.registerHandlers(socket);
+
+    const court = courtManager.createClubCourt('Free Court');
+    courtId = court.id;
+    courtManager.activateCourt(courtId);
+    courtManager.occupyClubCourt(courtId, SPORT.TABLE_TENNIS);
+    courtManager.registerClubReferee(courtId, socket.id);
+  });
+
+  it('should register CLUB_START_FREE handler', () => {
+    expect(socket.on).toHaveBeenCalledWith(
+      SocketEvents.CLIENT.CLUB_START_FREE,
+      expect.any(Function),
+    );
+  });
+
+  it('should emit CLUB_FREE_STARTED to the room on success (spec scenario 1)', () => {
+    const handlerCall = (socket.on as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_START_FREE,
+    );
+    handlerCall[1]({ courtId });
+
+    const emitMock = mockIo.to(courtId);
+    expect(emitMock.emit).toHaveBeenCalledWith(
+      SocketEvents.SERVER.CLUB_FREE_STARTED,
+      expect.objectContaining({ courtId }),
+    );
+  });
+
+  it('should set sessionMode="free" on the court on success (spec scenario 1)', () => {
+    const handlerCall = (socket.on as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_START_FREE,
+    );
+    handlerCall[1]({ courtId });
+
+    const court = courtManager.getCourt(courtId) as any;
+    expect(court.sessionMode).toBe('free');
+  });
+
+  it('should keep court OCCUPIED after CLUB_START_FREE (timer continues)', () => {
+    const handlerCall = (socket.on as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_START_FREE,
+    );
+    handlerCall[1]({ courtId });
+
+    const court = courtManager.getCourt(courtId) as any;
+    expect(court.clubStatus).toBe('OCCUPIED');
+  });
+
+  it('should emit ERROR when caller is not referee', () => {
+    const nonRefSocket = createMockSocket('non-ref');
+    handler.registerHandlers(nonRefSocket);
+    const handlerCall = (nonRefSocket.on as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_START_FREE,
+    );
+    handlerCall[1]({ courtId });
+
+    expect(nonRefSocket.emit).toHaveBeenCalledWith(
+      SocketEvents.SERVER.ERROR,
+      expect.objectContaining({ code: 'UNAUTHORIZED' }),
+    );
+  });
+});
+
+describe('ClubPlayerHandler — CLUB_RESET_MATCH (spec post-match reset)', () => {
+  let socket: jest.Mocked<Socket>;
+  let courtId: string;
+
+  beforeEach(() => {
+    mockIo = createMockIo();
+    courtManager = createTestCourtManager();
+    const fakeFs = createFakeFs();
+    clubConfigStore = new ClubConfigStore(fakeFs);
+    clubConfigStore.save({
+      clubName: 'Test Club',
+      sport: SPORT.TABLE_TENNIS,
+      adminPinHash: 'dummy-hash',
+      configured: true,
+      createdAt: Date.now(),
+    });
+    handler = new ClubPlayerHandler(mockIo, courtManager, OWNER_PIN, clubConfigStore);
+
+    socket = createMockSocket('reset-match-socket');
+    handler.registerHandlers(socket);
+
+    const court = courtManager.createClubCourt('Reset Court');
+    courtId = court.id;
+    courtManager.activateCourt(courtId);
+    courtManager.occupyClubCourt(courtId, SPORT.TABLE_TENNIS);
+    courtManager.registerClubReferee(courtId, socket.id);
+
+    // Play a match to FINISHED so reset can zero it
+    for (let i = 0; i < 11; i++) {
+      courtManager.recordPoint(courtId, 'A');
+    }
+  });
+
+  it('should register CLUB_RESET_MATCH handler', () => {
+    expect(socket.on).toHaveBeenCalledWith(
+      SocketEvents.CLIENT.CLUB_RESET_MATCH,
+      expect.any(Function),
+    );
+  });
+
+  it('should emit CLUB_MATCH_RESET with matchState to the room on success (spec reset)', () => {
+    const handlerCall = (socket.on as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_RESET_MATCH,
+    );
+    handlerCall[1]({ courtId });
+
+    const emitMock = mockIo.to(courtId);
+    expect(emitMock.emit).toHaveBeenCalledWith(
+      SocketEvents.SERVER.CLUB_MATCH_RESET,
+      expect.objectContaining({ courtId, matchState: expect.anything() }),
+    );
+  });
+
+  it('should zero the match score on reset (0-0 in current set, status LIVE)', () => {
+    const handlerCall = (socket.on as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_RESET_MATCH,
+    );
+    handlerCall[1]({ courtId });
+
+    // Find the emitted matchState from the CLUB_MATCH_RESET payload
+    const emitMock = mockIo.to(courtId);
+    const resetCall = emitMock.emit.mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.SERVER.CLUB_MATCH_RESET,
+    );
+    const matchState = resetCall![1].matchState;
+    expect(matchState.score.currentSet.a).toBe(0);
+    expect(matchState.score.currentSet.b).toBe(0);
+    expect(matchState.status).toBe('LIVE');
+  });
+
+  it('should keep court OCCUPIED and sessionMode unchanged on reset', () => {
+    const handlerCall = (socket.on as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_RESET_MATCH,
+    );
+    handlerCall[1]({ courtId });
+
+    const court = courtManager.getCourt(courtId) as any;
+    expect(court.clubStatus).toBe('OCCUPIED');
+  });
+});
+
+describe('ClubPlayerHandler — CLUB_NEW_MATCH (spec scenario 2)', () => {
+  let socket: jest.Mocked<Socket>;
+  let courtId: string;
+
+  beforeEach(() => {
+    mockIo = createMockIo();
+    courtManager = createTestCourtManager();
+    const fakeFs = createFakeFs();
+    clubConfigStore = new ClubConfigStore(fakeFs);
+    clubConfigStore.save({
+      clubName: 'Test Club',
+      sport: SPORT.TABLE_TENNIS,
+      adminPinHash: 'dummy-hash',
+      configured: true,
+      createdAt: Date.now(),
+    });
+    handler = new ClubPlayerHandler(mockIo, courtManager, OWNER_PIN, clubConfigStore);
+
+    socket = createMockSocket('new-match-socket');
+    handler.registerHandlers(socket);
+
+    const court = courtManager.createClubCourt('New Match Court');
+    courtId = court.id;
+    courtManager.activateCourt(courtId);
+    courtManager.occupyClubCourt(courtId, SPORT.TABLE_TENNIS);
+    courtManager.registerClubReferee(courtId, socket.id);
+  });
+
+  it('should register CLUB_NEW_MATCH handler', () => {
+    expect(socket.on).toHaveBeenCalledWith(
+      SocketEvents.CLIENT.CLUB_NEW_MATCH,
+      expect.any(Function),
+    );
+  });
+
+  it('should start a fresh LIVE match and emit MATCH_UPDATE to the room (spec scenario 2 — free→match)', () => {
+    const handlerCall = (socket.on as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_NEW_MATCH,
+    );
+    handlerCall[1]({ courtId, playerNameA: 'Alice', playerNameB: 'Bob' });
+
+    const emitMock = mockIo.to(courtId);
+    expect(emitMock.emit).toHaveBeenCalledWith(
+      SocketEvents.SERVER.MATCH_UPDATE,
+      expect.objectContaining({ status: 'LIVE' }),
+    );
+  });
+
+  it('should set sessionMode="match" on the court (spec scenario 2)', () => {
+    const handlerCall = (socket.on as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_NEW_MATCH,
+    );
+    handlerCall[1]({ courtId, playerNameA: 'Alice', playerNameB: 'Bob' });
+
+    const court = courtManager.getCourt(courtId) as any;
+    expect(court.sessionMode).toBe('match');
+    expect(court.playerNames).toEqual({ a: 'Alice', b: 'Bob' });
+  });
+
+  it('should accept optional matchConfig passthrough (PR 1 risk #2)', () => {
+    const handlerCall = (socket.on as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_NEW_MATCH,
+    );
+    handlerCall[1]({
+      courtId,
+      playerNameA: 'Alice',
+      playerNameB: 'Bob',
+      matchConfig: { pointsPerSet: 21, bestOf: 5 },
+    });
+
+    const state = courtManager.getMatchState(courtId) as any;
+    expect(state.config.pointsPerSet).toBe(21);
+    expect(state.config.bestOf).toBe(5);
+  });
+
+  it('should emit ERROR when caller is not referee', () => {
+    const nonRefSocket = createMockSocket('non-ref-new');
+    handler.registerHandlers(nonRefSocket);
+    const handlerCall = (nonRefSocket.on as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_NEW_MATCH,
+    );
+    handlerCall[1]({ courtId, playerNameA: 'A', playerNameB: 'B' });
+
+    expect(nonRefSocket.emit).toHaveBeenCalledWith(
+      SocketEvents.SERVER.ERROR,
+      expect.objectContaining({ code: 'UNAUTHORIZED' }),
+    );
+  });
+});

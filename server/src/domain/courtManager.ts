@@ -605,7 +605,7 @@ export class CourtManager {
    */
   newMatch(
     courtId: string,
-    params: { playerNameA: string; playerNameB: string },
+    params: { playerNameA: string; playerNameB: string; matchConfig?: Partial<MatchConfig> },
   ): { matchState: MatchStateExtended } | null {
     const court = this.repository.get(courtId);
     if (!court || !isClubCourt(court)) return null;
@@ -616,15 +616,15 @@ export class CourtManager {
     court.sessionMode = SESSION_MODE.MATCH;
 
     // Reuse the existing config when one exists; otherwise default to
-    // table-tennis bestOf=1. configureMatch is NOT called here because
-    // the post-match "new match" flow only allows changing playerNames
-    // (the match config UI is opened by the client separately when the
-    // user wants different points/sets/handicap — that path will
-    // eventually hit configureMatch directly in PR 2).
+    // table-tennis bestOf=1. PR 2 risk fix #2 — the optional matchConfig
+    // passed by the CLUB_NEW_MATCH handler overrides the relevant config
+    // fields so a user can pick non-default points/sets/handicap before
+    // starting a fresh match.
     const currentConfig = court.sportRules.getConfig();
-    const config: MatchConfig = currentConfig
+    const baseConfig: MatchConfig = currentConfig
       ? { ...currentConfig }
       : { sport: SPORT.TABLE_TENNIS, pointsPerSet: 11, bestOf: 1, minDifference: 2 };
+    const config: MatchConfig = { ...baseConfig, ...(params.matchConfig ?? {}) } as MatchConfig;
 
     const matchState = this.matchOrchestrator.startMatch(court, {
       ...config,

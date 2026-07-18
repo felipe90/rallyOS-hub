@@ -16,6 +16,7 @@ import { logger, maskIp } from '../utils/logger';
 import { SocketEvents } from '../../../shared/events';
 import { PIN_RULES } from '../../../shared/validation';
 import { SPORT, CLUB_STATUS } from '../../../shared/types';
+import type { MatchConfig } from '../../../shared/types';
 import { isClubCourt } from '../domain/types';
 import type { ClubCourt } from '../domain/types';
 import { SocketHandlerBase } from './SocketHandlerBase';
@@ -276,6 +277,103 @@ export class ClubPlayerHandler extends SocketHandlerBase {
       logger.info(
         { courtId: data.courtId, elapsedMinutes: result.elapsedMinutes, reason: 'player' },
         'CLUB_END_SESSION: player ended session',
+      );
+    });
+
+    // CLUB_START_FREE: Switch the OCCUPIED club court to "free" session mode.
+    // Spec scenario 1 — emit CLUB_FREE_STARTED to the room and keep the court
+    // OCCUPIED with the timer running.
+    socket.on(SocketEvents.CLIENT.CLUB_START_FREE, (data: { courtId: string }) => {
+      if (!validateSocketPayload(socket, data, {
+        courtId: { required: true, type: 'string', maxLength: 36 },
+      }, 'CLUB_START_FREE')) {
+        return;
+      }
+
+      if (!this.validateReferee(socket, data.courtId)) return;
+
+      const result = this.tableManager.startFreePlay(data.courtId);
+      if (!result) {
+        this.emitError(socket, 'START_FREE_FAILED', 'No se pudo iniciar modo libre. La cancha debe estar ocupada.');
+        return;
+      }
+
+      this.io.to(data.courtId).emit(SocketEvents.SERVER.CLUB_FREE_STARTED, {
+        courtId: data.courtId,
+      });
+
+      logger.info(
+        { courtId: data.courtId, sessionMode: result.sessionMode },
+        'CLUB_START_FREE: court entered free mode',
+      );
+    });
+
+    // CLUB_RESET_MATCH: Reset the running match to 0-0 with the SAME config.
+    // Spec post-match "Reset" action. Emits CLUB_MATCH_RESET with the fresh
+    // zeroed matchState to the room.
+    socket.on(SocketEvents.CLIENT.CLUB_RESET_MATCH, (data: { courtId: string }) => {
+      if (!validateSocketPayload(socket, data, {
+        courtId: { required: true, type: 'string', maxLength: 36 },
+      }, 'CLUB_RESET_MATCH')) {
+        return;
+      }
+
+      if (!this.validateReferee(socket, data.courtId)) return;
+
+      const result = this.tableManager.resetMatch(data.courtId);
+      if (!result) {
+        this.emitError(socket, 'RESET_MATCH_FAILED', 'No se pudo reiniciar el partido. La cancha debe estar ocupada.');
+        return;
+      }
+
+      this.io.to(data.courtId).emit(SocketEvents.SERVER.CLUB_MATCH_RESET, {
+        courtId: data.courtId,
+        matchState: result.matchState,
+      });
+
+      logger.info(
+        { courtId: data.courtId },
+        'CLUB_RESET_MATCH: match reset to 0-0',
+      );
+    });
+
+    // CLUB_NEW_MATCH: Start a new match with new player names (optionally a
+    // new matchConfig). Spec scenario 2 — transitions free→match and serves
+    // the post-match "New Match" action. PR 1 risk fix #2 — passes the
+    // optional matchConfig through to CourtManager.newMatch so the user can
+    // pick non-default points/sets before starting.
+    socket.on(SocketEvents.CLIENT.CLUB_NEW_MATCH, (data: {
+      courtId: string;
+      playerNameA: string;
+      playerNameB: string;
+      matchConfig?: Partial<MatchConfig>;
+    }) => {
+      if (!validateSocketPayload(socket, data, {
+        courtId: { required: true, type: 'string', maxLength: 36 },
+        playerNameA: { required: true, type: 'string', maxLength: 50 },
+        playerNameB: { required: true, type: 'string', maxLength: 50 },
+        matchConfig: { type: 'object', required: false },
+      }, 'CLUB_NEW_MATCH')) {
+        return;
+      }
+
+      if (!this.validateReferee(socket, data.courtId)) return;
+
+      const result = this.tableManager.newMatch(data.courtId, {
+        playerNameA: data.playerNameA,
+        playerNameB: data.playerNameB,
+        matchConfig: data.matchConfig,
+      });
+      if (!result) {
+        this.emitError(socket, 'NEW_MATCH_FAILED', 'No se pudo iniciar el nuevo partido. La cancha debe estar ocupada.');
+        return;
+      }
+
+      this.io.to(data.courtId).emit(SocketEvents.SERVER.MATCH_UPDATE, result.matchState);
+
+      logger.info(
+        { courtId: data.courtId, playerNameA: data.playerNameA, playerNameB: data.playerNameB },
+        'CLUB_NEW_MATCH: new match started',
       );
     });
   }

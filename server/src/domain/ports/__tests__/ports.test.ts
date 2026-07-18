@@ -409,6 +409,7 @@ describe('port interfaces', () => {
       createdAt: 2000,
       featured: false,
       occupiedAt: 3000,
+      sessionMode: null,
       onTableUpdate: undefined,
       onMatchEvent: undefined,
     });

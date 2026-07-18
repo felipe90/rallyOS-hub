@@ -1,9 +1,9 @@
-import { SPORT, CLUB_STATUS } from '../../../shared/types';
+import { SPORT, CLUB_STATUS, SESSION_MODE } from '../../../shared/types';
 import { CourtManager } from './courtManager';
 import { createTestCourtManager } from './courtManager.test-factory';
 import { StateStore } from '../services/store/StateStore';
 import type { FileSystem, PersistedCourt, PersistedMatchState } from '../services/store/types';
-import type { MatchStateExtended, MatchEvent } from './types';
+import type { ClubCourt, MatchStateExtended, MatchEvent } from './types';
 import { MatchEngine } from './matchEngine';
 
 // ── Fake FileSystem for DI (same pattern as StateStore.test.ts) ──────────
@@ -877,37 +877,324 @@ describe('CourtManager with StateStore', () => {
     });
   });
 
-  describe('club courts — auto-finish in recordPoint', () => {
-    it('should auto-end session when match finishes on OCCUPIED club court', () => {
+  describe('club session lifecycle — match end in club mode', () => {
+    it('should keep court OCCUPIED when match finishes on a club court (no auto-end)', () => {
       const manager = createTestCourtManager({ persistence: stateStore });
-      const court = manager.createClubCourt('AutoFinish Court');
+      const court = manager.createClubCourt('NoAutoEnd Court');
       manager.activateCourt(court.id);
       manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
 
-      // Spy on endSession via onClubSessionEnd callback
-      const callback = jest.fn();
-      manager.onClubSessionEnd = callback;
+      // The onClubSessionEnd callback MUST NOT fire just because the match ended.
+      const onClubSessionEnd = jest.fn();
+      manager.onClubSessionEnd = onClubSessionEnd;
 
-      // Record a point to get a match going, no need to fully finish a match
-      // Since Table Tennis bestOf=1, we need to reach 11 points with 2 difference
-      // Actually let's just verify the auto-finish hook by checking that endSession
-      // gets called when the match ends.
-      // For a single-point scenario, we just score many points to win (11-0):
+      // Table Tennis bestOf=1, pointsPerSet=11, minDifference=2.
+      // Scoring 11 points for A wins the set and the match.
       for (let i = 0; i < 11; i++) {
         manager.recordPoint(court.id, 'A');
       }
 
-      // The match should be finished and auto-endSession should fire
+      // The match itself is FINISHED at the score-engine level...
       const matchState = manager.getMatchState(court.id);
       expect(matchState).not.toBeNull();
       expect(matchState!.status).toBe('FINISHED');
 
-      // The callback should have fired (endSession called for 'auto')
-      expect(callback).toHaveBeenCalled();
-
-      // The court should be FINISHED
+      // ...but the COURT stays OCCUPIED — the session must continue
+      // until the player or admin explicitly ends it.
       const updatedCourt = manager.getCourt(court.id);
-      expect((updatedCourt as any)!.clubStatus).toBe('FINISHED');
+      expect((updatedCourt as any)!.clubStatus).toBe('OCCUPIED');
+
+      // And endSession must NOT have been called automatically.
+      expect(onClubSessionEnd).not.toHaveBeenCalled();
+    });
+
+    it('should keep court OCCUPIED + sessionMode unchanged when a SECOND match ends', () => {
+      const manager = createTestCourtManager({ persistence: stateStore });
+      const court = manager.createClubCourt('Repeat Court');
+      manager.activateCourt(court.id);
+      manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+
+      manager.onClubSessionEnd = jest.fn();
+
+      // Win a match
+      for (let i = 0; i < 11; i++) {
+        manager.recordPoint(court.id, 'A');
+      }
+      let updated = manager.getCourt(court.id);
+      expect((updated as any)!.clubStatus).toBe('OCCUPIED');
+
+      // Reset and win a second match — court MUST STILL stay OCCUPIED
+      manager.resetMatch(court.id);
+      for (let i = 0; i < 11; i++) {
+        manager.recordPoint(court.id, 'B');
+      }
+      updated = manager.getCourt(court.id);
+      expect((updated as any)!.clubStatus).toBe('OCCUPIED');
+      expect(manager.onClubSessionEnd).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('club courts — auto-finish in recordPoint (LEGACY: removed)', () => {
+    // The auto-end-session behavior that used to live in recordPoint()
+    // has been removed by the club session lifecycle feature. The new
+    // behavior is asserted in 'club session lifecycle — match end in
+    // club mode' above. No placeholder test here — leaving a tautology
+    // test would violate the strict-tdd assertion quality rules.
+  });
+
+  describe('club courts — startFreePlay', () => {
+    it('should return null for non-existent court', () => {
+      const manager = createTestCourtManager({ persistence: stateStore });
+      const result = manager.startFreePlay('non-existent');
+      expect(result).toBeNull();
+    });
+
+    it('should return null for tournament-mode court', () => {
+      const manager = createTestCourtManager({ persistence: stateStore });
+      const court = manager.createCourt('Tournament Court');
+      expect(manager.startFreePlay(court.id)).toBeNull();
+    });
+
+    it('should return null when court is not OCCUPIED (AVAILABLE)', () => {
+      const manager = createTestCourtManager({ persistence: stateStore });
+      const court = manager.createClubCourt('Free Court');
+      expect(manager.startFreePlay(court.id)).toBeNull();
+    });
+
+    it('should return null when court is FINISHED', () => {
+      const manager = createTestCourtManager({ persistence: stateStore });
+      const court = manager.createClubCourt('Finished Court');
+      manager.activateCourt(court.id);
+      manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+      manager.forceEndSession(court.id);
+      expect(manager.startFreePlay(court.id)).toBeNull();
+    });
+
+    it('should set court.sessionMode = "free" and return the new sessionMode', () => {
+      const manager = createTestCourtManager({ persistence: stateStore });
+      const court = manager.createClubCourt('Free Mode Court');
+      manager.activateCourt(court.id);
+      manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+
+      const result = manager.startFreePlay(court.id);
+      expect(result).not.toBeNull();
+      expect(result!.sessionMode).toBe(SESSION_MODE.FREE);
+
+      const updated = manager.getCourt(court.id) as ClubCourt;
+      expect(updated.sessionMode).toBe(SESSION_MODE.FREE);
+      expect(updated.clubStatus).toBe(CLUB_STATUS.OCCUPIED);
+    });
+
+    it('should keep the court OCCUPIED and timer running (occupiedAt preserved)', () => {
+      const manager = createTestCourtManager({ persistence: stateStore });
+      const court = manager.createClubCourt('Timer Court');
+      manager.activateCourt(court.id);
+      manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+
+      const before = (manager.getCourt(court.id) as ClubCourt).occupiedAt;
+      manager.startFreePlay(court.id);
+      const after = (manager.getCourt(court.id) as ClubCourt).occupiedAt;
+
+      expect(after).toBe(before);
+      expect((manager.getCourt(court.id) as ClubCourt).clubStatus).toBe(CLUB_STATUS.OCCUPIED);
+    });
+
+    it('should be idempotent — calling twice keeps sessionMode="free"', () => {
+      const manager = createTestCourtManager({ persistence: stateStore });
+      const court = manager.createClubCourt('Idempotent Free');
+      manager.activateCourt(court.id);
+      manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+
+      const first = manager.startFreePlay(court.id);
+      const second = manager.startFreePlay(court.id);
+
+      expect(first!.sessionMode).toBe(SESSION_MODE.FREE);
+      expect(second!.sessionMode).toBe(SESSION_MODE.FREE);
+      expect((manager.getCourt(court.id) as ClubCourt).sessionMode).toBe(SESSION_MODE.FREE);
+    });
+
+    it('should transition from match mode to free mode', () => {
+      const manager = createTestCourtManager({ persistence: stateStore });
+      const court = manager.createClubCourt('MatchToFree');
+      manager.activateCourt(court.id);
+      manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+      (manager.getCourt(court.id) as ClubCourt).sessionMode = SESSION_MODE.MATCH;
+
+      const result = manager.startFreePlay(court.id);
+      expect(result!.sessionMode).toBe(SESSION_MODE.FREE);
+      expect((manager.getCourt(court.id) as ClubCourt).sessionMode).toBe(SESSION_MODE.FREE);
+    });
+  });
+
+  describe('club courts — resetMatch', () => {
+    it('should return null for non-existent court', () => {
+      const manager = createTestCourtManager({ persistence: stateStore });
+      expect(manager.resetMatch('non-existent')).toBeNull();
+    });
+
+    it('should return null for tournament-mode court', () => {
+      const manager = createTestCourtManager({ persistence: stateStore });
+      const court = manager.createCourt('Tourney');
+      expect(manager.resetMatch(court.id)).toBeNull();
+    });
+
+    it('should return null when court is not OCCUPIED', () => {
+      const manager = createTestCourtManager({ persistence: stateStore });
+      const court = manager.createClubCourt('Not Occupied');
+      expect(manager.resetMatch(court.id)).toBeNull();
+    });
+
+    it('should zero scores and return a LIVE matchState when invoked mid-match', () => {
+      const manager = createTestCourtManager({ persistence: stateStore });
+      const court = manager.createClubCourt('Reset MidMatch');
+      manager.activateCourt(court.id);
+      manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+
+      // Score some points — non-trivial setup so the zeroing is provable.
+      manager.recordPoint(court.id, 'A');
+      manager.recordPoint(court.id, 'A');
+      manager.recordPoint(court.id, 'B');
+      const before = manager.getMatchState(court.id) as any;
+      expect(before.score.currentSet.a).toBeGreaterThan(0);
+
+      (manager.getCourt(court.id) as ClubCourt).sessionMode = SESSION_MODE.MATCH;
+      const reset = manager.resetMatch(court.id);
+
+      expect(reset).not.toBeNull();
+      const state = reset!.matchState as any;
+      // TT state shape: score.currentSet.{a,b}
+      expect(state.score.currentSet.a).toBe(0);
+      expect(state.score.currentSet.b).toBe(0);
+      expect(state.score.sets.a).toBe(0);
+      expect(state.score.sets.b).toBe(0);
+      expect(state.status).toBe('LIVE');
+      expect(state.winner).toBeNull();
+    });
+
+    it('should zero scores when invoked POST-match (court stays OCCUPIED)', () => {
+      const manager = createTestCourtManager({ persistence: stateStore });
+      const court = manager.createClubCourt('Reset PostMatch');
+      manager.activateCourt(court.id);
+      manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+
+      // Win the match
+      for (let i = 0; i < 11; i++) {
+        manager.recordPoint(court.id, 'A');
+      }
+      const finished = manager.getMatchState(court.id) as any;
+      expect(finished.status).toBe('FINISHED');
+      expect(finished.winner).toBe('A');
+
+      (manager.getCourt(court.id) as ClubCourt).sessionMode = SESSION_MODE.MATCH;
+      const reset = manager.resetMatch(court.id);
+
+      expect(reset).not.toBeNull();
+      const state = reset!.matchState as any;
+      expect(state.status).toBe('LIVE');
+      expect(state.winner).toBeNull();
+      expect(state.score.currentSet.a).toBe(0);
+      expect(state.score.currentSet.b).toBe(0);
+
+      // Court remained OCCUPIED throughout.
+      const updated = manager.getCourt(court.id) as ClubCourt;
+      expect(updated.clubStatus).toBe(CLUB_STATUS.OCCUPIED);
+    });
+
+    it('should preserve sessionMode when resetting (match mode stays match)', () => {
+      const manager = createTestCourtManager({ persistence: stateStore });
+      const court = manager.createClubCourt('Reset KeepMode');
+      manager.activateCourt(court.id);
+      manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+      (manager.getCourt(court.id) as ClubCourt).sessionMode = SESSION_MODE.MATCH;
+
+      manager.resetMatch(court.id);
+
+      const updated = manager.getCourt(court.id) as ClubCourt;
+      expect(updated.sessionMode).toBe(SESSION_MODE.MATCH);
+    });
+
+    it('should keep the same court.playerNames after a reset', () => {
+      const manager = createTestCourtManager({ persistence: stateStore });
+      const court = manager.createClubCourt('Reset KeepNames');
+      manager.activateCourt(court.id);
+      manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+      // Customize player names so the test is non-trivial
+      manager.configureMatch(court.id, {
+        playerNames: { a: 'Alice Reset', b: 'Bob Reset' },
+      });
+
+      manager.resetMatch(court.id);
+
+      const updated = manager.getCourt(court.id) as ClubCourt;
+      expect(updated.playerNames).toEqual({ a: 'Alice Reset', b: 'Bob Reset' });
+    });
+  });
+
+  describe('club courts — newMatch', () => {
+    it('should return null for non-existent court', () => {
+      const manager = createTestCourtManager({ persistence: stateStore });
+      expect(manager.newMatch('non-existent', { playerNameA: 'A', playerNameB: 'B' })).toBeNull();
+    });
+
+    it('should return null for tournament-mode court', () => {
+      const manager = createTestCourtManager({ persistence: stateStore });
+      const court = manager.createCourt('Tourney');
+      expect(manager.newMatch(court.id, { playerNameA: 'A', playerNameB: 'B' })).toBeNull();
+    });
+
+    it('should return null when court is not OCCUPIED', () => {
+      const manager = createTestCourtManager({ persistence: stateStore });
+      const court = manager.createClubCourt('NotOccupied');
+      expect(manager.newMatch(court.id, { playerNameA: 'A', playerNameB: 'B' })).toBeNull();
+    });
+
+    it('should set sessionMode="match", update playerNames, and start a fresh LIVE match with zeroed scores', () => {
+      const manager = createTestCourtManager({ persistence: stateStore });
+      const court = manager.createClubCourt('NewMatch Flow');
+      manager.activateCourt(court.id);
+      manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+
+      // Win a first match
+      for (let i = 0; i < 11; i++) {
+        manager.recordPoint(court.id, 'A');
+      }
+      expect((manager.getMatchState(court.id) as any).status).toBe('FINISHED');
+
+      const result = manager.newMatch(court.id, {
+        playerNameA: 'Carlos',
+        playerNameB: 'Daniela',
+      });
+
+      expect(result).not.toBeNull();
+      const state = result!.matchState as any;
+      expect(state.status).toBe('LIVE');
+      expect(state.winner).toBeNull();
+      expect(state.score.currentSet.a).toBe(0);
+      expect(state.score.currentSet.b).toBe(0);
+
+      const updated = manager.getCourt(court.id) as ClubCourt;
+      expect(updated.sessionMode).toBe(SESSION_MODE.MATCH);
+      expect(updated.playerNames).toEqual({ a: 'Carlos', b: 'Daniela' });
+      expect(updated.clubStatus).toBe(CLUB_STATUS.OCCUPIED);
+    });
+
+    it('should work starting from free play — transitions free -> match', () => {
+      const manager = createTestCourtManager({ persistence: stateStore });
+      const court = manager.createClubCourt('FreeToMatch');
+      manager.activateCourt(court.id);
+      manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+      manager.startFreePlay(court.id);
+      expect((manager.getCourt(court.id) as ClubCourt).sessionMode).toBe(SESSION_MODE.FREE);
+
+      const result = manager.newMatch(court.id, {
+        playerNameA: 'Newbie A',
+        playerNameB: 'Newbie B',
+      });
+
+      expect(result).not.toBeNull();
+      const updated = manager.getCourt(court.id) as ClubCourt;
+      expect(updated.sessionMode).toBe(SESSION_MODE.MATCH);
+      expect(updated.playerNames).toEqual({ a: 'Newbie A', b: 'Newbie B' });
     });
   });
 
@@ -983,7 +1270,7 @@ describe('CourtManager with StateStore', () => {
       expect(payload.courts[0].currentScore!.a).toBeGreaterThan(0);
     });
 
-    it('returns winner when match is finished', () => {
+    it('returns winner when match is finished (court stays OCCUPIED)', () => {
       const manager = createTestCourtManager({ persistence: stateStore });
       const court = manager.createClubCourt('Winner Court');
       manager.activateCourt(court.id);
@@ -994,13 +1281,14 @@ describe('CourtManager with StateStore', () => {
         manager.recordPoint(court.id, 'A');
       }
 
-      // The match auto-finishes and auto-ends session
-      // Winner should be set in the payload
+      // Per the club session lifecycle spec, the match finishing does NOT
+      // auto-end the session. The court stays OCCUPIED and the kiosk
+      // shows the winner while waiting for the next player action.
       const payload = manager.getClubKioskPayload(null);
       const info = payload.courts.find((c: any) => c.id === court.id);
       expect(info).toBeDefined();
-      // After auto-end session, clubStatus should be FINISHED
-      expect(payload.courts[0].status).toBe(CLUB_STATUS.FINISHED);
+      expect(info!.status).toBe(CLUB_STATUS.OCCUPIED);
+      expect(info!.winner).toBe('A');
     });
   });
 

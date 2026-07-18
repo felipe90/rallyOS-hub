@@ -237,6 +237,8 @@ export interface CourtInfo {
   mode?: CourtMode;
   /** Club-specific status — only present when mode === 'club' */
   clubStatus?: ClubStatus;
+  /** Club session mode — only meaningful when mode === 'club' and status === 'OCCUPIED'. Undefined for tournament courts and unoccupied club courts. */
+  sessionMode?: SessionMode;
 }
 
 export interface CourtInfoWithPin extends CourtInfo {
@@ -272,6 +274,18 @@ export const COURT_MODE = {
 /** Court mode discriminator — derived from COURT_MODE const */
 export type CourtMode = (typeof COURT_MODE)[keyof typeof COURT_MODE];
 
+/**
+ * Session mode const — use instead of magic strings.
+ * Only meaningful for club courts in OCCUPIED state.
+ */
+export const SESSION_MODE = {
+  FREE: 'free',
+  MATCH: 'match',
+} as const;
+
+/** Session mode discriminator — derived from SESSION_MODE const */
+export type SessionMode = (typeof SESSION_MODE)[keyof typeof SESSION_MODE];
+
 /** Club configuration — persisted to disk */
 export interface ClubConfig {
   clubName: string;
@@ -297,6 +311,8 @@ export interface ClubKioskCourtInfo {
   playerNames?: { a: string; b: string };
   currentScore?: { a: number; b: number };
   winner?: string | null;
+  /** Club session mode — present when status === 'OCCUPIED'. Undefined otherwise. */
+  sessionMode?: SessionMode;
 }
 
 /** Club kiosk payload — emitted via CLUB_KIOSK_DATA server event */
@@ -312,6 +328,8 @@ export interface ClubCourtInfo {
   status: ClubStatus;
   mode: CourtMode;
   pin?: string;
+  /** Club session mode — present when status === 'OCCUPIED'. Undefined for AVAILABLE/RESERVED/FINISHED. */
+  sessionMode?: SessionMode;
 }
 
 // ── QR Data ─────────────────────────────────────────────────────────

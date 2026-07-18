@@ -12,7 +12,7 @@
 
 import crypto from 'crypto';
 import { MatchEngine } from './matchEngine';
-import { Court, TournamentCourt, ClubCourt, isClubCourt, isTournamentCourt, CourtInfo, CourtInfoWithPin, Player, MatchConfig, MatchStateExtended, QRData, Sport, SPORT, COURT_MODE, TournamentStatus, ClubStatus, CLUB_STATUS } from './types';
+import { Court, TournamentCourt, ClubCourt, isClubCourt, isTournamentCourt, CourtInfo, CourtInfoWithPin, Player, MatchConfig, MatchStateExtended, QRData, Sport, SPORT, COURT_MODE, TournamentStatus, ClubStatus, CLUB_STATUS, SessionMode, SESSION_MODE } from './types';
 import { AllHistoryEntry, ClubKioskPayload, ClubKioskCourtInfo, ClubConfig } from '../../../shared/types';
 import { logger } from '../utils/logger';
 import { sanitizeInput } from '../utils/validation';
@@ -501,15 +501,151 @@ export class CourtManager {
       this.notifyUpdate(court);
     }
 
-    // Auto-finish: if the match just ended on a club OCCUPIED court, end the session
-    if (isClubCourt(court) && court.clubStatus === CLUB_STATUS.OCCUPIED) {
-      const matchState = court.sportRules.getState();
-      if (matchState.status === 'FINISHED') {
-        this.endSession(courtId, 'auto');
-      }
-    }
+    // Club session lifecycle: when a match finishes on a club OCCUPIED
+    // court, the court STAYS OCCUPIED. The session continues until the
+    // player emits CLUB_END_SESSION or the admin force-ends via
+    // CLUB_FORCE_END. The previous auto-endSession('auto') call has been
+    // intentionally removed — see docs/club-session-lifecycle-feature.md.
 
     return state;
+  }
+
+  // ── Club Session Lifecycle ──────────────────────────────────────────
+
+  /**
+   * Switch a club court to "free" session mode.
+   *
+   * Validates that the court exists, is a club-mode court, and is
+   * currently OCCUPIED. On success, sets `court.sessionMode = 'free'`,
+   * leaves the court in OCCUPIED state with the timer running, and
+   * returns the new session mode.
+   *
+   * @returns `{ sessionMode: 'free' }` on success, null on failure.
+   */
+  startFreePlay(courtId: string): { sessionMode: SessionMode } | null {
+    const court = this.repository.get(courtId);
+    if (!court || !isClubCourt(court)) return null;
+    if (court.clubStatus !== CLUB_STATUS.OCCUPIED) return null;
+
+    court.sessionMode = SESSION_MODE.FREE;
+
+    logger.info({ courtId, courtName: court.name }, 'Club court entered free mode');
+    this.notifyUpdate(court);
+
+    return { sessionMode: SESSION_MODE.FREE };
+  }
+
+  /**
+   * Reset the match on a club court to 0-0 with the same config and
+   * player names. Used by the post-match "Reset" action.
+   *
+   * Validates that the court is a club OCCUPIED court. Returns the
+   * fresh LIVE match state with zeroed scores. The court stays OCCUPIED
+   * and the sessionMode is preserved (calling resetMatch does NOT
+   * change free↔match — if the court was in match mode it stays in
+   * match mode; if it was in free mode it stays in free mode).
+   *
+   * @returns `{ matchState }` on success, null on failure.
+   */
+  resetMatch(courtId: string): { matchState: MatchStateExtended } | null {
+    const court = this.repository.get(courtId);
+    if (!court || !isClubCourt(court)) return null;
+    if (court.clubStatus !== CLUB_STATUS.OCCUPIED) return null;
+
+    // Reuse the CURRENT match config (preserve points per set, best of,
+    // handicap, sport). If no config is present (e.g., court was in free
+    // mode with no prior match), fall back to the default table-tennis
+    // config — the spec ties resetMatch to a concluded match.
+    const currentConfig = court.sportRules.getConfig();
+    const config: MatchConfig = currentConfig
+      ? { ...currentConfig }
+      : { sport: SPORT.TABLE_TENNIS, pointsPerSet: 11, bestOf: 1, minDifference: 2 };
+
+    // Re-create the engine with the same config and SAME player names.
+    // This zeroes all scores and returns the match to LIVE.
+    const matchState = this.matchOrchestrator.startMatch(court, {
+      ...config,
+      ...(court.playerNames.a ? { playerNameA: court.playerNames.a } : {}),
+      ...(court.playerNames.b ? { playerNameB: court.playerNames.b } : {}),
+    });
+
+    if (!matchState) return null;
+
+    // Rewire event callback (startMatch replaces the engine).
+    court.sportRules.setEventCallback((event: any) => {
+      this.onMatchEvent(courtId, event);
+    });
+
+    // The orchestrator's startMatch sets match status to LIVE; update
+    // the runtime court playerNames from the resulting matchState
+    // because MatchEngine's startMatch may copy defaults when names
+    // are missing. Reset to the existing stored names explicitly.
+    if (court.playerNames.a || court.playerNames.b) {
+      court.playerNames = { ...court.playerNames };
+      court.sportRules.setPlayerNames({ ...court.playerNames });
+    }
+
+    logger.info({ courtId, courtName: court.name }, 'Club court match reset to 0-0');
+    this.notifyUpdate(court);
+
+    return { matchState };
+  }
+
+  /**
+   * Start a new match on a club court with new player names. Used by the
+   * post-match "New Match" action and by the "Jugar partido" flow from
+   * free mode.
+   *
+   * Validates that the court is a club OCCUPIED court. Updates player
+   * names, sets `sessionMode = 'match'`, and starts a fresh match with
+   * zeroed scores using the existing config (or the default TT config
+   * when none has been configured yet).
+   *
+   * @returns `{ matchState }` on success, null on failure.
+   */
+  newMatch(
+    courtId: string,
+    params: { playerNameA: string; playerNameB: string },
+  ): { matchState: MatchStateExtended } | null {
+    const court = this.repository.get(courtId);
+    if (!court || !isClubCourt(court)) return null;
+    if (court.clubStatus !== CLUB_STATUS.OCCUPIED) return null;
+
+    // Update player names on the court
+    court.playerNames = { a: params.playerNameA, b: params.playerNameB };
+    court.sessionMode = SESSION_MODE.MATCH;
+
+    // Reuse the existing config when one exists; otherwise default to
+    // table-tennis bestOf=1. configureMatch is NOT called here because
+    // the post-match "new match" flow only allows changing playerNames
+    // (the match config UI is opened by the client separately when the
+    // user wants different points/sets/handicap — that path will
+    // eventually hit configureMatch directly in PR 2).
+    const currentConfig = court.sportRules.getConfig();
+    const config: MatchConfig = currentConfig
+      ? { ...currentConfig }
+      : { sport: SPORT.TABLE_TENNIS, pointsPerSet: 11, bestOf: 1, minDifference: 2 };
+
+    const matchState = this.matchOrchestrator.startMatch(court, {
+      ...config,
+      playerNameA: params.playerNameA,
+      playerNameB: params.playerNameB,
+    });
+
+    if (!matchState) return null;
+
+    // Rewire event callback (startMatch replaces the engine).
+    court.sportRules.setEventCallback((event: any) => {
+      this.onMatchEvent(courtId, event);
+    });
+
+    logger.info(
+      { courtId, courtName: court.name, playerNameA: params.playerNameA, playerNameB: params.playerNameB },
+      'Club court new match started',
+    );
+    this.notifyUpdate(court);
+
+    return { matchState };
   }
 
   subtractPoint(courtId: string, player: Player): MatchStateExtended | null {

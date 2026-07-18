@@ -101,6 +101,12 @@ export const SocketEvents = {
     CLUB_FREE_STARTED: 'CLUB_FREE_STARTED',
     CLUB_MATCH_RESET: 'CLUB_MATCH_RESET',
     CLUB_SESSION_TIMER: 'CLUB_SESSION_TIMER',
+    // PR 3 — dedicated confirmation signal for player-initiated
+    // CLUB_END_SESSION. Previously the server reused CLUB_SESSION_TIMER to
+    // carry the end-session confirmation payload, which forced the client to
+    // disambiguate a periodic sync from a confirmation. CLUB_END_SESSION_CONFIRM
+    // is S→C only and carries the same `{ courtId, elapsedSeconds }` payload.
+    CLUB_END_SESSION_CONFIRM: 'CLUB_END_SESSION_CONFIRM',
   },
 } as const;
 

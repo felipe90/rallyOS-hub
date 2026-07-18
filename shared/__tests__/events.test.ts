@@ -51,6 +51,13 @@ describe('Club session lifecycle — server → client events', () => {
     expect(SocketEvents.SERVER.CLUB_SESSION_TIMER).toBe('CLUB_SESSION_TIMER');
   });
 
+  // PR 3 event swap — dedicated confirmation signal so the client no longer
+  // has to infer confirmation from a periodic CLUB_SESSION_TIMER frame.
+  test('CLUB_END_SESSION_CONFIRM event name is registered', () => {
+    expect(SocketEvents.SERVER.CLUB_END_SESSION_CONFIRM).toBeDefined();
+    expect(SocketEvents.SERVER.CLUB_END_SESSION_CONFIRM).toBe('CLUB_END_SESSION_CONFIRM');
+  });
+
   test('original club server events remain intact', () => {
     expect(SocketEvents.SERVER.CLUB_SESSION_ENDED).toBe('CLUB_SESSION_ENDED');
     expect(SocketEvents.SERVER.CLUB_RECONNECT_RESULT).toBe('CLUB_RECONNECT_RESULT');
@@ -76,11 +83,21 @@ describe('Club session lifecycle — event name uniqueness', () => {
       SocketEvents.SERVER.CLUB_FREE_STARTED,
       SocketEvents.SERVER.CLUB_MATCH_RESET,
       SocketEvents.SERVER.CLUB_SESSION_TIMER,
+      SocketEvents.SERVER.CLUB_END_SESSION_CONFIRM,
     ];
     for (const ev of newEvents) {
       // The event name can legitimately appear exactly once (itself).
       const occurrences = allValues.filter((v) => v === ev).length;
       expect(occurrences).toBe(1);
     }
+  });
+
+  // PR 3 event swap — explicitly assert the new confirm event is distinct
+  // from CLUB_SESSION_TIMER so the client can disambiguate a confirmation
+  // signal from a periodic timer sync.
+  test('CLUB_END_SESSION_CONFIRM is distinct from CLUB_SESSION_TIMER', () => {
+    expect(SocketEvents.SERVER.CLUB_END_SESSION_CONFIRM).not.toBe(
+      SocketEvents.SERVER.CLUB_SESSION_TIMER,
+    );
   });
 });

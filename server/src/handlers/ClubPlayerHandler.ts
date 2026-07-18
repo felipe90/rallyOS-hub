@@ -248,8 +248,10 @@ export class ClubPlayerHandler extends SocketHandlerBase {
     //
     // Spec scenarios 4, 5, 6:
     //   - first emit WITHOUT confirm → server computes elapsedSeconds and
-    //     emits CLUB_SESSION_TIMER to the requesting socket so the client
-    //     renders the confirmation modal. Court STAYS OCCUPIED (timer runs).
+    //     emits CLUB_END_SESSION_CONFIRM to the requesting socket so the
+    //     client renders the confirmation modal. Court STAYS OCCUPIED (timer
+    //     runs). PR 3 event swap — previously reused CLUB_SESSION_TIMER, which
+    //     conflated confirmation with periodic sync.
     //   - emit with confirm=true → server transitions to FINISHED and the
     //     onClubSessionEnd callback broadcasts CLUB_SESSION_ENDED with
     //     elapsedSeconds/elapsedMinutes.
@@ -285,7 +287,7 @@ export class ClubPlayerHandler extends SocketHandlerBase {
         const elapsedSeconds = court.occupiedAt
           ? Math.max(0, Math.floor((now - court.occupiedAt) / 1000))
           : 0;
-        socket.emit(SocketEvents.SERVER.CLUB_SESSION_TIMER, {
+        socket.emit(SocketEvents.SERVER.CLUB_END_SESSION_CONFIRM, {
           courtId: court.id,
           elapsedSeconds,
         });

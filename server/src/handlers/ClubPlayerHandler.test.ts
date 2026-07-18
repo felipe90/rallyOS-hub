@@ -1042,10 +1042,17 @@ describe('ClubPlayerHandler — CLUB_END_SESSION confirmation flow (spec scenari
     const court = courtManager.getCourt(courtId) as any;
     expect(court.clubStatus).toBe('OCCUPIED');
 
-    // Server emits CLUB_SESSION_TIMER to the socket to drive the confirmation modal
+    // Server emits CLUB_END_SESSION_CONFIRM to the socket to drive the
+    // confirmation modal (PR 3 event swap — previously reused
+    // CLUB_SESSION_TIMER, which conflated confirmation with periodic sync).
     expect(socket.emit).toHaveBeenCalledWith(
-      SocketEvents.SERVER.CLUB_SESSION_TIMER,
+      SocketEvents.SERVER.CLUB_END_SESSION_CONFIRM,
       expect.objectContaining({ courtId, elapsedSeconds: expect.any(Number) }),
+    );
+    // Server MUST NOT reuse CLUB_SESSION_TIMER for confirmation anymore.
+    expect(socket.emit).not.toHaveBeenCalledWith(
+      SocketEvents.SERVER.CLUB_SESSION_TIMER,
+      expect.objectContaining({ courtId }),
     );
 
     // Server did NOT broadcast CLUB_SESSION_ENDED

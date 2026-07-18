@@ -317,4 +317,35 @@ describe('SocketHandler.onMatchEvent — club MATCH_WON keeps OCCUPIED and emits
       }),
     );
   });
+
+  it('scenario 9: all players disconnect — court stays OCCUPIED, players empty, occupiedAt preserved (timer continues)', () => {
+    const { courtManager } = buildMatchHandler();
+    const court = courtManager.createClubCourt('Disconnect Court');
+    courtManager.activateCourt(court.id);
+    courtManager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+    const occupiedAtBefore = (courtManager.getCourt(court.id) as ClubCourt).occupiedAt;
+
+    // Register a player socket as referee so it appears in court.players
+    const playerSocketId = 'player-disconnect-socket';
+    courtManager.registerClubReferee(court.id, playerSocketId);
+    expect((courtManager.getCourt(court.id) as ClubCourt).players.length).toBeGreaterThan(0);
+
+    // Simulate the disconnect path used by SocketHandler disconnect handler:
+    // for each court where the socket is a player, remove it.
+    const allCourts = courtManager.getAllCourts();
+    for (const c of allCourts) {
+      const courtObj = courtManager.getCourt(c.id);
+      if (courtObj?.players.some(p => p.socketId === playerSocketId)) {
+        courtManager.leaveTable(c.id, playerSocketId);
+      }
+    }
+
+    const updated = courtManager.getCourt(court.id) as ClubCourt;
+    // Spec scenario 9: court stays OCCUPIED (no auto-terminate)
+    expect(updated.clubStatus).toBe(CLUB_STATUS.OCCUPIED);
+    // "sin jugadores": no remaining players
+    expect(updated.players).toEqual([]);
+    // Timer continues — occupiedAt is preserved
+    expect(updated.occupiedAt).toBe(occupiedAtBefore);
+  });
 });

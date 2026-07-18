@@ -11,7 +11,7 @@
  */
 
 import { ScoreChange, TournamentStatus } from '../../../../shared/types';
-import type { MatchConfig } from '../../../../shared/types';
+import type { MatchConfig, SessionMode } from '../../../../shared/types';
 
 /**
  * Serializable match state for persistence.
@@ -77,6 +77,12 @@ export interface PersistedClubCourt {
   matchState: PersistedMatchState | null;
   config: Record<string, unknown> | null;
   history: Record<string, unknown>[];
+  /**
+   * PR 2 — persisted session mode for the club court.
+   * Optional so that legacy v3 files (written before this field existed)
+   * still parse cleanly; loadTournament falls back to `null` when absent.
+   */
+  sessionMode?: SessionMode | null;
 }
 
 /**

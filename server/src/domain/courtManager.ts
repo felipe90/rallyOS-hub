@@ -922,6 +922,9 @@ export class CourtManager {
       },
       config: null,
       history: court.history as unknown as Record<string, unknown>[],
+      // PR 2 risk fix (a) — persist sessionMode so a mid-session server
+      // restart does not lose free/match context.
+      sessionMode: court.sessionMode,
     };
   }
 
@@ -1043,7 +1046,9 @@ export class CourtManager {
           players: [],
           createdAt: pt.createdAt,
           featured: false,
-          sessionMode: null,
+          // PR 2 risk fix (a) — restore persisted sessionMode; legacy v3
+          // files written before this field existed fall back to null.
+          sessionMode: (pt as PersistedClubCourt).sessionMode ?? null,
         };
 
         // Wire callbacks so Socket.io events work after restoration

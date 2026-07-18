@@ -1366,4 +1366,118 @@ describe('CourtManager with StateStore', () => {
       expect(remaining.every(c => c.mode === 'club')).toBe(true);
     });
   });
+
+  // ── PR 2 risk fix (a): persist sessionMode ───────────────────────────
+
+  describe('club courts — sessionMode round-trip (PR 2 risk fix a)', () => {
+    it('should persist sessionMode="free" in toPersistedClubCourt after startFreePlay', () => {
+      const fs = makeFs();
+      const store = new StateStore(fs, 'data/rallyos-state.json');
+      const manager = createTestCourtManager({ persistence: store });
+
+      const court = manager.createClubCourt('Free Persist');
+      manager.activateCourt(court.id);
+      manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+      manager.startFreePlay(court.id);
+
+      const savedContent = fs._files.get('data/rallyos-state.json');
+      expect(savedContent).toBeDefined();
+      const parsed = JSON.parse(savedContent!);
+      const persisted = parsed.clubCourts.find((t: any) => t.id === court.id);
+      expect(persisted).toBeDefined();
+      expect(persisted.sessionMode).toBe('free');
+    });
+
+    it('should persist sessionMode="match" in toPersistedClubCourt after newMatch', () => {
+      const fs = makeFs();
+      const store = new StateStore(fs, 'data/rallyos-state.json');
+      const manager = createTestCourtManager({ persistence: store });
+
+      const court = manager.createClubCourt('Match Persist');
+      manager.activateCourt(court.id);
+      manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+      manager.newMatch(court.id, { playerNameA: 'A', playerNameB: 'B' });
+
+      const savedContent = fs._files.get('data/rallyos-state.json');
+      const parsed = JSON.parse(savedContent!);
+      const persisted = parsed.clubCourts.find((t: any) => t.id === court.id);
+      expect(persisted.sessionMode).toBe('match');
+    });
+
+    it('should restore sessionMode from persisted state on loadTournament', () => {
+      const fs = makeFs();
+      // Seed a v3 state file with an OCCUPIED club court and sessionMode=free
+      fs._files.set(
+        'data/rallyos-state.json',
+        JSON.stringify({
+          version: 3,
+          savedAt: Date.now(),
+          tournamentCourts: [],
+          clubCourts: [
+            {
+              id: 'club-rt',
+              number: 1,
+              name: 'Restore Court',
+              kind: 'club',
+              clubStatus: 'OCCUPIED',
+              occupiedAt: 1700000000000,
+              pin: '1234',
+              playerNames: { a: 'Alice', b: 'Bob' },
+              createdAt: 1700000000000,
+              matchState: null,
+              config: null,
+              history: [],
+              sessionMode: 'free',
+            },
+          ],
+        }),
+      );
+
+      const store = new StateStore(fs, 'data/rallyos-state.json');
+      const manager = createTestCourtManager({ persistence: store });
+      const loaded = manager.loadTournament();
+      expect(loaded).toBe(true);
+
+      const restored = manager.getCourt('club-rt') as ClubCourt;
+      expect(restored).toBeDefined();
+      expect(restored.sessionMode).toBe('free');
+    });
+
+    it('should default sessionMode to null when a legacy v3 file omits it', () => {
+      const fs = makeFs();
+      fs._files.set(
+        'data/rallyos-state.json',
+        JSON.stringify({
+          version: 3,
+          savedAt: Date.now(),
+          tournamentCourts: [],
+          clubCourts: [
+            {
+              id: 'club-legacy',
+              number: 1,
+              name: 'Legacy Court',
+              kind: 'club',
+              clubStatus: 'OCCUPIED',
+              occupiedAt: 1700000000000,
+              pin: '1234',
+              playerNames: { a: 'Alice', b: 'Bob' },
+              createdAt: 1700000000000,
+              matchState: null,
+              config: null,
+              history: [],
+              // NOTE: no sessionMode field (mimics a pre-PR-2 v3 file)
+            },
+          ],
+        }),
+      );
+
+      const store = new StateStore(fs, 'data/rallyos-state.json');
+      const manager = createTestCourtManager({ persistence: store });
+      manager.loadTournament();
+
+      const restored = manager.getCourt('club-legacy') as ClubCourt;
+      expect(restored).toBeDefined();
+      expect(restored.sessionMode).toBeNull();
+    });
+  });
 });

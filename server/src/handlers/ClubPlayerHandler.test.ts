@@ -341,6 +341,59 @@ describe('ClubPlayerHandler — CLUB_RECONNECT', () => {
     expect(result.matchState.status).toBe('LIVE');
   });
 
+  // ── Spec: CLUB_RECONNECT — sessionMode + elapsedSeconds ───────────
+
+  it('should include sessionMode and elapsedSeconds in successful reconnect result (spec scenario 7/8)', () => {
+    const reconnectHandler = (socket.on as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_RECONNECT,
+    );
+    reconnectHandler[1]({ courtId, pin: courtPin });
+
+    const emitCall = (socket.emit as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.SERVER.CLUB_RECONNECT_RESULT,
+    );
+    const result = emitCall![1];
+    expect(result.success).toBe(true);
+    expect(result).toHaveProperty('sessionMode');
+    expect(result).toHaveProperty('elapsedSeconds');
+    expect(typeof result.elapsedSeconds).toBe('number');
+    expect(result.elapsedSeconds).toBeGreaterThanOrEqual(0);
+  });
+
+  it('should return sessionMode="free" when reconnecting during free play (spec scenario 8)', () => {
+    // Switch the court to free mode before reconnecting
+    courtManager.startFreePlay(courtId);
+
+    const reconnectHandler = (socket.on as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_RECONNECT,
+    );
+    reconnectHandler[1]({ courtId, pin: courtPin });
+
+    const emitCall = (socket.emit as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.SERVER.CLUB_RECONNECT_RESULT,
+    );
+    const result = emitCall![1];
+    expect(result.sessionMode).toBe('free');
+    expect(result.elapsedSeconds).toBeGreaterThanOrEqual(0);
+  });
+
+  it('should return sessionMode="match" when reconnecting during an active match (spec scenario 7)', () => {
+    // Switch the court to match mode (newMatch sets sessionMode='match')
+    courtManager.newMatch(courtId, { playerNameA: 'Alice', playerNameB: 'Bob' });
+
+    const reconnectHandler = (socket.on as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_RECONNECT,
+    );
+    reconnectHandler[1]({ courtId, pin: courtPin });
+
+    const emitCall = (socket.emit as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.SERVER.CLUB_RECONNECT_RESULT,
+    );
+    const result = emitCall![1];
+    expect(result.sessionMode).toBe('match');
+    expect(result.elapsedSeconds).toBeGreaterThanOrEqual(0);
+  });
+
   it('should register socket as referee on success', () => {
     const reconnectHandler = (socket.on as jest.Mock).mock.calls.find(
       ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_RECONNECT,

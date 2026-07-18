@@ -17,6 +17,7 @@ import { SocketEvents } from '../../../shared/events';
 import { PIN_RULES } from '../../../shared/validation';
 import { SPORT, CLUB_STATUS } from '../../../shared/types';
 import { isClubCourt } from '../domain/types';
+import type { ClubCourt } from '../domain/types';
 import { SocketHandlerBase } from './SocketHandlerBase';
 import { PinRateLimiter } from '../services/security/PinRateLimiter';
 
@@ -215,14 +216,26 @@ export class ClubPlayerHandler extends SocketHandlerBase {
       // Get current match state
       const matchState = this.tableManager.getMatchState(court.id);
 
+      // Spec: CLUB_RECONNECT MUST return sessionMode and elapsedSeconds so the
+      // client can render the correct mode (free vs match) and the running
+      // timer on reconnect. sessionMode is sourced from the in-memory ClubCourt
+      // — toPersistedClubCourt persists it (PR 2 fix), so this also covers
+      // reconnect-after-restart once the StateStore reloads the court.
+      const clubCourt = court as ClubCourt;
+      const elapsedSeconds = clubCourt.occupiedAt
+        ? Math.max(0, Math.floor((Date.now() - clubCourt.occupiedAt) / 1000))
+        : 0;
+
       socket.emit(SocketEvents.SERVER.CLUB_RECONNECT_RESULT, {
         success: true,
         courtId: court.id,
         matchState,
+        sessionMode: clubCourt.sessionMode,
+        elapsedSeconds,
       });
 
       logger.info(
-        { courtId: court.id, socketId: socket.id },
+        { courtId: court.id, socketId: socket.id, sessionMode: clubCourt.sessionMode, elapsedSeconds },
         'CLUB_RECONNECT: bridge ownership re-established',
       );
     });

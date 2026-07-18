@@ -146,6 +146,7 @@ export class CourtManager {
       createdAt: Date.now(),
       featured: false,
       occupiedAt: null,
+      sessionMode: null,
     };
 
     court.sportRules.setCourtId(id, courtName);
@@ -905,6 +906,7 @@ export class CourtManager {
           players: [],
           createdAt: pt.createdAt,
           featured: false,
+          sessionMode: null,
         };
 
         // Wire callbacks so Socket.io events work after restoration

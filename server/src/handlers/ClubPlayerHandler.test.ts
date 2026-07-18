@@ -543,11 +543,11 @@ describe('ClubPlayerHandler — CLUB_END_SESSION', () => {
     );
   });
 
-  it('should end session for referee on OCCUPIED court', () => {
+  it('should end session for referee on OCCUPIED court when confirm=true (spec scenario 4)', () => {
     const endSessionHandler = (socket.on as jest.Mock).mock.calls.find(
       ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_END_SESSION,
     );
-    endSessionHandler[1]({ courtId });
+    endSessionHandler[1]({ courtId, confirm: true });
 
     // Court should be FINISHED
     const court = courtManager.getCourt(courtId);
@@ -556,11 +556,11 @@ describe('ClubPlayerHandler — CLUB_END_SESSION', () => {
     expect(court!.pin).toBe('');
   });
 
-  it('should broadcast CLUB_SESSION_ENDED via onClubSessionEnd callback', () => {
+  it('should broadcast CLUB_SESSION_ENDED via onClubSessionEnd callback when confirm=true', () => {
     const endSessionHandler = (socket.on as jest.Mock).mock.calls.find(
       ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_END_SESSION,
     );
-    endSessionHandler[1]({ courtId });
+    endSessionHandler[1]({ courtId, confirm: true });
 
     // The callback should have broadcast CLUB_SESSION_ENDED to the room
     expect(mockIo.to).toHaveBeenCalledWith(courtId);
@@ -570,16 +570,16 @@ describe('ClubPlayerHandler — CLUB_END_SESSION', () => {
     expect(toCall).toBeDefined();
   });
 
-  it('should emit ERROR when court is not OCCUPIED', () => {
+  it('should emit ERROR when court is not OCCUPIED (already ended, with confirm=true)', () => {
     // End the session first
     const endSessionHandler = (socket.on as jest.Mock).mock.calls.find(
       ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_END_SESSION,
     );
-    endSessionHandler[1]({ courtId });
+    endSessionHandler[1]({ courtId, confirm: true });
 
-    // Try to end again — should fail
+    // Try to end again — should fail since court is FINISHED
     (socket.emit as jest.Mock).mockClear();
-    endSessionHandler[1]({ courtId });
+    endSessionHandler[1]({ courtId, confirm: true });
 
     expect(socket.emit).toHaveBeenCalledWith(
       SocketEvents.SERVER.ERROR,
@@ -619,7 +619,7 @@ describe('ClubPlayerHandler — CLUB_END_SESSION', () => {
     const endSessionHandler = (socket.on as jest.Mock).mock.calls.find(
       ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_END_SESSION,
     );
-    endSessionHandler[1]({ courtId });
+    endSessionHandler[1]({ courtId, confirm: true });
 
     // Verify the broadcast payload via the callback
     const emitCalls = (mockIo.to as jest.Mock).mock.results;
@@ -679,7 +679,7 @@ describe('ClubPlayerHandler — CLUB_END_SESSION', () => {
     const endHandler = (freeSocket.on as jest.Mock).mock.calls.find(
       ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_END_SESSION,
     );
-    endHandler[1]({ courtId: freeCourtId });
+    endHandler[1]({ courtId: freeCourtId, confirm: true });
 
     // Verify cost is 0
     const emitMock = mockIo.to(freeCourtId);
@@ -720,7 +720,7 @@ describe('ClubPlayerHandler — CLUB_END_SESSION', () => {
     const endHandler = (usdSocket.on as jest.Mock).mock.calls.find(
       ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_END_SESSION,
     );
-    endHandler[1]({ courtId: usdCourtId });
+    endHandler[1]({ courtId: usdCourtId, confirm: true });
 
     const emitMock = mockIo.to(usdCourtId);
     const emitCall = emitMock.emit.mock.calls.find(
@@ -986,5 +986,127 @@ describe('ClubPlayerHandler — CLUB_NEW_MATCH (spec scenario 2)', () => {
       SocketEvents.SERVER.ERROR,
       expect.objectContaining({ code: 'UNAUTHORIZED' }),
     );
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// CLUB_END_SESSION confirmation flow (spec scenarios 4, 5, 6)
+// ═══════════════════════════════════════════════════════════════
+
+describe('ClubPlayerHandler — CLUB_END_SESSION confirmation flow (spec scenarios 4, 5, 6)', () => {
+  let socket: jest.Mocked<Socket>;
+  let courtId: string;
+
+  beforeEach(() => {
+    mockIo = createMockIo();
+    courtManager = createTestCourtManager();
+    const fakeFs = createFakeFs();
+    // Seed a configured club with costPerMinute for cost assertions
+    fakeFs._files.set(
+      'data/club-config.json',
+      JSON.stringify({
+        clubName: 'Confirm Club',
+        sport: SPORT.TABLE_TENNIS,
+        adminPinHash: 'dummy-hash',
+        configured: true,
+        createdAt: Date.now(),
+        costPerMinute: 50,
+        currency: 'ARS',
+      }),
+    );
+    clubConfigStore = new ClubConfigStore(fakeFs);
+    handler = new ClubPlayerHandler(mockIo, courtManager, OWNER_PIN, clubConfigStore);
+
+    socket = createMockSocket('confirm-socket');
+    handler.registerHandlers(socket);
+
+    const court = courtManager.createClubCourt('Confirm Court');
+    courtId = court.id;
+    courtManager.activateCourt(courtId);
+    courtManager.occupyClubCourt(courtId, SPORT.TABLE_TENNIS);
+    courtManager.registerClubReferee(courtId, socket.id);
+  });
+
+  /**
+   * Spec scenario 5 — Player ends session with confirmation:
+   *   first emit (no confirm) → server emits elapsed, NO transition
+   *   confirm emit → server transitions to FINISHED
+   */
+  it('scenario 5a: first emit WITHOUT confirm stays OCCUPIED and signals confirmation', () => {
+    const endHandler = (socket.on as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_END_SESSION,
+    );
+    endHandler[1]({ courtId }); // no confirm
+
+    // Court stays OCCUPIED
+    const court = courtManager.getCourt(courtId) as any;
+    expect(court.clubStatus).toBe('OCCUPIED');
+
+    // Server emits CLUB_SESSION_TIMER to the socket to drive the confirmation modal
+    expect(socket.emit).toHaveBeenCalledWith(
+      SocketEvents.SERVER.CLUB_SESSION_TIMER,
+      expect.objectContaining({ courtId, elapsedSeconds: expect.any(Number) }),
+    );
+
+    // Server did NOT broadcast CLUB_SESSION_ENDED
+    const emitMock = mockIo.to(courtId);
+    const sessionEndedCall = emitMock.emit.mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.SERVER.CLUB_SESSION_ENDED,
+    );
+    expect(sessionEndedCall).toBeUndefined();
+  });
+
+  it('scenario 5b: confirmation emit with confirm=true transitions court to FINISHED', () => {
+    const endHandler = (socket.on as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_END_SESSION,
+    );
+    endHandler[1]({ courtId }); // first emit — confirmation request
+    endHandler[1]({ courtId, confirm: true }); // second emit — confirm
+
+    const court = courtManager.getCourt(courtId) as any;
+    expect(court.clubStatus).toBe('FINISHED');
+  });
+
+  /**
+   * Spec scenario 4 — Session ends → transitions to FINISHED, emits
+   * CLUB_SESSION_ENDED with elapsedSeconds.
+   */
+  it('scenario 4: confirmed end broadcast includes elapsedSeconds in CLUB_SESSION_ENDED', () => {
+    const endHandler = (socket.on as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_END_SESSION,
+    );
+    endHandler[1]({ courtId, confirm: true });
+
+    const emitMock = mockIo.to(courtId);
+    expect(emitMock.emit).toHaveBeenCalledWith(
+      SocketEvents.SERVER.CLUB_SESSION_ENDED,
+      expect.objectContaining({
+        courtId,
+        elapsedMinutes: expect.any(Number),
+        elapsedSeconds: expect.any(Number),
+        reason: 'player',
+      }),
+    );
+  });
+
+  /**
+   * Spec scenario 6 — Cancel end session:
+   *   player initiated CLUB_END_SESSION confirmation but cancelled; the court
+   *   MUST stay OCCUPIED and the timer MUST continue running (occupiedAt
+   *   preserved).
+   */
+  it('scenario 6: cancel after confirmation request — court stays OCCUPIED and occupiedAt preserved', () => {
+    const court = courtManager.getCourt(courtId) as any;
+    const occupiedAtBefore = court.occupiedAt;
+
+    const endHandler = (socket.on as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_END_SESSION,
+    );
+    endHandler[1]({ courtId }); // confirmation requested
+
+    // Simulate user pressing "Cancelar" — no further emit is sent.
+    const courtAfter = courtManager.getCourt(courtId) as any;
+    expect(courtAfter.clubStatus).toBe('OCCUPIED');
+    expect(courtAfter.occupiedAt).toBe(occupiedAtBefore);
   });
 });

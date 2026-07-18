@@ -46,7 +46,7 @@ export class CourtManager {
   public onTableUpdate: (table: CourtInfo) => void = () => {};
   public onTournamentFinish: () => void = () => {};
   public onMatchEvent: (courtId: string, event: any) => void = () => {};
-  public onClubSessionEnd: (courtId: string, elapsedMinutes: number, reason: string) => void = () => {};
+  public onClubSessionEnd: (courtId: string, elapsedMinutes: number, elapsedSeconds: number, reason: string) => void = () => {};
 
   constructor(deps: CourtManagerDeps) {
     this.repository = deps.repository;
@@ -360,7 +360,7 @@ export class CourtManager {
    *
    * @returns { elapsedMinutes } on success, null on failure.
    */
-  endSession(courtId: string, reason: string): { elapsedMinutes: number } | null {
+  endSession(courtId: string, reason: string): { elapsedMinutes: number; elapsedSeconds: number } | null {
     const court = this.repository.get(courtId);
     if (!court || !isClubCourt(court)) return null;
     if (court.clubStatus !== CLUB_STATUS.OCCUPIED) return null;
@@ -368,15 +368,16 @@ export class CourtManager {
     const now = Date.now();
     const elapsedMs = court.occupiedAt ? now - court.occupiedAt : 0;
     const elapsedMinutes = Math.max(1, Math.ceil(elapsedMs / 60000));
+    const elapsedSeconds = Math.max(0, Math.floor(elapsedMs / 1000));
 
     court.clubStatus = CLUB_STATUS.FINISHED;
     court.pin = '';
 
-    logger.info({ courtId, courtName: court.name, reason, elapsedMinutes }, 'Club court session ended');
+    logger.info({ courtId, courtName: court.name, reason, elapsedMinutes, elapsedSeconds }, 'Club court session ended');
     this.notifyUpdate(court);
-    this.onClubSessionEnd(courtId, elapsedMinutes, reason);
+    this.onClubSessionEnd(courtId, elapsedMinutes, elapsedSeconds, reason);
 
-    return { elapsedMinutes };
+    return { elapsedMinutes, elapsedSeconds };
   }
 
   /**

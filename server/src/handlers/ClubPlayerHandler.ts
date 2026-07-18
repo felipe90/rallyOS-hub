@@ -53,15 +53,18 @@ export class ClubPlayerHandler extends SocketHandlerBase {
    */
   public registerHandlers(socket: Socket): void {
     // Wire onClubSessionEnd callback to calculate cost and broadcast to the room
-    this.tableManager.onClubSessionEnd = (courtId: string, elapsedMinutes: number, reason: string) => {
+    this.tableManager.onClubSessionEnd = (courtId: string, elapsedMinutes: number, elapsedSeconds: number, reason: string) => {
       const clubConfig = this.clubConfigStore.load();
       const costPerMinute = clubConfig?.costPerMinute ?? 0;
       const currency = clubConfig?.currency ?? 'ARS';
       const cost = Math.ceil(elapsedMinutes * costPerMinute);
 
+      // Spec: CLUB_SESSION_ENDED MUST include elapsedSeconds (server authoritative
+      // timer) in addition to the existing elapsedMinutes/cost/currency/reason.
       this.io.to(courtId).emit(SocketEvents.SERVER.CLUB_SESSION_ENDED, {
         courtId,
         elapsedMinutes,
+        elapsedSeconds,
         cost,
         currency,
         reason,
@@ -241,8 +244,18 @@ export class ClubPlayerHandler extends SocketHandlerBase {
       );
     });
 
-    // CLUB_END_SESSION: Player-initiated session end
-    socket.on(SocketEvents.CLIENT.CLUB_END_SESSION, (data: { courtId: string }) => {
+    // CLUB_END_SESSION: Player-initiated session end with confirmation flow
+    //
+    // Spec scenarios 4, 5, 6:
+    //   - first emit WITHOUT confirm → server computes elapsedSeconds and
+    //     emits CLUB_SESSION_TIMER to the requesting socket so the client
+    //     renders the confirmation modal. Court STAYS OCCUPIED (timer runs).
+    //   - emit with confirm=true → server transitions to FINISHED and the
+    //     onClubSessionEnd callback broadcasts CLUB_SESSION_ENDED with
+    //     elapsedSeconds/elapsedMinutes.
+    //   - cancel → client does not emit confirm; the court stays OCCUPIED
+    //     and the timer keeps running server-side.
+    socket.on(SocketEvents.CLIENT.CLUB_END_SESSION, (data: { courtId: string; confirm?: boolean }) => {
       if (!data || typeof data.courtId !== 'string' || !data.courtId.trim()) {
         socket.emit(SocketEvents.SERVER.ERROR, {
           code: 'INVALID_PARAMS',
@@ -254,7 +267,8 @@ export class ClubPlayerHandler extends SocketHandlerBase {
       // Validate socket is referee for this court
       if (!this.validateReferee(socket, data.courtId)) return;
 
-      // Validate court exists and is OCCUPIED
+      // Validate court exists and is OCCUPIED (both for confirm and
+      // confirmation-request paths). FINISHED courts return ERROR.
       const court = this.tableManager.getCourt(data.courtId);
       if (!court || !isClubCourt(court) || court.clubStatus !== CLUB_STATUS.OCCUPIED) {
         socket.emit(SocketEvents.SERVER.ERROR, {
@@ -264,7 +278,25 @@ export class ClubPlayerHandler extends SocketHandlerBase {
         return;
       }
 
-      // End the session — the onClubSessionEnd callback handles the broadcast
+      // Confirmation request — do NOT transition. Notify the requesting
+      // socket with elapsedSeconds so the client can show the modal.
+      if (data.confirm !== true) {
+        const now = Date.now();
+        const elapsedSeconds = court.occupiedAt
+          ? Math.max(0, Math.floor((now - court.occupiedAt) / 1000))
+          : 0;
+        socket.emit(SocketEvents.SERVER.CLUB_SESSION_TIMER, {
+          courtId: court.id,
+          elapsedSeconds,
+        });
+        logger.info(
+          { courtId: court.id, elapsedSeconds },
+          'CLUB_END_SESSION: confirmation requested',
+        );
+        return;
+      }
+
+      // Confirmed end — transition FINISHED, fire onClubSessionEnd broadcast.
       const result = this.tableManager.endSession(data.courtId, 'player');
       if (!result) {
         socket.emit(SocketEvents.SERVER.ERROR, {
@@ -275,7 +307,7 @@ export class ClubPlayerHandler extends SocketHandlerBase {
       }
 
       logger.info(
-        { courtId: data.courtId, elapsedMinutes: result.elapsedMinutes, reason: 'player' },
+        { courtId: data.courtId, elapsedMinutes: result.elapsedMinutes, elapsedSeconds: result.elapsedSeconds, reason: 'player' },
         'CLUB_END_SESSION: player ended session',
       );
     });

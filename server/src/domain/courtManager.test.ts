@@ -859,9 +859,12 @@ describe('CourtManager with StateStore', () => {
       manager.endSession(court.id, 'force');
 
       expect(callback).toHaveBeenCalledTimes(1);
-      expect(callback).toHaveBeenCalledWith(court.id, expect.any(Number), 'force');
+      // Callback signature: (courtId, elapsedMinutes, elapsedSeconds, reason)
+      expect(callback).toHaveBeenCalledWith(court.id, expect.any(Number), expect.any(Number), 'force');
       const elapsedMinutes = callback.mock.calls[0][1];
+      const elapsedSeconds = callback.mock.calls[0][2];
       expect(elapsedMinutes).toBeGreaterThanOrEqual(1);
+      expect(elapsedSeconds).toBeGreaterThanOrEqual(0);
     });
 
     it('should compute elapsedMinutes = 1 even when occupiedAt is very recent (min 1)', () => {

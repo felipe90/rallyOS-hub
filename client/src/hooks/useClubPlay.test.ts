@@ -438,7 +438,7 @@ describe('useClubPlay', () => {
   })
 
   describe('endSession', () => {
-    it('should emit CLUB_END_SESSION with courtId', () => {
+    it('should emit CLUB_END_SESSION with courtId and confirm=false by default', () => {
       const { socket } = createMockSocket()
 
       const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
@@ -447,6 +447,20 @@ describe('useClubPlay', () => {
 
       expect(socket.emit).toHaveBeenCalledWith(SocketEvents.CLIENT.CLUB_END_SESSION, {
         courtId: MOCK_COURT_ID,
+        confirm: false,
+      })
+    })
+
+    it('should emit CLUB_END_SESSION with confirm=true when passed', () => {
+      const { socket } = createMockSocket()
+
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      act(() => result.current.endSession(true))
+
+      expect(socket.emit).toHaveBeenCalledWith(SocketEvents.CLIENT.CLUB_END_SESSION, {
+        courtId: MOCK_COURT_ID,
+        confirm: true,
       })
     })
 
@@ -458,6 +472,334 @@ describe('useClubPlay', () => {
       act(() => result.current.endSession())
 
       expect(socket.emit).not.toHaveBeenCalled()
+    })
+  })
+
+  // ─────────────────────────────────────────────────────────────────
+  // PR 3 — Club session lifecycle: sessionMode, elapsed tracking,
+  // post-match and end-session helpers, reconnect sessionMode/elapsed
+  // consumption. Covers spec scenarios 1, 2, 4, 5, 6, 7, 8.
+  // ─────────────────────────────────────────────────────────────────
+  describe('club session lifecycle — sessionMode and elapsed', () => {
+    beforeEach(() => {
+      sessionStorage.setItem('rallyos-club-pin', '1111')
+    })
+
+    afterEach(() => {
+      sessionStorage.removeItem('rallyos-club-pin')
+    })
+
+    it('initial sessionMode is null and elapsedSeconds is 0', () => {
+      const { socket } = createMockSocket()
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      expect(result.current.sessionMode).toBeNull()
+      expect(result.current.elapsedSeconds).toBe(0)
+      expect(result.current.pendingEndSessionConfirm).toBe(false)
+    })
+
+    // Scenario 1 — Start free play
+    it('scenario 1: startFreePlay emits CLUB_START_FREE with courtId', () => {
+      const { socket } = createMockSocket()
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      act(() => result.current.startFreePlay())
+
+      expect(socket.emit).toHaveBeenCalledWith(SocketEvents.CLIENT.CLUB_START_FREE, {
+        courtId: MOCK_COURT_ID,
+      })
+    })
+
+    it('scenario 1: CLUB_FREE_STARTED sets sessionMode=free', () => {
+      const { socket, trigger } = createMockSocket()
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      trigger(SocketEvents.SERVER.CLUB_FREE_STARTED, { courtId: MOCK_COURT_ID })
+
+      expect(result.current.sessionMode).toBe('free')
+    })
+
+    it('CLUB_FREE_STARTED for a different courtId does not change sessionMode', () => {
+      const { socket, trigger } = createMockSocket()
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      trigger(SocketEvents.SERVER.CLUB_FREE_STARTED, { courtId: 'other-court' })
+
+      expect(result.current.sessionMode).toBeNull()
+    })
+
+    it('startFreePlay does not emit when not connected', () => {
+      const { socket } = createMockSocket()
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, false))
+
+      act(() => result.current.startFreePlay())
+
+      expect(socket.emit).not.toHaveBeenCalled()
+    })
+
+    // Scenario 2 — Start match via CLUB_NEW_MATCH
+    it('scenario 2: newMatch emits CLUB_NEW_MATCH with player names and courtId', () => {
+      const { socket } = createMockSocket()
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      act(() => result.current.newMatch('Alice', 'Bob'))
+
+      expect(socket.emit).toHaveBeenCalledWith(SocketEvents.CLIENT.CLUB_NEW_MATCH, {
+        courtId: MOCK_COURT_ID,
+        playerNameA: 'Alice',
+        playerNameB: 'Bob',
+      })
+    })
+
+    it('scenario 2: newMatch forwards optional matchConfig when provided', () => {
+      const { socket } = createMockSocket()
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      act(() => result.current.newMatch('Alice', 'Bob', { pointsPerSet: 21, bestOf: 5 }))
+
+      expect(socket.emit).toHaveBeenCalledWith(SocketEvents.CLIENT.CLUB_NEW_MATCH, {
+        courtId: MOCK_COURT_ID,
+        playerNameA: 'Alice',
+        playerNameB: 'Bob',
+        matchConfig: { pointsPerSet: 21, bestOf: 5 },
+      })
+    })
+
+    it('scenario 2: LIVE MATCH_UPDATE sets sessionMode=match', () => {
+      const { socket, trigger } = createMockSocket()
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      trigger(SocketEvents.SERVER.MATCH_UPDATE, makeLiveMatch())
+
+      expect(result.current.sessionMode).toBe('match')
+    })
+
+    it('MATCH_UPDATE with FINISHED status preserves the prior sessionMode (post-match modal context)', () => {
+      const { socket, trigger } = createMockSocket()
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      trigger(SocketEvents.SERVER.MATCH_UPDATE, makeLiveMatch())
+      expect(result.current.sessionMode).toBe('match')
+
+      trigger(SocketEvents.SERVER.MATCH_UPDATE, {
+        ...makeLiveMatch(),
+        status: 'FINISHED' as any,
+        winner: 'A',
+      })
+
+      expect(result.current.sessionMode).toBe('match')
+      expect(result.current.finished).toBe(true)
+    })
+
+    it('newMatch does not emit when not connected', () => {
+      const { socket } = createMockSocket()
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, false))
+
+      act(() => result.current.newMatch('A', 'B'))
+
+      expect(socket.emit).not.toHaveBeenCalled()
+    })
+
+    // resetMatch — post-match Reset action
+    it('resetMatch emits CLUB_RESET_MATCH with courtId', () => {
+      const { socket } = createMockSocket()
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      act(() => result.current.resetMatch())
+
+      expect(socket.emit).toHaveBeenCalledWith(SocketEvents.CLIENT.CLUB_RESET_MATCH, {
+        courtId: MOCK_COURT_ID,
+      })
+    })
+
+    it('CLUB_MATCH_RESET updates matchState with the zeroed state and keeps sessionMode=match', () => {
+      const { socket, trigger } = createMockSocket()
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      trigger(SocketEvents.SERVER.MATCH_UPDATE, makeLiveMatch({
+        score: { currentSet: { a: 5, b: 4 }, sets: { a: 1, b: 0 } },
+      }))
+      expect(result.current.sessionMode).toBe('match')
+
+      const zeroed = makeLiveMatch({ score: { currentSet: { a: 0, b: 0 }, sets: { a: 0, b: 0 } } })
+      trigger(SocketEvents.SERVER.CLUB_MATCH_RESET, { courtId: MOCK_COURT_ID, matchState: zeroed })
+
+      expect(result.current.matchState?.score.currentSet.a).toBe(0)
+      expect(result.current.matchState?.score.currentSet.b).toBe(0)
+      expect(result.current.sessionMode).toBe('match')
+    })
+
+    it('CLUB_MATCH_RESET for a different courtId does not overwrite matchState', () => {
+      const { socket, trigger } = createMockSocket()
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      trigger(SocketEvents.SERVER.MATCH_UPDATE, makeLiveMatch({
+        score: { currentSet: { a: 5, b: 4 }, sets: { a: 1, b: 0 } },
+      }))
+
+      trigger(SocketEvents.SERVER.CLUB_MATCH_RESET, {
+        courtId: 'other-court',
+        matchState: makeLiveMatch({ score: { currentSet: { a: 0, b: 0 }, sets: { a: 0, b: 0 } } }),
+      })
+
+      expect(result.current.matchState?.score.currentSet.a).toBe(5)
+    })
+
+    // Scenario 4 — Session ended resets sessionMode
+    it('scenario 4: CLUB_SESSION_ENDED resets sessionMode to null', () => {
+      const { socket, trigger } = createMockSocket()
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      trigger(SocketEvents.SERVER.MATCH_UPDATE, makeLiveMatch())
+      expect(result.current.sessionMode).toBe('match')
+
+      trigger(SocketEvents.SERVER.CLUB_SESSION_ENDED, {
+        courtId: MOCK_COURT_ID,
+        elapsedMinutes: 15,
+        cost: 750,
+        currency: 'ARS',
+        reason: 'player',
+      })
+
+      expect(result.current.sessionMode).toBeNull()
+      expect(result.current.pendingEndSessionConfirm).toBe(false)
+    })
+
+    // Scenario 5a — Confirmation request arrives
+    it('scenario 5a: CLUB_END_SESSION_CONFIRM arms pendingEndSessionConfirm and sets elapsedSeconds', () => {
+      const { socket, trigger } = createMockSocket()
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      trigger(SocketEvents.SERVER.CLUB_END_SESSION_CONFIRM, {
+        courtId: MOCK_COURT_ID,
+        elapsedSeconds: 930,
+      })
+
+      expect(result.current.pendingEndSessionConfirm).toBe(true)
+      expect(result.current.elapsedSeconds).toBe(930)
+    })
+
+    it('scenario 5a: CLUB_END_SESSION_CONFIRM for a different courtId is ignored', () => {
+      const { socket, trigger } = createMockSocket()
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      trigger(SocketEvents.SERVER.CLUB_END_SESSION_CONFIRM, {
+        courtId: 'other-court',
+        elapsedSeconds: 100,
+      })
+
+      expect(result.current.pendingEndSessionConfirm).toBe(false)
+      expect(result.current.elapsedSeconds).toBe(0)
+    })
+
+    // Scenario 5b — Confirm emit clears pending state
+    it('scenario 5b: endSession(true) emits confirm=true and clears pendingEndSessionConfirm', () => {
+      const { socket, trigger } = createMockSocket()
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      trigger(SocketEvents.SERVER.CLUB_END_SESSION_CONFIRM, {
+        courtId: MOCK_COURT_ID,
+        elapsedSeconds: 120,
+      })
+      expect(result.current.pendingEndSessionConfirm).toBe(true)
+
+      act(() => result.current.endSession(true))
+
+      expect(socket.emit).toHaveBeenCalledWith(SocketEvents.CLIENT.CLUB_END_SESSION, {
+        courtId: MOCK_COURT_ID,
+        confirm: true,
+      })
+      expect(result.current.pendingEndSessionConfirm).toBe(false)
+    })
+
+    // Scenario 6 — Cancel: client just doesn't emit confirm; local state reset via cancelEndSession
+    it('scenario 6: cancelEndSession clears pendingEndSessionConfirm without emitting', () => {
+      const { socket, trigger } = createMockSocket()
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      trigger(SocketEvents.SERVER.CLUB_END_SESSION_CONFIRM, {
+        courtId: MOCK_COURT_ID,
+        elapsedSeconds: 60,
+      })
+      expect(result.current.pendingEndSessionConfirm).toBe(true)
+
+      socket.emit.mockClear()
+      act(() => result.current.cancelEndSession())
+
+      expect(socket.emit).not.toHaveBeenCalled()
+      expect(result.current.pendingEndSessionConfirm).toBe(false)
+    })
+
+    // Scenario 7 — Reconnect during match
+    it('scenario 7: CLUB_RECONNECT_RESULT success with sessionMode=match sets sessionMode and elapsedSeconds', () => {
+      const { socket, trigger } = createMockSocket()
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      trigger(SocketEvents.SERVER.CLUB_RECONNECT_RESULT, {
+        success: true,
+        courtId: MOCK_COURT_ID,
+        matchState: makeLiveMatch(),
+        sessionMode: 'match',
+        elapsedSeconds: 1234,
+      })
+
+      expect(result.current.sessionMode).toBe('match')
+      expect(result.current.elapsedSeconds).toBe(1234)
+      expect(result.current.reconnecting).toBe(false)
+    })
+
+    // Scenario 8 — Reconnect during free play
+    it('scenario 8: CLUB_RECONNECT_RESULT success with sessionMode=free sets sessionMode=free and elapsedSeconds', () => {
+      const { socket, trigger } = createMockSocket()
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      trigger(SocketEvents.SERVER.CLUB_RECONNECT_RESULT, {
+        success: true,
+        courtId: MOCK_COURT_ID,
+        sessionMode: 'free',
+        elapsedSeconds: 540,
+      })
+
+      expect(result.current.sessionMode).toBe('free')
+      expect(result.current.elapsedSeconds).toBe(540)
+    })
+
+    it('CLUB_RECONNECT_RESULT failure does not change sessionMode or elapsedSeconds', () => {
+      const { socket, trigger } = createMockSocket()
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      trigger(SocketEvents.SERVER.CLUB_RECONNECT_RESULT, {
+        success: false,
+        error: 'INVALID_PIN',
+      })
+
+      expect(result.current.sessionMode).toBeNull()
+      expect(result.current.elapsedSeconds).toBe(0)
+    })
+
+    // Periodic server sync — CLUB_SESSION_TIMER
+    it('CLUB_SESSION_TIMER updates elapsedSeconds from the server sync', () => {
+      const { socket, trigger } = createMockSocket()
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      trigger(SocketEvents.SERVER.CLUB_SESSION_TIMER, {
+        courtId: MOCK_COURT_ID,
+        elapsedSeconds: 312,
+      })
+
+      expect(result.current.elapsedSeconds).toBe(312)
+    })
+
+    it('CLUB_SESSION_TIMER for a different courtId is ignored', () => {
+      const { socket, trigger } = createMockSocket()
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      trigger(SocketEvents.SERVER.CLUB_SESSION_TIMER, {
+        courtId: 'other-court',
+        elapsedSeconds: 999,
+      })
+
+      expect(result.current.elapsedSeconds).toBe(0)
     })
   })
 })

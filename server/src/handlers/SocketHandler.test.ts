@@ -14,6 +14,8 @@ import { createTestCourtManager } from '../domain/courtManager.test-factory';
 import { ClubConfigStore } from '../services/store/ClubConfigStore';
 import { SessionTokenService } from '../services/security/SessionTokenService';
 import { SocketEvents } from '../../../shared/events';
+import { SPORT, CLUB_STATUS } from '../../../shared/types';
+import type { ClubCourt } from '../domain/types';
 import type { Socket } from 'socket.io';
 
 const TEST_SECRET = 'a'.repeat(64);
@@ -205,5 +207,114 @@ describe('SocketHandler — JWT reconnect middleware (REQ-07/11)', () => {
     expect(next).toHaveBeenCalledWith();
     expect((socket.data as any).isOwner).toBeUndefined();
     expect((socket.data as any).isAuthenticated).toBeUndefined();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// SocketHandler.onMatchEvent — club MATCH_WON post-match flow
+// Spec: court stays OCCUPIED, server emits post-match state event
+// ═══════════════════════════════════════════════════════════════
+
+describe('SocketHandler.onMatchEvent — club MATCH_WON keeps OCCUPIED and emits post-match state (spec scenario 3)', () => {
+  function buildMatchHandler() {
+    const io: any = {
+      to: jest.fn().mockReturnThis(),
+      in: jest.fn().mockReturnThis(),
+      emit: jest.fn(),
+      use: jest.fn(),
+      on: jest.fn(),
+      engine: { clientsCount: 0 },
+    };
+    const courtManager = createTestCourtManager();
+    const fakeFs: any = {
+      writeFileSync: jest.fn(),
+      readFileSync: jest.fn(() => {
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      }),
+      renameSync: jest.fn(),
+      existsSync: jest.fn(() => false),
+      mkdirSync: jest.fn(() => undefined),
+      unlinkSync: jest.fn(),
+    };
+    const clubConfigStore = new ClubConfigStore(fakeFs);
+    new SocketHandler(
+      io as any,
+      courtManager as CourtManager,
+      '12345678',
+      { ssid: 's', ip: '1', port: 3000, domain: 'd', wifiPassword: '' },
+      clubConfigStore,
+    );
+
+    // Simulate one client connection so all per-connection handler
+    // `registerHandlers(socket)` methods run — that wiring installs the
+    // onClubSessionEnd callback inside ClubPlayerHandler.
+    const connectionCall = (io.on as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === 'connection',
+    );
+    expect(connectionCall).toBeDefined();
+    const playerSocket = makeMockSocket({});
+    (connectionCall![1] as (s: any) => void)(playerSocket);
+
+    return { io, courtManager };
+  }
+
+  it('scenario 3: keeps the court OCCUPIED and emits MATCH_WON + MATCH_UPDATE to the room when a club match finishes', () => {
+    const { io, courtManager } = buildMatchHandler();
+    const court = courtManager.createClubCourt('Post-Match Club Court');
+    courtManager.activateCourt(court.id);
+    courtManager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+
+    // Play 11 points so the TennisTable match finishes (MATCH_WON fires
+    // through the engine via onMatchEvent wired by the SocketHandler ctor).
+    for (let i = 0; i < 11; i++) {
+      courtManager.recordPoint(court.id, 'A');
+    }
+
+    // Court STAYS OCCUPIED — the session is not auto-ended.
+    const updated = courtManager.getCourt(court.id) as ClubCourt;
+    expect(updated.clubStatus).toBe(CLUB_STATUS.OCCUPIED);
+
+    // Server emitted MATCH_WON to the room
+    const emitMock = io.to(court.id);
+    expect(emitMock.emit).toHaveBeenCalledWith(
+      SocketEvents.SERVER.MATCH_WON,
+      expect.objectContaining({ courtId: court.id }),
+    );
+
+    // Server emitted MATCH_UPDATE to the room with the post-match matchState
+    // (post-match state event drives the client's post-match modal in PR 4).
+    expect(emitMock.emit).toHaveBeenCalledWith(
+      SocketEvents.SERVER.MATCH_UPDATE,
+      expect.objectContaining({ status: 'FINISHED' }),
+    );
+  });
+
+  it('scenario 10: admin force-end (CLUB_FORCE_END) transitions FINISHED and broadcasts CLUB_SESSION_ENDED with reason=force', () => {
+    const { io, courtManager } = buildMatchHandler();
+    const court = courtManager.createClubCourt('Force End Club Court');
+    courtManager.activateCourt(court.id);
+    courtManager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+
+    // Simulate admin force-ending the session — same path that the
+    // ClubCourtHandler.CLUB_FORCE_END handler calls.
+    const ended = courtManager.forceEndSession(court.id);
+    expect(ended).not.toBeNull();
+
+    const updated = courtManager.getCourt(court.id) as ClubCourt;
+    expect(updated.clubStatus).toBe(CLUB_STATUS.FINISHED);
+
+    // The onClubSessionEnd callback (wired by SocketHandler's ClubPlayerHandler
+    // sub-construction) must have broadcast CLUB_SESSION_ENDED with reason
+    // "force".
+    const emitMock = io.to(court.id);
+    expect(emitMock.emit).toHaveBeenCalledWith(
+      SocketEvents.SERVER.CLUB_SESSION_ENDED,
+      expect.objectContaining({
+        courtId: court.id,
+        reason: 'force',
+        elapsedMinutes: expect.any(Number),
+        elapsedSeconds: expect.any(Number),
+      }),
+    );
   });
 });

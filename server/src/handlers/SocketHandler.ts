@@ -20,7 +20,7 @@ import type { IClubConfigRepository } from '../domain/ports/IClubConfigRepositor
 import { AdminPinService } from '../services/security/AdminPinService';
 import { SessionTokenService } from '../services/security/SessionTokenService';
 import type { SessionClaims } from '../services/security/SessionTokenService';
-import { CourtInfo, HubConfig } from '../domain/types';
+import { CourtInfo, HubConfig, isClubCourt } from '../domain/types';
 import type { SocketData } from '../domain/types';
 import { logger } from '../utils/logger';
 import { RateLimiter } from '../services/security/RateLimiter';
@@ -112,25 +112,39 @@ export class SocketHandler {
       } else if (event.type === 'MATCH_WON') {
         this.io.to(courtId).emit(SocketEvents.SERVER.MATCH_WON, { courtId: courtId, ...event });
 
-        // Auto-clear featured when match ends on a featured court
         const court = this.tableManager.getCourt(courtId);
-        if (court && court.featured) {
-          court.featured = false;
-          const updatedInfo = this.tableManager.courtToInfo(court);
-          this.io.emit(SocketEvents.SERVER.COURT_UPDATE, updatedInfo);
-          logger.info({ courtId }, 'Featured auto-cleared on match end');
-        }
 
-        // Auto-notify kiosk clients on match won (server-sourced, bypasses rate limit)
-        const ms = this.tableManager.getMatchState(courtId);
-        const names = ms?.playerNames ?? { a: 'Player A', b: 'Player B' };
-        const winner = names[event.winner === 'A' ? 'a' : 'b'];
-        this.io.emit(SocketEvents.SERVER.KIOSK_NOTIFICATION, {
-          type: 'important',
-          duration: 10,
-          message: `¡Ganador: ${winner}!`,
-          timestamp: Date.now(),
-        });
+        if (court && isClubCourt(court)) {
+          // Club mode: keep the court OCCUPIED after the match finishes.
+          // Spec scenario 3 —— the session is NOT auto-ended; the player
+          // choses the next post-match action (reset / new match / free /
+          // end session). Emit MATCH_UPDATE with the final matchState so
+          // the client renders the post-match modal in PR 4.
+          const finalState = this.tableManager.getMatchState(courtId);
+          if (finalState) {
+            this.io.to(courtId).emit(SocketEvents.SERVER.MATCH_UPDATE, finalState);
+          }
+        } else {
+          // Tournament mode: existing behavior — auto-clear featured on a
+          // featured court, then notify kiosk clients on match won.
+          if (court && court.featured) {
+            court.featured = false;
+            const updatedInfo = this.tableManager.courtToInfo(court);
+            this.io.emit(SocketEvents.SERVER.COURT_UPDATE, updatedInfo);
+            logger.info({ courtId }, 'Featured auto-cleared on match end');
+          }
+
+          // Auto-notify kiosk clients on match won (server-sourced, bypasses rate limit)
+          const ms = this.tableManager.getMatchState(courtId);
+          const names = ms?.playerNames ?? { a: 'Player A', b: 'Player B' };
+          const winner = names[event.winner === 'A' ? 'a' : 'b'];
+          this.io.emit(SocketEvents.SERVER.KIOSK_NOTIFICATION, {
+            type: 'important',
+            duration: 10,
+            message: `¡Ganador: ${winner}!`,
+            timestamp: Date.now(),
+          });
+        }
       } else if (event.type === 'GAME_WON') {
         this.io.to(courtId).emit(SocketEvents.SERVER.GAME_WON, { courtId: courtId, ...event });
       } else if (event.type === 'DEUCE') {

@@ -83,18 +83,28 @@ export class SocketHandler {
     this.authHandler = new AuthHandler(io, tableManager, ownerPin, sessionTokenService);
     this.adminHandler = new AdminHandler(io, tableManager, ownerPin);
     this.spotlightHandler = new SpotlightHandler(io, tableManager, ownerPin);
-    this.clubAdminHandler = new ClubAdminHandler(io, tableManager, ownerPin, clubConfigStore!, adminPinService, sessionTokenService);
-    this.clubCourtHandler = new ClubCourtHandler(io, tableManager, ownerPin);
     // Spec (club-session-history / Persistence Trigger): when a
     // SessionHistoryStore is injected via the SocketHandler ctor, it is
     // forwarded to ClubPlayerHandler so session-end writes a SessionRecord.
     // When omitted (older tests, or while PR 2 production wiring is in
     // progress), the no-store safety-net path inside ClubPlayerHandler is
     // exercised — see gotchas #3/#4 in sdd/club-session-history/apply-gotchas.
-    this.clubPlayerHandler = new ClubPlayerHandler(io, tableManager, ownerPin, clubConfigStore!, sessionHistoryStore);
+    //
+    // History handler (task 3.6): a SINGLE ClubSessionHistoryHandler is
+    // constructed up front so the pending-clear state is shared across:
+    //   - CLUB_VERIFY_ADMIN success → historyHandler.sendHistoryToSocket
+    //     (closes the PIN-only gap; JWT reconnect path is handled in the
+    //     io.on('connection') hook below).
+    //   - CLUB_CLEAR_HISTORY / CLUB_CLEAR_HISTORY_CONFIRM socket events
+    //     (registered in registerHandlers).
+    // Instantiating TWO handlers would split the 30s pending-clear window;
+    // the structural interface ClubHistoryBridge keeps the seam narrow.
     if (sessionHistoryStore) {
       this.clubHistoryHandler = new ClubSessionHistoryHandler(io, sessionHistoryStore);
     }
+    this.clubAdminHandler = new ClubAdminHandler(io, tableManager, ownerPin, clubConfigStore!, adminPinService, sessionTokenService, this.clubHistoryHandler);
+    this.clubCourtHandler = new ClubCourtHandler(io, tableManager, ownerPin);
+    this.clubPlayerHandler = new ClubPlayerHandler(io, tableManager, ownerPin, clubConfigStore!, sessionHistoryStore);
     
     // Set up global court update listener once
     // COURT_UPDATE always goes to the court's room; COURT_LIST / CLUB_KIOSK_DATA

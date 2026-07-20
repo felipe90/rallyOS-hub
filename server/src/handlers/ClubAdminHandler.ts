@@ -20,11 +20,23 @@ import { COURT_MODE } from '../../../shared/types';
 import { SocketHandlerBase } from './SocketHandlerBase';
 import { isClubCourt } from '../domain/types';
 import type { SocketData } from '../domain/types';
+import type { ClubSessionHistoryHandler } from './ClubSessionHistoryHandler';
+
+/**
+ * Minimal collaborator surface that ClubAdminHandler needs from
+ * ClubSessionHistoryHandler. Declared as a structural interface so the
+ * handler stays decoupled from the concrete class and tests can pass a
+ * stub. See task 3.6 (club-session-history) and apply-gotchas-pr2 #4.
+ */
+export interface ClubHistoryBridge {
+  sendHistoryToSocket(socket: Socket): void;
+}
 
 export class ClubAdminHandler extends SocketHandlerBase {
   private clubConfigStore: IClubConfigRepository;
   private adminPinService: AdminPinService;
   private sessionTokenService: SessionTokenService;
+  private readonly historyHandler?: ClubHistoryBridge;
 
   constructor(
     io: Server,
@@ -33,11 +45,21 @@ export class ClubAdminHandler extends SocketHandlerBase {
     clubConfigStore: IClubConfigRepository,
     adminPinService: AdminPinService,
     sessionTokenService: SessionTokenService,
+    /**
+     * Optional bridge to ClubSessionHistoryHandler. When injected, a
+     * successful PIN verify triggers `sendHistoryToSocket(socket)` so
+     * admins that arrive without a JWT (no session-restore path) still
+     * receive CLUB_SESSION_HISTORY immediately. Omit to preserve the
+     * pre-history backward-compat shape (gotcha #4 — do NOT silently
+     * remove the no-history branch).
+     */
+    historyHandler?: ClubHistoryBridge,
   ) {
     super(io, tableManager, ownerPin);
     this.clubConfigStore = clubConfigStore;
     this.adminPinService = adminPinService;
     this.sessionTokenService = sessionTokenService;
+    this.historyHandler = historyHandler;
   }
 
   /**
@@ -75,6 +97,13 @@ export class ClubAdminHandler extends SocketHandlerBase {
         socket.emit(SocketEvents.SERVER.CLUB_ADMIN_VERIFIED, { success: true, token });
 
         // Club courts are already delivered via CLUB_KIOSK_DATA at connection time
+
+        // Task 3.6 (club-session-history): when a history handler is
+        // injected, push the persisted session history to the freshly
+        // verified admin. This closes the gap for PIN-only clients that
+        // did not arrive via the JWT-reconnect path (gotchas-pr2 #4) —
+        // the SocketHandler admin-connect hook only covers JWT reconnect.
+        this.historyHandler?.sendHistoryToSocket(socket);
 
         logger.info({ socketId: socket.id }, 'Club admin verified successfully');
       } else {

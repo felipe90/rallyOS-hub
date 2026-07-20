@@ -27,6 +27,9 @@ export type { MatchContextProps, SetScoreProps } from './MatchContext'
 export { ConfirmDialog } from './ConfirmDialog'
 export type { ConfirmDialogProps, ConfirmDialogSeverity } from './ConfirmDialog'
 
+export { ClubSessionHistoryPanel } from './ClubSessionHistoryPanel'
+export type { ClubSessionHistoryPanelProps, ExportOutcome } from './ClubSessionHistoryPanel'
+
 export { RallyTapConnectButton } from './RallyTapConnectButton'
 export type { RallyTapConnectButtonProps } from './RallyTapConnectButton'
 

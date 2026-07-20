@@ -1,10 +1,9 @@
 /**
- * ClubFreePlay — free-mode session screen (timer + names + buttons, no score).
+ * ClubFreePlay — free-mode session screen (timer + buttons, no score, no names).
  *
- * Spec task 4.3 + design doc "Modo Libre".
- * Spec contract: Free mode MUST display timer + player names, MUST NOT
- * display scoring. Buttons: "Jugar partido" (open match config) +
- * "Terminar sesión" (end-session flow).
+ * Per design decision, free mode shows only the timer and action buttons.
+ * Player names are omitted — free play is informal and doesn't require
+ * named players.
  */
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
@@ -18,9 +17,6 @@ vi.mock('@/i18n', () => ({
         clubPlayPlayMatch: '🏆 Jugar partido',
         clubPlayEndSessionBtn: '⏹ Terminar sesión',
         clubPlayTimerLabel: 'Tiempo',
-        clubPlayNameA: 'Jugador 1',
-        clubPlayNameB: 'Jugador 2',
-        commonVs: 'vs',
       }
       return map[key] || key
     },
@@ -29,8 +25,6 @@ vi.mock('@/i18n', () => ({
 
 function renderComponent(overrides: {
   elapsedSeconds?: number
-  playerNameA?: string
-  playerNameB?: string
   onPlayMatch?: () => void
   onEndSession?: () => void
 } = {}) {
@@ -39,8 +33,6 @@ function renderComponent(overrides: {
   const result = render(
     <ClubFreePlay
       elapsedSeconds={overrides.elapsedSeconds ?? 0}
-      playerNameA={overrides.playerNameA}
-      playerNameB={overrides.playerNameB}
       onPlayMatch={onPlayMatch}
       onEndSession={onEndSession}
     />,
@@ -89,24 +81,6 @@ describe('ClubFreePlay', () => {
   it('formats 3661 seconds as 01:01:01 (HH:MM:SS rollover)', () => {
     renderComponent({ elapsedSeconds: 3661 })
     expect(screen.getByText('01:01:01')).toBeInTheDocument()
-  })
-
-  it('renders provided player names when supplied', () => {
-    renderComponent({ playerNameA: 'Alice', playerNameB: 'Bob' })
-    expect(screen.getByText('Alice')).toBeInTheDocument()
-    expect(screen.getByText('Bob')).toBeInTheDocument()
-  })
-
-  it('falls back to i18n placeholder names when names are missing', () => {
-    renderComponent()
-    expect(screen.getByText('Jugador 1')).toBeInTheDocument()
-    expect(screen.getByText('Jugador 2')).toBeInTheDocument()
-  })
-
-  it('renders player A name only when playerNameB is missing (partial names)', () => {
-    renderComponent({ playerNameA: 'Alice' })
-    expect(screen.getByText('Alice')).toBeInTheDocument()
-    expect(screen.getByText('Jugador 2')).toBeInTheDocument()
   })
 
   it('does not render any score display', () => {

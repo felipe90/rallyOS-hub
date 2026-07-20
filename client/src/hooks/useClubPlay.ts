@@ -34,9 +34,15 @@ export function useClubPlay(socket: Socket | null, courtId: string, connected: b
   const [sessionMode, setSessionMode] = useState<SessionMode | null>(null)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [pendingEndSessionConfirm, setPendingEndSessionConfirm] = useState(false)
-  const reconnectAttempted = useRef(false)
   // Read PIN from sessionStorage (set on CLUB_JOIN) for secure reconnection
   const courtPinRef = useRef<string | null>(sessionStorage.getItem('rallyos-club-pin'))
+
+  // PR 4 — tracks whether the player has yet chosen a session mode.
+  // null = mode selection pending (ClubSessionConfig shown).
+  // Cleared by the FIRST user action (startFreePlay, newMatch, startMatch)
+  // or by CLUB_RECONNECT_RESULT on page refresh. After that, subsequent
+  // MATCH_UPDATEs for LIVE may restore sessionMode via optimistic state.
+  const initialModePending = useRef(true)
 
   // Listen for MATCH_UPDATE events for this court
   useEffect(() => {
@@ -49,17 +55,18 @@ export function useClubPlay(socket: Socket | null, courtId: string, connected: b
         setError(null)
         if (match.status === 'FINISHED') {
           setFinished(true)
-          // PR 3 — keep the existing sessionMode on FINISHED so the post-match
-          // modal (PR 4) retains match context (reset/new-match/free/end). Only
-          // a LIVE match flips the mode to 'match'.
-        } else {
-          // PR 3 — an active match drives sessionMode='match'. Preserves
-          // prior 'free' until the match actually starts.
-          setSessionMode('match')
-          // Active match after page refresh → emit CLUB_RECONNECT to re-establish bridge.
-          // SERVER validates OCCUPIED status + PIN before reconnecting.
-          if (!reconnectAttempted.current) {
-            reconnectAttempted.current = true
+          // PR 3 — sessionMode is NEVER set from MATCH_UPDATE.
+          // It's managed by:
+          //   - CLUB_RECONNECT_RESULT (page refresh during play)
+          //   - CLUB_FREE_STARTED (free mode)
+          //   - optimistic set in newMatch/startMatch (match mode)
+          //   - CLUB_SESSION_ENDED (session over)
+        } else if (initialModePending.current) {
+          // First MATCH_UPDATE after mount. Decide:
+          //   LIVE → page refresh during active play → reconnect
+          //   WAITING or other → fresh join → leave sessionMode null
+          initialModePending.current = false
+          if (match.status === 'LIVE') {
             setReconnecting(true)
             const pin = courtPinRef.current
             if (!pin) {
@@ -69,7 +76,12 @@ export function useClubPlay(socket: Socket | null, courtId: string, connected: b
             }
             socket.emit(SocketEvents.CLIENT.CLUB_RECONNECT, { courtId, pin })
           }
+          // sessionMode stays null → ClubSessionConfig renders on fresh join
+          // On page refresh, CLUB_RECONNECT_RESULT restores sessionMode
         }
+        // Subsequent MATCH_UPDATEs — sessionMode already resolved.
+        // Do NOT touch sessionMode here. newMatch/startMatch set it
+        // optimistically. Score updates should not change it.
       }
     }
 
@@ -316,6 +328,8 @@ export function useClubPlay(socket: Socket | null, courtId: string, connected: b
   const startMatch = useCallback(
     (nameA: string, nameB: string) => {
       if (!socket || !connected) return
+      initialModePending.current = false
+      setSessionMode('match')
       socket.emit(SocketEvents.CLIENT.START_MATCH, {
         courtId,
         playerNameA: nameA,
@@ -330,23 +344,29 @@ export function useClubPlay(socket: Socket | null, courtId: string, connected: b
   // CLUB_FREE_STARTED, which flips sessionMode='free'.
   const startFreePlay = useCallback(() => {
     if (!socket || !connected) return
+    initialModePending.current = false
     socket.emit(SocketEvents.CLIENT.CLUB_START_FREE, { courtId })
   }, [socket, connected, courtId])
 
   // PR 3 — post-match "Reset" action. Server resets the match to 0-0 with
   // the SAME config and responds with CLUB_MATCH_RESET carrying the zeroed
-  // matchState.
+  // matchState. sessionMode stays as-is (match stays match, free stays free).
   const resetMatch = useCallback(() => {
     if (!socket || !connected) return
+    initialModePending.current = false
     socket.emit(SocketEvents.CLIENT.CLUB_RESET_MATCH, { courtId })
   }, [socket, connected, courtId])
 
   // PR 3 — post-match "New Match" action (also used for the free→match
   // transition). Optional matchConfig overrides the sport defaults so the
   // PR 4 match-config UI can request non-default points/sets/handicap.
+  // Optimistically sets sessionMode='match' because the server WILL set
+  // sessionMode=match on its side.
   const newMatch = useCallback(
     (nameA: string, nameB: string, matchConfig?: Partial<MatchConfig>) => {
       if (!socket || !connected) return
+      initialModePending.current = false
+      setSessionMode('match')
       const payload: { courtId: string; playerNameA: string; playerNameB: string; matchConfig?: Partial<MatchConfig> } = {
         courtId,
         playerNameA: nameA,
@@ -359,6 +379,20 @@ export function useClubPlay(socket: Socket | null, courtId: string, connected: b
     },
     [socket, connected, courtId],
   )
+
+  // PR 4 — local timer ticker. The server is expected to periodically emit
+  // CLUB_SESSION_TIMER to resync, but that server-side mechanism was never
+  // implemented (known gap). Until it is, this local 1s tick provides a
+  // real-time display. Server events (CLUB_RECONNECT_RESULT,
+  // CLUB_END_SESSION_CONFIRM, and eventually CLUB_SESSION_TIMER) correct
+  // drift via setElapsedSeconds.
+  useEffect(() => {
+    if (sessionMode === null || sessionEnded || loading) return
+    const id = setInterval(() => {
+      setElapsedSeconds((prev) => prev + 1)
+    }, 1000)
+    return () => clearInterval(id)
+  }, [sessionMode, sessionEnded, loading])
 
   return {
     matchState,

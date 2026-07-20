@@ -18,7 +18,7 @@
  */
 import { useState } from 'react'
 import { Button } from '@/components/atoms/Button'
-import { Typography } from '@/components/atoms/Typography'
+import { Body, Title, Label } from '@/components/atoms/Typography'
 import { useI18n } from '@/i18n'
 import { SPORT } from '@shared/types'
 import type { MatchConfig } from '@shared/types'
@@ -54,8 +54,8 @@ function HandicapStepper({
   onIncrement: () => void
 }) {
   return (
-    <div className="flex flex-col items-center gap-2 bg-surface-low rounded-md p-3">
-      <Typography variant="label">{side}</Typography>
+    <div className="flex flex-col items-center gap-2 bg-surface-low rounded-[--radius-md] p-3">
+      <Label>{side}</Label>
       <div className="flex items-center gap-2">
         <Button
           variant="ghost"
@@ -109,17 +109,44 @@ export function ClubMatchConfig({ courtId, onSubmit, onCancel }: ClubMatchConfig
 
   return (
     <div
-      className="flex flex-col items-center justify-center min-h-dvh bg-surface gap-5 p-4"
+      className="flex flex-col items-center justify-center min-h-dvh bg-surface p-4"
       data-testid="club-match-config"
     >
-      <Typography variant="title" className="text-center">
-        {i18nText('clubPlayMatchConfigTitle')}
-      </Typography>
+      <div className="card bg-surface rounded-lg shadow-xl p-6 w-full max-w-sm">
+        <Title className="text-center mb-2">
+          {i18nText('clubPlayMatchConfigTitle')}
+        </Title>
 
-      <div className="w-full max-w-sm flex flex-col gap-5">
+        <Body className="text-center text-text/70 mb-6">
+          {i18nText('clubPlayMatchConfigDesc')}
+        </Body>
+
+        {/* Player names */}
+        <div className="mb-4">
+          <Label className="mb-2">{i18nText('clubPlayPlayersLabel')}</Label>
+          <div className="grid grid-cols-2 gap-3">
+            <input
+              type="text"
+              value={playerNameA}
+              onChange={(e) => setPlayerNameA(e.target.value)}
+              placeholder={i18nText('clubPlayNameA')}
+              className="px-3 py-2 rounded-md border border-border bg-surface text-text placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary"
+              maxLength={30}
+            />
+            <input
+              type="text"
+              value={playerNameB}
+              onChange={(e) => setPlayerNameB(e.target.value)}
+              placeholder={i18nText('clubPlayNameB')}
+              className="px-3 py-2 rounded-md border border-border bg-surface text-text placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary"
+              maxLength={30}
+            />
+          </div>
+        </div>
+
         {/* Puntos por set */}
-        <div className="flex flex-col gap-2">
-          <Typography variant="label">{i18nText('clubPlayPointsPerSet')}</Typography>
+        <div className="mb-4">
+          <Label className="mb-2">{i18nText('clubPlayPointsPerSet')}</Label>
           <div className="flex gap-2">
             {POINTS_OPTIONS.map((p) => (
               <Button
@@ -136,14 +163,14 @@ export function ClubMatchConfig({ courtId, onSubmit, onCancel }: ClubMatchConfig
         </div>
 
         {/* Al mejor de */}
-        <div className="flex flex-col gap-2">
-          <Typography variant="label">{i18nText('clubPlayBestOf')}</Typography>
+        <div className="mb-4">
+          <Label className="mb-2">{i18nText('clubPlayBestOf')}</Label>
           <div className="flex gap-2">
             {BEST_OF_OPTIONS.map((b) => (
               <Button
                 key={b}
                 variant={bestOf === b ? 'primary' : 'secondary'}
-                size="md"
+                size="lg"
                 onClick={() => setBestOf(b)}
                 fullWidth
               >
@@ -154,8 +181,8 @@ export function ClubMatchConfig({ courtId, onSubmit, onCancel }: ClubMatchConfig
         </div>
 
         {/* Handicap */}
-        <div className="flex flex-col gap-2">
-          <Typography variant="label">{i18nText('clubPlayHandicap')}</Typography>
+        <div className="mb-6">
+          <Label className="mb-2">{i18nText('clubPlayHandicap')}</Label>
           <div className="grid grid-cols-2 gap-3">
             <HandicapStepper
               side="A"
@@ -172,32 +199,8 @@ export function ClubMatchConfig({ courtId, onSubmit, onCancel }: ClubMatchConfig
           </div>
         </div>
 
-        {/* Player names */}
-        <div className="flex flex-col gap-2">
-          <Typography variant="label">{i18nText('clubPlayNameA')}</Typography>
-          <input
-            type="text"
-            value={playerNameA}
-            onChange={(e) => setPlayerNameA(e.target.value)}
-            placeholder={i18nText('clubPlayNameA')}
-            className="w-full px-4 py-3 rounded-md border border-border bg-surface text-text text-lg focus:outline-none focus:ring-2 focus:ring-primary"
-            maxLength={30}
-          />
-          <Typography variant="label" className="mt-2">
-            {i18nText('clubPlayNameB')}
-          </Typography>
-          <input
-            type="text"
-            value={playerNameB}
-            onChange={(e) => setPlayerNameB(e.target.value)}
-            placeholder={i18nText('clubPlayNameB')}
-            className="w-full px-4 py-3 rounded-md border border-border bg-surface text-text text-lg focus:outline-none focus:ring-2 focus:ring-primary"
-            maxLength={30}
-          />
-        </div>
-
         {/* Actions */}
-        <div className="flex gap-3 mt-2">
+        <div className="flex gap-3">
           {onCancel && (
             <Button variant="outline" onClick={onCancel} className="flex-1">
               {i18nText('clubPlayCancel')}

@@ -565,21 +565,34 @@ describe('useClubPlay', () => {
       })
     })
 
-    it('scenario 2: LIVE MATCH_UPDATE sets sessionMode=match', () => {
+    it('scenario 2: LIVE MATCH_UPDATE does NOT set sessionMode (ClubSessionConfig shown instead)', () => {
       const { socket, trigger } = createMockSocket()
       const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
 
+      // First MATCH_UPDATE from GET_MATCH_STATE — sessionMode is NOT set
+      // by MATCH_UPDATE. It stays null so ClubSessionConfig renders.
+      // sessionMode is set by CLUB_FREE_STARTED (free) or newMatch (match)
+      // or CLUB_RECONNECT_RESULT (page refresh).
       trigger(SocketEvents.SERVER.MATCH_UPDATE, makeLiveMatch())
+
+      expect(result.current.sessionMode).toBeNull()
+    })
+
+    it('newMatch sets sessionMode=match optimistically before the server responds', () => {
+      const { socket } = createMockSocket()
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      act(() => result.current.newMatch('Alice', 'Bob'))
 
       expect(result.current.sessionMode).toBe('match')
     })
 
-    it('MATCH_UPDATE with FINISHED status preserves the prior sessionMode (post-match modal context)', () => {
+    it('MATCH_UPDATE with FINISHED status preserves sessionMode (not cleared by MATCH_UPDATE)', () => {
       const { socket, trigger } = createMockSocket()
       const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
 
-      trigger(SocketEvents.SERVER.MATCH_UPDATE, makeLiveMatch())
-      expect(result.current.sessionMode).toBe('match')
+      // Set sessionMode via newMatch before any MATCH_UPDATE
+      act(() => result.current.newMatch('A', 'B'))
 
       trigger(SocketEvents.SERVER.MATCH_UPDATE, {
         ...makeLiveMatch(),
@@ -616,6 +629,9 @@ describe('useClubPlay', () => {
       const { socket, trigger } = createMockSocket()
       const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
 
+      // Set sessionMode via newMatch (simulate prior mode selection)
+      act(() => result.current.newMatch('A', 'B'))
+
       trigger(SocketEvents.SERVER.MATCH_UPDATE, makeLiveMatch({
         score: { currentSet: { a: 5, b: 4 }, sets: { a: 1, b: 0 } },
       }))
@@ -650,7 +666,8 @@ describe('useClubPlay', () => {
       const { socket, trigger } = createMockSocket()
       const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
 
-      trigger(SocketEvents.SERVER.MATCH_UPDATE, makeLiveMatch())
+      // Set sessionMode via newMatch (simulate prior mode selection)
+      act(() => result.current.newMatch('A', 'B'))
       expect(result.current.sessionMode).toBe('match')
 
       trigger(SocketEvents.SERVER.CLUB_SESSION_ENDED, {

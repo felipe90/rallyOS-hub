@@ -203,6 +203,7 @@ export class CourtManager {
         playerNames: info.playerNames,
         currentScore: info.currentScore,
         winner: info.winner,
+        sessionMode: c.sessionMode ?? undefined,
       };
     });
 
@@ -331,7 +332,11 @@ export class CourtManager {
           handicapB: 0,
         } as MatchConfig;
 
-    // Auto-init match via MatchOrchestrator
+    // Auto-init match via MatchOrchestrator.
+    // The match starts LIVE with default names; the client's
+    // ClubSessionConfig (PR 4) shows the mode selector on top when
+    // sessionMode is null, letting players choose free or match mode
+    // before interacting with the scoreboard.
     const matchState = this.matchOrchestrator.startMatch(court, {
       ...matchConfig,
       playerNameA: 'Jugador 1',

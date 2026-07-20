@@ -28,6 +28,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useSocketContext } from '@/contexts/SocketContext'
 import { useClubPlay } from '@/hooks/useClubPlay'
 import { useOrientation } from '@/hooks/useOrientation'
+import { useRallyTapBridge } from '@/hooks/useRallyTapBridge'
 import { ScoreboardMain } from '@/components/organisms/ScoreboardMain'
 import { ClubSessionConfig } from '@/components/molecules/ClubSessionConfig'
 import { ClubMatchConfig } from '@/components/molecules/ClubMatchConfig'
@@ -36,6 +37,7 @@ import { ClubFreePlay } from '@/components/molecules/ClubFreePlay'
 import { ClubEndSessionConfirm } from '@/components/molecules/ClubEndSessionConfirm'
 import { PageHeader } from '@/components/molecules/PageHeader'
 import { HistoryDrawer } from '@/components/organisms/HistoryDrawer'
+import { RallyTapConnectButton } from '@/components/molecules'
 import { Button } from '@/components/atoms/Button'
 import { Typography } from '@/components/atoms/Typography'
 import { ConnectionStatus } from '@/components/atoms'
@@ -200,6 +202,11 @@ export function ClubPlayPage() {
     endSession, startFreePlay, resetMatch, newMatch, cancelEndSession,
   } = useClubPlay(socket, courtId ?? '', connected)
 
+  const rallyTap = useRallyTapBridge(
+    matchState?.status === 'LIVE' && !refereeReplaced ? socket : null,
+    courtId ?? '',
+  )
+
   const [historyOpen, setHistoryOpen] = useState(false)
   const [endingSession, setEndingSession] = useState(false)
   // PR 4 — local flag controlling the ClubMatchConfig screen overlay.
@@ -270,8 +277,11 @@ export function ClubPlayPage() {
       )
     }
 
-    // Session-config — shown when the court is OCCUPIED but no mode chosen.
-    if (matchState.status === 'WAITING' && sessionMode === null) {
+    // Session-config — shown when no mode has been chosen yet (fresh join).
+    // The server auto-starts the match as LIVE, so we rely on sessionMode
+    // instead of status. On page refresh during active play, the reconnect
+    // flow restores sessionMode before this renders.
+    if (sessionMode === null) {
       return (
         <ClubSessionConfig
           onSelectFree={startFreePlay}
@@ -280,7 +290,8 @@ export function ClubPlayPage() {
       )
     }
 
-    // Free-play screen (timer + names + buttons; no score).
+    // Free-play screen (timer + buttons; no score, no names).
+    // Player names omitted per design decision — free play is informal.
     if (sessionMode === 'free') {
       // onEndSession sets the local endingSession flag; the effect below
       // observes it and emits endSession(false) to arm the server-side
@@ -288,8 +299,6 @@ export function ClubPlayPage() {
       return (
         <ClubFreePlay
           elapsedSeconds={elapsedSeconds}
-          playerNameA={matchState.playerNames?.a}
-          playerNameB={matchState.playerNames?.b}
           onPlayMatch={() => setMatchConfigOpen(true)}
           onEndSession={() => setEndingSession(true)}
         />
@@ -321,6 +330,9 @@ export function ClubPlayPage() {
                 <Button variant="secondary" size="sm" onClick={() => setHistoryOpen(true)}>
                   {i18nText('scoreboardHistory')}
                 </Button>
+                <Button variant="secondary" size="sm" onClick={startFreePlay}>
+                  {i18nText('clubPlayBackToFree')}
+                </Button>
                 <Button variant="danger" size="sm" onClick={() => setEndingSession(true)}>
                   {i18nText('clubPlayEndSessionBtn')}
                 </Button>
@@ -346,6 +358,18 @@ export function ClubPlayPage() {
             onClose={() => setHistoryOpen(false)}
             onUndo={undoLast}
           />
+
+          {!refereeReplaced && (
+            <div className="fixed bottom-6 left-6 z-50">
+              <RallyTapConnectButton
+                bleStatus={rallyTap.bleStatus}
+                deviceName={rallyTap.deviceName}
+                errorMessage={rallyTap.errorMessage}
+                onConnect={rallyTap.connect}
+                onDisconnect={rallyTap.disconnect}
+              />
+            </div>
+          )}
         </div>
       )
     }
@@ -390,7 +414,10 @@ export function ClubPlayPage() {
             isOpen
             elapsedSeconds={elapsedSeconds}
             onConfirm={() => endSession(true)}
-            onCancel={cancelEndSession}
+            onCancel={() => {
+              cancelEndSession()
+              setEndingSession(false)
+            }}
           />
         )}
       </motion.div>

@@ -38,6 +38,7 @@ vi.mock('@/i18n', () => ({
         clubPlayNameB: 'Jugador 2',
         clubPlayScoreA: 'Jugador 1',
         clubPlayScoreB: 'Jugador 2',
+        clubPlayBackToFree: '🎯 Volver a modo libre',
         clubPlayEndSessionBtn: '⏹ Terminar sesión',
         clubPlayRefereeReplaced: 'Alguien más tomó el control',
         clubPlayElapsedTime: 'Tiempo: {{minutes}} min',
@@ -380,6 +381,23 @@ describe('ClubPlayPage — PR 4 refactored flow', () => {
     )
     renderPage()
     expect(screen.getByTestId('scoreboard-main')).toBeInTheDocument()
+  })
+
+  it('shows "Volver a modo libre" button during LIVE match and calls startFreePlay on click', () => {
+    const mockStartFreePlay = vi.fn()
+    mockUseClubPlay.mockReturnValue(
+      makeHookState({
+        loading: false,
+        matchState: makeLiveMatch(),
+        sessionMode: 'match',
+        startFreePlay: mockStartFreePlay,
+      }),
+    )
+    renderPage()
+    const btn = screen.getByText('🎯 Volver a modo libre')
+    expect(btn).toBeInTheDocument()
+    fireEvent.click(btn)
+    expect(mockStartFreePlay).toHaveBeenCalledTimes(1)
   })
 
   // ── task 4.6: match FINISHED in club mode → post-match modal ─────

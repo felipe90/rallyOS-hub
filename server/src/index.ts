@@ -20,9 +20,12 @@ import { SportRegistry } from './domain/sports/sport.registry';
 import { DefaultMatchEngineFactory } from './domain/ports';
 import { StateStore } from './services/store/StateStore';
 import { ClubConfigStore } from './services/store/ClubConfigStore';
+import { SessionHistoryStore } from './services/store/SessionHistoryStore';
 import { createTournamentRouter } from './routes/tournament';
 import { createExportRouter } from './routes/export';
+import { createClubSessionsExportRouter } from './routes/clubSessionsExport';
 import { createOwnerAuthMiddleware } from './middleware/ownerAuth';
+import { createClubAuthMiddleware } from './middleware/clubAuth';
 import { SessionTokenService } from './services/security/SessionTokenService';
 import { logger } from './utils/logger';
 import { initOwnerPin } from './config/ownerPin';
@@ -59,6 +62,12 @@ const hubConfig = {
 // Create stores
 const stateStore = new StateStore();
 const clubConfigStore = new ClubConfigStore();
+// SessionHistoryStore — append-only JSON log of completed club sessions.
+// Spec: club-session-history / "SessionHistoryStore" requirement. Injected
+// into both the socket layer (ClubPlayerHandler.append on session end +
+// ClubSessionHistoryHandler clear+export flow) and the CSV export route
+// (GET /api/club/sessions/export).
+const sessionHistoryStore = new SessionHistoryStore();
 
 // Create infrastructure services
 const repository = new CourtRepository();
@@ -86,10 +95,14 @@ const courtManager = new CourtManager({
 // of truth (ENCRYPTION_SECRET via pinEncryption.getServerSecret).
 const sessionTokenService = new SessionTokenService();
 
-createSocketServer(io, courtManager, ownerPin, hubConfig, clubConfigStore);
+createSocketServer(io, courtManager, ownerPin, hubConfig, clubConfigStore, sessionHistoryStore);
 
 // Express owner auth — bound to the same SessionTokenService used by sockets.
 const ownerAuthMiddleware = createOwnerAuthMiddleware(sessionTokenService);
+// Express club admin auth — same SessionTokenService, role=club_admin.
+// Spec: club-session-history / "Authorization & Security" — the CSV export
+// endpoint MUST reject non-admin requests with 401/403.
+const clubAuthMiddleware = createClubAuthMiddleware(sessionTokenService);
 
 // GET /api/club/config — public endpoint to check if club is configured
 app.get('/api/club/config', (_req, res) => {
@@ -111,6 +124,14 @@ app.use(
 app.use(
   '/api/export/matches.csv',
   createExportRouter(stateStore, ownerAuthMiddleware),
+);
+
+// Mount club session CSV export route (before SPA fallback)
+// Spec: club-session-history / "CSV Export" requirement — admin-only,
+// text/csv with the 6-column header + injection-safe quoting.
+app.use(
+  '/api/club/sessions/export',
+  createClubSessionsExportRouter(sessionHistoryStore, clubAuthMiddleware),
 );
 
 // SPA fallback — must be registered LAST (after all API routes)

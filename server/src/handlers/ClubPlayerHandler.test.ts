@@ -10,8 +10,10 @@ import { ClubPlayerHandler } from './ClubPlayerHandler';
 import { CourtManager } from '../domain/courtManager';
 import { createTestCourtManager } from '../domain/courtManager.test-factory';
 import { ClubConfigStore } from '../services/store/ClubConfigStore';
+import { SessionHistoryStore } from '../services/store/SessionHistoryStore';
 import { SocketEvents } from '../../../shared/events';
 import { SPORT } from '../../../shared/types';
+import type { SessionRecord } from '../../../shared/types';
 import type { Socket } from 'socket.io';
 import type { FileSystem } from '../services/store/types';
 
@@ -1115,5 +1117,269 @@ describe('ClubPlayerHandler — CLUB_END_SESSION confirmation flow (spec scenari
     const courtAfter = courtManager.getCourt(courtId) as any;
     expect(courtAfter.clubStatus).toBe('OCCUPIED');
     expect(courtAfter.occupiedAt).toBe(occupiedAtBefore);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// ClubPlayerHandler — SessionHistoryStore append on session end
+// (PR 1 / Task 1.4 — club-session-history feature)
+//
+// Spec scenarios covered:
+//   - "Record created on player-initiated end"     (CLUB_END_SESSION confirm=true)
+//   - "Record created on admin force-end"           (forceEndSession path)
+//   - "Free-mode session records cost=0"
+//   - "All fields populated on normal session end"   (8 fields, non-null)
+//   - "Court name is a snapshot, not a live reference"
+//   - "Club not configured → no SessionRecord is created"
+// ═══════════════════════════════════════════════════════════════
+
+describe('ClubPlayerHandler — SessionHistoryStore append on session end (PR 1 / Task 1.4)', () => {
+  let socket: jest.Mocked<Socket>;
+  let courtId: string;
+  let courtPin: string;
+  let historyStore: SessionHistoryStore;
+  let historyFs: ReturnType<typeof createFakeFs>;
+
+  beforeEach(() => {
+    mockIo = createMockIo();
+    courtManager = createTestCourtManager();
+    const fakeFs = createFakeFs();
+    fakeFs._files.set(
+      'data/club-config.json',
+      JSON.stringify({
+        clubName: 'History Club',
+        sport: SPORT.TABLE_TENNIS,
+        adminPinHash: 'dummy-hash',
+        configured: true,
+        createdAt: Date.now(),
+        costPerMinute: 50,
+        currency: 'ARS',
+      }),
+    );
+    clubConfigStore = new ClubConfigStore(fakeFs);
+
+    // Dedicated fake fs for the SessionHistoryStore so append activity is
+    // isolated from the club-config fake fs.
+    historyFs = createFakeFs();
+    historyStore = new SessionHistoryStore(historyFs, 'data/session-history.json');
+
+    handler = new ClubPlayerHandler(mockIo, courtManager, OWNER_PIN, clubConfigStore, historyStore);
+
+    socket = createMockSocket('history-socket');
+    handler.registerHandlers(socket);
+
+    // Set up an OCCUPIED club court with the socket as referee — registerHandlers
+    // wires onClubSessionEnd, so any session end (player-initiated or admin
+    // force) will route through our modified callback → SessionHistoryStore.append.
+    const court = courtManager.createClubCourt('History Court');
+    courtId = court.id;
+    const activated = courtManager.activateCourt(courtId);
+    courtPin = activated!.pin;
+    courtManager.occupyClubCourt(courtId, SPORT.TABLE_TENNIS);
+    courtManager.registerClubReferee(courtId, socket.id);
+  });
+
+  function endSessionViaPlayer() {
+    const endSessionHandler = (socket.on as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_END_SESSION,
+    );
+    if (!endSessionHandler) throw new Error('CLUB_END_SESSION handler not registered');
+    endSessionHandler[1]({ courtId, confirm: true });
+  }
+
+  it('appends exactly one SessionRecord to SessionHistoryStore on CLUB_END_SESSION confirm=true (spec: player-initiated end)', () => {
+    endSessionViaPlayer();
+
+    const records = historyStore.load();
+    expect(records).toHaveLength(1);
+  });
+
+  it('appends a SessionRecord via onClubSessionEnd when admin force-ends the session (spec: admin force-end)', () => {
+    // forceEndSession delegates to endSession which fires onClubSessionEnd.
+    // The callback is wired in ClubPlayerHandler.registerHandlers — verify
+    // the same hook persists the record on the force-end path.
+    courtManager.forceEndSession(courtId);
+
+    const records = historyStore.load();
+    expect(records).toHaveLength(1);
+  });
+
+  it('populates ALL 8 SessionRecord fields on a normal session end (spec: all fields non-null)', () => {
+    endSessionViaPlayer();
+
+    const record = historyStore.load()[0];
+    expect(record).toBeDefined();
+    expect(typeof record.courtName).toBe('string');
+    expect(record.courtName).toBe('History Court');
+    expect(typeof record.elapsedSeconds).toBe('number');
+    expect(record.elapsedSeconds).toBeGreaterThanOrEqual(0);
+    expect(typeof record.elapsedMinutes).toBe('number');
+    expect(record.elapsedMinutes).toBeGreaterThanOrEqual(1);
+    expect(record.mode === 'free' || record.mode === 'match').toBe(true);
+    expect(typeof record.cost).toBe('number');
+    expect(typeof record.currency).toBe('string');
+    expect(record.currency).toBe('ARS');
+    expect(typeof record.timestamp).toBe('string');
+    expect(record.timestamp.length).toBeGreaterThan(0);
+    expect(typeof record.sessionId).toBe('string');
+    expect(record.sessionId.length).toBeGreaterThan(0);
+  });
+
+  it('uses cost=0 for free-mode sessions (spec: free-mode cost=0)', () => {
+    // Switch the court to free mode before ending.
+    courtManager.startFreePlay(courtId);
+    endSessionViaPlayer();
+
+    const record = historyStore.load()[0];
+    expect(record.cost).toBe(0);
+    expect(record.mode).toBe('free');
+  });
+
+  it('records cost = Math.ceil(elapsedMinutes × costPerMinute) for match-mode sessions (costPerMinute=50)', () => {
+    endSessionViaPlayer();
+
+    const record = historyStore.load()[0];
+    // elapsedMinutes is min 1, costPerMinute=50 → cost ≥ 50.
+    expect(record.cost).toBe(record.elapsedMinutes * 50);
+    expect(record.cost).toBeGreaterThanOrEqual(50);
+  });
+
+  it('captures courtName as a snapshot string (spec: court name is a snapshot, not a live reference)', () => {
+    endSessionViaPlayer();
+
+    const record = historyStore.load()[0];
+    expect(record.courtName).toBe('History Court');
+
+    // After the record is persisted, renaming the court (even via the
+    // repository mutation) MUST NOT mutate the stored record. The store
+    // holds plain JSON values, so subsequent court mutations are isolated.
+    const court = courtManager.getCourt(courtId) as any;
+    court.name = 'Renamed Court';
+
+    const reloaded = historyStore.load()[0];
+    expect(reloaded.courtName).toBe('History Court');
+  });
+
+  it('generates sessionId as a UUID v4 string (spec: sessionId UUID v4)', () => {
+    endSessionViaPlayer();
+
+    const record = historyStore.load()[0];
+    // UUID v4 canonical string: 8-4-4-4-12 hex chars, version nibble = 4.
+    expect(record.sessionId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+  });
+
+  it('generates timestamp as an ISO 8601 string (spec: timestamp ISO 8601)', () => {
+    endSessionViaPlayer();
+
+    const record = historyStore.load()[0];
+    // ISO 8601 — parses cleanly via Date and round-trips via toISOString.
+    const parsed = new Date(record.timestamp);
+    expect(parsed.toString()).not.toBe('Invalid Date');
+    expect(parsed.toISOString()).toBe(record.timestamp);
+  });
+
+  it('does NOT append a SessionRecord when the club is not configured (spec: history disabled without club config)', () => {
+    // Replace the in-memory club config with one that fails
+    // clubConfigStore.load() — load() returns null. The handler's
+    // onClubSessionEnd callback MUST short-circuit (no record created) so
+    // the SessionHistoryStore stays empty.
+    const blankFs = createFakeFs();
+    const blankConfigStore = new ClubConfigStore(blankFs); // no config file → load() returns null
+    const blankHistoryFs = createFakeFs();
+    const blankHistoryStore = new SessionHistoryStore(blankHistoryFs, 'data/session-history.json');
+    const blankHandler = new ClubPlayerHandler(
+      mockIo,
+      courtManager,
+      OWNER_PIN,
+      blankConfigStore,
+      blankHistoryStore,
+    );
+    const blankSocket = createMockSocket('blank-socket');
+    blankHandler.registerHandlers(blankSocket);
+
+    // Set up a fresh OCCUPIED court and end it.
+    const court = courtManager.createClubCourt('No Config Court');
+    const blankCourtId = court.id;
+    courtManager.activateCourt(blankCourtId);
+    courtManager.occupyClubCourt(blankCourtId, SPORT.TABLE_TENNIS);
+    courtManager.registerClubReferee(blankCourtId, blankSocket.id);
+
+    const endHandler = (blankSocket.on as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_END_SESSION,
+    );
+    endHandler[1]({ courtId: blankCourtId, confirm: true });
+
+    expect(blankHistoryStore.load()).toEqual([]);
+  });
+
+  it('persists two records across two consecutive session ends (append-only accumulation)', () => {
+    endSessionViaPlayer();
+
+    // Set up a fresh court for the second end (activateCourt only goes
+    // AVAILABLE → RESERVED, so a FINISHED court cannot be reactivated).
+    const secondCourt = courtManager.createClubCourt('History Court 2');
+    const secondCourtId = secondCourt.id;
+    courtManager.activateCourt(secondCourtId);
+    courtManager.occupyClubCourt(secondCourtId, SPORT.TABLE_TENNIS);
+    courtManager.registerClubReferee(secondCourtId, socket.id);
+
+    const endHandler = (socket.on as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_END_SESSION,
+    );
+    endHandler[1]({ courtId: secondCourtId, confirm: true });
+
+    const records = historyStore.load();
+    expect(records).toHaveLength(2);
+    expect(records[0].sessionId).not.toBe(records[1].sessionId);
+    expect(records[0].courtName).toBe('History Court');
+    expect(records[1].courtName).toBe('History Court 2');
+  });
+
+  it('does NOT block the session-end transition even if SessionHistoryStore is omitted (spec: write failure does not block)', () => {
+    // Construct a handler with no SessionHistoryStore — the callback must
+    // still allow the court to transition to FINISHED.
+    const noStoreHandler = new ClubPlayerHandler(mockIo, courtManager, OWNER_PIN, clubConfigStore);
+    const noStoreSocket = createMockSocket('no-store-socket');
+    noStoreHandler.registerHandlers(noStoreSocket);
+
+    const court = courtManager.createClubCourt('No Store Court');
+    const noStoreCourtId = court.id;
+    courtManager.activateCourt(noStoreCourtId);
+    courtManager.occupyClubCourt(noStoreCourtId, SPORT.TABLE_TENNIS);
+    courtManager.registerClubReferee(noStoreCourtId, noStoreSocket.id);
+
+    const endHandler = (noStoreSocket.on as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_END_SESSION,
+    );
+    endHandler[1]({ courtId: noStoreCourtId, confirm: true });
+
+    const ended = courtManager.getCourt(noStoreCourtId) as any;
+    expect(ended.clubStatus).toBe('FINISHED');
+  });
+
+  it('still broadcasts CLUB_SESSION_ENDED on session end (broadcast behavior unchanged by history persistence)', () => {
+    endSessionViaPlayer();
+
+    const emitMock = mockIo.to(courtId);
+    expect(emitMock.emit).toHaveBeenCalledWith(
+      SocketEvents.SERVER.CLUB_SESSION_ENDED,
+      expect.objectContaining({
+        courtId,
+        elapsedMinutes: expect.any(Number),
+        elapsedSeconds: expect.any(Number),
+        cost: expect.any(Number),
+        currency: 'ARS',
+        reason: 'player',
+      }),
+    );
+  });
+
+  it('SessionRecord.type sanity — record passes structural SessionRecord check', () => {
+    endSessionViaPlayer();
+
+    const record: SessionRecord = historyStore.load()[0];
+    expect(Object.keys(record).sort()).toEqual(
+      ['courtName', 'cost', 'currency', 'elapsedMinutes', 'elapsedSeconds', 'mode', 'sessionId', 'timestamp'].sort(),
+    );
   });
 });

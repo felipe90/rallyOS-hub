@@ -9,18 +9,20 @@
  */
 
 import { Server, Socket } from 'socket.io';
+import crypto from 'crypto';
 import { CourtManager } from '../domain/courtManager';
 import type { IClubConfigRepository } from '../domain/ports/IClubConfigRepository';
 import { validateSocketPayload } from '../utils/validation';
 import { logger, maskIp } from '../utils/logger';
 import { SocketEvents } from '../../../shared/events';
 import { PIN_RULES } from '../../../shared/validation';
-import { SPORT, CLUB_STATUS } from '../../../shared/types';
-import type { MatchConfig } from '../../../shared/types';
+import { SPORT, CLUB_STATUS, SESSION_MODE } from '../../../shared/types';
+import type { MatchConfig, SessionRecord, SessionMode } from '../../../shared/types';
 import { isClubCourt } from '../domain/types';
 import type { ClubCourt } from '../domain/types';
 import { SocketHandlerBase } from './SocketHandlerBase';
 import { PinRateLimiter } from '../services/security/PinRateLimiter';
+import { SessionHistoryStore } from '../services/store/SessionHistoryStore';
 
 // ═══════════════════════════════════════════════════════════════
 // ClubPlayerHandler
@@ -36,23 +38,39 @@ import { PinRateLimiter } from '../services/security/PinRateLimiter';
 export class ClubPlayerHandler extends SocketHandlerBase {
   private clubConfigStore: IClubConfigRepository;
   private pinRateLimiter: PinRateLimiter;
+  private sessionHistoryStore?: SessionHistoryStore;
 
   constructor(
     io: Server,
     tableManager: CourtManager,
     ownerPin: string,
     clubConfigStore: IClubConfigRepository,
+    sessionHistoryStore?: SessionHistoryStore,
   ) {
     super(io, tableManager, ownerPin);
     this.clubConfigStore = clubConfigStore;
     this.pinRateLimiter = new PinRateLimiter();
+    this.sessionHistoryStore = sessionHistoryStore;
   }
 
   /**
    * Register all club player event handlers
    */
   public registerHandlers(socket: Socket): void {
-    // Wire onClubSessionEnd callback to calculate cost and broadcast to the room
+    // Wire onClubSessionEnd callback to calculate cost, broadcast to the room,
+    // and — when a SessionHistoryStore is injected — persist a SessionRecord
+    // snapshot for the admin history tab. See `club-session-history` spec
+    // ("Persistence Trigger" and "SessionRecord Schema" requirements):
+    //   - The callback fires on BOTH endSession (player confirm=true) and
+    //     forceEndSession (admin force-end). One hook covers both paths.
+    //   - When no SessionHistoryStore is injected (PR 1 intermediate state,
+    //     or a write-time failure inside append) the session end flow MUST
+    //     still complete — the court still transitions to FINISHED and the
+    //     broadcast still fires. Persistence is best-effort and never
+    //     blocks session end.
+    //   - When the club is not configured (clubConfigStore.load() returns
+    //     null) no SessionRecord is created (spec: "history disabled without
+    //     club config").
     this.tableManager.onClubSessionEnd = (courtId: string, elapsedMinutes: number, elapsedSeconds: number, reason: string) => {
       const clubConfig = this.clubConfigStore.load();
       const costPerMinute = clubConfig?.costPerMinute ?? 0;
@@ -69,6 +87,41 @@ export class ClubPlayerHandler extends SocketHandlerBase {
         currency,
         reason,
       });
+
+      // Persist a SessionRecord snapshot ONLY when both a SessionHistoryStore
+      // is injected AND the club is configured. Non-configured clubs disable
+      // history per spec ("Club Not Configured" requirement).
+      if (!this.sessionHistoryStore || !clubConfig || !clubConfig.configured) {
+        return;
+      }
+
+      // Capture the courtName + mode at session-end time as a SNAPSHOT. The
+      // court has already transitioned to FINISHED in CourtManager.endSession
+      // (which fires this callback), but the court object still carries its
+      // name and sessionMode values at this point in the lifecycle.
+      const court = this.tableManager.getCourt(courtId);
+      const courtName = court?.name ?? '';
+      const sessionMode: SessionMode | null =
+        court && isClubCourt(court) ? court.sessionMode : null;
+      const mode: SessionMode = sessionMode ?? SESSION_MODE.MATCH;
+
+      // Spec: free-mode sessions always record cost=0, regardless of costPerMinute.
+      const recordedCost = mode === SESSION_MODE.FREE ? 0 : cost;
+
+      const record: SessionRecord = {
+        courtName,
+        elapsedSeconds,
+        elapsedMinutes,
+        mode,
+        cost: recordedCost,
+        currency,
+        timestamp: new Date().toISOString(),
+        sessionId: crypto.randomUUID(),
+      };
+
+      // append() logs errors and never throws — session end is not blocked
+      // by persistence failure.
+      this.sessionHistoryStore.append(record);
     };
 
     // CLUB_JOIN: Player attempts to join a club court using a 4-digit PIN

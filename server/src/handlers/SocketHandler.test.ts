@@ -349,3 +349,215 @@ describe('SocketHandler.onMatchEvent — club MATCH_WON keeps OCCUPIED and emits
     expect(updated.occupiedAt).toBe(occupiedAtBefore);
   });
 });
+
+// ═══════════════════════════════════════════════════════════════
+// SocketHandler — ClubSessionHistoryHandler wiring + admin-connect
+// push of CLUB_SESSION_HISTORY (spec: club-session-history Server Events).
+// ═══════════════════════════════════════════════════════════════
+
+import { SessionHistoryStore } from '../services/store/SessionHistoryStore';
+import type { SessionRecord } from '../../../shared/types';
+
+describe('SocketHandler — ClubSessionHistoryHandler wiring (PR 2 task 2.2)', () => {
+  function buildWithHistoryStore(records: SessionRecord[] = []) {
+    const fakeFs: any = {
+      _files: new Map<string, string>(),
+      writeFileSync(path: string, data: string): void {
+        (this._files as Map<string, string>).set(path, data);
+      },
+      readFileSync(path: string): string {
+        const content = (this._files as Map<string, string>).get(path);
+        if (content === undefined) {
+          throw Object.assign(new Error(`ENOENT: ${path}`), { code: 'ENOENT' });
+        }
+        return content;
+      },
+      renameSync(oldPath: string, newPath: string): void {
+        const m = this._files as Map<string, string>;
+        const c = m.get(oldPath);
+        if (c === undefined) throw new Error('ENOENT');
+        m.set(newPath, c);
+        m.delete(oldPath);
+      },
+      existsSync(path: string): boolean {
+        return (this._files as Map<string, string>).has(path);
+      },
+      mkdirSync(): string | undefined {
+        return undefined;
+      },
+      unlinkSync(path: string): void {
+        (this._files as Map<string, string>).delete(path);
+      },
+    };
+    fakeFs._files.set('data/session-history.json', JSON.stringify(records, null, 2));
+    const sessionHistoryStore = new SessionHistoryStore(fakeFs, 'data/session-history.json');
+
+    const socketsMap = new Map<string, any>();
+    const io: any = {
+      to: jest.fn().mockReturnThis(),
+      in: jest.fn().mockReturnThis(),
+      emit: jest.fn(),
+      use: jest.fn(),
+      on: jest.fn(),
+      engine: { clientsCount: 0 },
+      sockets: { sockets: socketsMap },
+    };
+
+    const courtManager = createTestCourtManager();
+    const clubFs: any = {
+      writeFileSync: jest.fn(),
+      readFileSync: jest.fn(() => {
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      }),
+      renameSync: jest.fn(),
+      existsSync: jest.fn(() => false),
+      mkdirSync: jest.fn(() => undefined),
+      unlinkSync: jest.fn(),
+    };
+    const clubConfigStore = new ClubConfigStore(clubFs);
+
+    new SocketHandler(
+      io as any,
+      courtManager as CourtManager,
+      '12345678',
+      { ssid: 's', ip: '1', port: 3000, domain: 'd', wifiPassword: '' },
+      clubConfigStore,
+      sessionHistoryStore,
+    );
+
+    const connectionCall = (io.on as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === 'connection',
+    );
+    expect(connectionCall).toBeDefined();
+    return { io, courtManager, sessionHistoryStore, getConnection: () => connectionCall![1], socketsMap };
+  }
+
+  function makeAdminSocket(id: string): any {
+    return {
+      id,
+      handshake: { address: '127.0.0.1', auth: {} },
+      data: { isClubAdmin: true },
+      on: jest.fn(),
+      emit: jest.fn(),
+      join: jest.fn(),
+      leave: jest.fn(),
+      rooms: new Set(),
+    };
+  }
+
+  function makePlayerSocket(id: string): any {
+    return {
+      id,
+      handshake: { address: '127.0.0.1', auth: {} },
+      data: {},
+      on: jest.fn(),
+      emit: jest.fn(),
+      join: jest.fn(),
+      leave: jest.fn(),
+      rooms: new Set(),
+    };
+  }
+
+  it('emits CLUB_SESSION_HISTORY with persisted records to a connecting admin socket', () => {
+    const record: SessionRecord = {
+      courtName: 'Cancha A',
+      elapsedSeconds: 600,
+      elapsedMinutes: 10,
+      mode: 'match',
+      cost: 500,
+      currency: 'ARS',
+      timestamp: '2026-07-20T10:00:00.000Z',
+      sessionId: 'uuid-123',
+    };
+    const { getConnection, socketsMap } = buildWithHistoryStore([record]);
+
+    const admin = makeAdminSocket('admin-1');
+    socketsMap.set(admin.id, admin);
+    (getConnection() as (s: any) => void)(admin);
+
+    const historyEmit = (admin.emit as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.SERVER.CLUB_SESSION_HISTORY,
+    );
+    expect(historyEmit).toBeDefined();
+    expect(historyEmit[1]).toEqual(
+      expect.objectContaining({
+        sessions: expect.arrayContaining([
+          expect.objectContaining({ courtName: 'Cancha A', sessionId: 'uuid-123' }),
+        ]),
+      }),
+    );
+  });
+
+  it('emits CLUB_SESSION_HISTORY with empty sessions array to a connecting admin when store is empty', () => {
+    const { getConnection, socketsMap } = buildWithHistoryStore([]);
+
+    const admin = makeAdminSocket('admin-empty');
+    socketsMap.set(admin.id, admin);
+    (getConnection() as (s: any) => void)(admin);
+
+    const historyEmit = (admin.emit as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.SERVER.CLUB_SESSION_HISTORY,
+    );
+    expect(historyEmit).toBeDefined();
+    expect(historyEmit[1]).toEqual(expect.objectContaining({ sessions: [] }));
+  });
+
+  it('does NOT emit CLUB_SESSION_HISTORY to a non-admin socket on connect', () => {
+    const { getConnection, socketsMap } = buildWithHistoryStore([
+      {
+        courtName: 'Cancha X',
+        elapsedSeconds: 60,
+        elapsedMinutes: 1,
+        mode: 'free',
+        cost: 0,
+        currency: 'ARS',
+        timestamp: '2026-07-20T10:00:00.000Z',
+        sessionId: 'uuid-x',
+      },
+    ]);
+
+    const player = makePlayerSocket('player-1');
+    socketsMap.set(player.id, player);
+    (getConnection() as (s: any) => void)(player);
+
+    const historyEmit = (player.emit as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.SERVER.CLUB_SESSION_HISTORY,
+    );
+    expect(historyEmit).toBeUndefined();
+  });
+
+  it('registers ClubSessionHistoryHandler handlers so admin CLUB_CLEAR_HISTORY_CONFIRM clears the store', () => {
+    const record: SessionRecord = {
+      courtName: 'Cancha B',
+      elapsedSeconds: 60,
+      elapsedMinutes: 1,
+      mode: 'free',
+      cost: 0,
+      currency: 'ARS',
+      timestamp: '2026-07-20T10:00:00.000Z',
+      sessionId: 'uuid-B',
+    };
+    const { getConnection, socketsMap, sessionHistoryStore } = buildWithHistoryStore([record]);
+    expect(sessionHistoryStore.getAll()).toHaveLength(1);
+
+    const admin = makeAdminSocket('admin-clear');
+    socketsMap.set(admin.id, admin);
+    (getConnection() as (s: any) => void)(admin);
+
+    // admin registered a listener for CLUB_CLEAR_HISTORY + CONFIRM + disconnect
+    const onMock = admin.on as jest.Mock;
+    const clearHandler = onMock.mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_CLEAR_HISTORY,
+    );
+    const confirmHandler = onMock.mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_CLEAR_HISTORY_CONFIRM,
+    );
+    expect(clearHandler).toBeDefined();
+    expect(confirmHandler).toBeDefined();
+
+    (clearHandler![1] as () => void)();
+    (confirmHandler![1] as (d: { confirm: boolean }) => void)({ confirm: true });
+
+    expect(sessionHistoryStore.getAll()).toEqual([]);
+  });
+});

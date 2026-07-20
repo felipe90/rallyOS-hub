@@ -35,7 +35,9 @@ import {
   ClubAdminHandler,
   ClubCourtHandler,
   ClubPlayerHandler,
+  ClubSessionHistoryHandler,
 } from './index';
+import { SessionHistoryStore } from '../services/store/SessionHistoryStore';
 
 export class SocketHandler {
   private io: Server;
@@ -54,6 +56,7 @@ export class SocketHandler {
   private clubAdminHandler: ClubAdminHandler;
   private clubCourtHandler: ClubCourtHandler;
   private clubPlayerHandler: ClubPlayerHandler;
+  private clubHistoryHandler?: ClubSessionHistoryHandler;
 
   constructor(
     io: Server,
@@ -61,6 +64,7 @@ export class SocketHandler {
     ownerPin: string,
     hubConfig: HubConfig,
     clubConfigStore?: IClubConfigRepository,
+    sessionHistoryStore?: SessionHistoryStore,
   ) {
     this.io = io;
     this.tableManager = tableManager;
@@ -81,7 +85,16 @@ export class SocketHandler {
     this.spotlightHandler = new SpotlightHandler(io, tableManager, ownerPin);
     this.clubAdminHandler = new ClubAdminHandler(io, tableManager, ownerPin, clubConfigStore!, adminPinService, sessionTokenService);
     this.clubCourtHandler = new ClubCourtHandler(io, tableManager, ownerPin);
-    this.clubPlayerHandler = new ClubPlayerHandler(io, tableManager, ownerPin, clubConfigStore!);
+    // Spec (club-session-history / Persistence Trigger): when a
+    // SessionHistoryStore is injected via the SocketHandler ctor, it is
+    // forwarded to ClubPlayerHandler so session-end writes a SessionRecord.
+    // When omitted (older tests, or while PR 2 production wiring is in
+    // progress), the no-store safety-net path inside ClubPlayerHandler is
+    // exercised — see gotchas #3/#4 in sdd/club-session-history/apply-gotchas.
+    this.clubPlayerHandler = new ClubPlayerHandler(io, tableManager, ownerPin, clubConfigStore!, sessionHistoryStore);
+    if (sessionHistoryStore) {
+      this.clubHistoryHandler = new ClubSessionHistoryHandler(io, sessionHistoryStore);
+    }
     
     // Set up global court update listener once
     // COURT_UPDATE always goes to the court's room; COURT_LIST / CLUB_KIOSK_DATA
@@ -219,12 +232,19 @@ export class SocketHandler {
       this.clubAdminHandler.registerHandlers(socket);
       this.clubCourtHandler.registerHandlers(socket);
       this.clubPlayerHandler.registerHandlers(socket);
+      this.clubHistoryHandler?.registerHandlers(socket);
 
       // Signal club admin that their session was restored from JWT on reload
       // (REQ-11). The io.use() middleware already set isClubAdmin; this
       // lets the client restore the admin UI without re-entering the PIN.
       if ((socket.data as SocketData).isClubAdmin) {
         socket.emit(SocketEvents.SERVER.CLUB_SESSION_RESTORED);
+
+        // Spec (club-session-history / Server Events): on admin connect,
+        // push the full persisted session history to that admin. Only
+        // emitted to admin sockets — sendHistoryToSocket re-checks
+        // isClubAdmin before emitting (defense-in-depth).
+        this.clubHistoryHandler?.sendHistoryToSocket(socket);
       }
 
       // Handle disconnection

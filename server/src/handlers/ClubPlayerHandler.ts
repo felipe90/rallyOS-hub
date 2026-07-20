@@ -105,15 +105,14 @@ export class ClubPlayerHandler extends SocketHandlerBase {
         court && isClubCourt(court) ? court.sessionMode : null;
       const mode: SessionMode = sessionMode ?? SESSION_MODE.MATCH;
 
-      // Spec: free-mode sessions always record cost=0, regardless of costPerMinute.
-      const recordedCost = mode === SESSION_MODE.FREE ? 0 : cost;
-
+      // Free mode costs the same as match mode — the court is occupied and
+      // elapsed time × costPerMinute applies regardless of scoring mode.
       const record: SessionRecord = {
         courtName,
         elapsedSeconds,
         elapsedMinutes,
         mode,
-        cost: recordedCost,
+        cost,
         currency,
         timestamp: new Date().toISOString(),
         sessionId: crypto.randomUUID(),

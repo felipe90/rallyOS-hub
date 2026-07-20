@@ -1225,13 +1225,15 @@ describe('ClubPlayerHandler — SessionHistoryStore append on session end (PR 1 
     expect(record.sessionId.length).toBeGreaterThan(0);
   });
 
-  it('uses cost=0 for free-mode sessions (spec: free-mode cost=0)', () => {
-    // Switch the court to free mode before ending.
+  it('charges the same cost for free-mode as match-mode (cost = elapsedMinutes × costPerMinute)', () => {
+    // Switch the court to free mode before ending. Cost should be the same
+    // as match mode — court time is billed regardless of scoring mode.
     courtManager.startFreePlay(courtId);
     endSessionViaPlayer();
 
     const record = historyStore.load()[0];
-    expect(record.cost).toBe(0);
+    expect(record.cost).toBe(record.elapsedMinutes * 50);
+    expect(record.cost).toBeGreaterThanOrEqual(50);
     expect(record.mode).toBe('free');
   });
 

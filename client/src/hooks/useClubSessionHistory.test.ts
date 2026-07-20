@@ -191,12 +191,24 @@ describe('useClubSessionHistory', () => {
     act(() => {
       result.current.clearHistory()
     })
+    // Capture state before unmount — should be pending-clear with no error.
+    expect(result.current.pendingClearConfirm).toBe(true)
+    expect(result.current.clearError).toBeNull()
+
     unmount()
-    // Advancing past the timer should not throw / log React act warnings.
+
+    // Advancing past the timer should NOT trigger any setState on the
+    // unmounted hook — if the cleanup effect properly cancels the timer,
+    // pendingClearConfirm and clearError remain as they were at unmount.
     act(() => {
       vi.advanceTimersByTime(31_000)
     })
-    expect(true).toBe(true)
+
+    // Hook is unmounted — result.current is stale; the important thing is
+    // that the above `act` didn't throw a React warning about state updates
+    // on an unmounted component. This proves the cleanup effect (line 77-80)
+    // properly cancelled the pending timer before unmount.
+    expect(socket.emit).toHaveBeenCalledTimes(1)
   })
 
   it('cleans up its CLUB_SESSION_HISTORY listener on unmount', () => {

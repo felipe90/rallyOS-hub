@@ -151,7 +151,7 @@ describe('ClubSessionHistoryPanel — table rendering', () => {
     )
     const cells = screen.getAllByRole('cell')
     // First data row should be NEW (most recent), then MID, then OLD
-    expect(cells.find((c) => c.textContent === 'NEW')).toBeDefined()
+    expect(screen.getByRole('cell', { name: 'NEW' })).toBeInTheDocument()
     const newIdx = cells.findIndex((c) => c.textContent === 'NEW')
     const midIdx = cells.findIndex((c) => c.textContent === 'MID')
     const oldIdx = cells.findIndex((c) => c.textContent === 'OLD')

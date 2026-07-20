@@ -101,3 +101,67 @@ describe('Club session lifecycle — event name uniqueness', () => {
     );
   });
 });
+
+// ── Club session history events (PR 1 Foundation) ──────────────────────
+
+describe('Club session history — client → server events', () => {
+  test('CLUB_CLEAR_HISTORY event name is registered', () => {
+    expect(SocketEvents.CLIENT.CLUB_CLEAR_HISTORY).toBeDefined();
+    expect(typeof SocketEvents.CLIENT.CLUB_CLEAR_HISTORY).toBe('string');
+  });
+
+  test('CLUB_CLEAR_HISTORY equals "CLUB_CLEAR_HISTORY"', () => {
+    expect(SocketEvents.CLIENT.CLUB_CLEAR_HISTORY).toBe('CLUB_CLEAR_HISTORY');
+  });
+
+  test('CLUB_CLEAR_HISTORY_CONFIRM event name is registered', () => {
+    expect(SocketEvents.CLIENT.CLUB_CLEAR_HISTORY_CONFIRM).toBeDefined();
+    expect(typeof SocketEvents.CLIENT.CLUB_CLEAR_HISTORY_CONFIRM).toBe('string');
+  });
+
+  test('CLUB_CLEAR_HISTORY_CONFIRM equals "CLUB_CLEAR_HISTORY_CONFIRM"', () => {
+    expect(SocketEvents.CLIENT.CLUB_CLEAR_HISTORY_CONFIRM).toBe('CLUB_CLEAR_HISTORY_CONFIRM');
+  });
+});
+
+describe('Club session history — server → client events', () => {
+  test('CLUB_SESSION_HISTORY event name is registered', () => {
+    expect(SocketEvents.SERVER.CLUB_SESSION_HISTORY).toBeDefined();
+    expect(typeof SocketEvents.SERVER.CLUB_SESSION_HISTORY).toBe('string');
+  });
+
+  test('CLUB_SESSION_HISTORY equals "CLUB_SESSION_HISTORY"', () => {
+    expect(SocketEvents.SERVER.CLUB_SESSION_HISTORY).toBe('CLUB_SESSION_HISTORY');
+  });
+
+  test('CLUB_SESSION_HISTORY is distinct from CLUB_KIOSK_DATA (history must not leak to kiosk channel)', () => {
+    expect(SocketEvents.SERVER.CLUB_SESSION_HISTORY).not.toBe(
+      SocketEvents.SERVER.CLUB_KIOSK_DATA,
+    );
+  });
+});
+
+describe('Club session history — event name uniqueness', () => {
+  test('every new club-history event is unique across the whole dictionary', () => {
+    const allValues = [
+      ...Object.values(SocketEvents.CLIENT),
+      ...Object.values(SocketEvents.SERVER),
+    ];
+    const newEvents = [
+      SocketEvents.CLIENT.CLUB_CLEAR_HISTORY,
+      SocketEvents.CLIENT.CLUB_CLEAR_HISTORY_CONFIRM,
+      SocketEvents.SERVER.CLUB_SESSION_HISTORY,
+    ];
+    for (const ev of newEvents) {
+      // The event name can legitimately appear exactly once (itself).
+      const occurrences = allValues.filter((v) => v === ev).length;
+      expect(occurrences).toBe(1);
+    }
+  });
+
+  test('CLUB_CLEAR_HISTORY and CLUB_CLEAR_HISTORY_CONFIRM are distinct events', () => {
+    expect(SocketEvents.CLIENT.CLUB_CLEAR_HISTORY).not.toBe(
+      SocketEvents.CLIENT.CLUB_CLEAR_HISTORY_CONFIRM,
+    );
+  });
+});

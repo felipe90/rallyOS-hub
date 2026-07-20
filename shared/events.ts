@@ -57,6 +57,12 @@ export const SocketEvents = {
     CLUB_START_FREE: 'CLUB_START_FREE',
     CLUB_RESET_MATCH: 'CLUB_RESET_MATCH',
     CLUB_NEW_MATCH: 'CLUB_NEW_MATCH',
+    // Club Session History — admin requests history deletion (two-step
+    // confirmation flow). See `club-session-history` spec: the server enters
+    // a pending-clear state on CLUB_CLEAR_HISTORY and only acts after
+    // CLUB_CLEAR_HISTORY_CONFIRM with confirm=true within 30s.
+    CLUB_CLEAR_HISTORY: 'CLUB_CLEAR_HISTORY',
+    CLUB_CLEAR_HISTORY_CONFIRM: 'CLUB_CLEAR_HISTORY_CONFIRM',
   },
   // Emitted by SERVER → received by CLIENT
   SERVER: {
@@ -101,6 +107,11 @@ export const SocketEvents = {
     CLUB_FREE_STARTED: 'CLUB_FREE_STARTED',
     CLUB_MATCH_RESET: 'CLUB_MATCH_RESET',
     CLUB_SESSION_TIMER: 'CLUB_SESSION_TIMER',
+    // Club Session History — S→C push of the full persisted session record
+    // array. Emitted on admin socket connect (after auth) and on
+    // CLUB_CLEAR_HISTORY_CONFIRM (with empty array, broadcast to ALL admin
+    // sockets). See `club-session-history` spec.
+    CLUB_SESSION_HISTORY: 'CLUB_SESSION_HISTORY',
     // PR 3 — dedicated confirmation signal for player-initiated
     // CLUB_END_SESSION. Previously the server reused CLUB_SESSION_TIMER to
     // carry the end-session confirmation payload, which forced the client to

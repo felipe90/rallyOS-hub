@@ -1,13 +1,25 @@
 /**
- * ClubPlayPage — Club player scoreboard with full scoreboard experience
+ * ClubPlayPage — Club player scoreboard (PR 4 refactored flow).
  *
  * Route: /club/play/:courtId
- * States: loading → player-name-prompt → playing → finished
  *
- * Uses ScoreboardMain with all standard controls (scoring, undo, swap sides,
- * orientation toggle, set history, history drawer).
- * No MatchConfigModal (auto-start), no RallyTap (deferred), no WinnerDialog
- * (club players navigate home after finish).
+ * Stage machine (PR 4):
+ *   loading → reconnecting → session-config (Free/Match selector)
+ *     → free-play OR match-config OR match-live → post-match modal
+ *       (Reset/New Match/Free/End Session) → end-session confirm modal
+ *         → finished (sessionEnded) → "Volver al inicio"
+ *
+ * Spec scenarios wired in this file:
+ *   1 (Start free play) — session-config onSelectFree → startFreePlay
+ *   2 (Start match from config) — ClubMatchConfig onSubmit → newMatch
+ *   4 (Session ends) — CLUB_SESSION_ENDED drives FinishedView
+ *   5a (Player opens end-session confirm) — endSession(false) arms modal
+ *   5b (Player confirms) — endSession(true) → server transitions to FINISHED
+ *   6 (Cancel end session) — cancelEndSession() local reset
+ *   Match ends in club mode — PostMatchModal renders Reset/New/Free/End
+ *
+ * Timer uses useClubPlay.elapsedSeconds (server-authoritative, formatted
+ * via useClubTimer.formatElapsed inside ClubFreePlay + ClubEndSessionConfirm).
  */
 
 import { useState, useEffect } from 'react'
@@ -17,7 +29,11 @@ import { useSocketContext } from '@/contexts/SocketContext'
 import { useClubPlay } from '@/hooks/useClubPlay'
 import { useOrientation } from '@/hooks/useOrientation'
 import { ScoreboardMain } from '@/components/organisms/ScoreboardMain'
-import { PlayerNamePrompt } from '@/components/molecules/PlayerNamePrompt/PlayerNamePrompt'
+import { ClubSessionConfig } from '@/components/molecules/ClubSessionConfig'
+import { ClubMatchConfig } from '@/components/molecules/ClubMatchConfig'
+import type { ClubMatchConfigPayload } from '@/components/molecules/ClubMatchConfig'
+import { ClubFreePlay } from '@/components/molecules/ClubFreePlay'
+import { ClubEndSessionConfirm } from '@/components/molecules/ClubEndSessionConfirm'
 import { PageHeader } from '@/components/molecules/PageHeader'
 import { HistoryDrawer } from '@/components/organisms/HistoryDrawer'
 import { Button } from '@/components/atoms/Button'
@@ -25,21 +41,29 @@ import { Typography } from '@/components/atoms/Typography'
 import { ConnectionStatus } from '@/components/atoms'
 import { useI18n } from '@/i18n'
 import { Routes } from '@/routes'
-import type { MatchStateExtended } from '@shared/types'
+import type { MatchStateExtended, MatchConfig } from '@shared/types'
+
+const motionProps = {
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -20 },
+  transition: { duration: 0.2 },
+} as const
+
+function connectionLabels(i18nText: (key: string, params?: Record<string, unknown>) => string) {
+  return {
+    connected: i18nText('connectionConnected'),
+    connecting: i18nText('connectionConnecting'),
+    error: i18nText('connectionNoConnection'),
+    disconnected: i18nText('connectionDisconnected'),
+  }
+}
 
 /** Loading state — spinner + "Conectando..." */
-function LoadingView() {
-  const { i18nText } = useI18n()
+function LoadingView({ i18nText }: { i18nText: (key: string, params?: Record<string, unknown>) => string }) {
   return (
     <div className="flex flex-col items-center justify-center min-h-dvh bg-surface gap-4 p-4">
-      <ConnectionStatus
-        labels={{
-          connected: i18nText('connectionConnected'),
-          connecting: i18nText('connectionConnecting'),
-          error: i18nText('connectionNoConnection'),
-          disconnected: i18nText('connectionDisconnected'),
-        }}
-      />
+      <ConnectionStatus labels={connectionLabels(i18nText)} />
       <Typography variant="body" className="text-muted-foreground">
         {i18nText('clubPlayLoading')}
       </Typography>
@@ -47,23 +71,81 @@ function LoadingView() {
   )
 }
 
-/** Finished state — final score + session info + actions */
+/** Reconnecting state */
+function ReconnectingView({ i18nText }: { i18nText: (key: string, params?: Record<string, unknown>) => string }) {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-dvh bg-surface gap-4 p-4">
+      <ConnectionStatus labels={connectionLabels(i18nText)} />
+      <Typography variant="body" className="text-muted-foreground">
+        {i18nText('clubPlayReconnecting')}
+      </Typography>
+    </div>
+  )
+}
+
+/** Post-match modal — Reset / New Match / Free / End Session (spec scenario post-match flow). */
+function PostMatchModal({
+  i18nText,
+  matchState,
+  onReset,
+  onNewMatch,
+  onFree,
+  onEndSession,
+}: {
+  i18nText: (key: string, params?: Record<string, unknown>) => string
+  matchState: MatchStateExtended
+  onReset: () => void
+  onNewMatch: () => void
+  onFree: () => void
+  onEndSession: () => void
+}) {
+  const nameA = matchState.playerNames?.a || i18nText('clubPlayNameA')
+  const nameB = matchState.playerNames?.b || i18nText('clubPlayNameB')
+  const lastSet = matchState.setHistory?.[matchState.setHistory.length - 1]
+  const scoreA = lastSet?.a ?? 0
+  const scoreB = lastSet?.b ?? 0
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-dvh bg-surface gap-6 p-4" data-testid="post-match-modal">
+      <Typography variant="title" className="text-center">
+        {i18nText('clubPlayPostMatchTitle')}
+      </Typography>
+      <Typography variant="headline" className="text-primary text-center">
+        {nameA} {scoreA} — {scoreB} {nameB}
+      </Typography>
+
+      <div className="flex flex-col gap-3 w-full max-w-sm">
+        <Button variant="primary" size="lg" onClick={onReset} fullWidth>
+          {i18nText('clubPlayPostMatchReset')}
+        </Button>
+        <Button variant="secondary" size="lg" onClick={onNewMatch} fullWidth>
+          {i18nText('clubPlayPostMatchNew')}
+        </Button>
+        <Button variant="secondary" size="lg" onClick={onFree} fullWidth>
+          {i18nText('clubPlayPostMatchFree')}
+        </Button>
+        <Button variant="danger" size="lg" onClick={onEndSession} fullWidth>
+          {i18nText('clubPlayEndSessionBtn')}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+/** Final session-ended view — final score + cost summary + "Volver al inicio". */
 function FinishedView({
+  i18nText,
   matchState,
   sessionEnded,
-  onEndSession,
   onBack,
-  endingSession,
 }: {
+  i18nText: (key: string, params?: Record<string, unknown>) => string
   matchState: MatchStateExtended | null
   sessionEnded: { elapsedMinutes: number; cost: number; currency: string; reason: string } | null
-  onEndSession: () => void
   onBack: () => void
-  endingSession: boolean
 }) {
-  const { i18nText } = useI18n()
-  const nameA = matchState?.playerNames?.a || i18nText('clubPlayScoreA')
-  const nameB = matchState?.playerNames?.b || i18nText('clubPlayScoreB')
+  const nameA = matchState?.playerNames?.a || i18nText('clubPlayNameA')
+  const nameB = matchState?.playerNames?.b || i18nText('clubPlayNameB')
   const lastSet = matchState?.setHistory?.[matchState.setHistory.length - 1]
   const scoreA = lastSet?.a ?? 0
   const scoreB = lastSet?.b ?? 0
@@ -71,7 +153,7 @@ function FinishedView({
   return (
     <div className="flex flex-col items-center justify-center min-h-dvh bg-surface gap-6 p-4">
       <Typography variant="title">
-        {sessionEnded ? i18nText('clubPlaySessionEnded') : i18nText('clubPlayFinished')}
+        {i18nText('clubPlaySessionEnded')}
       </Typography>
       <Typography variant="headline" className="text-primary text-center">
         {nameA} {scoreA} — {scoreB} {nameB}
@@ -79,10 +161,9 @@ function FinishedView({
 
       {sessionEnded && (
         <div className="w-full max-w-sm bg-background rounded-xl p-6 shadow-md border border-border/50 flex flex-col gap-4 my-4 relative overflow-hidden">
-          {/* Ticket styling accents */}
           <div className="absolute -left-3 top-1/2 w-6 h-6 bg-surface rounded-full border-r border-border/50 -translate-y-1/2"></div>
           <div className="absolute -right-3 top-1/2 w-6 h-6 bg-surface rounded-full border-l border-border/50 -translate-y-1/2"></div>
-          
+
           <div className="flex justify-between items-center border-b border-dashed border-border/50 pb-4">
             <Typography variant="body" className="text-muted-foreground">
               {i18nText('clubPlayElapsedTime', { minutes: String(sessionEnded.elapsedMinutes) })}
@@ -99,17 +180,6 @@ function FinishedView({
         </div>
       )}
 
-      {!sessionEnded && (
-        <Button
-          variant="primary"
-          size="lg"
-          onClick={onEndSession}
-          disabled={endingSession}
-        >
-          {endingSession ? i18nText('clubPlayLoading') : i18nText('clubPlayEndSession')}
-        </Button>
-      )}
-
       <Button variant="ghost" size="lg" onClick={onBack}>
         {i18nText('clubPlayGoHome')}
       </Button>
@@ -124,130 +194,115 @@ export function ClubPlayPage() {
   const { i18nText } = useI18n()
   const { isLandscape, toggle: toggleOrientation } = useOrientation()
   const {
-    matchState, loading, error, finished, reconnecting, refereeReplaced,
-    sessionEnded, scorePoint, subtractPoint, undoLast, swapSides, startMatch, endSession,
+    matchState, loading, error, reconnecting, refereeReplaced,
+    sessionEnded, sessionMode, elapsedSeconds, pendingEndSessionConfirm,
+    scorePoint, subtractPoint, undoLast, swapSides,
+    endSession, startFreePlay, resetMatch, newMatch, cancelEndSession,
   } = useClubPlay(socket, courtId ?? '', connected)
 
-  // History drawer
   const [historyOpen, setHistoryOpen] = useState(false)
-
-  // End session loading state
   const [endingSession, setEndingSession] = useState(false)
+  // PR 4 — local flag controlling the ClubMatchConfig screen overlay.
+  // Set when the user picks "Modo Match" in session-config, presses
+  // "Jugar partido" in free-play, or chooses "Nuevo partido" in the
+  // post-match modal. Cleared on submit (the new match heads to LIVE)
+  // or cancel (returns to whatever stage was underneath).
+  const [matchConfigOpen, setMatchConfigOpen] = useState(false)
 
-  // Track whether we should show the name prompt.
-  // The prompt is shown when match is WAITING (not yet started).
-  // If match is already LIVE/FINISHED on mount, skip the prompt.
-  const [showNamePrompt, setShowNamePrompt] = useState(false)
-  const [promptResolved, setPromptResolved] = useState(false)
-
-  // Decide whether to show the name prompt when match state arrives
+  // Reset endingSession flag once the server confirms the session ended.
   useEffect(() => {
-    if (matchState && !promptResolved) {
-      if (matchState.status === 'WAITING') {
-        setShowNamePrompt(true)
-      } else {
-        // Already LIVE or FINISHED — no prompt needed
-        setShowNamePrompt(false)
-        setPromptResolved(true)
-      }
+    if (sessionEnded) setEndingSession(false)
+  }, [sessionEnded])
+
+  const handleBackToHome = () => navigate(Routes.AUTH)
+
+  const handleMatchConfigSubmit = (payload: ClubMatchConfigPayload) => {
+    setMatchConfigOpen(false)
+    newMatch(payload.playerNameA, payload.playerNameB, payload.matchConfig)
+  }
+
+  const renderStage = (): React.ReactNode => {
+    if (!courtId) {
+      return (
+        <div className="flex items-center justify-center min-h-dvh bg-surface">
+          <Typography variant="body">{i18nText('scoreboardInvalidCourtId')}</Typography>
+        </div>
+      )
     }
-  }, [matchState, promptResolved])
+    if (error) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-dvh bg-surface gap-4 p-4">
+          <Typography variant="body" className="text-red-500">
+            {error === 'CONNECTION_ERROR' ? i18nText('toastConnectionError') : i18nText('scoreboardLoading')}
+          </Typography>
+          <Button variant="ghost" onClick={handleBackToHome}>
+            {i18nText('clubPlayGoHome')}
+          </Button>
+        </div>
+      )
+    }
+    if (reconnecting) {
+      return <ReconnectingView i18nText={i18nText} />
+    }
+    if (loading || !matchState) {
+      return <LoadingView i18nText={i18nText} />
+    }
+    if (sessionEnded) {
+      return (
+        <FinishedView
+          i18nText={i18nText}
+          matchState={matchState}
+          sessionEnded={sessionEnded}
+          onBack={handleBackToHome}
+        />
+      )
+    }
+    // Local UI overlay — match config form takes precedence over
+    // whatever stage lies underneath. On submit or cancel the flag clears
+    // and the page returns to the prior derived stage.
+    if (matchConfigOpen) {
+      return (
+        <ClubMatchConfig
+          courtId={courtId}
+          onSubmit={handleMatchConfigSubmit}
+          onCancel={() => setMatchConfigOpen(false)}
+        />
+      )
+    }
 
-  const handleNameSubmit = (nameA: string, nameB: string) => {
-    setShowNamePrompt(false)
-    setPromptResolved(true)
-    startMatch(nameA, nameB)
-  }
+    // Session-config — shown when the court is OCCUPIED but no mode chosen.
+    if (matchState.status === 'WAITING' && sessionMode === null) {
+      return (
+        <ClubSessionConfig
+          onSelectFree={startFreePlay}
+          onSelectMatch={() => setMatchConfigOpen(true)}
+        />
+      )
+    }
 
-  const handleBackToHome = () => {
-    navigate(Routes.AUTH)
-  }
+    // Free-play screen (timer + names + buttons; no score).
+    if (sessionMode === 'free') {
+      // onEndSession sets the local endingSession flag; the effect below
+      // observes it and emits endSession(false) to arm the server-side
+      // confirmation modal (spec scenario 5a).
+      return (
+        <ClubFreePlay
+          elapsedSeconds={elapsedSeconds}
+          playerNameA={matchState.playerNames?.a}
+          playerNameB={matchState.playerNames?.b}
+          onPlayMatch={() => setMatchConfigOpen(true)}
+          onEndSession={() => setEndingSession(true)}
+        />
+      )
+    }
 
-  const motionProps = {
-    initial: { opacity: 0, y: 20 },
-    animate: { opacity: 1, y: 0 },
-    exit: { opacity: 0, y: -20 },
-    transition: { duration: 0.2 },
-  } as const
-
-  return (
-    <AnimatePresence mode="wait">
-      {!courtId ? (
-        <motion.div key="no-court" {...motionProps}>
-          <div className="flex items-center justify-center min-h-dvh bg-surface">
-            <Typography variant="body">{i18nText('scoreboardInvalidCourtId')}</Typography>
-          </div>
-        </motion.div>
-      ) : error ? (
-        <motion.div key="error" {...motionProps}>
-          <div className="flex flex-col items-center justify-center min-h-dvh bg-surface gap-4 p-4">
-            <Typography variant="body" className="text-red-500">
-              {error === 'CONNECTION_ERROR' ? i18nText('toastConnectionError') : i18nText('scoreboardLoading')}
-            </Typography>
-            <Button variant="ghost" onClick={handleBackToHome}>
-              {i18nText('clubPlayGoHome')}
-            </Button>
-          </div>
-        </motion.div>
-      ) : loading ? (
-        <motion.div key="loading" {...motionProps}>
-          <LoadingView />
-        </motion.div>
-      ) : reconnecting ? (
-        <motion.div key="reconnecting" {...motionProps}>
-          <div className="flex flex-col items-center justify-center min-h-dvh bg-surface gap-4 p-4">
-            <ConnectionStatus
-              labels={{
-                connected: i18nText('connectionConnected'),
-                connecting: i18nText('connectionConnecting'),
-                error: i18nText('connectionNoConnection'),
-                disconnected: i18nText('connectionDisconnected'),
-              }}
-            />
-            <Typography variant="body" className="text-muted-foreground">
-              {i18nText('clubPlayReconnecting')}
-            </Typography>
-          </div>
-        </motion.div>
-      ) : !matchState ? (
-        <motion.div key="no-match" {...motionProps}>
-          <div className="flex flex-col items-center justify-center min-h-dvh bg-surface gap-4 p-4">
-            <Typography variant="body" className="text-muted-foreground">
-              {i18nText('scoreboardLoading')}
-            </Typography>
-            <Button variant="ghost" onClick={handleBackToHome}>
-              {i18nText('clubPlayGoHome')}
-            </Button>
-          </div>
-        </motion.div>
-      ) : showNamePrompt ? (
-        <motion.div key="prompt" {...motionProps}>
-          <div className="flex flex-col items-center justify-center min-h-dvh bg-surface gap-8 p-4">
-            <PlayerNamePrompt
-              onSubmit={handleNameSubmit}
-              defaultNameA={matchState.playerNames?.a || i18nText('clubPlayNameA')}
-              defaultNameB={matchState.playerNames?.b || i18nText('clubPlayNameB')}
-            />
-          </div>
-        </motion.div>
-      ) : finished || matchState.status === 'FINISHED' ? (
-        <motion.div key="finished" {...motionProps}>
-          <FinishedView
-            matchState={matchState}
-            sessionEnded={sessionEnded}
-            onEndSession={() => {
-              setEndingSession(true)
-              endSession()
-            }}
-            onBack={handleBackToHome}
-            endingSession={endingSession}
-          />
-        </motion.div>
-      ) : (
-        <motion.div key="playing" {...motionProps} className="flex flex-col h-dvh bg-surface relative">
+    // Match-live — ScoreboardMain with all standard controls.
+    if (matchState.status === 'LIVE') {
+      return (
+        <div className="flex flex-col h-dvh bg-surface relative">
           <AnimatePresence>
             {refereeReplaced && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
@@ -260,19 +315,14 @@ export function ClubPlayPage() {
           <PageHeader
             title={`${matchState.playerNames?.a || i18nText('commonPlayerA')} vs ${matchState.playerNames?.b || i18nText('commonPlayerB')}`}
             landscape={isLandscape}
-            connectionLabels={{
-              connected: i18nText('connectionConnected'),
-              connecting: i18nText('connectionConnecting'),
-              error: i18nText('connectionNoConnection'),
-              disconnected: i18nText('connectionDisconnected'),
-            }}
+            connectionLabels={connectionLabels(i18nText)}
             actions={
               <>
                 <Button variant="secondary" size="sm" onClick={() => setHistoryOpen(true)}>
                   {i18nText('scoreboardHistory')}
                 </Button>
-                <Button variant="ghost" size="sm" onClick={handleBackToHome}>
-                  {i18nText('scoreboardBack')}
+                <Button variant="danger" size="sm" onClick={() => setEndingSession(true)}>
+                  {i18nText('clubPlayEndSessionBtn')}
                 </Button>
               </>
             }
@@ -290,15 +340,60 @@ export function ClubPlayPage() {
             />
           </main>
 
-          {/* History Drawer */}
           <HistoryDrawer
             isOpen={historyOpen}
             events={matchState.history || []}
             onClose={() => setHistoryOpen(false)}
             onUndo={undoLast}
           />
-        </motion.div>
-      )}
+        </div>
+      )
+    }
+
+    // Post-match modal — match FINISHED in club mode, court still OCCUPIED.
+    if (matchState.status === 'FINISHED' && sessionMode === 'match') {
+      return (
+        <PostMatchModal
+          i18nText={i18nText}
+          matchState={matchState}
+          onReset={resetMatch}
+          onNewMatch={() => setMatchConfigOpen(true)}
+          onFree={startFreePlay}
+          onEndSession={() => setEndingSession(true)}
+        />
+      )
+    }
+
+    // Fallback when state is inconsistent (should not happen in normal flow).
+    return <LoadingView i18nText={i18nText} />
+  }
+
+  // When the user pressed an end-session trigger, fire endSession(false)
+  // to arm the confirmation modal. The actual confirm emits with `true`
+  // via the modal's onConfirm.
+  useEffect(() => {
+    if (endingSession && !pendingEndSessionConfirm && !sessionEnded) {
+      endSession(false)
+    }
+  }, [endingSession, pendingEndSessionConfirm, sessionEnded, endSession])
+
+  return (
+    <AnimatePresence mode="wait">
+      <motion.div key="club-play-stage" {...motionProps} className="relative">
+        {renderStage()}
+
+        {/* End-session confirmation overlay — rendered on top of the
+            current stage when the server arms it via
+            CLUB_END_SESSION_CONFIRM. */}
+        {pendingEndSessionConfirm && (
+          <ClubEndSessionConfirm
+            isOpen
+            elapsedSeconds={elapsedSeconds}
+            onConfirm={() => endSession(true)}
+            onCancel={cancelEndSession}
+          />
+        )}
+      </motion.div>
     </AnimatePresence>
   )
 }

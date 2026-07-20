@@ -269,6 +269,7 @@
   "clubKioskReserved": "Reserved",
   "clubKioskOccupied": "In Play",
   "clubKioskFinished": "Finished",
+  "clubKioskFreeBadge": "🟢 On court — Free Mode",
   "clubKioskPIN": "PIN: {{pin}}",
   "clubKioskNoCourts": "No courts yet",
   "clubPlaySessionConfigTitle": "How are you going to play?",

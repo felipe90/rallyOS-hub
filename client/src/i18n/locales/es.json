@@ -269,6 +269,7 @@
   "clubKioskReserved": "Reservada",
   "clubKioskOccupied": "En Juego",
   "clubKioskFinished": "Finalizada",
+  "clubKioskFreeBadge": "🟢 En cancha — Modo Libre",
   "clubKioskPIN": "PIN: {{pin}}",
   "clubKioskNoCourts": "No hay canchas",
   "clubPlaySessionConfigTitle": "¿Cómo van a jugar?",

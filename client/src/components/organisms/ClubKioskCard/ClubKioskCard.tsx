@@ -12,8 +12,13 @@ export interface ClubKioskCardProps {
  * Renders differently based on clubStatus:
  * - AVAILABLE: green border, "Disponible" badge
  * - RESERVED: blue border, large PIN display, "Reservado" badge
- * - OCCUPIED: amber border, player names + score, "En Juego" badge
+ * - OCCUPIED (match/legacy): amber border, player names + score, "En Juego" badge
+ * - OCCUPIED (free): green border, player names only, "En cancha — Modo Libre" badge
  * - FINISHED: gray border, final score, "Finalizado" badge
+ *
+ * PR 4 — when `sessionMode === 'free'`, the card MUST NOT render any score
+ * numbers (spec: Free mode MUST NOT display scoring). Only names + badge
+ * are displayed.
  */
 export function ClubKioskCard({ court }: ClubKioskCardProps) {
   const { i18nText } = useI18n()
@@ -21,22 +26,26 @@ export function ClubKioskCard({ court }: ClubKioskCardProps) {
   const status = court.status
   const scoreA = court.currentScore?.a ?? 0
   const scoreB = court.currentScore?.b ?? 0
+  const isFreeMode = status === 'OCCUPIED' && court.sessionMode === 'free'
 
   const borderColor =
     status === 'AVAILABLE' ? 'border-green-500/50' :
     status === 'RESERVED' ? 'border-blue-500/50' :
+    isFreeMode ? 'border-green-500/50' :
     status === 'OCCUPIED' ? 'border-amber-500/50' :
     'border-gray-500/30'
 
   const badgeColor =
     status === 'AVAILABLE' ? 'bg-green-500/15 text-green-400' :
     status === 'RESERVED' ? 'bg-blue-500/15 text-blue-400' :
+    isFreeMode ? 'bg-green-500/15 text-green-400' :
     status === 'OCCUPIED' ? 'bg-amber-500/15 text-amber-400' :
     'bg-gray-500/15 text-gray-400'
 
   const badgeLabel =
     status === 'AVAILABLE' ? i18nText('clubKioskAvailable') :
     status === 'RESERVED' ? i18nText('clubKioskReserved') :
+    isFreeMode ? i18nText('clubKioskFreeBadge') :
     status === 'OCCUPIED' ? i18nText('clubKioskOccupied') :
     i18nText('clubKioskFinished')
 
@@ -66,12 +75,34 @@ export function ClubKioskCard({ court }: ClubKioskCardProps) {
         </div>
       )}
 
-      {/* OCCUPIED / FINISHED: player names + score */}
-      {(status === 'OCCUPIED' || status === 'FINISHED') && (
+      {/* FREE MODE (OCCUPIED + sessionMode='free'): names only, no scores */}
+      {isFreeMode && (
+        <div className="flex-1 flex items-center justify-center gap-4">
+          <div className="flex flex-col items-center gap-1">
+            <Typography variant="label" className="text-sm normal-case text-lg">
+              {court.playerNames?.a || 'Jugador 1'}
+            </Typography>
+          </div>
+          <Typography variant="label" className="text-text/40 normal-case text-lg">
+            {i18nText('commonVs')}
+          </Typography>
+          <div className="flex flex-col items-center gap-1">
+            <Typography variant="label" className="text-sm normal-case text-lg">
+              {court.playerNames?.b || 'Jugador 2'}
+            </Typography>
+          </div>
+        </div>
+      )}
+
+      {/* OCCUPIED (match/legacy) / FINISHED: player names + score */}
+      {(status === 'OCCUPIED' || status === 'FINISHED') && !isFreeMode && (
         <div className="flex-1 flex items-center justify-center gap-4">
           {/* Player A */}
           <div className="flex flex-col items-center gap-1">
-            <span className="font-heading font-bold leading-none text-text-h text-4xl">
+            <span
+              data-testid="score-a"
+              className="font-heading font-bold leading-none text-text-h text-4xl"
+            >
               {scoreA}
             </span>
             <Typography variant="label" className="text-sm normal-case">
@@ -86,7 +117,10 @@ export function ClubKioskCard({ court }: ClubKioskCardProps) {
 
           {/* Player B */}
           <div className="flex flex-col items-center gap-1">
-            <span className="font-heading font-bold leading-none text-text-h text-4xl">
+            <span
+              data-testid="score-b"
+              className="font-heading font-bold leading-none text-text-h text-4xl"
+            >
               {scoreB}
             </span>
             <Typography variant="label" className="text-sm normal-case">

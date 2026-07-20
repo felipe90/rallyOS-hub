@@ -12,13 +12,16 @@ import type { ClubCourtInfo } from '@shared/types'
 import { Input } from '@/components/atoms/Input'
 import { Button } from '@/components/atoms/Button'
 import { Body, Title } from '@/components/atoms/Typography'
+import { TabContainer } from '@/components/atoms/TabContainer'
 import { PageHeader } from '@/components/molecules/PageHeader'
 import { ConfirmDialog } from '@/components/molecules/ConfirmDialog'
+import { ClubSessionHistoryPanel } from '@/components/molecules/ClubSessionHistoryPanel'
 import { useToast } from '@/components/molecules/Toast'
 import { useSocketContext } from '@/contexts/SocketContext'
 import { useAuthContext } from '@/contexts/AuthContext'
 import { useClubAdmin } from '@/hooks/useClubAdmin'
 import { useClubCourtManagement } from '@/hooks/useClubCourtManagement'
+import { useClubSessionHistory } from '@/hooks/useClubSessionHistory'
 import type { ClubOperationEvent } from '@/hooks/useClubCourtManagement'
 import { useI18n } from '@/i18n'
 import { Routes } from '@/routes'
@@ -83,6 +86,11 @@ export function ClubAdminPage() {
   const { isAdmin, verifyAdminPin, verifyLoading, verifyError, clearVerifyError } =
     useClubAdmin(socket, connected, { setSessionToken })
   const courtMgmt = useClubCourtManagement(socket, connected)
+  // Session history hook is only meaningful once the admin is verified
+  // (the server only emits CLUB_SESSION_HISTORY to authenticated sockets).
+  // The hook tolerates a null socket and connected=false without crashing,
+  // so we always call it to keep React hook order stable.
+  const sessionHistory = useClubSessionHistory(socket, connected)
 
   const { addToast } = useToast()
   const [adminPin, setAdminPin] = useState('')
@@ -262,132 +270,154 @@ export function ClubAdminPage() {
       />
 
       <main className="flex-1 overflow-auto p-4 space-y-4">
-        {/* Create court area */}
-        <div className="flex justify-center">
-          <Button 
-            variant="outline" 
-            className="w-full border-dashed border-2 py-6 text-text/70 hover:text-primary hover:border-primary/50"
-            onClick={handleCreateCourt}
-            disabled={courtMgmt.loading}
-            loading={courtMgmt.loading}
-          >
-            <Plus size={18} className="mr-2" />
-            {i18nText('clubAdminCreateCourt')}
-          </Button>
-        </div>
+        <TabContainer
+          tabs={[
+            {
+              id: 'courts',
+              label: i18nText('clubAdminTabCourts'),
+              content: (
+                <div className="space-y-4">
+                  {/* Create court area */}
+                  <div className="flex justify-center">
+                    <Button
+                      variant="outline"
+                      className="w-full border-dashed border-2 py-6 text-text/70 hover:text-primary hover:border-primary/50"
+                      onClick={handleCreateCourt}
+                      disabled={courtMgmt.loading}
+                      loading={courtMgmt.loading}
+                    >
+                      <Plus size={18} className="mr-2" />
+                      {i18nText('clubAdminCreateCourt')}
+                    </Button>
+                  </div>
 
-        {/* Court list */}
-        {courtMgmt.courts.length === 0 ? (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex flex-col items-center justify-center py-12 gap-2"
-          >
-            <Building2 size={40} className="text-text/30" />
-            <Body className="text-text/50 text-center">{i18nText('clubAdminNoCourts')}</Body>
-          </motion.div>
-        ) : (
-          <motion.div layout className="space-y-2">
-            <AnimatePresence>
-              {courtMgmt.courts.map((court) => (
-                <motion.div
-                  layout
-                  key={court.id}
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.2 }}
-                  className={`card bg-surface-low rounded-lg shadow-sm p-4 flex items-center justify-between border-l-4 ${statusColor(court.status).split(' ')[1]} transition-colors relative overflow-hidden`}
-                >
-                  <div className="flex flex-col gap-1 z-10">
-                    <Body className="font-medium">{court.name}</Body>
-                    <div className="flex items-center gap-3 text-sm">
-                      <span className={`font-medium ${statusColor(court.status).split(' ')[0]}`}>
-                        {statusLabel(court.status, i18nText)}
-                      </span>
-                      {court.pin && (
-                        <span className="font-mono font-bold bg-surface-high px-2 py-0.5 rounded text-xs text-text">
-                          {i18nText('clubAdminPinLabel', { pin: court.pin })}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="flex gap-2 z-10">
-                    {court.status === CLUB_STATUS.AVAILABLE && (
-                      <>
-                        <Button
-                          variant="success"
-                          size="xs"
-                          onClick={() => courtMgmt.activateCourt(court.id)}
-                          disabled={courtMgmt.loading}
-                        >
-                          <Play size={14} className="mr-1" />
-                          {i18nText('clubAdminActivate')}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="xs"
-                          className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                          onClick={() => setDeleteCourtTarget(court)}
-                          disabled={courtMgmt.loading}
-                        >
-                          <Trash2 size={14} />
-                        </Button>
-                      </>
-                    )}
-                    {court.status === CLUB_STATUS.RESERVED && (
-                      <>
-                        <Button
-                          variant="outline"
-                          size="xs"
-                          onClick={() => courtMgmt.deactivateCourt(court.id)}
-                          disabled={courtMgmt.loading}
-                        >
-                          <XCircle size={14} className="mr-1" />
-                          {i18nText('clubAdminDeactivate')}
-                        </Button>
-                      </>
-                    )}
-                    {court.status === CLUB_STATUS.OCCUPIED && (
-                      <Button
-                        variant="danger"
-                        size="xs"
-                        onClick={() => setForceEndCourt(court)}
-                        disabled={courtMgmt.loading}
-                      >
-                        <LogOut size={14} className="mr-1" />
-                        {i18nText('clubAdminForceEnd')}
-                      </Button>
-                    )}
-                    {court.status === CLUB_STATUS.FINISHED && (
-                      <>
-                        <Button
-                          variant="ghost"
-                          size="xs"
-                          onClick={() => courtMgmt.resetCourt(court.id)}
-                          disabled={courtMgmt.loading}
-                        >
-                          <RefreshCw size={14} className="mr-1" />
-                          {i18nText('clubAdminReset')}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="xs"
-                          className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                          onClick={() => setDeleteCourtTarget(court)}
-                          disabled={courtMgmt.loading}
-                        >
-                          <Trash2 size={14} />
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </motion.div>
-        )}
+                  {/* Court list */}
+                  {courtMgmt.courts.length === 0 ? (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="flex flex-col items-center justify-center py-12 gap-2"
+                    >
+                      <Building2 size={40} className="text-text/30" />
+                      <Body className="text-text/50 text-center">{i18nText('clubAdminNoCourts')}</Body>
+                    </motion.div>
+                  ) : (
+                    <motion.div layout className="space-y-2">
+                      <AnimatePresence>
+                        {courtMgmt.courts.map((court) => (
+                          <motion.div
+                            layout
+                            key={court.id}
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            transition={{ duration: 0.2 }}
+                            className={`card bg-surface-low rounded-lg shadow-sm p-4 flex items-center justify-between border-l-4 ${statusColor(court.status).split(' ')[1]} transition-colors relative overflow-hidden`}
+                          >
+                            <div className="flex flex-col gap-1 z-10">
+                              <Body className="font-medium">{court.name}</Body>
+                              <div className="flex items-center gap-3 text-sm">
+                                <span className={`font-medium ${statusColor(court.status).split(' ')[0]}`}>
+                                  {statusLabel(court.status, i18nText)}
+                                </span>
+                                {court.pin && (
+                                  <span className="font-mono font-bold bg-surface-high px-2 py-0.5 rounded text-xs text-text">
+                                    {i18nText('clubAdminPinLabel', { pin: court.pin })}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex gap-2 z-10">
+                              {court.status === CLUB_STATUS.AVAILABLE && (
+                                <>
+                                  <Button
+                                    variant="success"
+                                    size="xs"
+                                    onClick={() => courtMgmt.activateCourt(court.id)}
+                                    disabled={courtMgmt.loading}
+                                  >
+                                    <Play size={14} className="mr-1" />
+                                    {i18nText('clubAdminActivate')}
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="xs"
+                                    className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                                    onClick={() => setDeleteCourtTarget(court)}
+                                    disabled={courtMgmt.loading}
+                                  >
+                                    <Trash2 size={14} />
+                                  </Button>
+                                </>
+                              )}
+                              {court.status === CLUB_STATUS.RESERVED && (
+                                <>
+                                  <Button
+                                    variant="outline"
+                                    size="xs"
+                                    onClick={() => courtMgmt.deactivateCourt(court.id)}
+                                    disabled={courtMgmt.loading}
+                                  >
+                                    <XCircle size={14} className="mr-1" />
+                                    {i18nText('clubAdminDeactivate')}
+                                  </Button>
+                                </>
+                              )}
+                              {court.status === CLUB_STATUS.OCCUPIED && (
+                                <Button
+                                  variant="danger"
+                                  size="xs"
+                                  onClick={() => setForceEndCourt(court)}
+                                  disabled={courtMgmt.loading}
+                                >
+                                  <LogOut size={14} className="mr-1" />
+                                  {i18nText('clubAdminForceEnd')}
+                                </Button>
+                              )}
+                              {court.status === CLUB_STATUS.FINISHED && (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="xs"
+                                    onClick={() => courtMgmt.resetCourt(court.id)}
+                                    disabled={courtMgmt.loading}
+                                  >
+                                    <RefreshCw size={14} className="mr-1" />
+                                    {i18nText('clubAdminReset')}
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="xs"
+                                    className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                                    onClick={() => setDeleteCourtTarget(court)}
+                                    disabled={courtMgmt.loading}
+                                  >
+                                    <Trash2 size={14} />
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
+                    </motion.div>
+                  )}
+                </div>
+              ),
+            },
+            {
+              id: 'history',
+              label: i18nText('clubAdminTabHistory'),
+              content: (
+                <ClubSessionHistoryPanel
+                  history={sessionHistory}
+                  clubConfigured={true}
+                />
+              ),
+            },
+          ]}
+        />
       </main>
 
       {/* Force-end confirmation modal */}

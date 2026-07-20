@@ -377,6 +377,40 @@ export interface KioskNotificationData {
   timestamp: number;
 }
 
+// ── Session Record (club session history) ──────────────────────────────
+
+/**
+ * SessionRecord — persisted snapshot of a single completed club session.
+ *
+ * Written to `data/session-history.json` (via SessionHistoryStore) whenever a
+ * club court transitions from `OCCUPIED` to `FINISHED` (player-initiated end
+ * via `CLUB_END_SESSION` confirm=true, or admin force-end via `CLUB_FORCE_END`).
+ *
+ * Field sourcing rules (see `club-session-history` spec):
+ * - `courtName` is a snapshot captured at session end, NOT a live reference
+ *   to the court — later court renames MUST NOT mutate stored records.
+ * - `elapsedSeconds` is server-authoritative (`now − occupiedAt`).
+ * - `elapsedMinutes` is the ceiling of `elapsedSeconds / 60` (minimum 1).
+ * - `mode` is the court's `sessionMode` value captured at session end
+ *   (`'free' | 'match'`). Defaulted to `'match'` when the court never had an
+ *   explicit `sessionMode` set.
+ * - `cost` is `Math.ceil(elapsedMinutes × costPerMinute)`; `0` for free mode.
+ * - `currency` comes from `ClubConfig.currency` (default `ARS`).
+ * - `timestamp` is an ISO 8601 string generated at session end.
+ * - `sessionId` is a UUID v4 generated at record creation — guarantees
+ *   uniqueness even if two records share the same timestamp.
+ */
+export interface SessionRecord {
+  courtName: string;
+  elapsedSeconds: number;
+  elapsedMinutes: number;
+  mode: SessionMode;
+  cost: number;
+  currency: string;
+  timestamp: string; // ISO 8601
+  sessionId: string; // UUID v4
+}
+
 // ── Type Guard Helpers ────────────────────────────────────────────────
 
 /** Narrow a MatchConfig to TableTennisMatchConfig. Defaults to TT when sport is absent. */

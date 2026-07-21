@@ -209,6 +209,12 @@ export class CourtManager {
         currentScore: info.currentScore,
         winner: info.winner,
         sessionMode: c.sessionMode ?? undefined,
+        // player-identity (Phase 2 task 2.2) — surface playerName on the
+        // kiosk card so the kiosk can render the player's name when the
+        // court is OCCUPIED. `undefined` (rather than null) when unset so
+        // the field is omitted from the wire payload entirely (matches
+        // the ClubKioskCourtInfo optional type).
+        playerName: c.playerName ?? undefined,
       };
     });
 
@@ -268,6 +274,14 @@ export class CourtManager {
     court.playerNames = { a: '', b: '' };
     court.players = [];
 
+    // player-identity (Phase 2 task 2.2) — clear player fields so the next
+    // session starts fresh. The kiosk MUT NOT show a stale name, and the
+    // SessionRecord for the next session must not inherit the previous
+    // player's identity.
+    court.playerName = null;
+    court.phone = null;
+    court.adminId = null;
+
     // Reset match engine to fresh WAITING state
     this.matchOrchestrator.resetTable(court);
 
@@ -314,6 +328,16 @@ export class CourtManager {
     // Transition RESERVED → OCCUPIED
     court.clubStatus = CLUB_STATUS.OCCUPIED;
     court.occupiedAt = Date.now();
+
+    // player-identity (Phase 2 task 2.2) — initialize player fields to null
+    // at session start. createClubCourt already nulls them, but make this
+    // explicit on the fresh-occupy path so a court that was reset, then
+    // re-activated, then re-occupied starts from a clean state. The
+    // reconnection branch above preserves any values set by startFreePlay/
+    // newMatch/adminOccupyCourt by NOT touching them.
+    court.playerName = null;
+    court.phone = null;
+    court.adminId = null;
 
     // Set default player names
     court.playerNames = { a: 'Jugador 1', b: 'Jugador 2' };
@@ -531,14 +555,36 @@ export class CourtManager {
    * leaves the court in OCCUPIED state with the timer running, and
    * returns the new session mode.
    *
+   * player-identity (Phase 2 task 2.2) — optionally accepts the player's
+   * own name + phone (the player flow submits these alongside the mode
+   * choice, encrypted client-side via AES-256-GCM). When provided, the
+   * values are stored on the court so that the subsequent
+   * `onClubSessionEnd` callback (in ClubPlayerHandler) can build a
+   * fully-populated SessionRecord. When omitted, any previously set
+   * values are PRESERVED — this supports idempotent re-entry (e.g. the
+   * client resending CLUB_START_FREE without re-sending identity).
+   *
    * @returns `{ sessionMode: 'free' }` on success, null on failure.
    */
-  startFreePlay(courtId: string): { sessionMode: SessionMode } | null {
+  startFreePlay(
+    courtId: string,
+    player?: { playerName?: string; phone?: string },
+  ): { sessionMode: SessionMode } | null {
     const court = this.repository.get(courtId);
     if (!court || !isClubCourt(court)) return null;
     if (court.clubStatus !== CLUB_STATUS.OCCUPIED) return null;
 
     court.sessionMode = SESSION_MODE.FREE;
+
+    // player-identity — populate when provided, preserve otherwise. The
+    // admin flow (adminOccupyCourt, Phase 3 / U2) sets adminId; here the
+    // player own identified → adminId stays null.
+    if (player && typeof player.playerName === 'string') {
+      court.playerName = player.playerName;
+    }
+    if (player && typeof player.phone === 'string') {
+      court.phone = player.phone;
+    }
 
     logger.info({ courtId, courtName: court.name }, 'Club court entered free mode');
     this.notifyUpdate(court);
@@ -612,11 +658,25 @@ export class CourtManager {
    * zeroed scores using the existing config (or the default TT config
    * when none has been configured yet).
    *
+   * player-identity (Phase 2 task 2.2) — `params.playerName` and
+   * `params.phone` (the player's OWN identity — distinct from the match
+   * participants in `playerNameA`/`playerNameB`) are persisted on the
+   * court when provided, so that the subsequent `onClubSessionEnd`
+   * callback can populate the SessionRecord with player info. When
+   * omitted, prior values are PRESERVED (idempotent re-entry / post-match
+   * "New Match" that doesn't re-collect identity).
+   *
    * @returns `{ matchState }` on success, null on failure.
    */
   newMatch(
     courtId: string,
-    params: { playerNameA: string; playerNameB: string; matchConfig?: Partial<MatchConfig> },
+    params: {
+      playerNameA: string;
+      playerNameB: string;
+      matchConfig?: Partial<MatchConfig>;
+      playerName?: string;
+      phone?: string;
+    },
   ): { matchState: MatchStateExtended } | null {
     const court = this.repository.get(courtId);
     if (!court || !isClubCourt(court)) return null;
@@ -625,6 +685,16 @@ export class CourtManager {
     // Update player names on the court
     court.playerNames = { a: params.playerNameA, b: params.playerNameB };
     court.sessionMode = SESSION_MODE.MATCH;
+
+    // player-identity — populate when provided, preserve otherwise.
+    // The admin flow (adminOccupyCourt, Phase 3 / U2) sets adminId; here
+    // the player owns the session → adminId stays null.
+    if (typeof params.playerName === 'string') {
+      court.playerName = params.playerName;
+    }
+    if (typeof params.phone === 'string') {
+      court.phone = params.phone;
+    }
 
     // Reuse the existing config when one exists; otherwise default to
     // table-tennis bestOf=1. PR 2 risk fix #2 — the optional matchConfig
@@ -935,6 +1005,16 @@ export class CourtManager {
       // PR 2 risk fix (a) — persist sessionMode so a mid-session server
       // restart does not lose free/match context.
       sessionMode: court.sessionMode,
+      // player-identity (Phase 2 task 2.2) — persist the player info
+      // captured at session-start so a mid-session restart can keep
+      // showing the player on the kiosk and rebuild the SessionRecord
+      // correctly if the session ends after a restart. Matches the
+      // sessionMode loader-plugin pattern: legacy v3 files written
+      // before these fields existed fall back to null via `?? null` in
+      // loadTournament.
+      playerName: court.playerName,
+      phone: court.phone,
+      adminId: court.adminId,
     };
   }
 

@@ -21,6 +21,10 @@ import { SocketHandlerBase } from './SocketHandlerBase';
 import { isClubCourt } from '../domain/types';
 import type { SocketData } from '../domain/types';
 import type { ClubSessionHistoryHandler } from './ClubSessionHistoryHandler';
+// player-identity (Phase 2 task 2.6) — AES-256-GCM key generator used on
+// CLUB_SETUP so the club is born with an encryption key. No key copy reaches
+// non-admin/non-joining sockets.
+import { generateKey } from '../services/crypto/phoneCipher';
 
 /**
  * Minimal collaborator surface that ClubAdminHandler needs from
@@ -168,6 +172,16 @@ export class ClubAdminHandler extends SocketHandlerBase {
       const adminPinHash = this.adminPinService.hashPin(data.pin);
 
       // Save club config (only the scrypt hash — never plaintext)
+      //
+      // player-identity (Phase 2 task 2.6) — auto-generate a 32-byte
+      // AES-256-GCM key (base64-encoded) on first CLUB_SETUP. Persisted to
+      // ClubConfig.encryptionKey so the subsequent CLUB_JOIN_RESULT +
+      // CLUB_ADMIN_OCCUPY responses can surface it back to the client for
+      // phone encryption. The SERVER is authoritative on key generation —
+      // any client-supplied `encryptionKey` field is ignored (the request
+      // payload type does not even include it). See `player-identity`
+      // spec ("Open Questions RESOLVED" + "Client-Side Phone Encryption"
+      // requirement).
       const clubConfig = {
         clubName: data.clubName,
         sport: data.sport,
@@ -176,6 +190,7 @@ export class ClubAdminHandler extends SocketHandlerBase {
         createdAt: Date.now(),
         costPerMinute: data.costPerMinute ?? 0,
         currency: data.currency ?? 'ARS',
+        encryptionKey: generateKey(),
       };
       this.clubConfigStore.save(clubConfig);
 

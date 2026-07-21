@@ -106,7 +106,7 @@ function mockResCapture(): {
 // ── Tests: handleClubSessionsExport (pure handler) ─────────────────────
 
 describe('handleClubSessionsExport', () => {
-  it('returns CSV with Content-Type text/csv + Content-Disposition attachment and the 6-column header', () => {
+  it('returns CSV with Content-Type text/csv + Content-Disposition attachment and the 5-column header', () => {
     const store = createStore([]);
     const { res, setHeader, send } = mockResCapture();
 
@@ -121,7 +121,7 @@ describe('handleClubSessionsExport', () => {
     const csv = send.mock.calls[0][0] as string;
     // Header row only (empty store).
     const lines = csv.split('\n');
-    expect(lines[0]).toBe('courtName,mode,durationMinutes,cost,currency,date');
+    expect(lines[0]).toBe('courtName,durationMinutes,cost,currency,date');
   });
 
   it('returns header-only CSV when the store is empty', () => {
@@ -133,7 +133,7 @@ describe('handleClubSessionsExport', () => {
     const csv = send.mock.calls[0][0] as string;
     const lines = csv.split('\n').filter((l) => l.length > 0);
     expect(lines).toHaveLength(1);
-    expect(lines[0]).toBe('courtName,mode,durationMinutes,cost,currency,date');
+    expect(lines[0]).toBe('courtName,durationMinutes,cost,currency,date');
   });
 
   it('returns one row per session record (triangulate 1 vs 3 records)', () => {
@@ -155,7 +155,7 @@ describe('handleClubSessionsExport', () => {
     expect(lines[3]).toContain('Cancha Tres');
   });
 
-  it('row contents reference fields: courtName, mode, durationMinutes, cost, currency, ISO timestamp', () => {
+  it('row contents reference fields: courtName, durationMinutes, cost, currency, ISO timestamp', () => {
     const records = [
       makeRecord({
         courtName: 'Cancha X',
@@ -175,7 +175,6 @@ describe('handleClubSessionsExport', () => {
     const csv = send.mock.calls[0][0] as string;
     const lines = csv.split('\n').filter((l) => l.length > 0);
     expect(lines[1]).toContain('Cancha X');
-    expect(lines[1]).toContain('match');
     expect(lines[1]).toContain('25');
     expect(lines[1]).toContain('1250');
     expect(lines[1]).toContain('ARS');

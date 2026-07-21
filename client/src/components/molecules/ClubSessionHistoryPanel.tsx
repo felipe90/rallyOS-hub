@@ -2,7 +2,7 @@
  * ClubSessionHistoryPanel — admin-facing session history table + actions.
  *
  * Spec — club-session-history "Admin UI — History Tab":
- *   - Table columns: Cancha, Modalidad, Duración, Costo, Fecha.
+ *   - Table columns: Cancha, Duración, Costo, Fecha.
  *   - Rows sorted by timestamp descending.
  *   - Empty placeholder: "No hay sesiones registradas".
  *   - Disabled when club is not configured: "Club no configurado".
@@ -125,9 +125,6 @@ export function ClubSessionHistoryPanel({
                   {i18nText('historyColCourt')}
                 </th>
                 <th role="columnheader" scope="col" className="px-2 py-1 text-left font-medium">
-                  {i18nText('historyColMode')}
-                </th>
-                <th role="columnheader" scope="col" className="px-2 py-1 text-left font-medium">
                   {i18nText('historyColDuration')}
                 </th>
                 <th role="columnheader" scope="col" className="px-2 py-1 text-left font-medium">
@@ -143,15 +140,10 @@ export function ClubSessionHistoryPanel({
                 <tr key={s.sessionId}>
                   <td role="cell" className="px-2 py-1">{s.courtName}</td>
                   <td role="cell" className="px-2 py-1">
-                    {s.mode === 'free' ? i18nText('historyModeFree') : i18nText('historyModeMatch')}
-                  </td>
-                  <td role="cell" className="px-2 py-1">
                     {i18nText('historyDurationMinutes', { minutes: s.elapsedMinutes })}
                   </td>
                   <td role="cell" className="px-2 py-1">
-                    {s.mode === 'free' || s.cost === 0
-                      ? i18nText('historyFreeCost')
-                      : i18nText('historyCost', { cost: s.cost, currency: s.currency })}
+                    {i18nText('historyCost', { cost: s.cost, currency: s.currency })}
                   </td>
                   <td role="cell" className="px-2 py-1">{formatDate(s.timestamp)}</td>
                 </tr>

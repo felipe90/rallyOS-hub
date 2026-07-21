@@ -5,7 +5,7 @@
  * session history as CSV. Protected by `clubAuth` middleware (role=
  * club_admin). Spec: club-session-history / "CSV Export" requirement.
  *
- * Columns: courtName, mode, durationMinutes, cost, currency, date
+ * Columns: courtName, durationMinutes, cost, currency, date
  *
  * CSV injection safety (spec: "CSV injection prevented"):
  *   - Every value is wrapped in double quotes.
@@ -29,7 +29,7 @@ import { Router, Request, Response } from 'express';
 import type { SessionHistoryStore } from '../services/store/SessionHistoryStore';
 import type { SessionRecord } from '../../../shared/types';
 
-const CSV_HEADER = 'courtName,mode,durationMinutes,cost,currency,date';
+const CSV_HEADER = 'courtName,durationMinutes,cost,currency,date';
 
 // Characters that, when leading a spreadsheet cell, trigger formula
 // evaluation in Excel/LibreOffice/Sheets. Prefixing with a single quote
@@ -65,7 +65,7 @@ export function csvEscape(value: string | number): string {
 /**
  * Build the CSV body from a list of session records. One row per record,
  * sorted as provided by the caller (the session-history store returns the
- * persisted order — append-order). The 6-column header is always present.
+ * persisted order — append-order). The 5-column header is always present.
  *
  * Pure — no I/O. Exported for unit testing of the CSV transformation in
  * isolation from the route plumbing.
@@ -73,7 +73,6 @@ export function csvEscape(value: string | number): string {
 export function buildSessionCsv(records: SessionRecord[]): string {
   const rows = records.map((r) => [
     csvEscape(r.courtName),
-    csvEscape(r.mode),
     csvEscape(r.elapsedMinutes),
     csvEscape(r.cost),
     csvEscape(r.currency),

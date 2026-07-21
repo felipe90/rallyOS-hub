@@ -111,7 +111,7 @@ describe('ClubSessionHistoryPanel — empty state', () => {
 })
 
 describe('ClubSessionHistoryPanel — table rendering', () => {
-  it('renders a table with the 5 spec columns (inSpanish)', () => {
+  it('renders a table with the 4 spec columns (inSpanish)', () => {
     render(
       <ClubSessionHistoryPanel
         history={makeHistoryStub({ sessions: [record()] })}
@@ -121,7 +121,6 @@ describe('ClubSessionHistoryPanel — table rendering', () => {
     const table = screen.getByRole('table')
     expect(table).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Cancha' })).toBeInTheDocument()
-    expect(screen.getByRole('columnheader', { name: 'Modalidad' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Duración' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Costo' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Fecha' })).toBeInTheDocument()
@@ -159,28 +158,16 @@ describe('ClubSessionHistoryPanel — table rendering', () => {
     expect(midIdx).toBeLessThan(oldIdx)
   })
 
-  it('translates match/free mode values via i18n', () => {
-    const sessions = [
-      record({ sessionId: 'm', mode: 'match' }),
-      record({ sessionId: 'f', mode: 'free', cost: 0 }),
-    ]
-    render(
-      <ClubSessionHistoryPanel history={makeHistoryStub({ sessions })} clubConfigured={true} />,
-    )
-    expect(screen.getByText('Match')).toBeInTheDocument()
-    expect(screen.getByText('Libre')).toBeInTheDocument()
-  })
-
-  it('renders "Gratis" for free-mode cost and "{{cost}} {{currency}}" for paid sessions', () => {
+  it('renders cost for both match and free sessions (same cost formula)', () => {
     const sessions = [
       record({ sessionId: 'm', mode: 'match', cost: 500, currency: 'ARS' }),
-      record({ sessionId: 'f', mode: 'free', cost: 0, currency: 'ARS' }),
+      record({ sessionId: 'f', mode: 'free', cost: 250, currency: 'ARS' }),
     ]
     render(
       <ClubSessionHistoryPanel history={makeHistoryStub({ sessions })} clubConfigured={true} />,
     )
     expect(screen.getByText('500 ARS')).toBeInTheDocument()
-    expect(screen.getByText('Gratis')).toBeInTheDocument()
+    expect(screen.getByText('250 ARS')).toBeInTheDocument()
   })
 })
 

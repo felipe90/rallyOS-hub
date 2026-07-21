@@ -134,31 +134,20 @@ function PostMatchModal({
   )
 }
 
-/** Final session-ended view — final score + cost summary + "Volver al inicio". */
+/** Final session-ended view — elapsed time + cost summary + "Volver al inicio". */
 function FinishedView({
   i18nText,
-  matchState,
   sessionEnded,
   onBack,
 }: {
   i18nText: (key: string, params?: Record<string, unknown>) => string
-  matchState: MatchStateExtended | null
   sessionEnded: { elapsedMinutes: number; cost: number; currency: string; reason: string } | null
   onBack: () => void
 }) {
-  const nameA = matchState?.playerNames?.a || i18nText('clubPlayNameA')
-  const nameB = matchState?.playerNames?.b || i18nText('clubPlayNameB')
-  const lastSet = matchState?.setHistory?.[matchState.setHistory.length - 1]
-  const scoreA = lastSet?.a ?? 0
-  const scoreB = lastSet?.b ?? 0
-
   return (
     <div className="flex flex-col items-center justify-center min-h-dvh bg-surface gap-6 p-4">
       <Typography variant="title">
         {i18nText('clubPlaySessionEnded')}
-      </Typography>
-      <Typography variant="headline" className="text-primary text-center">
-        {nameA} {scoreA} — {scoreB} {nameB}
       </Typography>
 
       {sessionEnded && (
@@ -172,9 +161,6 @@ function FinishedView({
             </Typography>
           </div>
           <div className="flex justify-between items-center pt-2">
-            <Typography variant="body" className="font-semibold text-muted-foreground">
-              Total
-            </Typography>
             <Typography variant="headline" className="font-bold text-emerald-600 dark:text-emerald-400">
               {i18nText('clubPlayTotalCost', { cost: String(sessionEnded.cost), currency: sessionEnded.currency })}
             </Typography>
@@ -258,7 +244,6 @@ export function ClubPlayPage() {
       return (
         <FinishedView
           i18nText={i18nText}
-          matchState={matchState}
           sessionEnded={sessionEnded}
           onBack={handleBackToHome}
         />

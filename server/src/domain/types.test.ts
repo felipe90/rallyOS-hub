@@ -30,6 +30,11 @@ describe('ClubCourt.sessionMode', () => {
       featured: false,
       occupiedAt: 1000,
       sessionMode: SESSION_MODE.FREE,
+      // player-identity defaults — null until populated by startFreePlay/
+      // newMatch/adminOccupyCourt. Cleared back to null by resetCourt.
+      playerName: null,
+      phone: null,
+      adminId: null,
     };
 
     expect(court.sessionMode).toBe('free');
@@ -77,6 +82,11 @@ function makeClubCourt(overrides: Partial<ClubCourt> = {}): ClubCourt {
     featured: false,
     occupiedAt: 1000,
     sessionMode: null,
+    // player-identity defaults — null until populated by startFreePlay /
+    // newMatch / adminOccupyCourt. Cleared back to null by resetCourt.
+    playerName: null,
+    phone: null,
+    adminId: null,
     ...overrides,
   };
 }

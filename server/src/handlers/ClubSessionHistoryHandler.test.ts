@@ -122,6 +122,12 @@ function createRecord(overrides: Partial<SessionRecord> = {}): SessionRecord {
     currency: 'ARS',
     timestamp: '2026-07-20T12:00:00.000Z',
     sessionId: 'uuid-' + Math.random().toString(36).slice(2),
+    // player-identity neutral defaults (pre-existing tests don't exercise
+    // the new fields; passed overrides win when a test cares).
+    playerName: '',
+    phone: '',
+    endedBy: 'player',
+    adminId: null,
     ...overrides,
   };
 }

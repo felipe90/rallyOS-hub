@@ -299,6 +299,17 @@ export interface ClubConfig {
   costPerMinute?: number;
   /** Currency code for pricing display (e.g. ARS, USD) */
   currency?: string;
+  /**
+   * Base64-encoded 32-byte AES-256-GCM key used to encrypt/decrypt player
+   * phone numbers (see `player-identity` spec — "Client-Side Phone
+   * Encryption" and `phone-reveal` requirement).
+   *
+   * OPTIONAL so legacy clubs that pre-date this change still parse without
+   * crashing. Auto-generated on first CLUB_SETUP (Phase 2 task 2.6) and on
+   * first CLUB_JOIN when the configured club lacks one (Phase 2 task 2.5).
+   * Persisted back to disk on first generation.
+   */
+  encryptionKey?: string;
 }
 
 /** Club kiosk court info — public kiosk display data for a single court */
@@ -313,6 +324,13 @@ export interface ClubKioskCourtInfo {
   winner?: string | null;
   /** Club session mode — present when status === 'OCCUPIED'. Undefined otherwise. */
   sessionMode?: SessionMode;
+  /**
+   * Player name — shown on the kiosk court card when the court is OCCUPIED
+   * (see `player-identity` spec — "Kiosk Player Name Display"). Undefined
+   * for non-OCCUPIED courts or when no player name was set (e.g. legacy
+   * sessions created before this change).
+   */
+  playerName?: string;
 }
 
 /** Club kiosk payload — emitted via CLUB_KIOSK_DATA server event */
@@ -409,6 +427,38 @@ export interface SessionRecord {
   currency: string;
   timestamp: string; // ISO 8601
   sessionId: string; // UUID v4
+  // ── player-identity additions (spec: session-record MODIFIED) ──────────
+  // Player name in plain text — always populated for new sessions.
+  // History panel tolerates `undefined` for legacy records that pre-date
+  // this change (existing files with 8 fields still parse).
+  playerName: string;
+  // Phone — AES-256-GCM base64 ciphertext (`{nonce}:{ciphertext}:{authTag}`).
+  // Always populated for new sessions; legacy records may have `undefined`.
+  phone: string;
+  // Who ended the session: 'player' (player-initiated CLUB_END_SESSION) or
+  // 'admin' (admin CLUB_FORCE_END).
+  endedBy: 'player' | 'admin';
+  // Admin socket id who started/ended the session. `null` for player-initiated
+  // sessions. Populated (with the admin's socket.id) for admin-initiated
+  // sessions (Phase 3 / U2).
+  adminId: string | null;
+}
+
+/**
+ * PhoneRevealAuditEntry — appended to PhoneRevealAuditStore on every
+ * successful admin phone reveal (spec: `phone-reveal` — "Phone Reveal Is
+ * Explicit And Audited"). The audit trail supports habeas data / GDPR
+ * compliance: each individual phone decryption is traceable to a specific
+ * admin action.
+ *
+ * Persisted to `data/phone-reveal-audit.json` in Phase 4 / U2.
+ */
+export interface PhoneRevealAuditEntry {
+  adminId: string;
+  sessionId: string;
+  courtName: string;
+  playerName: string;
+  timestamp: string; // ISO 8601
 }
 
 // ── Type Guard Helpers ────────────────────────────────────────────────

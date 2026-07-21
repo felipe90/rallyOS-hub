@@ -63,6 +63,16 @@ export const SocketEvents = {
     // CLUB_CLEAR_HISTORY_CONFIRM with confirm=true within 30s.
     CLUB_CLEAR_HISTORY: 'CLUB_CLEAR_HISTORY',
     CLUB_CLEAR_HISTORY_CONFIRM: 'CLUB_CLEAR_HISTORY_CONFIRM',
+    // player-identity — admin takes an AVAILABLE court through the modal flow
+    // (name + phone + mode) and occupies it without scanning a QR. See
+    // `admin-session-start` spec.
+    CLUB_ADMIN_OCCUPY: 'CLUB_ADMIN_OCCUPY',
+    // player-identity — admin requests server-side decryption of a specific
+    // session's stored phone. See `phone-reveal` spec: requires
+    // socket.data.isClubAdmin === true; non-admin → unauthorized. Server
+    // decrypts using ClubConfig.encryptionKey, never sends the key to the
+    // admin client.
+    CLUB_REVEAL_PHONE: 'CLUB_REVEAL_PHONE',
   },
   // Emitted by SERVER → received by CLIENT
   SERVER: {
@@ -118,6 +128,11 @@ export const SocketEvents = {
     // disambiguate a periodic sync from a confirmation. CLUB_END_SESSION_CONFIRM
     // is S→C only and carries the same `{ courtId, elapsedSeconds }` payload.
     CLUB_END_SESSION_CONFIRM: 'CLUB_END_SESSION_CONFIRM',
+    // player-identity — server response to CLUB_REVEAL_PHONE. Delivered ONLY
+    // to the requesting admin socket. On success: { success: true, phone }.
+    // On failure: { success: false, error: 'unauthorized' | 'not_found' }.
+    // No audit entry is written on failure (spec: `phone-reveal` scenarios).
+    CLUB_REVEAL_PHONE_RESULT: 'CLUB_REVEAL_PHONE_RESULT',
   },
 } as const;
 

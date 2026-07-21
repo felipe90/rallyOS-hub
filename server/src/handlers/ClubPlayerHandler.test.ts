@@ -1381,8 +1381,27 @@ describe('ClubPlayerHandler — SessionHistoryStore append on session end (PR 1 
     endSessionViaPlayer();
 
     const record: SessionRecord = historyStore.load()[0];
+    // player-identity (Phase 1) — SessionRecord extended from 8 → 12 fields.
+    // The 4 new fields (playerName, phone, endedBy, adminId) are populated
+    // here with neutral placeholders by Phase 1 GREEN; Phase 2 task 2.5
+    // enriches playerName/phone/adminId with values flowing from the court
+    // (set via CLUB_START_FREE/CLUB_NEW_MATCH) and ensures endedBy is
+    // mapped correctly for admin force-end.
     expect(Object.keys(record).sort()).toEqual(
-      ['courtName', 'cost', 'currency', 'elapsedMinutes', 'elapsedSeconds', 'mode', 'sessionId', 'timestamp'].sort(),
+      [
+        'adminId',
+        'cost',
+        'courtName',
+        'currency',
+        'elapsedMinutes',
+        'elapsedSeconds',
+        'endedBy',
+        'mode',
+        'phone',
+        'playerName',
+        'sessionId',
+        'timestamp',
+      ].sort(),
     );
   });
 

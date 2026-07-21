@@ -107,6 +107,19 @@ export class ClubPlayerHandler extends SocketHandlerBase {
 
       // Free mode costs the same as match mode — the court is occupied and
       // elapsed time × costPerMinute applies regardless of scoring mode.
+      //
+      // player-identity additions (Phase 1 — minimal placeholders populated
+      // here so the SessionRecord compiles against the new type. Phase 2
+      // task 2.5 enriches `playerName`/`phone`/`adminId` with real values
+      // flowing from the court (startFreePlay/newMatch/adminOccupyCourt),
+      // and ensures `endedBy` is mapped correctly for admin force-end vs
+      // player-initiated end):
+      //   - `playerName` / `phone` / `adminId` fall back to null-equivalents
+      //     for now (court fields are null at Phase 1 — no player info is
+      //     captured yet).
+      //   - `endedBy` defaults to 'player'. Phase 2/3 will switch to 'admin'
+      //     on the admin force-end path (CLUB_FORCE_END).
+      const clubCourt = court && isClubCourt(court) ? court : null;
       const record: SessionRecord = {
         courtName,
         elapsedSeconds,
@@ -116,6 +129,12 @@ export class ClubPlayerHandler extends SocketHandlerBase {
         currency,
         timestamp: new Date().toISOString(),
         sessionId: crypto.randomUUID(),
+        playerName: clubCourt?.playerName ?? '',
+        phone: clubCourt?.phone ?? '',
+        // Phase 1 placeholder — Phase 2/3 task will derive admin endpoint
+        // from the request path / reason so admin force-end → endedBy='admin'.
+        endedBy: reason === 'force' ? 'admin' : 'player',
+        adminId: clubCourt?.adminId ?? null,
       };
 
       // append() logs errors and never throws — session end is not blocked

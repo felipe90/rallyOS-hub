@@ -147,6 +147,11 @@ export class CourtManager {
       featured: false,
       occupiedAt: null,
       sessionMode: null,
+      // player-identity defaults — null until populate by startFreePlay /
+      // newMatch / adminOccupyCourt. Cleared back to null by resetCourt.
+      playerName: null,
+      phone: null,
+      adminId: null,
     };
 
     court.sportRules.setCourtId(id, courtName);
@@ -1054,6 +1059,11 @@ export class CourtManager {
           // PR 2 risk fix (a) — restore persisted sessionMode; legacy v3
           // files written before this field existed fall back to null.
           sessionMode: (pt as PersistedClubCourt).sessionMode ?? null,
+          // player-identity — restore persisted player fields; legacy v3
+          // files written before these fields existed fall back to null.
+          playerName: (pt as PersistedClubCourt).playerName ?? null,
+          phone: (pt as PersistedClubCourt).phone ?? null,
+          adminId: (pt as PersistedClubCourt).adminId ?? null,
         };
 
         // Wire callbacks so Socket.io events work after restoration

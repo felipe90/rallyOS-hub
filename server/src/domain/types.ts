@@ -160,6 +160,21 @@ export interface ClubCourt {
   occupiedAt: number | null;
   /** Active session mode — 'free' | 'match'. Null when court is not in an active session (AVAILABLE/RESERVED/FINISHED). */
   sessionMode: SessionMode | null;
+  // ── player-identity additions (spec: session-record MODIFIED) ──────────
+  // Player name snapshot captured at session-start (CLUB_START_FREE /
+  // CLUB_NEW_MATCH / CLUB_ADMIN_OCCUPY). Null on creation; populated by
+  // `occupyClubCourt` defaults to null and is filled in by
+  // `startFreePlay`/`newMatch`/`adminOccupyCourt` (Phase 2/3). Cleared back
+  // to null by `resetCourt`.
+  playerName: string | null;
+  // Phone — AES-256-GCM base64 ciphertext string. Null on creation;
+  // populated alongside playerName. Server NEVER decrypts inside the
+  // session flow; only the phone-reveal handler (Phase 4) decrypts server-side.
+  phone: string | null;
+  // Admin socket id who started the session (`socket.data.adminId` set at
+  // CLUB_VERIFY_ADMIN). Null for player-initiated sessions. Cleared back
+  // to null by `resetCourt`.
+  adminId: string | null;
   // Event callbacks — internal wiring, never exposed to client
   onTableUpdate?: () => void;
   onMatchEvent?: (event: MatchEvent) => void;

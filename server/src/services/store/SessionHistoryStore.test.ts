@@ -122,6 +122,13 @@ function makeRecord(overrides: Partial<SessionRecord> = {}): SessionRecord {
     currency: 'ARS',
     timestamp: '2026-07-20T14:30:00.000Z',
     sessionId: '11111111-1111-1111-1111-111111111111',
+    // player-identity neutral defaults — these tests pre-date the new
+    // fields; they don't exercise phone/name flows, so empty/null values
+    // are sufficient. Tests that DO exercise the new fields pass overrides.
+    playerName: '',
+    phone: '',
+    endedBy: 'player',
+    adminId: null,
     ...overrides,
   };
 }

@@ -77,6 +77,7 @@ function createMockIo() {
     engine: { clientsCount: 1 },
     use: jest.fn(),
     on: jest.fn(),
+    sockets: { sockets: new Map() },
   } as any;
 }
 
@@ -1383,5 +1384,23 @@ describe('ClubPlayerHandler — SessionHistoryStore append on session end (PR 1 
     expect(Object.keys(record).sort()).toEqual(
       ['courtName', 'cost', 'currency', 'elapsedMinutes', 'elapsedSeconds', 'mode', 'sessionId', 'timestamp'].sort(),
     );
+  });
+
+  it('emits CLUB_SESSION_HISTORY to admin sockets on session end (live table update)', () => {
+    // Set up an admin socket in the mock io's socket map.
+    const adminSocket = createMockSocket('admin-1', { isClubAdmin: true });
+    adminSocket.emit = jest.fn();
+    const mockMap = mockIo.sockets.sockets as Map<string, any>;
+    mockMap.set('admin-1', adminSocket);
+
+    endSessionViaPlayer();
+
+    expect(adminSocket.emit).toHaveBeenCalledWith(
+      SocketEvents.SERVER.CLUB_SESSION_HISTORY,
+      expect.objectContaining({ sessions: expect.any(Array) }),
+    );
+    const payload = (adminSocket.emit as jest.Mock).mock.calls[0][1];
+    expect(payload.sessions).toHaveLength(1);
+    expect(payload.sessions[0].mode).toBeDefined();
   });
 });

@@ -121,6 +121,17 @@ export class ClubPlayerHandler extends SocketHandlerBase {
       // append() logs errors and never throws — session end is not blocked
       // by persistence failure.
       this.sessionHistoryStore.append(record);
+
+      // Broadcast the updated history to ALL connected admin sockets so the
+      // history table updates live (no page reload needed). The admin-connect
+      // and clear paths already emit CLUB_SESSION_HISTORY; this closes the
+      // gap for the session-end path.
+      const updatedSessions = this.sessionHistoryStore.getAll();
+      for (const [, s] of this.io.sockets.sockets) {
+        if (s.data?.isClubAdmin) {
+          s.emit(SocketEvents.SERVER.CLUB_SESSION_HISTORY, { sessions: updatedSessions });
+        }
+      }
     };
 
     // CLUB_JOIN: Player attempts to join a club court using a 4-digit PIN

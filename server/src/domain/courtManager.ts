@@ -304,6 +304,110 @@ export class CourtManager {
   }
 
   /**
+   * Admin-occupy a club court: RESERVED → OCCUPIED with player identity
+   * captured up-front (playerName + phone + adminId + sessionMode).
+   *
+   * player-identity (Phase 3 / U2 task 3.2 + 3.6). Mirrors `occupyClubCourt`
+   * but is invoked by the admin "Iniciar sesión" modal flow: the admin
+   * supplies the player's name + AES-256-GCM-encrypted phone and chooses
+   * the session mode (free/match) up-front. The server transitions the court
+   * straight from RESERVED → OCCUPIED, sets the timer, and persists the
+   * supplied identity on the court so the subsequent `onClubSessionEnd`
+   * callback builds a fully-populated SessionRecord with `endedBy='admin'`
+   * when the admin later force-ends the session.
+   *
+   * Contrast with `occupyClubCourt` (player flow): that one leaves
+   * playerName/phone/adminId null at occupy time — they are filled in
+   * later by `startFreePlay` / `newMatch` once the player submits the
+   * mode-select form. Here the form is submitted BEFORE the occupy; the
+   * court is born already-occupied with identity in place.
+   *
+   * Validation:
+   *   - court must exist, be a club court, and be in RESERVED state.
+   *   - `params.adminId` MUST be a non-empty string (the caller is
+   *     expected to source it from `socket.data.adminId`, set by
+   *     CLUB_VERIFY_ADMIN or by JWT restore in `applySessionClaims`).
+   *
+   * Returns `{ court, matchState }` on success, null on failure (invalid
+   * state, missing adminId, match-engine rollback).
+   */
+  adminOccupyCourt(
+    courtId: string,
+    params: {
+      playerName: string;
+      phone: string;
+      adminId: string;
+      mode: SessionMode;
+      sport: Sport;
+    },
+  ): { court: ClubCourt; matchState: MatchStateExtended } | null {
+    const court = this.repository.get(courtId);
+    if (!court || !isClubCourt(court)) return null;
+    if (court.clubStatus !== CLUB_STATUS.RESERVED) return null;
+    if (typeof params.adminId !== 'string' || params.adminId.length === 0) return null;
+
+    // Transition RESERVED → OCCUPIED and start the session timer.
+    court.clubStatus = CLUB_STATUS.OCCUPIED;
+    court.occupiedAt = Date.now();
+
+    // Capture player identity + admin attribution + session mode up-front.
+    court.playerName = params.playerName;
+    court.phone = params.phone;
+    court.adminId = params.adminId;
+    court.sessionMode = params.mode;
+
+    // Same default player names + match-config builder as occupyClubCourt.
+    court.playerNames = { a: 'Jugador 1', b: 'Jugador 2' };
+    court.sportRules.setPlayerNames({ a: 'Jugador 1', b: 'Jugador 2' });
+
+    const matchConfig: MatchConfig = params.sport === SPORT.PADEL
+      ? {
+          sport: SPORT.PADEL,
+          bestOf: 1,
+          gamesPerSet: 6,
+          tiebreakPoints: 7,
+          goldenPoint: false,
+        } as MatchConfig
+      : {
+          sport: SPORT.TABLE_TENNIS,
+          bestOf: 1,
+          pointsPerSet: 11,
+          minDifference: 2,
+          handicapA: 0,
+          handicapB: 0,
+        } as MatchConfig;
+
+    // Start a default match so score + serve rendering work the moment the
+    // admin lands on the post-occupy view. The sessionMode is set above; the
+    // client decides whether to actually score (match mode) or treat the
+    // session as free-play only (free mode).
+    const matchState = this.matchOrchestrator.startMatch(court, {
+      ...matchConfig,
+      playerNameA: 'Jugador 1',
+      playerNameB: 'Jugador 2',
+    });
+
+    if (!matchState) {
+      // Rollback on failure — restore RESERVED so the admin can retry.
+      court.clubStatus = CLUB_STATUS.RESERVED;
+      court.occupiedAt = null;
+      court.playerName = null;
+      court.phone = null;
+      court.adminId = null;
+      court.sessionMode = null;
+      court.playerNames = { a: '', b: '' };
+      return null;
+    }
+
+    court.sportRules.setEventCallback((event: any) => {
+      this.onMatchEvent(courtId, event);
+    });
+
+    this.notifyUpdate(court);
+    return { court, matchState };
+  }
+
+  /**
    * Occupy a club court: transitions RESERVED → OCCUPIED and auto-initializes
    * a match with default config based on the club's sport.
    *

@@ -584,13 +584,15 @@ function resolveOrCreateEncryptionKey(
       'ClubPlayerHandler: generated and persisted a new encryptionKey for a legacy club',
     );
   } catch (err) {
-    // Persistence failure MUST NOT block the join response. The client
-    // still gets a valid key for the immediate session; the next join
-    // path will attempt to regenerate (best-effort).
-    logger.warn(
+    // Persistence failure — returning an unpersisted key would make any
+    // phone ciphertext unrecoverable after a server restart (CRITICAL).
+    // The client receives null encryptionKey and the join effectively
+    // fails (phone cannot be encrypted). The player can retry.
+    logger.error(
       { err, clubName: config.clubName },
-      'ClubPlayerHandler: failed to persist a freshly-generated encryptionKey — returning the in-memory key; next join will regenerate',
+      'ClubPlayerHandler: failed to persist a freshly-generated encryptionKey — returning null; player must retry',
     );
+    return null;
   }
   return freshKey;
 }

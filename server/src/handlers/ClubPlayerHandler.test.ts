@@ -1548,6 +1548,48 @@ describe('ClubPlayerHandler — player-identity (Phase 2 tasks 2.4 + 2.5)', () =
       expect(reloaded?.encryptionKey).toBe(genKey);
     });
 
+    it('returns null encryptionKey when configStore.save() fails (CRITICAL — unpersisted key would permanently lose phone data)', () => {
+      // A store whose save() always throws — simulating ENOSPC, EIO, etc.
+      const brokenFs: FileSystem & { _files: Map<string, string> } = {
+        ...createFakeFs(),
+        writeFileSync(_path: string, _data: string): void {
+          throw new Error('ENOSPC: no space left on device');
+        },
+      };
+      // Seed with a legacy club (no encryptionKey) so auto-gen is triggered.
+      const legacyConfig = {
+        clubName: 'Broken Club',
+        sport: SPORT.TABLE_TENNIS,
+        adminPinHash: 'dummy-hash',
+        configured: true,
+        createdAt: Date.now(),
+        // NO encryptionKey — triggers auto-gen path.
+      };
+      brokenFs._files.set('data/club-config.json', JSON.stringify(legacyConfig));
+      const brokenStore = new ClubConfigStore(brokenFs);
+      const BROKEN = new ClubPlayerHandler(mockIo, courtManager, OWNER_PIN, brokenStore);
+      const brokenSocket = createMockSocket('broken-join-socket');
+      brokenSocket.emit = jest.fn();
+      BROKEN.registerHandlers(brokenSocket);
+
+      // Activate a court to consume the PIN before join.
+      const brokenCourt = courtManager.createClubCourt('Broken Court');
+      const brokenActivated = courtManager.activateCourt(brokenCourt.id);
+      const joinHandler = (brokenSocket.on as jest.Mock).mock.calls.find(
+        ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_JOIN,
+      );
+      joinHandler[1]({ pin: brokenActivated!.pin });
+
+      const joinResult = (brokenSocket.emit as jest.Mock).mock.calls.find(
+        ([event]: [string]) => event === SocketEvents.SERVER.CLUB_JOIN_RESULT,
+      );
+      expect(joinResult).toBeDefined();
+      expect(joinResult![1].success).toBe(true);
+      // encryptionKey MUST be null — returning a non-persisted key would
+      // make any phone ciphertext unrecoverable after server restart.
+      expect(joinResult![1].encryptionKey).toBeNull();
+    });
+
     it('reuses the persisted key on a second join (idempotent — does NOT regenerate the next time)', () => {
       simulateJoin(courtPin);
 

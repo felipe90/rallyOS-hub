@@ -207,4 +207,13 @@ export interface SocketData {
   tableId?: string;
   roles?: string[];
   isClubAdmin?: boolean;
+  /**
+   * player-identity (Phase 2 task 2.3) — admin socket id captured at
+   * CLUB_VERIFY_ADMIN success. Mirrors the existing `isClubAdmin` pattern:
+   * written by ClubAdminHandler on verify, read by other handlers when
+   * they need to attribute an admin action (SessionRecord.adminId).
+   * `string | null` so the absence of an admin id is representable
+   * (player-initiated sessions explicitly set this to null).
+   */
+  adminId?: string | null;
 }

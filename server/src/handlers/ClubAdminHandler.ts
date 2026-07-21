@@ -89,7 +89,15 @@ export class ClubAdminHandler extends SocketHandlerBase {
 
       if (this.adminPinService.verifyPin(data.pin, config.adminPinHash)) {
         const socketData = socket.data as SocketData;
-        socket.data = { ...socketData, isClubAdmin: true };
+        // player-identity (Phase 2 task 2.3) — capture the admin's socket id
+        // at verify time so subsequent handlers can attribute admin actions
+        // (SessionRecord.adminId) WITHOUT re-decoding the JWT or re-asking
+        // the client. Mirrors the existing isClubAdmin flag pattern.
+        socket.data = {
+          ...socketData,
+          isClubAdmin: true,
+          adminId: socket.id,
+        };
         const token = this.sessionTokenService.signToken({
           sub: (config as any).clubId ?? 'club',
           role: 'club_admin',

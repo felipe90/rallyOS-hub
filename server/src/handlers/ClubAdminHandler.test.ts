@@ -149,4 +149,108 @@ describe('ClubAdminHandler — CLUB_ADMIN_VERIFIED JWT (REQ-10)', () => {
     );
     expect(verified).toBeUndefined();
   });
+
+  // ── player-identity (Phase 2 task 2.3): adminId tracking ───────────────
+  //
+  // Spec: session-record MODIFIED — adminId traces which admin started
+  // or ended a session. We capture `socket.id` as the adminId at verify
+  // time (matches the resolved design decision documented in the design
+  // artifact and the mission prompt). Server handlers (CLUB_ADMIN_OCCUPY
+  // in U2, CLUB_FORCE_END in U2) read this from `socket.data.adminId`
+  // when writing the SessionRecord, mirroring the existing
+  // `socket.data.isClubAdmin` pattern.
+
+  describe('ClubAdminHandler — adminId tracking (player-identity task 2.3)', () => {
+    it('sets socket.data.adminId = socket.id on successful PIN verify', () => {
+      const handler = new ClubAdminHandler(
+        mockIo,
+        {} as any,
+        '12345678',
+        clubConfigStore,
+        adminPinService as any,
+        sessionTokenService,
+      );
+      const socket = makeMockSocket();
+      // Sanity: adminId unset before verify.
+      expect(socket.data).toEqual({});
+
+      handler.registerHandlers(socket as unknown as Socket);
+      socket._trigger(SocketEvents.CLIENT.CLUB_VERIFY_ADMIN, { pin: '424242' });
+
+      // Spec: adminId is the socket.id assigned by Socket.io. The mock
+      // socket returns 'club-socket' from makeMockSocket().
+      expect((socket.data as any).adminId).toBe(socket.id);
+      expect((socket.data as any).adminId).toBe('club-socket');
+      // Verify also flipped isClubAdmin (existing behavior — guard against
+      // regression).
+      expect((socket.data as any).isClubAdmin).toBe(true);
+    });
+
+    it('triangulates: each admin socket captures its OWN socket.id (not a constant)', () => {
+      const handler = new ClubAdminHandler(
+        mockIo,
+        {} as any,
+        '12345678',
+        clubConfigStore,
+        adminPinService as any,
+        sessionTokenService,
+      );
+
+      const first = makeMockSocket();
+      first.id = 'admin-sock-one';
+      const second = makeMockSocket();
+      second.id = 'admin-sock-two';
+
+      handler.registerHandlers(first as unknown as Socket);
+      handler.registerHandlers(second as unknown as Socket);
+      first._trigger(SocketEvents.CLIENT.CLUB_VERIFY_ADMIN, { pin: '424242' });
+      second._trigger(SocketEvents.CLIENT.CLUB_VERIFY_ADMIN, { pin: '424242' });
+
+      expect((first.data as any).adminId).toBe('admin-sock-one');
+      expect((second.data as any).adminId).toBe('admin-sock-two');
+      expect((first.data as any).adminId).not.toBe((second.data as any).adminId);
+    });
+
+    it('does NOT set adminId on a FAILED PIN verify (no admin attribution for unverified callers)', () => {
+      // Verify fails — verifyPin returns false. adminId must NOT be set so a
+      // later attacker can't claim an admin session by simply replaying a
+      // bad PIN.
+      adminPinService.verifyPin = jest.fn().mockReturnValue(false);
+      const handler = new ClubAdminHandler(
+        mockIo,
+        {} as any,
+        '12345678',
+        clubConfigStore,
+        adminPinService as any,
+        sessionTokenService,
+      );
+      const socket = makeMockSocket();
+      socket.id = 'failed-admin-attempt';
+
+      handler.registerHandlers(socket as unknown as Socket);
+      socket._trigger(SocketEvents.CLIENT.CLUB_VERIFY_ADMIN, { pin: '000000' });
+
+      expect((socket.data as any).adminId).toBeUndefined();
+      expect((socket.data as any).isClubAdmin).toBeUndefined();
+    });
+
+    it('does NOT set adminId when club is not configured (early-return path)', () => {
+      (clubConfigStore.load as jest.Mock).mockReturnValue({ configured: false });
+      const handler = new ClubAdminHandler(
+        mockIo,
+        {} as any,
+        '12345678',
+        clubConfigStore,
+        adminPinService as any,
+        sessionTokenService,
+      );
+      const socket = makeMockSocket();
+      socket.id = 'no-club-sock';
+
+      handler.registerHandlers(socket as unknown as Socket);
+      socket._trigger(SocketEvents.CLIENT.CLUB_VERIFY_ADMIN, { pin: '424242' });
+
+      expect((socket.data as any).adminId).toBeUndefined();
+    });
+  });
 });

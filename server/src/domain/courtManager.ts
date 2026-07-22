@@ -521,8 +521,28 @@ export class CourtManager {
   /**
    * Force-end a club court session: delegates to endSession('force').
    * Keeps backward-compatible return (Court | null) by looking up the court.
+   *
+   * player-identity (Phase 3 / U2 task 3.6) — admin traceability:
+   *   When `adminId` is supplied (a non-empty string sourced from
+   *   `socket.data.adminId` by the CLUB_FORCE_END handler), it is stamped
+   *   onto the court BEFORE endSession fires `onClubSessionEnd`. The
+   *   callback (in ClubPlayerHandler) reads `clubCourt.adminId` to build
+   *   the SessionRecord, so the stamp there carries the admin who ENDED
+   *   the session — not whoever started it. Without this, a player-
+   *   occupied court (adminId=null) force-ended by an admin would produce
+   *   a record with `endedBy='admin'` but `adminId=null` (unattributed).
+   *
+   *   Omitting `adminId` (legacy callers, internal force-end without an
+   *   admin id) preserves the court's existing adminId untouched —
+   *   backward compatible with every existing caller + test.
    */
-  forceEndSession(courtId: string): Court | null {
+  forceEndSession(courtId: string, adminId?: string): Court | null {
+    if (typeof adminId === 'string' && adminId.length > 0) {
+      const court = this.repository.get(courtId);
+      if (court && isClubCourt(court)) {
+        court.adminId = adminId;
+      }
+    }
     const result = this.endSession(courtId, 'force');
     if (!result) return null;
     return this.repository.get(courtId) ?? null;

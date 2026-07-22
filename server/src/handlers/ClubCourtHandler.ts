@@ -90,6 +90,14 @@ export class ClubCourtHandler extends SocketHandlerBase {
     });
 
     // CLUB_FORCE_END: Force-end an active session
+    //
+    // player-identity (Phase 3 / U2 task 3.6) — admin traceability: the
+    // admin who force-ends a court is stamped onto the court (and so onto
+    // the SessionRecord built by the onClubSessionEnd callback) via
+    // `courtManager.forceEndSession(courtId, adminId)`. Without an
+    // adminId we refuse: an unattributed force-end would produce a record
+    // with `endedBy='admin'` but `adminId=null`, breaking habeas data
+    // traceability. Mirrors the guard on CLUB_ADMIN_OCCUPY.
     socket.on(SocketEvents.CLIENT.CLUB_FORCE_END, (data: { courtId: string }) => {
       if (!this.validateClubAdmin(socket)) return;
 
@@ -101,7 +109,12 @@ export class ClubCourtHandler extends SocketHandlerBase {
 
       if (!this.validateCourtExists(socket, data.courtId)) return;
 
-      const ended = this.tableManager.forceEndSession(data.courtId);
+      const socketData = socket.data as { adminId?: unknown };
+      if (typeof socketData?.adminId !== 'string' || socketData.adminId.length === 0) {
+        return this.emitError(socket, 'UNAUTHORIZED', 'Admin identity required');
+      }
+
+      const ended = this.tableManager.forceEndSession(data.courtId, socketData.adminId);
       if (!ended) {
         return this.emitError(socket, 'FORCE_END_FAILED', 'No se pudo finalizar la sesión. La cancha debe estar en estado OCCUPIED.');
       }
@@ -109,7 +122,7 @@ export class ClubCourtHandler extends SocketHandlerBase {
       // Broadcast is handled automatically by onClubSessionEnd callback
       // (calculates cost, broadcasts CLUB_SESSION_ENDED to the room)
 
-      logger.info({ courtId: data.courtId }, 'Club court session force-ended');
+      logger.info({ courtId: data.courtId, adminId: socketData.adminId }, 'Club court session force-ended');
     });
 
     // CLUB_ADMIN_OCCUPY: Admin "Iniciar sesión" modal takes a RESERVED court

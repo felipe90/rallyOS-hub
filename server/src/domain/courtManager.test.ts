@@ -1789,4 +1789,84 @@ describe('CourtManager with StateStore', () => {
       });
     });
   });
+
+  // ═══════════════════════════════════════════════════════════════════
+  // player-identity (Phase 3 / U2 tasks 3.5 + 3.6) — admin force-end
+  // stamps `adminId` onto the court BEFORE onClubSessionEnd fires, so the
+  // callback-built SessionRecord carries the admin who ENDED the session
+  // (not whoever started it). Spec: `session-record` MODIFIED + admin
+  // traceability ("Phone Reveal Is Explicit And Audited", "admin-session").
+  //
+  // Without this stamp, a PLAYER-occupied court (adminId=null) force-ended
+  // by an admin produces a SessionRecord with endedBy='admin' but
+  // adminId=null — the admin action is unattributed, breaking habeas data.
+  // ═══════════════════════════════════════════════════════════════════
+
+  describe('club courts — admin force-end stamps adminId (Phase 3 task 3.6)', () => {
+    it('forceEndSession(courtId, adminId) stamps court.adminId BEFORE onClubSessionEnd fires', () => {
+      // The stamp must be observable to the onClubSessionEnd callback —
+      // that callback (in ClubPlayerHandler) reads `clubCourt.adminId` to
+      // build the SessionRecord. If the stamp happens AFTER the callback,
+      // the SessionRecord carries null.
+      const manager = createTestCourtManager({ persistence: stateStore });
+      const court = manager.createClubCourt('Force End Club');
+      manager.activateCourt(court.id);
+      // Player flow occupy → court.adminId stays null (no admin started it).
+      manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+
+      let adminIdSeenByCallback: string | null | undefined = '__unset__';
+      manager.onClubSessionEnd = (courtId) => {
+        const c = manager.getCourt(courtId) as ClubCourt | null;
+        adminIdSeenByCallback = c?.adminId ?? null;
+      };
+
+      manager.forceEndSession(court.id, 'admin-force-ender');
+
+      expect(adminIdSeenByCallback).toBe('admin-force-ender');
+    });
+
+    it('triangulates: forceEndSession overrides an admin-started court adminId with the force-ender id', () => {
+      // A court admin-occupied by adminA (adminId='admin-starter') then
+      // force-ended by adminB MUST carry adminB on the SessionRecord — the
+      // force-ender is the actor, not the starter.
+      const manager = createTestCourtManager({ persistence: stateStore });
+      const court = manager.createClubCourt('Override End');
+      manager.activateCourt(court.id);
+      manager.adminOccupyCourt(court.id, {
+        playerName: 'Started By AdminA',
+        phone: 'enc',
+        adminId: 'admin-starter',
+        mode: SESSION_MODE.FREE,
+        sport: SPORT.TABLE_TENNIS,
+      });
+
+      let adminIdSeenByCallback: string | null | undefined = '__unset__';
+      manager.onClubSessionEnd = (courtId) => {
+        const c = manager.getCourt(courtId) as ClubCourt | null;
+        adminIdSeenByCallback = c?.adminId ?? null;
+      };
+
+      const ended = manager.forceEndSession(court.id, 'admin-force-ender');
+      expect(ended).not.toBeNull();
+
+      expect(adminIdSeenByCallback).toBe('admin-force-ender');
+      // The court's persisted adminId is the force-ender, not the starter.
+      expect((manager.getCourt(court.id) as ClubCourt).adminId).toBe('admin-force-ender');
+    });
+
+    it('forceEndSession without adminId preserves the existing court.adminId (backward compatible — no stamp, no override)', () => {
+      // Legacy callers (tests, internal force-end without an admin id) MUST
+      // still work: passing no adminId leaves court.adminId untouched. The
+      // SessionRecord then carries whatever adminId the court already had.
+      const manager = createTestCourtManager({ persistence: stateStore });
+      const court = manager.createClubCourt('No Stamp');
+      manager.activateCourt(court.id);
+      manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS); // adminId stays null
+
+      manager.forceEndSession(court.id); // no adminId arg
+
+      // Player-occupied court had adminId=null → force-end without id leaves it null.
+      expect((manager.getCourt(court.id) as ClubCourt).adminId).toBeNull();
+    });
+  });
 });

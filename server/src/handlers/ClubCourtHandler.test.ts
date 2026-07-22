@@ -468,4 +468,94 @@ describe('ClubCourtHandler — CLUB_ADMIN_OCCUPY (Phase 3 task 3.1)', () => {
       expect(errorCalls[0][1].field).toBe('courtId');
     });
   });
+
+  // ── CLUB_FORCE_END (Phase 3 task 3.5) ─────────────────────────────────
+  //
+  // Spec (`session-record` MODIFIED + admin traceability): an admin
+  // force-ending a court MUST attribute the action — the SessionRecord
+  // built on end carries `endedBy='admin'` AND `adminId=<socket.data.adminId>`.
+  // Before this change, a PLAYER-occupied court (court.adminId=null) force-
+  // ended by an admin produced `endedBy='admin'` but `adminId=null` — the
+  // admin action was unattributed.
+  //
+  // Guard contract: a non-admin socket OR an admin socket missing
+  // socket.data.adminId MUST be refused with UNAUTHORIZED and MUST NOT
+  // transition the court (no SessionRecord produced, no admin stamping).
+
+  describe('CLUB_FORCE_END (Phase 3 task 3.5)', () => {
+    function getOccupiedCourtId(): string {
+      const court = manager.createClubCourt('Force End Court');
+      manager.activateCourt(court.id);
+      manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+      return court.id;
+    }
+
+    function triggerForceEnd(socket: MockSocket, payload: any) {
+      socket._trigger(SocketEvents.CLIENT.CLUB_FORCE_END, payload);
+    }
+
+    it('admin force-end stamps the court.adminId with socket.data.adminId (observable before court resets)', () => {
+      // Observe the adminId via the onClubSessionEnd callback — the
+      // callback fires synchronously inside forceEndSession, so the stamp
+      // is visible there. This is the same seam ClubPlayerHandler uses to
+      // build the SessionRecord (court.adminId → record.adminId).
+      const adminIdSeen: string[] = [];
+      manager.onClubSessionEnd = (courtId) => {
+        const c = manager.getCourt(courtId) as any;
+        adminIdSeen.push(c?.adminId ?? null);
+      };
+
+      const courtId = getOccupiedCourtId(); // player-flow occupy → adminId null
+      const socket = createMockSocket('admin-fe-1', { isClubAdmin: true, adminId: 'admin-fe-1' });
+      handler.registerHandlers(socket as unknown as Socket);
+
+      triggerForceEnd(socket, { courtId });
+
+      // endedBy='admin' is derived from reason='force' inside ClubPlayerHandler;
+      // the assertion the apply layer owns here is that adminId is attributed.
+      expect(adminIdSeen).toContain('admin-fe-1');
+    });
+
+    it('rejects a non-admin socket with UNAUTHORIZED and leaves the court OCCUPIED (no admin stamping)', () => {
+      const courtId = getOccupiedCourtId();
+      const socket = createMockSocket('non-admin-fe', { isClubAdmin: false });
+      handler.registerHandlers(socket as unknown as Socket);
+
+      let callbackFired = false;
+      manager.onClubSessionEnd = () => { callbackFired = true; };
+
+      triggerForceEnd(socket, { courtId });
+
+      expect(socket.emit).toHaveBeenCalledWith(
+        'ERROR',
+        expect.objectContaining({ code: 'UNAUTHORIZED' }),
+      );
+      expect(callbackFired).toBe(false);
+      // Court unchanged — still OCCUPIED, still null adminId (player flow).
+      expect((manager.getCourt(courtId) as any).clubStatus).toBe(CLUB_STATUS.OCCUPIED);
+      expect((manager.getCourt(courtId) as any).adminId).toBeNull();
+    });
+
+    it('rejects an admin socket WITHOUT socket.data.adminId with UNAUTHORIZED (covers the JWT-restore gap for force-end)', () => {
+      // Mirrors the CLUB_ADMIN_OCCUPY guard: isClubAdmin===true but no
+      // adminId → refuse, because an unattributed force-end would leave
+      // SessionRecord.adminId null even though endedBy='admin'.
+      const courtId = getOccupiedCourtId();
+      const socket = createMockSocket('restored-admin-fe', { isClubAdmin: true /* no adminId */ });
+      handler.registerHandlers(socket as unknown as Socket);
+
+      let callbackFired = false;
+      manager.onClubSessionEnd = () => { callbackFired = true; };
+
+      triggerForceEnd(socket, { courtId });
+
+      const errorCalls = (socket.emit as jest.Mock).mock.calls.filter(
+        ([event]: [string]) => event === 'ERROR',
+      );
+      expect(errorCalls.length).toBeGreaterThan(0);
+      expect(errorCalls[0][1].code).toBe('UNAUTHORIZED');
+      expect(callbackFired).toBe(false);
+      expect((manager.getCourt(courtId) as any).clubStatus).toBe(CLUB_STATUS.OCCUPIED);
+    });
+  });
 });

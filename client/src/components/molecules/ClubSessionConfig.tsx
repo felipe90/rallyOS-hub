@@ -1,39 +1,72 @@
 /**
  * ClubSessionConfig — initial mode selector shown on JOIN before any play.
  *
- * Contract (spec scenarios 1, 2):
- *   - Two selectable mode cards: "🎯 Modo Libre" / "🏆 Modo Match"
- *   - "Comenzar" disabled until a mode is selected
- *   - On "Comenzar" → onSelectFree (free) or onSelectMatch (match)
+ * Spec (player-identity):
+ *   - Name + phone inputs BEFORE mode cards
+ *   - "Comenzar" disabled until name non-empty AND phone non-empty AND mode selected
+ *   - On submit: encrypts phone client-side via AES-256-GCM if encryptionKey is
+ *     present (delivered on CLUB_JOIN_RESULT). Falls back to raw phone text when
+ *     encryptionKey is missing (graceful degradation for legacy configurations).
+ *   - On "Comenzar" with free mode → onSelectFree(name, phone)
+ *   - On "Comenzar" with match mode → onSelectMatch(name, phone)
  *
  * The parent (ClubPlayPage) wires:
- *   - onSelectFree → useClubPlay.startFreePlay() (emits CLUB_START_FREE)
- *   - onSelectMatch → render ClubMatchConfig
+ *   - onSelectFree → useClubPlay.startFreePlay(name, phone)
+ *   - onSelectMatch → render ClubMatchConfig (which later emits via newMatch)
  */
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { Button } from '@/components/atoms/Button'
+import { Input } from '@/components/atoms/Input'
 import { Typography } from '@/components/atoms/Typography'
 import { useI18n } from '@/i18n'
 import type { SessionMode } from '@shared/types'
+import { encryptPhoneClient } from '@/shared/crypto/phoneEncryption'
 
 export interface ClubSessionConfigProps {
   /** Emitted when the player selects "Modo Libre" and confirms. */
-  onSelectFree: () => void
+  onSelectFree: (name: string, phone: string) => void
   /** Emitted when the player selects "Modo Match" and confirms. */
-  onSelectMatch: () => void
+  onSelectMatch: (name: string, phone: string) => void
+  /**
+   * Base64 AES-256-GCM key from ClubConfig.encryptionKey.
+   * When present, the phone is encrypted client-side before transmission.
+   * When absent (graceful degradation), the raw phone text is emitted.
+   */
+  encryptionKey?: string
 }
 
-export function ClubSessionConfig({ onSelectFree, onSelectMatch }: ClubSessionConfigProps) {
+export function ClubSessionConfig({
+  onSelectFree,
+  onSelectMatch,
+  encryptionKey,
+}: ClubSessionConfigProps) {
   const { i18nText } = useI18n()
   const [selected, setSelected] = useState<SessionMode | null>(null)
+  const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  const handleStart = () => {
-    if (selected === 'free') {
-      onSelectFree()
-    } else if (selected === 'match') {
-      onSelectMatch()
+  const canStart = name.trim().length > 0 && phone.trim().length > 0 && selected !== null
+
+  const handleStart = useCallback(async () => {
+    if (!canStart || !selected) return
+
+    setLoading(true)
+    try {
+      let phoneOut = phone.trim()
+      if (encryptionKey) {
+        phoneOut = await encryptPhoneClient(phone.trim(), encryptionKey)
+      }
+
+      if (selected === 'free') {
+        onSelectFree(name.trim(), phoneOut)
+      } else {
+        onSelectMatch(name.trim(), phoneOut)
+      }
+    } finally {
+      setLoading(false)
     }
-  }
+  }, [canStart, selected, name, phone, encryptionKey, onSelectFree, onSelectMatch])
 
   return (
     <div
@@ -44,12 +77,32 @@ export function ClubSessionConfig({ onSelectFree, onSelectMatch }: ClubSessionCo
         {i18nText('clubPlaySessionConfigTitle')}
       </Typography>
 
+      {/* Name + Phone inputs */}
+      <div className="flex flex-col gap-3 w-full max-w-sm">
+        <Input
+          placeholder={i18nText('clubPlayNamePlaceholder')}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          disabled={loading}
+          autoFocus
+        />
+        <Input
+          type="tel"
+          placeholder={i18nText('clubPlayPhonePlaceholder')}
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          disabled={loading}
+        />
+      </div>
+
+      {/* Mode selector */}
       <div className="flex flex-col gap-3 w-full max-w-sm" role="radiogroup" aria-label="session-mode">
         <button
           type="button"
           role="radio"
           aria-checked={selected === 'free'}
           onClick={() => setSelected('free')}
+          disabled={loading}
           className={`text-left w-full p-4 rounded-xl border-2 transition-colors ${
             selected === 'free'
               ? 'border-primary bg-primary/10'
@@ -70,6 +123,7 @@ export function ClubSessionConfig({ onSelectFree, onSelectMatch }: ClubSessionCo
           role="radio"
           aria-checked={selected === 'match'}
           onClick={() => setSelected('match')}
+          disabled={loading}
           className={`text-left w-full p-4 rounded-xl border-2 transition-colors ${
             selected === 'match'
               ? 'border-primary bg-primary/10'
@@ -90,7 +144,8 @@ export function ClubSessionConfig({ onSelectFree, onSelectMatch }: ClubSessionCo
         variant="primary"
         size="lg"
         onClick={handleStart}
-        disabled={selected === null}
+        disabled={!canStart || loading}
+        loading={loading}
         fullWidth
         className="max-w-sm"
       >

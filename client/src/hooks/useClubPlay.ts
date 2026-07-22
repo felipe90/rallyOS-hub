@@ -36,6 +36,10 @@ export function useClubPlay(socket: Socket | null, courtId: string, connected: b
   const [pendingEndSessionConfirm, setPendingEndSessionConfirm] = useState(false)
   // Read PIN from sessionStorage (set on CLUB_JOIN) for secure reconnection
   const courtPinRef = useRef<string | null>(sessionStorage.getItem('rallyos-club-pin'))
+  // player-identity: read encryptionKey from sessionStorage (set in AuthPage from CLUB_JOIN_RESULT)
+  const [encryptionKey, setEncryptionKey] = useState<string | null>(
+    sessionStorage.getItem('rallyos-encryption-key') ?? null,
+  )
 
   // PR 4 — tracks whether the player has yet chosen a session mode.
   // null = mode selection pending (ClubSessionConfig shown).
@@ -342,11 +346,20 @@ export function useClubPlay(socket: Socket | null, courtId: string, connected: b
 
   // PR 3 — switch the OCCUPIED court to free mode. Server responds with
   // CLUB_FREE_STARTED, which flips sessionMode='free'.
-  const startFreePlay = useCallback(() => {
-    if (!socket || !connected) return
-    initialModePending.current = false
-    socket.emit(SocketEvents.CLIENT.CLUB_START_FREE, { courtId })
-  }, [socket, connected, courtId])
+  // player-identity: accepts optional playerName and phone (encrypted) for
+  // the player submitting their info via ClubSessionConfig. Existing callers
+  // (e.g. "Volver a libre" button) omit them for backward compatibility.
+  const startFreePlay = useCallback(
+    (name?: string, phone?: string) => {
+      if (!socket || !connected) return
+      initialModePending.current = false
+      const payload: { courtId: string; playerName?: string; phone?: string } = { courtId }
+      if (name !== undefined) payload.playerName = name
+      if (phone !== undefined) payload.phone = phone
+      socket.emit(SocketEvents.CLIENT.CLUB_START_FREE, payload)
+    },
+    [socket, connected, courtId],
+  )
 
   // PR 3 — post-match "Reset" action. Server resets the match to 0-0 with
   // the SAME config and responds with CLUB_MATCH_RESET carrying the zeroed
@@ -362,16 +375,28 @@ export function useClubPlay(socket: Socket | null, courtId: string, connected: b
   // PR 4 match-config UI can request non-default points/sets/handicap.
   // Optimistically sets sessionMode='match' because the server WILL set
   // sessionMode=match on its side.
+  // player-identity: accepts optional playerName and phone (encrypted) for
+  // the player submitting their info via ClubSessionConfig. Existing callers
+  // that already have a session omit them for backward compatibility.
   const newMatch = useCallback(
-    (nameA: string, nameB: string, matchConfig?: Partial<MatchConfig>) => {
+    (nameA: string, nameB: string, playerName?: string, phone?: string, matchConfig?: Partial<MatchConfig>) => {
       if (!socket || !connected) return
       initialModePending.current = false
       setSessionMode('match')
-      const payload: { courtId: string; playerNameA: string; playerNameB: string; matchConfig?: Partial<MatchConfig> } = {
+      const payload: {
+        courtId: string
+        playerNameA: string
+        playerNameB: string
+        playerName?: string
+        phone?: string
+        matchConfig?: Partial<MatchConfig>
+      } = {
         courtId,
         playerNameA: nameA,
         playerNameB: nameB,
       }
+      if (playerName !== undefined) payload.playerName = playerName
+      if (phone !== undefined) payload.phone = phone
       if (matchConfig) {
         payload.matchConfig = matchConfig
       }
@@ -406,6 +431,8 @@ export function useClubPlay(socket: Socket | null, courtId: string, connected: b
     sessionMode,
     elapsedSeconds,
     pendingEndSessionConfirm,
+    // player-identity — encryption key for client-side phone encryption
+    encryptionKey,
     // Emitters
     scorePoint,
     subtractPoint,

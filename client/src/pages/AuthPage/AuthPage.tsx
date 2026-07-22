@@ -85,11 +85,16 @@ export function AuthPage() {
       courtId?: string
       courtName?: string
       matchState?: unknown
+      encryptionKey?: string
       error?: string
       retryAfterSeconds?: number
     }) => {
       setClubLoading(false)
       if (data.success && data.courtId) {
+        // player-identity: persist encryptionKey for client-side phone encryption
+        if (data.encryptionKey) {
+          sessionStorage.setItem('rallyos-encryption-key', data.encryptionKey)
+        }
         navigate(Routes.CLUB_PLAY.replace(':courtId', data.courtId))
       } else if (data.error === 'RATE_LIMITED') {
         setClubError('RATE_LIMITED')

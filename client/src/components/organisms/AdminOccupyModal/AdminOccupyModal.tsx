@@ -91,24 +91,34 @@ export function AdminOccupyModal({
         </div>
 
         {/* Name input */}
-        <Input
-          value={playerName}
-          onChange={(e) => setPlayerName(e.target.value)}
-          placeholder={i18nText('clubAdminOccupyNamePlaceholder')}
-          leftIcon={<User size={16} />}
-          disabled={submitting}
-          autoFocus
-        />
+        <div className="relative">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text/50">
+            <User size={16} />
+          </span>
+          <Input
+            value={playerName}
+            onChange={(e) => setPlayerName(e.target.value)}
+            placeholder={i18nText('clubAdminOccupyNamePlaceholder')}
+            className="pl-10"
+            disabled={submitting}
+            autoFocus
+          />
+        </div>
 
         {/* Phone input */}
-        <Input
-          type="tel"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          placeholder={i18nText('clubAdminOccupyPhonePlaceholder')}
-          leftIcon={<Phone size={16} />}
-          disabled={submitting}
-        />
+        <div className="relative">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text/50">
+            <Phone size={16} />
+          </span>
+          <Input
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder={i18nText('clubAdminOccupyPhonePlaceholder')}
+            className="pl-10"
+            disabled={submitting}
+          />
+        </div>
 
         {/* Mode buttons */}
         <div>

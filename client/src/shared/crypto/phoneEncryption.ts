@@ -29,7 +29,7 @@ export async function encryptPhoneClient(phone: string, keyB64: string): Promise
   // Import the key for AES-GCM usage
   const key = await crypto.subtle.importKey(
     'raw',
-    keyBytes,
+    keyBytes as Uint8Array<ArrayBuffer>,
     'AES-GCM',
     false,
     ['encrypt'],

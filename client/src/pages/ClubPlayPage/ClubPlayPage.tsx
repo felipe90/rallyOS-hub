@@ -334,7 +334,7 @@ export function ClubPlayPage() {
                 <Button variant="secondary" size="sm" onClick={() => setHistoryOpen(true)}>
                   {i18nText('scoreboardHistory')}
                 </Button>
-                <Button variant="secondary" size="sm" onClick={startFreePlay}>
+                <Button variant="secondary" size="sm" onClick={() => startFreePlay()}>
                   {i18nText('clubPlayBackToFree')}
                 </Button>
                 <Button variant="danger" size="sm" onClick={() => setEndingSession(true)}>

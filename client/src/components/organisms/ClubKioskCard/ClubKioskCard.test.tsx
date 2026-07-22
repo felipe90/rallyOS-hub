@@ -100,6 +100,78 @@ describe('ClubKioskCard', () => {
     expect(zeros.length).toBe(2)
   })
 
+  // ── Phase 6.5 playerName display ─────────────────────────────────
+  describe('playerName display (Phase 6.5)', () => {
+    it('shows playerName next to court name when OCCUPIED with playerName', () => {
+      render(
+        <ClubKioskCard
+          court={makeCourt({
+            status: 'OCCUPIED',
+            playerName: 'Juan Pérez',
+            playerNames: { a: 'Alice', b: 'Bob' },
+            currentScore: { a: 5, b: 3 },
+          })}
+        />,
+      )
+      expect(screen.getByText('Cancha 1')).toBeInTheDocument()
+      expect(screen.getByText('Juan Pérez')).toBeInTheDocument()
+    })
+
+    it('shows playerName in free mode when present', () => {
+      render(
+        <ClubKioskCard
+          court={makeCourt({
+            status: 'OCCUPIED',
+            sessionMode: 'free',
+            playerName: 'Juan Pérez',
+            playerNames: { a: 'Alice', b: 'Bob' },
+            currentScore: undefined,
+          })}
+        />,
+      )
+      expect(screen.getByText('Juan Pérez')).toBeInTheDocument()
+    })
+
+    it('does not show playerName on AVAILABLE courts', () => {
+      render(
+        <ClubKioskCard
+          court={makeCourt({
+            status: 'AVAILABLE',
+            playerName: 'Juan Pérez',
+          })}
+        />,
+      )
+      expect(screen.queryByText('Juan Pérez')).not.toBeInTheDocument()
+    })
+
+    it('does not show playerName on RESERVED courts', () => {
+      render(
+        <ClubKioskCard
+          court={makeCourt({
+            status: 'RESERVED',
+            pin: '1234',
+            playerName: 'Juan Pérez',
+          })}
+        />,
+      )
+      expect(screen.queryByText('Juan Pérez')).not.toBeInTheDocument()
+    })
+
+    it('does not show playerName on FINISHED courts', () => {
+      render(
+        <ClubKioskCard
+          court={makeCourt({
+            status: 'FINISHED',
+            playerName: 'Juan Pérez',
+            playerNames: { a: 'Alice', b: 'Bob' },
+            currentScore: { a: 11, b: 7 },
+          })}
+        />,
+      )
+      expect(screen.queryByText('Juan Pérez')).not.toBeInTheDocument()
+    })
+  })
+
   // ── PR 4 free-mode behavior ───────────────────────────────────────
   describe('free-mode (sessionMode === free) — spec task 4.7', () => {
     it('shows the "En cancha — Modo Libre" badge instead of "En Juego"', () => {

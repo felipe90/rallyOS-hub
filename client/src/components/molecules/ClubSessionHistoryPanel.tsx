@@ -15,7 +15,7 @@
  * presentation. All user-visible strings come from useI18n.
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import type { SessionRecord } from '@shared/types'
 import { Button } from '@/components/atoms/Button'
 import { Body } from '@/components/atoms/Typography'
@@ -81,6 +81,15 @@ export function ClubSessionHistoryPanel({
   const clearErrorMessage = mapClearError(history.clearError, i18nText)
   const showError = clearErrorMessage ?? exportError
 
+  // Determine if the phone reveal modal should be shown
+  const phoneRevealInfo = (() => {
+    const reveal = history.revealedPhone
+    if (!reveal) return null
+    const session = sorted.find((s) => s.sessionId === reveal.sessionId)
+    if (!session) return null
+    return { phone: reveal.phone, playerName: session.playerName }
+  })()
+
   return (
     <div className="space-y-4">
       {/* Action bar */}
@@ -125,6 +134,9 @@ export function ClubSessionHistoryPanel({
                   {i18nText('historyColCourt')}
                 </th>
                 <th role="columnheader" scope="col" className="px-2 py-1 text-left font-medium">
+                  {i18nText('historyColPlayer')}
+                </th>
+                <th role="columnheader" scope="col" className="px-2 py-1 text-left font-medium">
                   {i18nText('historyColDuration')}
                 </th>
                 <th role="columnheader" scope="col" className="px-2 py-1 text-left font-medium">
@@ -133,12 +145,16 @@ export function ClubSessionHistoryPanel({
                 <th role="columnheader" scope="col" className="px-2 py-1 text-left font-medium">
                   {i18nText('historyColDate')}
                 </th>
+                <th role="columnheader" scope="col" className="px-2 py-1 text-left font-medium">
+                  {/* Actions column — Ver teléfono */}
+                </th>
               </tr>
             </thead>
             <tbody>
               {sorted.map((s) => (
                 <tr key={s.sessionId}>
                   <td role="cell" className="px-2 py-1">{s.courtName}</td>
+                  <td role="cell" className="px-2 py-1">{s.playerName ?? ''}</td>
                   <td role="cell" className="px-2 py-1">
                     {i18nText('historyDurationMinutes', { minutes: s.elapsedMinutes })}
                   </td>
@@ -146,11 +162,32 @@ export function ClubSessionHistoryPanel({
                     {i18nText('historyCost', { cost: s.cost, currency: s.currency })}
                   </td>
                   <td role="cell" className="px-2 py-1">{formatDate(s.timestamp)}</td>
+                  <td role="cell" className="px-2 py-1">
+                    {s.phone ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => history.revealPhone(s.sessionId)}
+                      >
+                        {i18nText('historyRevealPhoneBtn')}
+                      </Button>
+                    ) : null}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      )}
+
+      {/* Phone reveal modal */}
+      {phoneRevealInfo && (
+        <PhoneRevealModal
+          phone={phoneRevealInfo.phone}
+          playerName={phoneRevealInfo.playerName}
+          onClose={() => history.clearRevealedPhone()}
+          i18nText={i18nText}
+        />
       )}
 
       {/* Clear confirmation — shown while the server holds pending-clear. */}
@@ -164,6 +201,48 @@ export function ClubSessionHistoryPanel({
         onConfirm={() => history.confirmClearHistory()}
         onCancel={() => history.cancelClearHistory()}
       />
+    </div>
+  )
+}
+
+/**
+ * PhoneRevealModal — shows the decrypted phone number with auto-dismiss
+ * after 10s and a manual "Cerrar" button.
+ */
+function PhoneRevealModal({
+  phone,
+  playerName,
+  onClose,
+  i18nText,
+}: {
+  phone: string
+  playerName: string
+  onClose: () => void
+  i18nText: (key: string, opts?: Record<string, unknown>) => string
+}) {
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    timerRef.current = setTimeout(onClose, 10_000)
+    return () => {
+      if (timerRef.current !== null) clearTimeout(timerRef.current)
+    }
+  }, [onClose])
+
+  return (
+    <div role="dialog" className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+      <div className="rounded-lg bg-white p-6 shadow-xl max-w-sm w-full mx-4">
+        <Body className="font-semibold mb-2">
+          {i18nText('historyRevealPhoneLabel')}
+        </Body>
+        <Body className="text-lg mb-4">{phone}</Body>
+        <p className="text-sm text-text/60 mb-4">
+          {playerName}
+        </p>
+        <Button variant="outline" size="sm" onClick={onClose}>
+          {i18nText('commonClose')}
+        </Button>
+      </div>
     </div>
   )
 }

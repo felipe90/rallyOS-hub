@@ -13,7 +13,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { ClubSessionHistoryPanel } from './ClubSessionHistoryPanel'
 import type { UseClubSessionHistoryReturn } from '@/hooks/useClubSessionHistory'
 import type { SessionRecord } from '@shared/types'
@@ -26,9 +26,12 @@ vi.mock('@/i18n', () => ({
         clubAdminTabHistory: 'Historial',
         historyColCourt: 'Cancha',
         historyColMode: 'Modalidad',
+        historyColPlayer: 'Jugador',
         historyColDuration: 'Duración',
         historyColCost: 'Costo',
         historyColDate: 'Fecha',
+        historyRevealPhoneBtn: 'Ver teléfono',
+        historyRevealPhoneLabel: 'Teléfono:',
         historyModeFree: 'Libre',
         historyModeMatch: 'Match',
         historyClearBtn: 'Limpiar historial',
@@ -37,6 +40,7 @@ vi.mock('@/i18n', () => ({
         historyClearConfirmMessage: '¿Eliminar todos los registros?',
         historyClearConfirmAction: 'Limpiar',
         historyClearCancel: 'Cancelar',
+        commonClose: 'Cerrar',
         historyEmpty: 'No hay sesiones registradas',
         historyDisabled: 'Club no configurado',
         historyDurationMinutes: '{{minutes}} min',
@@ -67,6 +71,9 @@ function makeHistoryStub(overrides: Partial<UseClubSessionHistoryReturn> = {}): 
     cancelClearHistory: vi.fn(),
     pendingClearConfirm: false,
     clearError: null,
+    revealedPhone: null,
+    revealPhone: vi.fn(),
+    clearRevealedPhone: vi.fn(),
     ...overrides,
   }
 }
@@ -273,6 +280,152 @@ describe('ClubSessionHistoryPanel — CSV export', () => {
     await waitFor(() =>
       expect(screen.getByText('No se pudo completar la acción.')).toBeInTheDocument(),
     )
+  })
+})
+
+describe('ClubSessionHistoryPanel — player column (Phase 7 / U4)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('renders a "Jugador" column header between "Cancha" and "Duración"', () => {
+    render(
+      <ClubSessionHistoryPanel
+        history={makeHistoryStub({ sessions: [record()] })}
+        clubConfigured={true}
+      />,
+    )
+    const headers = screen.getAllByRole('columnheader')
+    const courtIdx = headers.findIndex((h) => h.textContent === 'Cancha')
+    const playerIdx = headers.findIndex((h) => h.textContent === 'Jugador')
+    const durIdx = headers.findIndex((h) => h.textContent === 'Duración')
+    expect(courtIdx).toBeGreaterThanOrEqual(0)
+    expect(playerIdx).toBeGreaterThanOrEqual(0)
+    expect(durIdx).toBeGreaterThanOrEqual(0)
+    expect(playerIdx).toBe(courtIdx + 1)
+    expect(durIdx).toBe(playerIdx + 1)
+  })
+
+  it('shows playerName in the cell when the record has one', () => {
+    render(
+      <ClubSessionHistoryPanel
+        history={makeHistoryStub({ sessions: [record({ playerName: 'Carlos' })] })}
+        clubConfigured={true}
+      />,
+    )
+    expect(screen.getByRole('cell', { name: 'Carlos' })).toBeInTheDocument()
+  })
+
+  it('shows an empty string in the playerName cell when the record lacks playerName', () => {
+    render(
+      <ClubSessionHistoryPanel
+        history={makeHistoryStub({
+          sessions: [record({ playerName: '' })],
+        })}
+        clubConfigured={true}
+      />,
+    )
+    const cells = screen.getAllByRole('cell')
+    // The second cell after Cancha is the player column; should be empty
+    const canchaCell = cells[0]
+    const playerCell = cells[1]
+    expect(canchaCell.textContent).toBe('Cancha 1')
+    expect(playerCell.textContent).toBe('')
+  })
+
+  it('renders a "Ver teléfono" button when session.phone exists', () => {
+    render(
+      <ClubSessionHistoryPanel
+        history={makeHistoryStub({ sessions: [record({ playerName: 'Ana', phone: 'cipher:abc' })] })}
+        clubConfigured={true}
+      />,
+    )
+    expect(screen.getByRole('button', { name: 'Ver teléfono' })).toBeInTheDocument()
+  })
+
+  it('does NOT render "Ver teléfono" when session.phone is undefined', () => {
+    render(
+      <ClubSessionHistoryPanel
+        history={makeHistoryStub({
+          sessions: [record({ playerName: 'Ana', phone: undefined as any })],
+        })}
+        clubConfigured={true}
+      />,
+    )
+    expect(screen.queryByRole('button', { name: 'Ver teléfono' })).not.toBeInTheDocument()
+  })
+
+  it('clicking "Ver teléfono" calls onRevealPhone with the sessionId', () => {
+    const history = makeHistoryStub({
+      sessions: [record({ sessionId: 's-1', playerName: 'Ana', phone: 'cipher:abc' })],
+    })
+    render(
+      <ClubSessionHistoryPanel history={history} clubConfigured={true} />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Ver teléfono' }))
+    expect(history.revealPhone).toHaveBeenCalledWith('s-1')
+  })
+
+  it('shows a phone modal when revealedPhone matches the session', () => {
+    const session = record({ sessionId: 's-1', playerName: 'Ana', phone: 'cipher:abc' })
+    const history = makeHistoryStub({
+      sessions: [session],
+      revealedPhone: { sessionId: 's-1', phone: '555-1234' },
+    })
+    render(
+      <ClubSessionHistoryPanel history={history} clubConfigured={true} />,
+    )
+    expect(screen.getByText('555-1234')).toBeInTheDocument()
+    expect(screen.getByText('Teléfono:')).toBeInTheDocument()
+  })
+
+  it('does NOT show a phone modal when revealedPhone is for a different session', () => {
+    const session = record({ sessionId: 's-1', playerName: 'Ana', phone: 'cipher:abc' })
+    const history = makeHistoryStub({
+      sessions: [session],
+      revealedPhone: { sessionId: 's-other', phone: '555-9999' },
+    })
+    render(
+      <ClubSessionHistoryPanel history={history} clubConfigured={true} />,
+    )
+    expect(screen.queryByText('555-9999')).not.toBeInTheDocument()
+  })
+
+  it('phone modal auto-dismisses after 10s', () => {
+    const session = record({ sessionId: 's-1', playerName: 'Ana', phone: 'cipher:abc' })
+    const clearRevealedPhone = vi.fn()
+    const history = makeHistoryStub({
+      sessions: [session],
+      revealedPhone: { sessionId: 's-1', phone: '555-1234' },
+      clearRevealedPhone,
+    })
+    render(
+      <ClubSessionHistoryPanel history={history} clubConfigured={true} />,
+    )
+    expect(screen.getByText('555-1234')).toBeInTheDocument()
+    act(() => {
+      vi.advanceTimersByTime(10_000)
+    })
+    expect(clearRevealedPhone).toHaveBeenCalledTimes(1)
+  })
+
+  it('phone modal has a manual "Cerrar" button that calls onClearRevealedPhone', () => {
+    const session = record({ sessionId: 's-1', playerName: 'Ana', phone: 'cipher:abc' })
+    const clearRevealedPhone = vi.fn()
+    const history = makeHistoryStub({
+      sessions: [session],
+      revealedPhone: { sessionId: 's-1', phone: '555-1234' },
+      clearRevealedPhone,
+    })
+    render(
+      <ClubSessionHistoryPanel history={history} clubConfigured={true} />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar' }))
+    expect(clearRevealedPhone).toHaveBeenCalledTimes(1)
   })
 })
 

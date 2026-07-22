@@ -363,4 +363,175 @@ describe('SessionHistoryStore', () => {
       expect(typeof s.getAll).toBe('function');
     });
   });
+
+  // ═══════════════════════════════════════════════════════════════════
+  // player-identity (Phase 3 / U2 tasks 3.3, 3.4) — SessionHistoryStore
+  // lock + dedup. Spec: `session-history` MODIFIED. Replaces the
+  // documented "last-writer-wins" tradeoff (above) with a file-level
+  // mutex that serializes concurrent appends AND a sessionId duplicate
+  // check that rejects the second append without overwriting the
+  // existing record.
+  // ═══════════════════════════════════════════════════════════════════
+
+  describe('player-identity — dedup by sessionId (spec: "Duplicate sessionId rejected")', () => {
+    it('rejects the second append when sessionId already exists — existing record unchanged', () => {
+      const recordA = makeRecord({ sessionId: 'dup-1', courtName: 'Cancha A' });
+      fs._files.set('data/session-history.json', JSON.stringify([recordA]));
+
+      // Triangulate the dedup rejection with a SECOND record using the
+      // SAME sessionId but a different courtName — proving the store
+      // distinguishes by sessionId (not by record contents).
+      const duplicateRecord = makeRecord({ sessionId: 'dup-1', courtName: 'Cancha B' });
+      store.append(duplicateRecord);
+
+      const loaded = store.load();
+      expect(loaded).toHaveLength(1);
+      // The EXISTING record (Cancha A) is preserved — the duplicate
+      // (Cancha B) was rejected, not merged.
+      expect(loaded[0].courtName).toBe('Cancha A');
+      expect(loaded[0].sessionId).toBe('dup-1');
+    });
+
+    it('appends the second record when sessionId is different (triangulate — dedup is by sessionId, not "always reject")', () => {
+      const recordA = makeRecord({ sessionId: 'sess-A', courtName: 'Cancha A' });
+      store.append(recordA);
+
+      const recordB = makeRecord({ sessionId: 'sess-B', courtName: 'Cancha B' });
+      store.append(recordB);
+
+      const loaded = store.load();
+      expect(loaded).toHaveLength(2);
+      expect(loaded[0].sessionId).toBe('sess-A');
+      expect(loaded[1].sessionId).toBe('sess-B');
+    });
+
+    it('preserves prior records when a duplicate is rejected (dedup is additive, not destructive)', () => {
+      const existing = [
+        makeRecord({ sessionId: 'sess-1', courtName: 'Cancha 1' }),
+        makeRecord({ sessionId: 'sess-2', courtName: 'Cancha 2' }),
+      ];
+      fs._files.set('data/session-history.json', JSON.stringify(existing));
+
+      const duplicate = makeRecord({ sessionId: 'sess-1', courtName: 'Cancha Evil' });
+      store.append(duplicate);
+
+      const loaded = store.load();
+      expect(loaded).toHaveLength(2);
+      expect(loaded.find((r) => r.sessionId === 'sess-1')?.courtName).toBe('Cancha 1');
+      expect(loaded.find((r) => r.sessionId === 'sess-2')?.courtName).toBe('Cancha 2');
+    });
+
+    it('reports dedup rejection via appendDedup boolean (true on insert, false on duplicate)', () => {
+      // The dedup result is observable so callers can distinguish
+      // "real new record" from "ignored duplicate". The existing void
+      // `append()` stays unchanged for backward-compat; `appendDedup()`
+      // exposes the boolean outcome.
+      const first = store.appendDedup(makeRecord({ sessionId: 'dedup-1' }));
+      expect(first).toBe(true);
+
+      const second = store.appendDedup(makeRecord({ sessionId: 'dedup-1' }));
+      expect(second).toBe(false);
+
+      // Triangulate — a fresh sessionId still inserts.
+      const third = store.appendDedup(makeRecord({ sessionId: 'dedup-2' }));
+      expect(third).toBe(true);
+
+      expect(store.load()).toHaveLength(2);
+    });
+
+    it('append() (legacy void-return) silently ignores duplicates — preserves caller contract', () => {
+      // The legacy `append()` callers (ClubPlayerHandler.onClubSessionEnd)
+      // rely on its void-best-effort contract: never throws, persists when
+      // possible. Duplicates are silently skipped (NOT thrown) so session
+      // end is never blocked.
+      expect(() => store.append(makeRecord({ sessionId: 'legacy-1' }))).not.toThrow();
+      expect(() => store.append(makeRecord({ sessionId: 'legacy-1' }))).not.toThrow();
+      expect(store.load()).toHaveLength(1);
+    });
+  });
+
+  describe('player-identity — appendAsync: lock serializes concurrent appends (spec: "File lock serializes concurrent appends")', () => {
+    it('persists BOTH records when two appendAsync calls run concurrently via Promise.all', async () => {
+      // Spec scenario: "two sessions end simultaneously → both append()
+      // calls occur → the lock SHALL serialize writes → both records
+      // SHALL be persisted."
+      //
+      // The in-process mutex (a Promise chain) serializes the load →
+      // push → write sequence: appendB's critical section cannot start
+      // until appendA's critical section resolves. Both records make it
+      // to disk in the order they were acquired — the second sees the
+      // first already in the loaded array.
+      const recordA = makeRecord({ sessionId: 'async-A', courtName: 'Cancha A' });
+      const recordB = makeRecord({ sessionId: 'async-B', courtName: 'Cancha B' });
+
+      await Promise.all([
+        store.appendAsync(recordA),
+        store.appendAsync(recordB),
+      ]);
+
+      const loaded = store.load();
+      expect(loaded).toHaveLength(2);
+      // Both sessionId values are present (order not asserted — mutex
+      // serializes the writes but acquisition order is non-deterministic
+      // for truly concurrent Promise.all callers in production).
+      const sessionIds = loaded.map((r) => r.sessionId).sort();
+      expect(sessionIds).toEqual(['async-A', 'async-B']);
+    });
+
+    it('triangulates with 3 concurrent appends — all three persist (lock holds under more contention)', async () => {
+      const records = [
+        makeRecord({ sessionId: 'c-1' }),
+        makeRecord({ sessionId: 'c-2' }),
+        makeRecord({ sessionId: 'c-3' }),
+      ];
+
+      await Promise.all(records.map((r) => store.appendAsync(r)));
+
+      const loaded = store.load();
+      expect(loaded).toHaveLength(3);
+      expect(loaded.map((r) => r.sessionId).sort()).toEqual(['c-1', 'c-2', 'c-3']);
+    });
+
+    it('applies dedup inside appendAsync — concurrent appendAsync with same sessionId persists only ONE', async () => {
+      // The mutex serializes; the inner critical section still applies
+      // the sessionId check. Two concurrent calls with the SAME
+      // sessionId produce exactly one record — the second is rejected
+      // by the dedup check inside the lock.
+      const dupA = makeRecord({ sessionId: 'async-dup', courtName: 'Cancha A' });
+      const dupB = makeRecord({ sessionId: 'async-dup', courtName: 'Cancha B' });
+
+      await Promise.all([
+        store.appendAsync(dupA),
+        store.appendAsync(dupB),
+      ]);
+
+      expect(store.load()).toHaveLength(1);
+      // Whichever arrived first inside the mutex won; no merge happened.
+      // Either A or B — but not both, and no corrupted record.
+      const loaded = store.load()[0];
+      expect(['Cancha A', 'Cancha B']).toContain(loaded.courtName);
+      expect(loaded.sessionId).toBe('async-dup');
+    });
+
+    it('swallows disk errors and never throws (preserves the legacy never-block-session-end contract under the async path)', async () => {
+      fs._throwOnWrite = true;
+      const record = makeRecord({ sessionId: 'broken' });
+
+      await expect(store.appendAsync(record)).resolves.not.toThrow();
+      // No record persisted — but the promise resolved without rejection.
+      expect(store.load()).toEqual([]);
+    });
+
+    it('releases the mutex after a failed write — subsequent appendAsync calls still proceed', async () => {
+      fs._throwOnWrite = true;
+      await store.appendAsync(makeRecord({ sessionId: 'a-fail' }));
+      // First call failed inside the critical section but MUST release
+      // the mutex — otherwise subsequent calls would hang forever.
+      fs._throwOnWrite = false;
+      await store.appendAsync(makeRecord({ sessionId: 'a-ok' }));
+
+      expect(store.load()).toHaveLength(1);
+      expect(store.load()[0].sessionId).toBe('a-ok');
+    });
+  });
 });

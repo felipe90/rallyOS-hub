@@ -220,4 +220,55 @@ describe('useClubSessionHistory', () => {
     const historyOff = offCalls.filter(([ev]: [string]) => ev === SocketEvents.SERVER.CLUB_SESSION_HISTORY)
     expect(historyOff.length).toBeGreaterThan(0)
   })
+
+  // ── phone-reveal (Phase 7 / U4) ─────────────────────────────────────
+
+  it('revealPhone(sessionId) emits CLUB_REVEAL_PHONE with { sessionId }', () => {
+    const socket = makeMockSocket()
+    const { result } = renderHook(() => useClubSessionHistory(socket as any, true))
+    act(() => {
+      result.current.revealPhone!('sess-123')
+    })
+    expect(socket.emit).toHaveBeenCalledWith(SocketEvents.CLIENT.CLUB_REVEAL_PHONE, {
+      sessionId: 'sess-123',
+    })
+  })
+
+  it('CLUB_REVEAL_PHONE_RESULT stores the revealed phone', () => {
+    const socket = makeMockSocket()
+    const { result } = renderHook(() => useClubSessionHistory(socket as any, true))
+    act(() => {
+      result.current.revealPhone!('sess-123')
+    })
+    act(() => {
+      socket.fire(SocketEvents.SERVER.CLUB_REVEAL_PHONE_RESULT, {
+        success: true,
+        phone: '555-1234',
+      })
+    })
+    expect(result.current.revealedPhone).toEqual({
+      sessionId: 'sess-123',
+      phone: '555-1234',
+    })
+  })
+
+  it('clearRevealedPhone resets revealedPhone to null', () => {
+    const socket = makeMockSocket()
+    const { result } = renderHook(() => useClubSessionHistory(socket as any, true))
+    // Prime with a revealed phone
+    act(() => {
+      result.current.revealPhone!('sess-123')
+    })
+    act(() => {
+      socket.fire(SocketEvents.SERVER.CLUB_REVEAL_PHONE_RESULT, {
+        success: true,
+        phone: '555-1234',
+      })
+    })
+    expect(result.current.revealedPhone).not.toBeNull()
+    act(() => {
+      result.current.clearRevealedPhone!()
+    })
+    expect(result.current.revealedPhone).toBeNull()
+  })
 })

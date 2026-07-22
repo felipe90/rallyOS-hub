@@ -36,6 +36,12 @@ export interface UseClubSessionHistoryReturn {
   pendingClearConfirm: boolean
   /** Error surfaced from the clear flow (e.g. NO_CONNECTION, TIMEOUT). */
   clearError: string | null
+  /** Decrypted phone from a successful CLUB_REVEAL_PHONE_RESULT. */
+  revealedPhone: { sessionId: string; phone: string } | null
+  /** Request server-side phone decryption — emits CLUB_REVEAL_PHONE with sessionId. */
+  revealPhone: (sessionId: string) => void
+  /** Clear the revealed phone state (dismiss the phone modal). */
+  clearRevealedPhone: () => void
 }
 
 export function useClubSessionHistory(
@@ -45,8 +51,13 @@ export function useClubSessionHistory(
   const [sessions, setSessions] = useState<SessionRecord[]>([])
   const [pendingClearConfirm, setPendingClearConfirm] = useState(false)
   const [clearError, setClearError] = useState<string | null>(null)
+  const [revealedPhone, setRevealedPhone] = useState<{ sessionId: string; phone: string } | null>(null)
 
   const pendingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  /** Tracks the sessionId of the most recent CLUB_REVEAL_PHONE request
+   *  so the CLUB_REVEAL_PHONE_RESULT handler can associate the decrypted
+   *  phone with the correct session. */
+  const pendingRevealRef = useRef<string | null>(null)
 
   const clearPendingTimer = useCallback(() => {
     if (pendingTimerRef.current !== null) {
@@ -55,7 +66,7 @@ export function useClubSessionHistory(
     }
   }, [])
 
-  /** Listen for `CLUB_SESSION_HISTORY` pushes. */
+  /** Listen for `CLUB_SESSION_HISTORY` pushes and `CLUB_REVEAL_PHONE_RESULT`. */
   useEffect(() => {
     if (!socket) return
 
@@ -66,10 +77,21 @@ export function useClubSessionHistory(
       setSessions(records)
     }
 
+    const handleRevealResult = (data: { success: boolean; phone?: string }) => {
+      const sid = pendingRevealRef.current
+      if (!sid) return
+      pendingRevealRef.current = null
+      if (data?.success && data.phone) {
+        setRevealedPhone({ sessionId: sid, phone: data.phone })
+      }
+    }
+
     socket.on(SocketEvents.SERVER.CLUB_SESSION_HISTORY, handleHistory as (...args: unknown[]) => void)
+    socket.on(SocketEvents.SERVER.CLUB_REVEAL_PHONE_RESULT, handleRevealResult as (...args: unknown[]) => void)
 
     return () => {
       socket.off(SocketEvents.SERVER.CLUB_SESSION_HISTORY, handleHistory as (...args: unknown[]) => void)
+      socket.off(SocketEvents.SERVER.CLUB_REVEAL_PHONE_RESULT, handleRevealResult as (...args: unknown[]) => void)
     }
   }, [socket])
 
@@ -115,6 +137,19 @@ export function useClubSessionHistory(
     setClearError(null)
   }, [clearPendingTimer])
 
+  const revealPhone = useCallback(
+    (sessionId: string) => {
+      if (!socket) return
+      pendingRevealRef.current = sessionId
+      socket.emit(SocketEvents.CLIENT.CLUB_REVEAL_PHONE, { sessionId })
+    },
+    [socket],
+  )
+
+  const clearRevealedPhone = useCallback(() => {
+    setRevealedPhone(null)
+  }, [])
+
   return {
     sessions,
     clearHistory,
@@ -122,5 +157,8 @@ export function useClubSessionHistory(
     cancelClearHistory,
     pendingClearConfirm,
     clearError,
+    revealedPhone,
+    revealPhone,
+    clearRevealedPhone,
   }
 }

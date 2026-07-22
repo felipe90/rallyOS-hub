@@ -38,6 +38,8 @@ import {
   ClubSessionHistoryHandler,
 } from './index';
 import { SessionHistoryStore } from '../services/store/SessionHistoryStore';
+import { PhoneRevealAuditStore } from '../services/store/PhoneRevealAuditStore';
+import { ClubConfigStore } from '../services/store/ClubConfigStore';
 
 export class SocketHandler {
   private io: Server;
@@ -57,6 +59,7 @@ export class SocketHandler {
   private clubCourtHandler: ClubCourtHandler;
   private clubPlayerHandler: ClubPlayerHandler;
   private clubHistoryHandler?: ClubSessionHistoryHandler;
+  private phoneRevealAuditStore: PhoneRevealAuditStore;
 
   constructor(
     io: Server,
@@ -65,6 +68,7 @@ export class SocketHandler {
     hubConfig: HubConfig,
     clubConfigStore?: IClubConfigRepository,
     sessionHistoryStore?: SessionHistoryStore,
+    phoneRevealAuditStore?: PhoneRevealAuditStore,
   ) {
     this.io = io;
     this.tableManager = tableManager;
@@ -72,6 +76,7 @@ export class SocketHandler {
     this.hubConfig = hubConfig;
     this.connectionRateLimiter = new RateLimiter(60_000, 20); // 20 connections per 60s per IP
     this.clubConfigStore = clubConfigStore;
+    this.phoneRevealAuditStore = phoneRevealAuditStore ?? new PhoneRevealAuditStore();
     
     // Initialize services
     const adminPinService = new AdminPinService();
@@ -100,7 +105,9 @@ export class SocketHandler {
     // Instantiating TWO handlers would split the 30s pending-clear window;
     // the structural interface ClubHistoryBridge keeps the seam narrow.
     if (sessionHistoryStore) {
-      this.clubHistoryHandler = new ClubSessionHistoryHandler(io, sessionHistoryStore);
+      const auditStore = this.phoneRevealAuditStore;
+      const configStore = this.clubConfigStore ?? new ClubConfigStore();
+      this.clubHistoryHandler = new ClubSessionHistoryHandler(io, sessionHistoryStore, auditStore, configStore);
     }
     this.clubAdminHandler = new ClubAdminHandler(io, tableManager, ownerPin, clubConfigStore!, adminPinService, sessionTokenService, this.clubHistoryHandler);
     // Phase 3 / U2: pass clubConfigStore so CLUB_ADMIN_OCCUPY can resolve

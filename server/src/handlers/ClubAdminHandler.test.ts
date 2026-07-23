@@ -59,6 +59,7 @@ describe('ClubAdminHandler — CLUB_ADMIN_VERIFIED JWT (REQ-10)', () => {
         clubName: 'Test',
         sport: 'padel',
         adminPinHash: 'hash',
+        encryptionKey: 'test-encryption-key-b64==',
       }),
       save: jest.fn(),
     } as unknown as IClubConfigRepository;
@@ -75,7 +76,7 @@ describe('ClubAdminHandler — CLUB_ADMIN_VERIFIED JWT (REQ-10)', () => {
     else process.env.NODE_ENV = originalNodeEnv;
   });
 
-  it('emits CLUB_ADMIN_VERIFIED with success:true and a 3-segment JWT token', () => {
+  it('emits CLUB_ADMIN_VERIFIED with success:true, a 3-segment JWT token, and encryptionKey from club config', () => {
     const handler = new ClubAdminHandler(
       mockIo,
       {} as any,
@@ -96,6 +97,8 @@ describe('ClubAdminHandler — CLUB_ADMIN_VERIFIED JWT (REQ-10)', () => {
     expect(verified.data.success).toBe(true);
     expect(typeof verified.data.token).toBe('string');
     expect(verified.data.token).toMatch(JWT_REGEX);
+    // player-identity (U1 review fix #1): encryptionKey forwarded from config
+    expect(verified.data).toHaveProperty('encryptionKey');
   });
 
   it('signs a JWT with role=club_admin and sub set to club id from config', () => {
@@ -252,6 +255,68 @@ describe('ClubAdminHandler — CLUB_ADMIN_VERIFIED JWT (REQ-10)', () => {
       socket._trigger(SocketEvents.CLIENT.CLUB_VERIFY_ADMIN, { pin: '424242' });
 
       expect((socket.data as any).adminId).toBeUndefined();
+    });
+  });
+
+  // ── player-identity (U1 review fix #1): encryptionKey delivery on verify ──
+
+  describe('ClubAdminHandler — CLUB_ADMIN_VERIFIED encryptionKey delivery (U1 fix #1)', () => {
+    it('includes the club config encryptionKey in the verified payload', () => {
+      (clubConfigStore.load as jest.Mock).mockReturnValue({
+        configured: true,
+        clubName: 'Key Club',
+        sport: 'padel',
+        adminPinHash: 'hash',
+        encryptionKey: 'aGVsbG8td29ybGQ=' as string | undefined,
+      });
+
+      const handler = new ClubAdminHandler(
+        mockIo,
+        {} as any,
+        '12345678',
+        clubConfigStore,
+        adminPinService as any,
+        sessionTokenService,
+      );
+      const socket = makeMockSocket();
+      handler.registerHandlers(socket as unknown as Socket);
+
+      socket._trigger(SocketEvents.CLIENT.CLUB_VERIFY_ADMIN, { pin: '424242' });
+
+      const verified = (socket._emitted as any[]).find(
+        (e) => e.event === SocketEvents.SERVER.CLUB_ADMIN_VERIFIED,
+      );
+      expect(verified).toBeDefined();
+      expect(verified.data.encryptionKey).toBe('aGVsbG8td29ybGQ=');
+    });
+
+    it('emits encryptionKey: null when club config has no encryptionKey (legacy club)', () => {
+      (clubConfigStore.load as jest.Mock).mockReturnValue({
+        configured: true,
+        clubName: 'Legacy Club',
+        sport: 'padel',
+        adminPinHash: 'hash',
+        // No encryptionKey
+      });
+
+      const handler = new ClubAdminHandler(
+        mockIo,
+        {} as any,
+        '12345678',
+        clubConfigStore,
+        adminPinService as any,
+        sessionTokenService,
+      );
+      const socket = makeMockSocket();
+      handler.registerHandlers(socket as unknown as Socket);
+
+      socket._trigger(SocketEvents.CLIENT.CLUB_VERIFY_ADMIN, { pin: '424242' });
+
+      const verified = (socket._emitted as any[]).find(
+        (e) => e.event === SocketEvents.SERVER.CLUB_ADMIN_VERIFIED,
+      );
+      expect(verified).toBeDefined();
+      expect(verified.data.encryptionKey).toBeNull();
     });
   });
 

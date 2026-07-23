@@ -106,7 +106,15 @@ export class ClubAdminHandler extends SocketHandlerBase {
           sub: (config as any).clubId ?? 'club',
           role: 'club_admin',
         });
-        socket.emit(SocketEvents.SERVER.CLUB_ADMIN_VERIFIED, { success: true, token });
+        // player-identity (U1 review fix #1) — deliver the club's encryptionKey
+        // to the admin client so AdminOccupyModal can encrypt the admin-entered
+        // phone with AES-256-GCM before transmitting. The config is already
+        // loaded above (guard: config exists and is configured).
+        socket.emit(SocketEvents.SERVER.CLUB_ADMIN_VERIFIED, {
+          success: true,
+          token,
+          encryptionKey: config.encryptionKey || null,
+        });
 
         // Club courts are already delivered via CLUB_KIOSK_DATA at connection time
 

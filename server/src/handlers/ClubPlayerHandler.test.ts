@@ -45,7 +45,7 @@ function createFakeFs(): FileSystem & { _files: Map<string, string> } {
     existsSync(path: string): boolean {
       return files.has(path);
     },
-    mkdirSync(_path: string): string | undefined {
+    mkdirSync(): undefined {
       return undefined;
     },
     unlinkSync(path: string): void {
@@ -1526,7 +1526,7 @@ describe('ClubPlayerHandler — player-identity (Phase 2 tasks 2.4 + 2.5)', () =
       legacyHandler.registerHandlers(legacySocket);
 
       legacySocket.emit = jest.fn();
-      (legacySocket.on as jest.Mock).mock.calls.length; // ensure handlers registered
+      expect((legacySocket.on as jest.Mock).mock.calls.length).toBeGreaterThan(0); // ensure handlers registered
 
       // Find the join handler on the legacy socket and trigger it with the PIN.
       const joinHandler = (legacySocket.on as jest.Mock).mock.calls.find(
@@ -1552,7 +1552,7 @@ describe('ClubPlayerHandler — player-identity (Phase 2 tasks 2.4 + 2.5)', () =
       // A store whose save() always throws — simulating ENOSPC, EIO, etc.
       const brokenFs: FileSystem & { _files: Map<string, string> } = {
         ...createFakeFs(),
-        writeFileSync(_path: string, _data: string): void {
+        writeFileSync(): void {
           throw new Error('ENOSPC: no space left on device');
         },
       };

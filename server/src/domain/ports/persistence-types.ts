@@ -83,6 +83,23 @@ export interface PersistedClubCourt {
    * still parse cleanly; loadTournament falls back to `null` when absent.
    */
   sessionMode?: SessionMode | null;
+  /**
+   * player-identity — persisted player name snapshot captured at session
+   * start (see `player-identity` spec — session-record MODIFIED).
+   * Optional so legacy v3 files (pre-change) still parse cleanly; load
+   * falls back to `null` when absent.
+   */
+  playerName?: string | null;
+  /**
+   * player-identity — persisted phone ciphertext (AES-256-GCM base64
+   * `{nonce}:{ciphertext}:{authTag}`). Optional for legacy v3 compat.
+   */
+  phone?: string | null;
+  /**
+   * player-identity — persisted adminId (admin socket id, or null for
+   * player-initiated sessions). Optional for legacy v3 compat.
+   */
+  adminId?: string | null;
 }
 
 /**

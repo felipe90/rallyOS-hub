@@ -186,6 +186,7 @@ export function ClubPlayPage() {
     sessionEnded, sessionMode, elapsedSeconds, pendingEndSessionConfirm,
     scorePoint, subtractPoint, undoLast, swapSides,
     endSession, startFreePlay, resetMatch, newMatch, cancelEndSession,
+    encryptionKey,
   } = useClubPlay(socket, courtId ?? '', connected)
 
   const rallyTap = useRallyTapBridge(
@@ -201,6 +202,10 @@ export function ClubPlayPage() {
   // post-match modal. Cleared on submit (the new match heads to LIVE)
   // or cancel (returns to whatever stage was underneath).
   const [matchConfigOpen, setMatchConfigOpen] = useState(false)
+  // player-identity: retain name+phone from ClubSessionConfig until
+  // ClubMatchConfig submits so they can be forwarded to newMatch.
+  const [playerName, setPlayerName] = useState('')
+  const [playerPhone, setPlayerPhone] = useState('')
 
   // Reset endingSession flag once the server confirms the session ended.
   useEffect(() => {
@@ -211,7 +216,16 @@ export function ClubPlayPage() {
 
   const handleMatchConfigSubmit = (payload: ClubMatchConfigPayload) => {
     setMatchConfigOpen(false)
-    newMatch(payload.playerNameA, payload.playerNameB, payload.matchConfig)
+    // Only forward playerName/phone when they were set (from ClubSessionConfig flow).
+    // When coming from free-play "Jugar partido" or post-match "Nuevo partido",
+    // the player info was already sent at session start — skip it.
+    newMatch(
+      payload.playerNameA,
+      payload.playerNameB,
+      playerName || undefined,
+      playerPhone || undefined,
+      payload.matchConfig,
+    )
   }
 
   const renderStage = (): React.ReactNode => {
@@ -270,7 +284,12 @@ export function ClubPlayPage() {
       return (
         <ClubSessionConfig
           onSelectFree={startFreePlay}
-          onSelectMatch={() => setMatchConfigOpen(true)}
+          onSelectMatch={(name, phone) => {
+            setPlayerName(name)
+            setPlayerPhone(phone)
+            setMatchConfigOpen(true)
+          }}
+          encryptionKey={encryptionKey ?? undefined}
         />
       )
     }
@@ -315,7 +334,7 @@ export function ClubPlayPage() {
                 <Button variant="secondary" size="sm" onClick={() => setHistoryOpen(true)}>
                   {i18nText('scoreboardHistory')}
                 </Button>
-                <Button variant="secondary" size="sm" onClick={startFreePlay}>
+                <Button variant="secondary" size="sm" onClick={() => startFreePlay()}>
                   {i18nText('clubPlayBackToFree')}
                 </Button>
                 <Button variant="danger" size="sm" onClick={() => setEndingSession(true)}>

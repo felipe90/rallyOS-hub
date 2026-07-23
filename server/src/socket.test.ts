@@ -93,6 +93,11 @@ describe('createSocketServer — SessionHistoryStore pass-through (PR 2 task 2.6
       currency: 'ARS',
       timestamp: '2026-07-20T08:00:00.000Z',
       sessionId: 'wiring-uuid',
+      // player-identity neutral defaults (pre-existing wiring test).
+      playerName: '',
+      phone: '',
+      endedBy: 'player',
+      adminId: null,
     };
     const fs = makeFakeFs() as any;
     fs._files.set('data/session-history.json', JSON.stringify([record], null, 2));

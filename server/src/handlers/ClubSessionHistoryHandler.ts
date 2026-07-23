@@ -29,9 +29,12 @@
 
 import type { Server, Socket } from 'socket.io';
 import { SocketEvents } from '../../../shared/events';
-import type { SessionRecord } from '../../../shared/types';
+import type { SessionRecord, PhoneRevealAuditEntry } from '../../../shared/types';
 import { logger } from '../utils/logger';
 import { SessionHistoryStore } from '../services/store/SessionHistoryStore';
+import { PhoneRevealAuditStore } from '../services/store/PhoneRevealAuditStore';
+import type { IClubConfigRepository } from '../domain/ports/IClubConfigRepository';
+import { decryptPhone } from '../services/crypto/phoneCipher';
 
 const CLEAR_TIMEOUT_MS = 30_000;
 
@@ -40,11 +43,20 @@ type SocketMap = Map<string, NodeJS.Timeout>;
 export class ClubSessionHistoryHandler {
   private io: Server;
   private store: SessionHistoryStore;
+  private auditStore: PhoneRevealAuditStore;
+  private clubConfigStore: IClubConfigRepository;
   private pendingClear: SocketMap = new Map();
 
-  constructor(io: Server, store: SessionHistoryStore) {
+  constructor(
+    io: Server,
+    store: SessionHistoryStore,
+    auditStore: PhoneRevealAuditStore,
+    clubConfigStore: IClubConfigRepository,
+  ) {
     this.io = io;
     this.store = store;
+    this.auditStore = auditStore;
+    this.clubConfigStore = clubConfigStore;
   }
 
   /**
@@ -93,6 +105,82 @@ export class ClubSessionHistoryHandler {
         { socketId: socket.id },
         'ClubSessionHistoryHandler: history cleared and broadcast',
       );
+    });
+
+    socket.on(SocketEvents.CLIENT.CLUB_REVEAL_PHONE, (data: { sessionId?: unknown }) => {
+      // Admin guard: requires isClubAdmin === true AND adminId present
+      // (adminId must be traceable for the audit trail).
+      if (!this.isAdmin(socket) || !((socket.data as { adminId?: unknown }).adminId)) {
+        socket.emit(SocketEvents.SERVER.CLUB_REVEAL_PHONE_RESULT, {
+          success: false,
+          error: 'unauthorized',
+        } as const);
+        return;
+      }
+
+      const sessionId = data?.sessionId;
+      if (typeof sessionId !== 'string' || !sessionId) {
+        socket.emit(SocketEvents.SERVER.CLUB_REVEAL_PHONE_RESULT, {
+          success: false,
+          error: 'not_found',
+        } as const);
+        return;
+      }
+
+      // Resolve the session from the history store.
+      const records = this.store.getAll();
+      const session = records.find((r) => r.sessionId === sessionId);
+      if (!session) {
+        socket.emit(SocketEvents.SERVER.CLUB_REVEAL_PHONE_RESULT, {
+          success: false,
+          error: 'not_found',
+        } as const);
+        return;
+      }
+
+      // Decrypt the phone server-side using the club's encryption key.
+      const clubConfig = this.clubConfigStore.load();
+      if (!clubConfig?.encryptionKey) {
+        // Missing encryption key is a server misconfiguration — refuse to
+        // reveal. The admin gets a generic failure; the audit trail is NOT
+        // written (no partial audit for a failed decrypt).
+        socket.emit(SocketEvents.SERVER.CLUB_REVEAL_PHONE_RESULT, {
+          success: false,
+          error: 'not_found',
+        } as const);
+        return;
+      }
+
+      let decryptedPhone: string;
+      try {
+        decryptedPhone = decryptPhone(session.phone, clubConfig.encryptionKey);
+      } catch {
+        // Decryption failure (tampered ciphertext, key mismatch, etc.) is
+        // treated as not-found — no phone revealed, no audit entry.
+        socket.emit(SocketEvents.SERVER.CLUB_REVEAL_PHONE_RESULT, {
+          success: false,
+          error: 'not_found',
+        } as const);
+        return;
+      }
+
+      // Persist audit entry before emitting the result so the audit trail
+      // is durable even if the socket disconnects mid-emit.
+      const adminId = (socket.data as { adminId: string }).adminId;
+      const auditEntry: PhoneRevealAuditEntry = {
+        adminId,
+        sessionId,
+        courtName: session.courtName,
+        playerName: session.playerName,
+        timestamp: new Date().toISOString(),
+      };
+      this.auditStore.append(auditEntry);
+
+      // Emit the decrypted phone to the requesting socket ONLY.
+      socket.emit(SocketEvents.SERVER.CLUB_REVEAL_PHONE_RESULT, {
+        success: true,
+        phone: decryptedPhone,
+      } as const);
     });
 
     // Clean up any pending timer on disconnect so we don't leak a Map entry.

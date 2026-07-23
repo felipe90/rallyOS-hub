@@ -410,6 +410,11 @@ describe('port interfaces', () => {
       featured: false,
       occupiedAt: 3000,
       sessionMode: null,
+      // player-identity neutral defaults — null until startFreePlay/newMatch/
+      // adminOccupyCourt populate them. Cleared by resetCourt.
+      playerName: null,
+      phone: null,
+      adminId: null,
       onTableUpdate: undefined,
       onMatchEvent: undefined,
     });

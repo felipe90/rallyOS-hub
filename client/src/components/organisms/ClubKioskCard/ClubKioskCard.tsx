@@ -66,6 +66,15 @@ export function ClubKioskCard({ court }: ClubKioskCardProps) {
         </span>
       </div>
 
+      {/* playerName — shown only when OCCUPIED and playerName is present */}
+      {status === 'OCCUPIED' && court.playerName && (
+        <div className="flex items-center justify-center gap-1 -mt-1">
+          <Typography variant="label" className="text-xs text-text/60 normal-case">
+            {court.playerName}
+          </Typography>
+        </div>
+      )}
+
       {/* RESERVED: large PIN display */}
       {status === 'RESERVED' && court.pin && (
         <div className="flex-1 flex items-center justify-center py-4">

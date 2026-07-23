@@ -8,10 +8,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { Socket } from 'socket.io-client'
 import { SocketEvents } from '@shared/events'
-import type { ClubCourtInfo, ClubKioskPayload } from '@shared/types'
+import type { ClubCourtInfo, ClubKioskPayload, SessionMode } from '@shared/types'
 
 export type ClubOperationEvent = {
-  type: 'court-created' | 'court-activated' | 'court-deactivated' | 'court-resetted' | 'session-ended' | 'court-deleted'
+  type: 'court-created' | 'court-activated' | 'court-deactivated' | 'court-resetted' | 'session-ended' | 'court-deleted' | 'court-occupied'
 } | {
   type: 'error'
   code: string
@@ -175,6 +175,24 @@ export function useClubCourtManagement(socket: Socket | null, connected: boolean
     socket.emit(SocketEvents.CLIENT.CLUB_DELETE_COURT, { courtId })
   }, [socket, connected])
 
+  const adminOccupyCourt = useCallback(
+    (courtId: string, playerName: string, phone: string, mode: SessionMode) => {
+      if (!socket || !connected) {
+        setError('NO_CONNECTION')
+        return
+      }
+      setLoading(true)
+      setError(null)
+      socket.emit(SocketEvents.CLIENT.CLUB_ADMIN_OCCUPY, {
+        courtId,
+        playerName,
+        phone,
+        mode,
+      })
+    },
+    [socket, connected],
+  )
+
   const requestForceEnd = useCallback((courtId: string) => setForceEndConfirmId(courtId), [])
   const cancelForceEnd = useCallback(() => setForceEndConfirmId(null), [])
   const clearError = useCallback(() => setError(null), [])
@@ -191,6 +209,7 @@ export function useClubCourtManagement(socket: Socket | null, connected: boolean
     resetCourt,
     forceEndSession,
     deleteCourt,
+    adminOccupyCourt,
     requestForceEnd,
     cancelForceEnd,
     clearError,

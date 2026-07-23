@@ -5,10 +5,10 @@
  * Delegates all business logic to hooks.
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CLUB_STATUS } from '@shared/types'
-import type { ClubCourtInfo } from '@shared/types'
+import type { ClubCourtInfo, SessionMode } from '@shared/types'
 import { Input } from '@/components/atoms/Input'
 import { Button } from '@/components/atoms/Button'
 import { Body, Title } from '@/components/atoms/Typography'
@@ -16,6 +16,7 @@ import { TabContainer } from '@/components/atoms/TabContainer'
 import { PageHeader } from '@/components/molecules/PageHeader'
 import { ConfirmDialog } from '@/components/molecules/ConfirmDialog'
 import { ClubSessionHistoryPanel } from '@/components/molecules/ClubSessionHistoryPanel'
+import { AdminOccupyModal } from '@/components/organisms/AdminOccupyModal'
 import { useToast } from '@/components/molecules/Toast'
 import { useSocketContext } from '@/contexts/SocketContext'
 import { useAuthContext } from '@/contexts/AuthContext'
@@ -37,6 +38,7 @@ import {
   ArrowLeft,
   Monitor,
   Trophy,
+  UserPlus,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -96,6 +98,7 @@ export function ClubAdminPage() {
   const [adminPin, setAdminPin] = useState('')
   const [forceEndCourt, setForceEndCourt] = useState<ClubCourtInfo | null>(null)
   const [deleteCourtTarget, setDeleteCourtTarget] = useState<ClubCourtInfo | null>(null)
+  const [occupyCourt, setOccupyCourt] = useState<ClubCourtInfo | null>(null)
 
   // Toast for operation events
   useEffect(() => {
@@ -108,6 +111,9 @@ export function ClubAdminPage() {
         break
       case 'court-activated':
         addToast('success', i18nText('toastClubCourtActivated'))
+        break
+      case 'court-occupied':
+        addToast('success', i18nText('toastClubCourtOccupied'))
         break
       case 'session-ended':
         addToast('success', i18nText('toastClubSessionEnded'))
@@ -184,6 +190,15 @@ export function ClubAdminPage() {
       setDeleteCourtTarget(null)
     }
   }
+
+  const handleOccupySubmit = useCallback(
+    (playerName: string, phone: string, mode: SessionMode) => {
+      if (!occupyCourt) return
+      courtMgmt.adminOccupyCourt(occupyCourt.id, playerName, phone, mode)
+      setOccupyCourt(null)
+    },
+    [occupyCourt, courtMgmt],
+  )
 
   // Admin PIN verification screen
   if (!isAdmin) {
@@ -332,13 +347,16 @@ export function ClubAdminPage() {
                               {court.status === CLUB_STATUS.AVAILABLE && (
                                 <>
                                   <Button
-                                    variant="success"
+                                    variant="primary"
                                     size="xs"
-                                    onClick={() => courtMgmt.activateCourt(court.id)}
+                                    onClick={() => {
+                                      courtMgmt.activateCourt(court.id)
+                                      setOccupyCourt(court)
+                                    }}
                                     disabled={courtMgmt.loading}
                                   >
-                                    <Play size={14} className="mr-1" />
-                                    {i18nText('clubAdminActivate')}
+                                    <UserPlus size={14} className="mr-1" />
+                                    {i18nText('clubAdminOccupy')}
                                   </Button>
                                   <Button
                                     variant="ghost"
@@ -354,13 +372,21 @@ export function ClubAdminPage() {
                               {court.status === CLUB_STATUS.RESERVED && (
                                 <>
                                   <Button
-                                    variant="outline"
+                                    variant="primary"
+                                    size="xs"
+                                    onClick={() => setOccupyCourt(court)}
+                                    disabled={courtMgmt.loading}
+                                  >
+                                    <UserPlus size={14} className="mr-1" />
+                                    {i18nText('clubAdminOccupy')}
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
                                     size="xs"
                                     onClick={() => courtMgmt.deactivateCourt(court.id)}
                                     disabled={courtMgmt.loading}
                                   >
-                                    <XCircle size={14} className="mr-1" />
-                                    {i18nText('clubAdminDeactivate')}
+                                    <XCircle size={14} />
                                   </Button>
                                 </>
                               )}
@@ -419,6 +445,15 @@ export function ClubAdminPage() {
           ]}
         />
       </main>
+
+      {/* Admin occupy modal */}
+      <AdminOccupyModal
+        isOpen={occupyCourt !== null}
+        courtName={occupyCourt?.name || ''}
+        encryptionKey={null}
+        onClose={() => setOccupyCourt(null)}
+        onSubmit={handleOccupySubmit}
+      />
 
       {/* Force-end confirmation modal */}
       <ConfirmDialog

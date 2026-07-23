@@ -79,6 +79,13 @@ export class ClubConfigStore implements IClubConfigRepository {
         createdAt: parsed.createdAt || Date.now(),
         costPerMinute: typeof parsed.costPerMinute === 'number' ? parsed.costPerMinute : 0,
         currency: typeof parsed.currency === 'string' ? parsed.currency : 'ARS',
+        // player-identity (Phase 2 task 2.5) — pass through encryptionKey
+        // when present. Preserved as `undefined` for legacy clubs that pre-
+        // date the change; the player flow auto-generates one on first
+        // CLUB_JOIN (see ClubPlayerHandler.resolveOrCreateEncryptionKey).
+        ...(typeof parsed.encryptionKey === 'string' && parsed.encryptionKey
+          ? { encryptionKey: parsed.encryptionKey }
+          : {}),
       };
     } catch {
       return null;

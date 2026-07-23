@@ -1480,4 +1480,393 @@ describe('CourtManager with StateStore', () => {
       expect(restored.sessionMode).toBeNull();
     });
   });
+
+  // ── player-identity — Phase 2 tasks 2.1 + 2.2 ───────────────────────
+  //
+  // Spec coverage (player-identity → session-record MODIFIED and
+  // admin-session-start):
+  //   - occupyClubCourt must initialize playerName/phone/adminId to null
+  //     (preserved approval behavior — the fields exist but are unset until
+  //     the player chooses a mode).
+  //   - startFreePlay/newMatch accept the player's own name+phone (existing
+  //     playerNameA/B in newMatch are match participants, NOT the player's
+  //     identity) and persist them on the court.
+  //   - resetCourt clears playerName/phone/adminId back to null so the next
+  //     session starts from a clean state (kiosk does not show a stale name).
+  //   - getClubKioskPayload surfaces `playerName` on the kiosk court card so
+  //     the kiosk can render "Jugador: <name>" when the court is OCCUPIED.
+
+  describe('club courts — player-identity fields (Phase 2 tasks 2.1/2.2)', () => {
+    it('occupyClubCourt leaves playerName/phone/adminId null until mode selection (approval of current null defaults)', () => {
+      // Approval test — Phase 1 already initializes these to null in
+      // createClubCourt and occupyClubCourt does NOT touch them. Asserted
+      // here so that any future change to occupyClubCourt that silently
+      // populates them is flagged for explicit review.
+      const manager = createTestCourtManager({ persistence: new StateStore(makeFs(), 'data/rallyos-state.json') });
+      const court = manager.createClubCourt('Occupy Club');
+      manager.activateCourt(court.id);
+      manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+
+      const updated = manager.getCourt(court.id) as ClubCourt;
+      expect(updated.playerName).toBeNull();
+      expect(updated.phone).toBeNull();
+      expect(updated.adminId).toBeNull();
+    });
+
+    describe('startFreePlay — player name + phone persisted (player flow)', () => {
+      it('persists playerName + phone on the court when provided (non-trivial happy path)', () => {
+        const manager = createTestCourtManager({ persistence: new StateStore(makeFs(), 'data/rallyos-state.json') });
+        const court = manager.createClubCourt('Free Flow');
+        manager.activateCourt(court.id);
+        manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+
+        const result = manager.startFreePlay(court.id, {
+          playerName: 'Jorge',
+          phone: 'enc:nonce:body:tag',
+        });
+
+        expect(result).not.toBeNull();
+        expect(result!.sessionMode).toBe(SESSION_MODE.FREE);
+
+        const updated = manager.getCourt(court.id) as ClubCourt;
+        expect(updated.playerName).toBe('Jorge');
+        expect(updated.phone).toBe('enc:nonce:body:tag');
+        // Player-initiated flow → adminId stays null (no admin started this).
+        expect(updated.adminId).toBeNull();
+      });
+
+      it('preserves existing playerName/phone when startFreePlay omits them (idempotent / re-entry)', () => {
+        const manager = createTestCourtManager({ persistence: new StateStore(makeFs(), 'data/rallyos-state.json') });
+        const court = manager.createClubCourt('Idempotent Free');
+        manager.activateCourt(court.id);
+        manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+        manager.startFreePlay(court.id, { playerName: 'Ana', phone: 'C0' });
+
+        // Re-call without arguments — the previous values MUST be preserved
+        // (mode-only re-entry is a valid idempotent pattern).
+        manager.startFreePlay(court.id);
+
+        const updated = manager.getCourt(court.id) as ClubCourt;
+        expect(updated.playerName).toBe('Ana');
+        expect(updated.phone).toBe('C0');
+      });
+
+      it('still returns null and is a no-op for non-OCCUPIED courts', () => {
+        const manager = createTestCourtManager({ persistence: new StateStore(makeFs(), 'data/rallyos-state.json') });
+        const court = manager.createClubCourt('Not Occupied Free');
+        // Don't activate — court is AVAILABLE.
+        const result = manager.startFreePlay(court.id, { playerName: 'A', phone: 'B' });
+        expect(result).toBeNull();
+        const updated = manager.getCourt(court.id) as ClubCourt;
+        expect(updated.playerName).toBeNull();
+      });
+    });
+
+    describe('newMatch — player name + phone persisted (player flow)', () => {
+      it('persists playerName + phone on the court alongside match participants', () => {
+        const manager = createTestCourtManager({ persistence: new StateStore(makeFs(), 'data/rallyos-state.json') });
+        const court = manager.createClubCourt('Match Flow');
+        manager.activateCourt(court.id);
+        manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+
+        const result = manager.newMatch(court.id, {
+          playerNameA: 'A',
+          playerNameB: 'B',
+          playerName: 'Jorge',
+          phone: 'enc:N:B:T',
+        });
+
+        expect(result).not.toBeNull();
+        const updated = manager.getCourt(court.id) as ClubCourt;
+        // Match participants (playerNameA/B) populate court.playerNames as usual.
+        expect(updated.playerNames).toEqual({ a: 'A', b: 'B' });
+        // Player's own identity lives on the dedicated fields.
+        expect(updated.playerName).toBe('Jorge');
+        expect(updated.phone).toBe('enc:N:B:T');
+        expect(updated.adminId).toBeNull();
+      });
+
+      it('preserves existing playerName/phone when newMatch omits them (re-entry case)', () => {
+        const manager = createTestCourtManager({ persistence: new StateStore(makeFs(), 'data/rallyos-state.json') });
+        const court = manager.createClubCourt('Match Re-entry');
+        manager.activateCourt(court.id);
+        manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+        manager.startFreePlay(court.id, { playerName: 'Beto', phone: 'P0' });
+
+        // newMatch without playerName/phone — prior identity preserved.
+        manager.newMatch(court.id, { playerNameA: 'X', playerNameB: 'Y' });
+
+        const updated = manager.getCourt(court.id) as ClubCourt;
+        expect(updated.playerName).toBe('Beto');
+        expect(updated.phone).toBe('P0');
+      });
+    });
+
+    describe('resetCourt — player fields cleared back to null', () => {
+      it('clears playerName/phone/adminId to null on reset (FINISHED → AVAILABLE)', () => {
+        const manager = createTestCourtManager({ persistence: new StateStore(makeFs(), 'data/rallyos-state.json') });
+        const court = manager.createClubCourt('Reset Flow');
+        manager.activateCourt(court.id);
+        manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+        // Populate player identity via startFreePlay.
+        manager.startFreePlay(court.id, { playerName: 'Carlos', phone: 'Z:Z:Z:Z' });
+        const before = manager.getCourt(court.id) as ClubCourt;
+        expect(before.playerName).toBe('Carlos');
+
+        // End the session so the court reaches FINISHED and can be reset.
+        manager.forceEndSession(court.id);
+        const finished = manager.getCourt(court.id) as ClubCourt;
+        expect(finished.clubStatus).toBe(CLUB_STATUS.FINISHED);
+
+        manager.resetCourt(court.id);
+        const reset = manager.getCourt(court.id) as ClubCourt;
+        expect(reset.clubStatus).toBe(CLUB_STATUS.AVAILABLE);
+        expect(reset.playerName).toBeNull();
+        expect(reset.phone).toBeNull();
+        expect(reset.adminId).toBeNull();
+      });
+
+      it('resetCourt is a no-op for a non-FINISHED court (does NOT clear fields on RESERVED/OCCUPIED)', () => {
+        const manager = createTestCourtManager({ persistence: new StateStore(makeFs(), 'data/rallyos-state.json') });
+        const court = manager.createClubCourt('Reset Guard');
+        manager.activateCourt(court.id);
+        manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+        manager.startFreePlay(court.id, { playerName: 'Diana', phone: 'enc' });
+
+        const result = manager.resetCourt(court.id);
+        expect(result).toBeNull();
+
+        const stillOccupied = manager.getCourt(court.id) as ClubCourt;
+        expect(stillOccupied.clubStatus).toBe(CLUB_STATUS.OCCUPIED);
+        expect(stillOccupied.playerName).toBe('Diana');
+      });
+    });
+
+    describe('getClubKioskPayload — playerName surfaces on the kiosk card', () => {
+      it('includes playerName on the kiosk payload when the court has one set', () => {
+        const manager = createTestCourtManager({ persistence: new StateStore(makeFs(), 'data/rallyos-state.json') });
+        const court = manager.createClubCourt('Kiosk Named');
+        manager.activateCourt(court.id);
+        manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+        manager.startFreePlay(court.id, { playerName: 'Jorge', phone: 'cipher' });
+
+        const payload = manager.getClubKioskPayload(null);
+        const info = payload.courts.find((c) => c.id === court.id);
+        expect(info).toBeDefined();
+        expect(info!.playerName).toBe('Jorge');
+      });
+
+      it('omits playerName (undefined) on the kiosk payload when no player is set yet (just occupied, no mode chosen)', () => {
+        const manager = createTestCourtManager({ persistence: new StateStore(makeFs(), 'data/rallyos-state.json') });
+        const court = manager.createClubCourt('Kiosk Unset');
+        manager.activateCourt(court.id);
+        manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+        // No startFreePlay/newMatch — playerName still null on the court.
+
+        const payload = manager.getClubKioskPayload(null);
+        const info = payload.courts.find((c) => c.id === court.id);
+        expect(info).toBeDefined();
+        expect(info!.playerName).toBeUndefined();
+      });
+
+      it('omits playerName on the kiosk payload for an AVAILABLE court (no session)', () => {
+        const manager = createTestCourtManager({ persistence: new StateStore(makeFs(), 'data/rallyos-state.json') });
+        const court = manager.createClubCourt('Kiosk Available');
+
+        const payload = manager.getClubKioskPayload(null);
+        const info = payload.courts.find((c) => c.id === court.id);
+        expect(info).toBeDefined();
+        expect(info!.playerName).toBeUndefined();
+      });
+    });
+
+    // Round-trip persistence of the 3 new fields. Mirrors the existing
+    // sessionMode round-trip block (PR 2 risk fix a) so a player set via
+    // startFreePlay survives a server restart.
+    describe('player-identity round-trip (persistence + restore)', () => {
+      it('persists playerName + phone in toPersistedClubCourt after startFreePlay', () => {
+        const fs = makeFs();
+        const store = new StateStore(fs, 'data/rallyos-state.json');
+        const manager = createTestCourtManager({ persistence: store });
+
+        const court = manager.createClubCourt('Persist Identity');
+        manager.activateCourt(court.id);
+        manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+        manager.startFreePlay(court.id, { playerName: 'Ana', phone: 'enc:N:B:T' });
+
+        const savedContent = fs._files.get('data/rallyos-state.json');
+        expect(savedContent).toBeDefined();
+        const parsed = JSON.parse(savedContent!);
+        const persisted = parsed.clubCourts.find((t: any) => t.id === court.id);
+        expect(persisted).toBeDefined();
+        expect(persisted.playerName).toBe('Ana');
+        expect(persisted.phone).toBe('enc:N:B:T');
+        expect(persisted.adminId).toBeNull();
+      });
+
+      it('restores playerName + phone from persisted state on loadTournament', () => {
+        const fs = makeFs();
+        // Seed a v3 state file with an OCCUPIED club court + player info.
+        fs._files.set(
+          'data/rallyos-state.json',
+          JSON.stringify({
+            version: 3,
+            savedAt: Date.now(),
+            tournamentCourts: [],
+            clubCourts: [
+              {
+                id: 'club-rt-id',
+                number: 1,
+                name: 'Restore Identity',
+                kind: 'club',
+                clubStatus: 'OCCUPIED',
+                occupiedAt: 1700000000000,
+                pin: '1234',
+                playerNames: { a: 'A', b: 'B' },
+                createdAt: 1700000000000,
+                matchState: null,
+                config: null,
+                history: [],
+                sessionMode: 'free',
+                playerName: 'Beto',
+                phone: 'pqb:abc:xyz',
+                adminId: null,
+              },
+            ],
+          }),
+        );
+
+        const store = new StateStore(fs, 'data/rallyos-state.json');
+        const manager = createTestCourtManager({ persistence: store });
+        const loaded = manager.loadTournament();
+        expect(loaded).toBe(true);
+
+        const restored = manager.getCourt('club-rt-id') as ClubCourt;
+        expect(restored).toBeDefined();
+        expect(restored.playerName).toBe('Beto');
+        expect(restored.phone).toBe('pqb:abc:xyz');
+        expect(restored.adminId).toBeNull();
+      });
+
+      it('defaults playerName/phone/adminId to null when a legacy v3 file omits them', () => {
+        const fs = makeFs();
+        fs._files.set(
+          'data/rallyos-state.json',
+          JSON.stringify({
+            version: 3,
+            savedAt: Date.now(),
+            tournamentCourts: [],
+            clubCourts: [
+              {
+                id: 'club-legacy-id',
+                number: 1,
+                name: 'Legacy Identity',
+                kind: 'club',
+                clubStatus: 'OCCUPIED',
+                occupiedAt: 1700000000000,
+                pin: '1234',
+                playerNames: { a: 'A', b: 'B' },
+                createdAt: 1700000000000,
+                matchState: null,
+                config: null,
+                history: [],
+                sessionMode: 'free',
+                // No playerName / phone / adminId — pre-change v3 file.
+              },
+            ],
+          }),
+        );
+
+        const store = new StateStore(fs, 'data/rallyos-state.json');
+        const manager = createTestCourtManager({ persistence: store });
+        manager.loadTournament();
+
+        const restored = manager.getCourt('club-legacy-id') as ClubCourt;
+        expect(restored).toBeDefined();
+        expect(restored.playerName).toBeNull();
+        expect(restored.phone).toBeNull();
+        expect(restored.adminId).toBeNull();
+      });
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════
+  // player-identity (Phase 3 / U2 tasks 3.5 + 3.6) — admin force-end
+  // stamps `adminId` onto the court BEFORE onClubSessionEnd fires, so the
+  // callback-built SessionRecord carries the admin who ENDED the session
+  // (not whoever started it). Spec: `session-record` MODIFIED + admin
+  // traceability ("Phone Reveal Is Explicit And Audited", "admin-session").
+  //
+  // Without this stamp, a PLAYER-occupied court (adminId=null) force-ended
+  // by an admin produces a SessionRecord with endedBy='admin' but
+  // adminId=null — the admin action is unattributed, breaking habeas data.
+  // ═══════════════════════════════════════════════════════════════════
+
+  describe('club courts — admin force-end stamps adminId (Phase 3 task 3.6)', () => {
+    it('forceEndSession(courtId, adminId) stamps court.adminId BEFORE onClubSessionEnd fires', () => {
+      // The stamp must be observable to the onClubSessionEnd callback —
+      // that callback (in ClubPlayerHandler) reads `clubCourt.adminId` to
+      // build the SessionRecord. If the stamp happens AFTER the callback,
+      // the SessionRecord carries null.
+      const manager = createTestCourtManager({ persistence: stateStore });
+      const court = manager.createClubCourt('Force End Club');
+      manager.activateCourt(court.id);
+      // Player flow occupy → court.adminId stays null (no admin started it).
+      manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+
+      let adminIdSeenByCallback: string | null | undefined = '__unset__';
+      manager.onClubSessionEnd = (courtId) => {
+        const c = manager.getCourt(courtId) as ClubCourt | null;
+        adminIdSeenByCallback = c?.adminId ?? null;
+      };
+
+      manager.forceEndSession(court.id, 'admin-force-ender');
+
+      expect(adminIdSeenByCallback).toBe('admin-force-ender');
+    });
+
+    it('triangulates: forceEndSession overrides an admin-started court adminId with the force-ender id', () => {
+      // A court admin-occupied by adminA (adminId='admin-starter') then
+      // force-ended by adminB MUST carry adminB on the SessionRecord — the
+      // force-ender is the actor, not the starter.
+      const manager = createTestCourtManager({ persistence: stateStore });
+      const court = manager.createClubCourt('Override End');
+      manager.activateCourt(court.id);
+      manager.adminOccupyCourt(court.id, {
+        playerName: 'Started By AdminA',
+        phone: 'enc',
+        adminId: 'admin-starter',
+        mode: SESSION_MODE.FREE,
+        sport: SPORT.TABLE_TENNIS,
+      });
+
+      let adminIdSeenByCallback: string | null | undefined = '__unset__';
+      manager.onClubSessionEnd = (courtId) => {
+        const c = manager.getCourt(courtId) as ClubCourt | null;
+        adminIdSeenByCallback = c?.adminId ?? null;
+      };
+
+      const ended = manager.forceEndSession(court.id, 'admin-force-ender');
+      expect(ended).not.toBeNull();
+
+      expect(adminIdSeenByCallback).toBe('admin-force-ender');
+      // The court's persisted adminId is the force-ender, not the starter.
+      expect((manager.getCourt(court.id) as ClubCourt).adminId).toBe('admin-force-ender');
+    });
+
+    it('forceEndSession without adminId preserves the existing court.adminId (backward compatible — no stamp, no override)', () => {
+      // Legacy callers (tests, internal force-end without an admin id) MUST
+      // still work: passing no adminId leaves court.adminId untouched. The
+      // SessionRecord then carries whatever adminId the court already had.
+      const manager = createTestCourtManager({ persistence: stateStore });
+      const court = manager.createClubCourt('No Stamp');
+      manager.activateCourt(court.id);
+      manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS); // adminId stays null
+
+      manager.forceEndSession(court.id); // no adminId arg
+
+      // Player-occupied court had adminId=null → force-end without id leaves it null.
+      expect((manager.getCourt(court.id) as ClubCourt).adminId).toBeNull();
+    });
+  });
 });

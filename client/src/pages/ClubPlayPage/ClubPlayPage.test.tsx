@@ -95,10 +95,10 @@ vi.mock('@/components/molecules/PlayerNamePrompt/PlayerNamePrompt', () => ({
   PlayerNamePrompt: () => <div data-testid="player-name-prompt">prompt</div>,
 }))
 vi.mock('@/components/molecules/ClubSessionConfig', () => ({
-  ClubSessionConfig: ({ onSelectFree, onSelectMatch }: { onSelectFree: () => void; onSelectMatch: () => void }) => (
+  ClubSessionConfig: ({ onSelectFree, onSelectMatch }: { onSelectFree: (name: string, phone: string) => void; onSelectMatch: (name: string, phone: string) => void }) => (
     <div data-testid="club-session-config">
-      <button onClick={onSelectFree} data-testid="mock-session-free">Mock-Free</button>
-      <button onClick={onSelectMatch} data-testid="mock-session-match">Mock-Match</button>
+      <button onClick={() => onSelectFree('Test', '1155550000')} data-testid="mock-session-free">Mock-Free</button>
+      <button onClick={() => onSelectMatch('Test', '1155550000')} data-testid="mock-session-match">Mock-Match</button>
     </div>
   ),
 }))
@@ -168,6 +168,7 @@ function makeHookState(overrides: Record<string, unknown> = {}) {
     resetMatch: vi.fn(),
     newMatch: vi.fn(),
     cancelEndSession: vi.fn(),
+    encryptionKey: null,
     ...overrides,
   }
 }
@@ -301,12 +302,15 @@ describe('ClubPlayPage — PR 4 refactored flow', () => {
     fireEvent.click(screen.getByTestId('mock-session-match'))
     fireEvent.click(screen.getByTestId('mock-match-submit'))
     expect(newMatch).toHaveBeenCalledTimes(1)
-    // useClubPlay.newMatch signature is (nameA, nameB, matchConfig?) —
-    // the page unpacks ClubMatchConfig's payload shape and forwards the
-    // three fields positionally.
-    const [nameA, nameB, matchConfig] = newMatch.mock.calls[0]
+    // useClubPlay.newMatch signature is (nameA, nameB, playerName?, phone?, matchConfig?)
+    // forwarded by handleMatchConfigSubmit with playerName/phone from the
+    // ClubSessionConfig flow.
+    const [nameA, nameB, pName, pPhone, matchConfig] = newMatch.mock.calls[0]
     expect(nameA).toBe('A')
     expect(nameB).toBe('B')
+    // playerName/phone come from the ClubSessionConfig mock ('Test', '1155550000')
+    expect(pName).toBe('Test')
+    expect(pPhone).toBe('1155550000')
     expect(matchConfig).toEqual({})
   })
 

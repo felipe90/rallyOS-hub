@@ -468,6 +468,11 @@ describe('SocketHandler — ClubSessionHistoryHandler wiring (PR 2 task 2.2)', (
       currency: 'ARS',
       timestamp: '2026-07-20T10:00:00.000Z',
       sessionId: 'uuid-123',
+      // player-identity neutral defaults (this test pre-dates the new fields).
+      playerName: '',
+      phone: '',
+      endedBy: 'player',
+      adminId: null,
     };
     const { getConnection, socketsMap } = buildWithHistoryStore([record]);
 
@@ -513,6 +518,11 @@ describe('SocketHandler — ClubSessionHistoryHandler wiring (PR 2 task 2.2)', (
         currency: 'ARS',
         timestamp: '2026-07-20T10:00:00.000Z',
         sessionId: 'uuid-x',
+        // player-identity neutral defaults.
+        playerName: '',
+        phone: '',
+        endedBy: 'player',
+        adminId: null,
       },
     ]);
 
@@ -536,6 +546,11 @@ describe('SocketHandler — ClubSessionHistoryHandler wiring (PR 2 task 2.2)', (
       currency: 'ARS',
       timestamp: '2026-07-20T10:00:00.000Z',
       sessionId: 'uuid-B',
+      // player-identity neutral defaults (pre-existing test).
+      playerName: '',
+      phone: '',
+      endedBy: 'player',
+      adminId: null,
     };
     const { getConnection, socketsMap, sessionHistoryStore } = buildWithHistoryStore([record]);
     expect(sessionHistoryStore.getAll()).toHaveLength(1);

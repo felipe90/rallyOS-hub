@@ -38,6 +38,8 @@ import {
   ClubSessionHistoryHandler,
 } from './index';
 import { SessionHistoryStore } from '../services/store/SessionHistoryStore';
+import { PhoneRevealAuditStore } from '../services/store/PhoneRevealAuditStore';
+import { ClubConfigStore } from '../services/store/ClubConfigStore';
 
 export class SocketHandler {
   private io: Server;
@@ -57,6 +59,7 @@ export class SocketHandler {
   private clubCourtHandler: ClubCourtHandler;
   private clubPlayerHandler: ClubPlayerHandler;
   private clubHistoryHandler?: ClubSessionHistoryHandler;
+  private phoneRevealAuditStore: PhoneRevealAuditStore;
 
   constructor(
     io: Server,
@@ -65,6 +68,7 @@ export class SocketHandler {
     hubConfig: HubConfig,
     clubConfigStore?: IClubConfigRepository,
     sessionHistoryStore?: SessionHistoryStore,
+    phoneRevealAuditStore?: PhoneRevealAuditStore,
   ) {
     this.io = io;
     this.tableManager = tableManager;
@@ -72,6 +76,7 @@ export class SocketHandler {
     this.hubConfig = hubConfig;
     this.connectionRateLimiter = new RateLimiter(60_000, 20); // 20 connections per 60s per IP
     this.clubConfigStore = clubConfigStore;
+    this.phoneRevealAuditStore = phoneRevealAuditStore ?? new PhoneRevealAuditStore();
     
     // Initialize services
     const adminPinService = new AdminPinService();
@@ -100,10 +105,15 @@ export class SocketHandler {
     // Instantiating TWO handlers would split the 30s pending-clear window;
     // the structural interface ClubHistoryBridge keeps the seam narrow.
     if (sessionHistoryStore) {
-      this.clubHistoryHandler = new ClubSessionHistoryHandler(io, sessionHistoryStore);
+      const auditStore = this.phoneRevealAuditStore;
+      const configStore = this.clubConfigStore ?? new ClubConfigStore();
+      this.clubHistoryHandler = new ClubSessionHistoryHandler(io, sessionHistoryStore, auditStore, configStore);
     }
     this.clubAdminHandler = new ClubAdminHandler(io, tableManager, ownerPin, clubConfigStore!, adminPinService, sessionTokenService, this.clubHistoryHandler);
-    this.clubCourtHandler = new ClubCourtHandler(io, tableManager, ownerPin);
+    // Phase 3 / U2: pass clubConfigStore so CLUB_ADMIN_OCCUPY can resolve
+    // the configured sport for the default match config on the freshly
+    // occupied court.
+    this.clubCourtHandler = new ClubCourtHandler(io, tableManager, ownerPin, clubConfigStore);
     this.clubPlayerHandler = new ClubPlayerHandler(io, tableManager, ownerPin, clubConfigStore!, sessionHistoryStore);
     
     // Set up global court update listener once
@@ -297,9 +307,21 @@ export class SocketHandler {
         isAuthenticated: true,
       };
     } else if (claims.role === 'club_admin') {
+      // player-identity (Phase 3 / U2 fix for U1 review warning #2):
+      // JWT restore previously set isClubAdmin only, leaving adminId
+      // undefined. The admin occupy + force-end flows attribute the
+      // session to `socket.data.adminId`; without it, the handler refuses
+      // (CLUB_ADMIN_OCCUPY → UNAUTHORIZED) and the SessionRecord would
+      // silently lose admin traceability for JWT-restored admins. Use the
+      // freshly-allocated socket.id as the adminId — matches the
+      // PIN-verify path (ClubAdminHandler.CLUB_VERIFY_ADMIN sets
+      // socket.id). The id is not stable across reconnects, but the spec
+      // accepts socket.id as the adminId unit (design "Open Questions
+      // RESOLVED" + session-record MODIFIED requirement).
       socket.data = {
         ...socketData,
         isClubAdmin: true,
+        adminId: socket.id,
       };
     }
   }

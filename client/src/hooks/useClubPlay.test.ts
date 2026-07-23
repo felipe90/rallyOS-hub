@@ -555,7 +555,7 @@ describe('useClubPlay', () => {
       const { socket } = createMockSocket()
       const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
 
-      act(() => result.current.newMatch('Alice', 'Bob', { pointsPerSet: 21, bestOf: 5 }))
+      act(() => result.current.newMatch('Alice', 'Bob', undefined, undefined, { pointsPerSet: 21, bestOf: 5 }))
 
       expect(socket.emit).toHaveBeenCalledWith(SocketEvents.CLIENT.CLUB_NEW_MATCH, {
         courtId: MOCK_COURT_ID,
@@ -817,6 +817,105 @@ describe('useClubPlay', () => {
       })
 
       expect(result.current.elapsedSeconds).toBe(0)
+    })
+  })
+
+  // ─────────────────────────────────────────────────────────────────
+  // player-identity: encryptionKey, name+phone emitters
+  // ─────────────────────────────────────────────────────────────────
+  describe('player-identity — encryptionKey and name+phone emitters', () => {
+    afterEach(() => {
+      sessionStorage.removeItem('rallyos-encryption-key')
+    })
+
+    it('encryptionKey starts as null when no key in sessionStorage', () => {
+      const { socket } = createMockSocket()
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+      expect(result.current.encryptionKey).toBeNull()
+    })
+
+    it('encryptionKey reads from sessionStorage on mount', () => {
+      sessionStorage.setItem('rallyos-encryption-key', 'dGVzdC1rZXk=')
+      const { socket } = createMockSocket()
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+      expect(result.current.encryptionKey).toBe('dGVzdC1rZXk=')
+    })
+
+    it('startFreePlay with name+phone emits CLUB_START_FREE with playerName and phone', () => {
+      const { socket } = createMockSocket()
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      act(() => result.current.startFreePlay('Juan', 'MTIzNDU2Nzg5MA=='))
+
+      expect(socket.emit).toHaveBeenCalledWith(SocketEvents.CLIENT.CLUB_START_FREE, {
+        courtId: MOCK_COURT_ID,
+        playerName: 'Juan',
+        phone: 'MTIzNDU2Nzg5MA==',
+      })
+    })
+
+    it('startFreePlay without args still emits CLUB_START_FREE (backward compat)', () => {
+      const { socket } = createMockSocket()
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      act(() => result.current.startFreePlay())
+
+      expect(socket.emit).toHaveBeenCalledWith(SocketEvents.CLIENT.CLUB_START_FREE, {
+        courtId: MOCK_COURT_ID,
+      })
+    })
+
+    it('newMatch with playerName+phone emits CLUB_NEW_MATCH with all fields', () => {
+      const { socket } = createMockSocket()
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      act(() => result.current.newMatch('Alice', 'Bob', 'Carlos', 'MTIzNDU2Nzg5MA=='))
+
+      expect(socket.emit).toHaveBeenCalledWith(SocketEvents.CLIENT.CLUB_NEW_MATCH, {
+        courtId: MOCK_COURT_ID,
+        playerNameA: 'Alice',
+        playerNameB: 'Bob',
+        playerName: 'Carlos',
+        phone: 'MTIzNDU2Nzg5MA==',
+      })
+    })
+
+    it('newMatch without playerName+phone still works (backward compat)', () => {
+      const { socket } = createMockSocket()
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      act(() => result.current.newMatch('Alice', 'Bob'))
+
+      expect(socket.emit).toHaveBeenCalledWith(SocketEvents.CLIENT.CLUB_NEW_MATCH, {
+        courtId: MOCK_COURT_ID,
+        playerNameA: 'Alice',
+        playerNameB: 'Bob',
+      })
+    })
+
+    it('newMatch with playerName+phone+matchConfig forwards all fields', () => {
+      const { socket } = createMockSocket()
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, true))
+
+      act(() => result.current.newMatch('Alice', 'Bob', 'Carlos', 'MTIzNDU2Nzg5MA==', { pointsPerSet: 21, bestOf: 5 }))
+
+      expect(socket.emit).toHaveBeenCalledWith(SocketEvents.CLIENT.CLUB_NEW_MATCH, {
+        courtId: MOCK_COURT_ID,
+        playerNameA: 'Alice',
+        playerNameB: 'Bob',
+        playerName: 'Carlos',
+        phone: 'MTIzNDU2Nzg5MA==',
+        matchConfig: { pointsPerSet: 21, bestOf: 5 },
+      })
+    })
+
+    it('startFreePlay does not emit when not connected', () => {
+      const { socket } = createMockSocket()
+      const { result } = renderHook(() => useClubPlay(socket as any, MOCK_COURT_ID, false))
+
+      act(() => result.current.startFreePlay('Juan', 'MTIzNDU2Nzg5MA=='))
+
+      expect(socket.emit).not.toHaveBeenCalled()
     })
   })
 })

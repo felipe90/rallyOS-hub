@@ -24,6 +24,11 @@ describe('SessionRecord interface', () => {
       currency: 'ARS',
       timestamp: '2026-07-20T14:30:00.000Z',
       sessionId: '11111111-1111-1111-1111-111111111111',
+      // player-identity additions
+      playerName: 'Jorge',
+      phone: 'cipher',
+      endedBy: 'player',
+      adminId: null,
     };
 
     expect(record.courtName).toBe('Cancha 1');
@@ -34,6 +39,9 @@ describe('SessionRecord interface', () => {
     expect(record.currency).toBe('ARS');
     expect(record.timestamp).toBe('2026-07-20T14:30:00.000Z');
     expect(record.sessionId).toBe('11111111-1111-1111-1111-111111111111');
+    expect(record.playerName).toBe('Jorge');
+    expect(record.endedBy).toBe('player');
+    expect(record.adminId).toBeNull();
   });
 
   test('accepts a free-mode record with cost=0 (spec: free-mode cost=0)', () => {
@@ -46,13 +54,18 @@ describe('SessionRecord interface', () => {
       currency: 'ARS',
       timestamp: '2026-07-20T14:31:00.000Z',
       sessionId: '22222222-2222-2222-2222-222222222222',
+      // player-identity additions (neutral defaults)
+      playerName: '',
+      phone: '',
+      endedBy: 'player',
+      adminId: null,
     };
 
     expect(record.mode).toBe('free');
     expect(record.cost).toBe(0);
   });
 
-  test('requires all 8 fields — every key is present at runtime', () => {
+  test('requires all 12 fields — 8 original + 4 player-identity additions (spec: session-record MODIFIED)', () => {
     const record: SessionRecord = {
       courtName: 'C',
       elapsedSeconds: 1,
@@ -62,6 +75,11 @@ describe('SessionRecord interface', () => {
       currency: 'ARS',
       timestamp: 'T',
       sessionId: 'id',
+      // player-identity additions
+      playerName: '',
+      phone: '',
+      endedBy: 'player',
+      adminId: null,
     };
 
     const keys = Object.keys(record);
@@ -75,9 +93,14 @@ describe('SessionRecord interface', () => {
         'currency',
         'timestamp',
         'sessionId',
+        // player-identity additions
+        'playerName',
+        'phone',
+        'endedBy',
+        'adminId',
       ]),
     );
-    expect(keys).toHaveLength(8);
+    expect(keys).toHaveLength(12);
   });
 
   test('mode field type is the literal "free" | "match"', () => {
@@ -98,6 +121,11 @@ describe('SessionRecord interface', () => {
       currency: 'ARS',
       timestamp: 'T',
       sessionId: 'id',
+      // player-identity neutral defaults
+      playerName: '',
+      phone: '',
+      endedBy: 'player',
+      adminId: null,
     };
     // Mutating an unrelated object after the fact must not change the record.
     const unrelated: { name: string } = { name: 'Original' };

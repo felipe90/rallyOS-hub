@@ -12,6 +12,7 @@ import type { Server, Socket } from 'socket.io';
 import type { IClubConfigRepository } from '../domain/ports/IClubConfigRepository';
 import { SocketEvents } from '../../../shared/events';
 import { createTestCourtManager } from '../domain/courtManager.test-factory';
+import type { CourtManager } from '../domain/courtManager';
 
 const TEST_SECRET = 'a'.repeat(64);
 const JWT_REGEX = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
@@ -45,9 +46,12 @@ describe('ClubAdminHandler — CLUB_ADMIN_VERIFIED JWT (REQ-10)', () => {
   let clubConfigStore: IClubConfigRepository;
   let adminPinService: { verifyPin: jest.Mock; hashPin: jest.Mock };
 
+  let tableManager: CourtManager;
+
   beforeEach(() => {
     originalSecret = process.env.ENCRYPTION_SECRET;
     originalNodeEnv = process.env.NODE_ENV;
+    tableManager = createTestCourtManager();
     process.env.ENCRYPTION_SECRET = TEST_SECRET;
     delete process.env.NODE_ENV;
     sessionTokenService = new SessionTokenService();
@@ -79,7 +83,7 @@ describe('ClubAdminHandler — CLUB_ADMIN_VERIFIED JWT (REQ-10)', () => {
   it('emits CLUB_ADMIN_VERIFIED with success:true, a 3-segment JWT token, and encryptionKey from club config', () => {
     const handler = new ClubAdminHandler(
       mockIo,
-      {} as any,
+      tableManager,
       '12345678',
       clubConfigStore,
       adminPinService as any,
@@ -112,7 +116,7 @@ describe('ClubAdminHandler — CLUB_ADMIN_VERIFIED JWT (REQ-10)', () => {
 
     const handler = new ClubAdminHandler(
       mockIo,
-      {} as any,
+      tableManager,
       '12345678',
       clubConfigStore,
       adminPinService as any,
@@ -137,7 +141,7 @@ describe('ClubAdminHandler — CLUB_ADMIN_VERIFIED JWT (REQ-10)', () => {
 
     const handler = new ClubAdminHandler(
       mockIo,
-      {} as any,
+      tableManager,
       '12345678',
       clubConfigStore,
       adminPinService as any,
@@ -168,7 +172,7 @@ describe('ClubAdminHandler — CLUB_ADMIN_VERIFIED JWT (REQ-10)', () => {
     it('sets socket.data.adminId = socket.id on successful PIN verify', () => {
       const handler = new ClubAdminHandler(
         mockIo,
-        {} as any,
+        tableManager,
         '12345678',
         clubConfigStore,
         adminPinService as any,
@@ -193,7 +197,7 @@ describe('ClubAdminHandler — CLUB_ADMIN_VERIFIED JWT (REQ-10)', () => {
     it('triangulates: each admin socket captures its OWN socket.id (not a constant)', () => {
       const handler = new ClubAdminHandler(
         mockIo,
-        {} as any,
+        tableManager,
         '12345678',
         clubConfigStore,
         adminPinService as any,
@@ -222,7 +226,7 @@ describe('ClubAdminHandler — CLUB_ADMIN_VERIFIED JWT (REQ-10)', () => {
       adminPinService.verifyPin = jest.fn().mockReturnValue(false);
       const handler = new ClubAdminHandler(
         mockIo,
-        {} as any,
+        tableManager,
         '12345678',
         clubConfigStore,
         adminPinService as any,
@@ -242,7 +246,7 @@ describe('ClubAdminHandler — CLUB_ADMIN_VERIFIED JWT (REQ-10)', () => {
       (clubConfigStore.load as jest.Mock).mockReturnValue({ configured: false });
       const handler = new ClubAdminHandler(
         mockIo,
-        {} as any,
+        tableManager,
         '12345678',
         clubConfigStore,
         adminPinService as any,
@@ -272,7 +276,7 @@ describe('ClubAdminHandler — CLUB_ADMIN_VERIFIED JWT (REQ-10)', () => {
 
       const handler = new ClubAdminHandler(
         mockIo,
-        {} as any,
+        tableManager,
         '12345678',
         clubConfigStore,
         adminPinService as any,
@@ -301,7 +305,7 @@ describe('ClubAdminHandler — CLUB_ADMIN_VERIFIED JWT (REQ-10)', () => {
 
       const handler = new ClubAdminHandler(
         mockIo,
-        {} as any,
+        tableManager,
         '12345678',
         clubConfigStore,
         adminPinService as any,

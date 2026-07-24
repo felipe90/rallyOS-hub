@@ -19,6 +19,8 @@ import { SessionTokenService } from '../services/security/SessionTokenService';
 import type { Server, Socket } from 'socket.io';
 import type { IClubConfigRepository } from '../domain/ports/IClubConfigRepository';
 import { SocketEvents } from '../../../shared/events';
+import { createTestCourtManager } from '../domain/courtManager.test-factory';
+import type { CourtManager } from '../domain/courtManager';
 
 const TEST_SECRET = 'a'.repeat(64);
 
@@ -50,9 +52,11 @@ describe('ClubAdminHandler — PIN verify → history emit bridge (task 3.6)', (
   let mockIo: Server;
   let clubConfigStore: IClubConfigRepository;
   let adminPinService: { verifyPin: jest.Mock; hashPin: jest.Mock };
+  let tableManager: CourtManager;
 
   beforeEach(() => {
     originalSecret = process.env.ENCRYPTION_SECRET;
+    tableManager = createTestCourtManager();
     originalNodeEnv = process.env.NODE_ENV;
     process.env.ENCRYPTION_SECRET = TEST_SECRET;
     delete process.env.NODE_ENV;
@@ -84,7 +88,7 @@ describe('ClubAdminHandler — PIN verify → history emit bridge (task 3.6)', (
   function buildHandler(historyHandler?: { sendHistoryToSocket: jest.Mock }) {
     return new ClubAdminHandler(
       mockIo,
-      {} as any,
+      tableManager,
       '12345678',
       clubConfigStore,
       adminPinService as any,

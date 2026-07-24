@@ -115,7 +115,7 @@ export class CourtManager {
     if (deleted) {
       logger.info({ courtId }, 'Court deleted');
       if (this.stateStore) {
-        this.autoSave();
+        this.persistState();
       }
     }
     return deleted;
@@ -341,10 +341,24 @@ export class CourtManager {
       sport: Sport;
     },
   ): { court: ClubCourt; matchState: MatchStateExtended } | null {
-    const court = this.repository.get(courtId);
+    let court = this.repository.get(courtId);
     if (!court || !isClubCourt(court)) return null;
-    if (court.clubStatus !== CLUB_STATUS.RESERVED) return null;
     if (typeof params.adminId !== 'string' || params.adminId.length === 0) return null;
+
+    // Auto-activate if the court is still AVAILABLE (freshly created, never
+    // activated). This lets the admin occupy in a single step without a
+    // separate "Activar" click — the PIN is generated and the court transitions
+    // AVAILABLE → RESERVED → OCCUPIED atomically.
+    if (court.clubStatus === CLUB_STATUS.AVAILABLE) {
+      const activated = this.activateCourt(court.id);
+      if (!activated) return null;
+      // Re-fetch the court — activateCourt mutates repository state.
+      const refreshed = this.repository.get(courtId);
+      if (!refreshed || !isClubCourt(refreshed)) return null;
+      court = refreshed;
+    }
+
+    if (court.clubStatus !== CLUB_STATUS.RESERVED) return null;
 
     // Transition RESERVED → OCCUPIED and start the session timer.
     court.clubStatus = CLUB_STATUS.OCCUPIED;
@@ -967,11 +981,11 @@ export class CourtManager {
     });
 
     logger.info({ courtId, courtName: court.name, oldRefereeId: oldReferee || 'none', newPin: court.pin }, 'Court reset with new PIN');
-    // Only autoSave — skip notifyUpdate (which broadcasts TABLE_LIST without PINs).
+    // Only persistState — skip notifyUpdate (which broadcasts TABLE_LIST without PINs).
     // The client gets the new PIN via PIN_REGENERATED + TABLE_LIST_WITH_PINS,
     // avoiding a race where TABLE_LIST overwrites TABLE_LIST_WITH_PINS state.
     if (this.stateStore) {
-      this.autoSave();
+      this.persistState();
     }
 
     return court.pin;
@@ -1007,7 +1021,7 @@ export class CourtManager {
 
     // Auto-save to state store (fire-and-forget — errors logged but don't crash)
     if (this.stateStore) {
-      this.autoSave();
+      this.persistState();
     }
   }
 
@@ -1017,7 +1031,7 @@ export class CourtManager {
    * Tournament courts use `status` as discriminator; club courts use `clubStatus`.
    * Errors are caught and logged — the caller is never affected.
    */
-  private autoSave(): void {
+  private persistState(): void {
     try {
       const allCourts = this.repository.getAll();
 
@@ -1135,7 +1149,7 @@ export class CourtManager {
       // correctly if the session ends after a restart. Matches the
       // sessionMode loader-plugin pattern: legacy v3 files written
       // before these fields existed fall back to null via `?? null` in
-      // loadTournament.
+      // restoreState.
       playerName: court.playerName,
       phone: court.phone,
       adminId: court.adminId,
@@ -1155,9 +1169,9 @@ export class CourtManager {
    *
    * @returns true if at least one court was restored, false otherwise.
    */
-  public loadTournament(): boolean {
+  public restoreState(): boolean {
     if (!this.stateStore) {
-      logger.warn('CourtManager.loadTournament: no StateStore configured');
+      logger.warn('CourtManager.restoreState: no StateStore configured');
       return false;
     }
 
@@ -1223,7 +1237,7 @@ export class CourtManager {
       } catch (err) {
         logger.warn(
           { err, courtId: pt.id },
-          'CourtManager.loadTournament: failed to restore tournament court, skipping',
+          'CourtManager.restoreState: failed to restore tournament court, skipping',
         );
       }
     }
@@ -1285,7 +1299,7 @@ export class CourtManager {
       } catch (err) {
         logger.warn(
           { err, courtId: pt.id },
-          'CourtManager.loadTournament: failed to restore club court, skipping',
+          'CourtManager.restoreState: failed to restore club court, skipping',
         );
       }
     }

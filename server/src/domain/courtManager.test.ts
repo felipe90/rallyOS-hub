@@ -331,11 +331,11 @@ describe('CourtManager with StateStore', () => {
     });
   });
 
-  describe('loadTournament', () => {
+  describe('restoreState', () => {
     it('should return false when no persisted state exists', () => {
       const manager = createTestCourtManager({ persistence: stateStore });
 
-      const result = manager.loadTournament();
+      const result = manager.restoreState();
       expect(result).toBe(false);
       expect(manager.getAllCourts()).toHaveLength(0);
     });
@@ -344,14 +344,14 @@ describe('CourtManager with StateStore', () => {
       seedStateFile(fs, []);
       const manager = createTestCourtManager({ persistence: stateStore });
 
-      const result = manager.loadTournament();
+      const result = manager.restoreState();
       expect(result).toBe(false);
     });
 
     it('should return false when no StateStore is configured', () => {
       const manager = createTestCourtManager(); // no StateStore
       
-      const result = manager.loadTournament();
+      const result = manager.restoreState();
       expect(result).toBe(false);
     });
 
@@ -380,7 +380,7 @@ describe('CourtManager with StateStore', () => {
       seedStateFile(fs, [t1]);
       const manager = createTestCourtManager({ persistence: stateStore });
 
-      const result = manager.loadTournament();
+      const result = manager.restoreState();
       expect(result).toBe(true);
 
       const courts = manager.getAllCourts();
@@ -437,7 +437,7 @@ describe('CourtManager with StateStore', () => {
       seedStateFile(fs, [t1, t2]);
       const manager = createTestCourtManager({ persistence: stateStore });
 
-      const result = manager.loadTournament();
+      const result = manager.restoreState();
       expect(result).toBe(true);
 
       const courts = manager.getAllCourts();
@@ -503,7 +503,7 @@ describe('CourtManager with StateStore', () => {
       seedStateFile(fs, [t1]);
       const manager = createTestCourtManager({ persistence: stateStore });
 
-      manager.loadTournament();
+      manager.restoreState();
 
       const matchState = manager.getMatchState('table-1');
       expect(matchState!.history).toHaveLength(3);
@@ -532,7 +532,7 @@ describe('CourtManager with StateStore', () => {
       seedStateFile(fs, [t1, t2, t3]);
       const manager = createTestCourtManager({ persistence: stateStore });
 
-      const result = manager.loadTournament();
+      const result = manager.restoreState();
       expect(result).toBe(true);
 
       const courts = manager.getAllCourts();
@@ -576,7 +576,7 @@ describe('CourtManager with StateStore', () => {
       seedStateFile(fs, [badTable, goodTable]);
       const manager = createTestCourtManager({ persistence: stateStore });
 
-      const result = manager.loadTournament();
+      const result = manager.restoreState();
       // Both tables are restored — fromState recovers gracefully
       expect(result).toBe(true);
 
@@ -593,7 +593,7 @@ describe('CourtManager with StateStore', () => {
       seedStateFile(fs, [t1, t2]);
       const manager = createTestCourtManager({ persistence: stateStore });
 
-      manager.loadTournament();
+      manager.restoreState();
 
       const courts = manager.getAllCourts();
       expect(courts).toHaveLength(1);
@@ -614,7 +614,7 @@ describe('CourtManager with StateStore', () => {
         events.push({ tableId, event });
       };
 
-      manager.loadTournament();
+      manager.restoreState();
 
       // Record points — this should fire setEventCallback
       manager.recordPoint('table-1', 'A');
@@ -636,9 +636,9 @@ describe('CourtManager with StateStore', () => {
         updates.push(info);
       };
 
-      manager.loadTournament();
+      manager.restoreState();
 
-      // loadTournament calls notifyUpdate for each restored table
+      // restoreState calls notifyUpdate for each restored table
       expect(updates.length).toBe(1);
       expect(updates[0].id).toBe('table-1');
       expect(updates[0].name).toBe('Mesa 1');
@@ -665,7 +665,7 @@ describe('CourtManager with StateStore', () => {
       const newStore = new StateStore(fs, 'data/rallyos-state.json');
       const newManager = createTestCourtManager({ persistence: newStore });
 
-      const loaded = newManager.loadTournament();
+      const loaded = newManager.restoreState();
       expect(loaded).toBe(true);
 
       const restoredCourt = newManager.getCourt(court.id);
@@ -1296,7 +1296,7 @@ describe('CourtManager with StateStore', () => {
   });
 
   describe('club courts — occupiedAt round-trip', () => {
-    it('should persist occupiedAt in toPersistedCourt and restore in loadTournament', () => {
+    it('should persist occupiedAt in toPersistedCourt and restore in restoreState', () => {
       const fs = makeFs();
       const store = new StateStore(fs, 'data/rallyos-state.json');
       const manager = createTestCourtManager({ persistence: store });
@@ -1317,7 +1317,7 @@ describe('CourtManager with StateStore', () => {
       // Simulate restart
       const newStore = new StateStore(fs, 'data/rallyos-state.json');
       const newManager = createTestCourtManager({ persistence: newStore });
-      newManager.loadTournament();
+      newManager.restoreState();
 
       const restoredCourt = newManager.getCourt(court.id);
       expect(restoredCourt).toBeDefined();
@@ -1404,7 +1404,7 @@ describe('CourtManager with StateStore', () => {
       expect(persisted.sessionMode).toBe('match');
     });
 
-    it('should restore sessionMode from persisted state on loadTournament', () => {
+    it('should restore sessionMode from persisted state on restoreState', () => {
       const fs = makeFs();
       // Seed a v3 state file with an OCCUPIED club court and sessionMode=free
       fs._files.set(
@@ -1435,7 +1435,7 @@ describe('CourtManager with StateStore', () => {
 
       const store = new StateStore(fs, 'data/rallyos-state.json');
       const manager = createTestCourtManager({ persistence: store });
-      const loaded = manager.loadTournament();
+      const loaded = manager.restoreState();
       expect(loaded).toBe(true);
 
       const restored = manager.getCourt('club-rt') as ClubCourt;
@@ -1473,7 +1473,7 @@ describe('CourtManager with StateStore', () => {
 
       const store = new StateStore(fs, 'data/rallyos-state.json');
       const manager = createTestCourtManager({ persistence: store });
-      manager.loadTournament();
+      manager.restoreState();
 
       const restored = manager.getCourt('club-legacy') as ClubCourt;
       expect(restored).toBeDefined();
@@ -1704,7 +1704,7 @@ describe('CourtManager with StateStore', () => {
         expect(persisted.adminId).toBeNull();
       });
 
-      it('restores playerName + phone from persisted state on loadTournament', () => {
+      it('restores playerName + phone from persisted state on restoreState', () => {
         const fs = makeFs();
         // Seed a v3 state file with an OCCUPIED club court + player info.
         fs._files.set(
@@ -1738,7 +1738,7 @@ describe('CourtManager with StateStore', () => {
 
         const store = new StateStore(fs, 'data/rallyos-state.json');
         const manager = createTestCourtManager({ persistence: store });
-        const loaded = manager.loadTournament();
+        const loaded = manager.restoreState();
         expect(loaded).toBe(true);
 
         const restored = manager.getCourt('club-rt-id') as ClubCourt;
@@ -1779,7 +1779,7 @@ describe('CourtManager with StateStore', () => {
 
         const store = new StateStore(fs, 'data/rallyos-state.json');
         const manager = createTestCourtManager({ persistence: store });
-        manager.loadTournament();
+        manager.restoreState();
 
         const restored = manager.getCourt('club-legacy-id') as ClubCourt;
         expect(restored).toBeDefined();

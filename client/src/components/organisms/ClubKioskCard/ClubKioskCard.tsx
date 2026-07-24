@@ -66,8 +66,8 @@ export function ClubKioskCard({ court }: ClubKioskCardProps) {
         </span>
       </div>
 
-      {/* playerName — shown only when OCCUPIED and playerName is present */}
-      {status === 'OCCUPIED' && court.playerName && (
+      {/* playerName — shown only when OCCUPIED (non-free) and playerName is present */}
+      {status === 'OCCUPIED' && !isFreeMode && court.playerName && (
         <div className="flex items-center justify-center gap-1 -mt-1">
           <Typography variant="label" className="text-xs text-text/60 normal-case">
             {court.playerName}
@@ -84,22 +84,12 @@ export function ClubKioskCard({ court }: ClubKioskCardProps) {
         </div>
       )}
 
-      {/* FREE MODE (OCCUPIED + sessionMode='free'): names only, no scores */}
+      {/* FREE MODE (OCCUPIED + sessionMode='free'): single player name only, no scores, no vs */}
       {isFreeMode && (
-        <div className="flex-1 flex items-center justify-center gap-4">
-          <div className="flex flex-col items-center gap-1">
-            <Typography variant="label" className="text-sm normal-case text-lg">
-              {court.playerNames?.a || 'Jugador 1'}
-            </Typography>
-          </div>
-          <Typography variant="label" className="text-text/40 normal-case text-lg">
-            {i18nText('commonVs')}
+        <div className="flex-1 flex items-center justify-center py-2">
+          <Typography variant="title" className="text-xl md:text-2xl font-bold text-text-h text-center">
+            {court.playerName || court.playerNames?.a || 'Jugador'}
           </Typography>
-          <div className="flex flex-col items-center gap-1">
-            <Typography variant="label" className="text-sm normal-case text-lg">
-              {court.playerNames?.b || 'Jugador 2'}
-            </Typography>
-          </div>
         </div>
       )}
 

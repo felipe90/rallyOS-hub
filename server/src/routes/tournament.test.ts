@@ -70,11 +70,11 @@ function mockRes(): { res: Response; status: jest.Mock; json: jest.Mock; sent: a
   };
 }
 
-// ── Fake CourtManager (only loadTournament needed) ─────────────────────
+// ── Fake CourtManager (only restoreState needed) ─────────────────────
 
 function makeFakeTableManager(restoredCount: number) {
   return {
-    loadTournament: jest.fn().mockReturnValue(restoredCount > 0),
+    restoreState: jest.fn().mockReturnValue(restoredCount > 0),
     getAllCourts: jest.fn().mockReturnValue(
       Array.from({ length: restoredCount }, (_, i) => ({
         id: `court-${i}`,
@@ -220,7 +220,7 @@ describe('Tournament route handlers', () => {
         json,
       } as unknown as Response);
 
-      expect(fakeTM.loadTournament).toHaveBeenCalled();
+      expect(fakeTM.restoreState).toHaveBeenCalled();
       expect(json).toHaveBeenCalledWith({ restored: 2 });
     });
 
@@ -228,7 +228,7 @@ describe('Tournament route handlers', () => {
       const fs = makeFs();
       const stateStore = new StateStore(fs, 'data/rallyos-state.json');
       const fakeTM = makeFakeTableManager(0);
-      fakeTM.loadTournament.mockReturnValue(false);
+      fakeTM.restoreState.mockReturnValue(false);
 
       const req = mockReq();
       const { status, json } = mockRes();
@@ -245,11 +245,11 @@ describe('Tournament route handlers', () => {
       });
     });
 
-    it('should return error when state exists but loadTournament returns false', () => {
+    it('should return error when state exists but restoreState returns false', () => {
       const fs = makeFs();
       const stateStore = new StateStore(fs, 'data/rallyos-state.json');
 
-      // State exists but loadTournament fails (e.g., all tables corrupted)
+      // State exists but restoreState fails (e.g., all tables corrupted)
       const persisted = {
         version: 1,
         savedAt: 1700000000000,
@@ -258,7 +258,7 @@ describe('Tournament route handlers', () => {
       fs._files.set('data/rallyos-state.json', JSON.stringify(persisted));
 
       const fakeTM = makeFakeTableManager(0);
-      fakeTM.loadTournament.mockReturnValue(false);
+      fakeTM.restoreState.mockReturnValue(false);
 
       const req = mockReq();
       const { status, json } = mockRes();

@@ -116,7 +116,11 @@ export class ClubAdminHandler extends SocketHandlerBase {
           encryptionKey: config.encryptionKey || null,
         });
 
-        // Club courts are already delivered via CLUB_KIOSK_DATA at connection time
+        // Re-send club kiosk data so the admin dashboard sees all courts
+        // even if the initial CLUB_KIOSK_DATA (sent at socket connection
+        // time) arrived before the React hook had registered its listener.
+        const freshKioskPayload = this.tableManager.getClubKioskPayload(config);
+        socket.emit(SocketEvents.SERVER.CLUB_KIOSK_DATA, freshKioskPayload);
 
         // Task 3.6 (club-session-history): when a history handler is
         // injected, push the persisted session history to the freshly

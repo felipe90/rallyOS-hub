@@ -97,6 +97,13 @@ const sessionTokenService = new SessionTokenService();
 
 createSocketServer(io, courtManager, ownerPin, hubConfig, clubConfigStore, sessionHistoryStore);
 
+// Restore persisted state (OCCUPIED/FINISHED courts) from disk.
+// Must run AFTER createSocketServer so onTableUpdate callbacks are wired.
+const restored = courtManager.restoreState();
+if (restored) {
+  logger.info('Restored courts from persisted state');
+}
+
 // Express owner auth — bound to the same SessionTokenService used by sockets.
 const ownerAuthMiddleware = createOwnerAuthMiddleware(sessionTokenService);
 // Express club admin auth — same SessionTokenService, role=club_admin.
@@ -171,11 +178,12 @@ const shutdown = (signal: 'SIGTERM' | 'SIGINT') => {
     httpsServer,
     io,
     () => {
-      const allCourts = courtManager.getAllCourts();
-      for (const court of allCourts) {
-        courtManager.deleteCourt(court.id);
-      }
-      logger.info({ courtCount: allCourts.length }, 'Active courts cleared');
+      // Do NOT delete courts on shutdown — OCCUPIED/FINISHED courts are
+      // auto-persisted by CourtManager.persistState() and will be restored
+      // via restoreState() on next startup. Deleting them here would
+      // permanently lose active session state.
+      const activeCount = courtManager.getAllCourts().length;
+      logger.info({ courtCount: activeCount }, 'Shutdown complete — active courts preserved in state file');
     },
     signal
   ).catch((err) => {

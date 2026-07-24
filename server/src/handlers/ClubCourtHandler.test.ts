@@ -374,25 +374,29 @@ describe('ClubCourtHandler — CLUB_ADMIN_OCCUPY (Phase 3 task 3.1)', () => {
     });
   });
 
-  describe('state guard — only RESERVED can be admin-occupied', () => {
-    it('returns OCCUPY_FAILED when the court is AVAILABLE (not yet activated)', () => {
+  describe('state guard — admin-occupy auto-activates AVAILABLE courts', () => {
+    it('auto-activates and occupies when the court is AVAILABLE (single-step admin flow)', () => {
       const socket = createMockSocket('admin-avail', { isClubAdmin: true, adminId: 'admin-avail' });
       handler.registerHandlers(socket as unknown as Socket);
       const court = manager.createClubCourt('Avail Court');
-      // Available — no activation.
+      // Available — no activation. Server auto-activates + occupies.
 
       triggerOccupy(socket, {
         courtId: court.id,
-        playerName: 'No Reserve',
-        phone: 'enc',
+        playerName: 'Ana',
+        phone: 'enc:ABC',
         mode: 'free',
       });
 
-      expect(socket.emit).toHaveBeenCalledWith(
+      // Court should now be OCCUPIED with player identity set.
+      const occupied = manager.getCourt(court.id) as any;
+      expect(occupied.clubStatus).toBe(CLUB_STATUS.OCCUPIED);
+      expect(occupied.playerName).toBe('Ana');
+      expect(occupied.phone).toBe('enc:ABC');
+      expect(socket.emit).not.toHaveBeenCalledWith(
         'ERROR',
         expect.objectContaining({ code: 'OCCUPY_FAILED' }),
       );
-      expect((manager.getCourt(court.id) as any).clubStatus).toBe(CLUB_STATUS.AVAILABLE);
     });
 
     it('triangulates: returns OCCUPY_FAILED when the court is already OCCUPIED (double-occupy rejected)', () => {

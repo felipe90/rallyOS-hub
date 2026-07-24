@@ -80,7 +80,7 @@ export interface PersistedClubCourt {
   /**
    * PR 2 — persisted session mode for the club court.
    * Optional so that legacy v3 files (written before this field existed)
-   * still parse cleanly; loadTournament falls back to `null` when absent.
+   * still parse cleanly; restoreState falls back to `null` when absent.
    */
   sessionMode?: SessionMode | null;
   /**

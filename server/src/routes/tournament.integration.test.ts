@@ -103,7 +103,7 @@ describe('Tournament router integration', () => {
     stateStore = new StateStore(fs, 'data/rallyos-state.json');
 
     fakeTableManager = {
-      loadTournament: jest.fn().mockReturnValue(false),
+      restoreState: jest.fn().mockReturnValue(false),
       getAllTables: jest.fn().mockReturnValue([]),
     };
 

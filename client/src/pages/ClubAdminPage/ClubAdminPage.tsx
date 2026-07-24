@@ -349,10 +349,16 @@ export function ClubAdminPage() {
                                   <Button
                                     variant="primary"
                                     size="xs"
-                                    onClick={() => {
-                                      courtMgmt.activateCourt(court.id)
-                                      setOccupyCourt(court)
-                                    }}
+                                    onClick={() => courtMgmt.activateCourt(court.id)}
+                                    disabled={courtMgmt.loading}
+                                  >
+                                    <Play size={14} className="mr-1" />
+                                    {i18nText('clubAdminActivate')}
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="xs"
+                                    onClick={() => setOccupyCourt(court)}
                                     disabled={courtMgmt.loading}
                                   >
                                     <UserPlus size={14} className="mr-1" />

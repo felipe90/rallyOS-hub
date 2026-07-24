@@ -305,7 +305,7 @@ describe('player-identity — PersistedClubCourt fields (task 1.6)', () => {
   test('PersistedClubCourt fields are OPTIONAL so legacy v3 files still parse (precedent: sessionMode)', () => {
     // A legacy v3 state file written before these fields existed MUST still
     // parse without crashing. The three new fields default to null/undefined
-    // on load. courtManager.loadTournament restores the court with null
+    // on load. courtManager.restoreState restores the court with null
     // defaults so the in-memory shape stays consistent.
     const legacy: PersistedClubCourt = {
       id: 'c-legacy',

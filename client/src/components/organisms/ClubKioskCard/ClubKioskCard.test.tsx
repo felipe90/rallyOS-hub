@@ -217,7 +217,7 @@ describe('ClubKioskCard', () => {
         />,
       )
       expect(screen.getByText('Alice')).toBeInTheDocument()
-      expect(screen.getByText('Bob')).toBeInTheDocument()
+      expect(screen.queryByText('Bob')).not.toBeInTheDocument()
     })
 
     it('does not render scores when currentScore is omitted in free mode', () => {

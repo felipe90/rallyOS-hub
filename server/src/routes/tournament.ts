@@ -42,7 +42,7 @@ export function handleStatus(
 
 /**
  * POST /load
- * Restores tables from persisted state via CourtManager.loadTournament().
+ * Restores tables from persisted state via CourtManager.restoreState().
  */
 export function handleLoad(
   stateStore: ICourtPersistence,
@@ -50,7 +50,7 @@ export function handleLoad(
   _req: Request,
   res: Response,
 ): void {
-  const success = tableManager.loadTournament();
+  const success = tableManager.restoreState();
 
   if (!success) {
     res.status(409).json({

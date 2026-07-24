@@ -64,7 +64,7 @@ function connectionLabels(i18nText: (key: string, params?: Record<string, unknow
 /** Loading state — spinner + "Conectando..." */
 function LoadingView({ i18nText }: { i18nText: (key: string, params?: Record<string, unknown>) => string }) {
   return (
-    <div className="flex flex-col items-center justify-center min-h-dvh bg-surface gap-4 p-4">
+    <div className="flex flex-col items-center justify-center min-h-dvh bg-background gap-4 p-4">
       <ConnectionStatus labels={connectionLabels(i18nText)} />
       <Typography variant="body" className="text-muted-foreground">
         {i18nText('clubPlayLoading')}
@@ -76,7 +76,7 @@ function LoadingView({ i18nText }: { i18nText: (key: string, params?: Record<str
 /** Reconnecting state */
 function ReconnectingView({ i18nText }: { i18nText: (key: string, params?: Record<string, unknown>) => string }) {
   return (
-    <div className="flex flex-col items-center justify-center min-h-dvh bg-surface gap-4 p-4">
+    <div className="flex flex-col items-center justify-center min-h-dvh bg-background gap-4 p-4">
       <ConnectionStatus labels={connectionLabels(i18nText)} />
       <Typography variant="body" className="text-muted-foreground">
         {i18nText('clubPlayReconnecting')}
@@ -108,7 +108,7 @@ function PostMatchModal({
   const scoreB = lastSet?.b ?? 0
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-dvh bg-surface gap-6 p-4" data-testid="post-match-modal">
+    <div className="flex flex-col items-center justify-center min-h-dvh bg-background gap-6 p-4" data-testid="post-match-modal">
       <Typography variant="title" className="text-center">
         {i18nText('clubPlayPostMatchTitle')}
       </Typography>
@@ -145,15 +145,15 @@ function FinishedView({
   onBack: () => void
 }) {
   return (
-    <div className="flex flex-col items-center justify-center min-h-dvh bg-surface gap-6 p-4">
+    <div className="flex flex-col items-center justify-center min-h-dvh bg-background gap-6 p-4">
       <Typography variant="title">
         {i18nText('clubPlaySessionEnded')}
       </Typography>
 
       {sessionEnded && (
         <div className="w-full max-w-sm bg-background rounded-xl p-6 shadow-md border border-border/50 flex flex-col gap-4 my-4 relative overflow-hidden">
-          <div className="absolute -left-3 top-1/2 w-6 h-6 bg-surface rounded-full border-r border-border/50 -translate-y-1/2"></div>
-          <div className="absolute -right-3 top-1/2 w-6 h-6 bg-surface rounded-full border-l border-border/50 -translate-y-1/2"></div>
+          <div className="absolute -left-3 top-1/2 w-6 h-6 bg-background rounded-full border-r border-border/50 -translate-y-1/2"></div>
+          <div className="absolute -right-3 top-1/2 w-6 h-6 bg-background rounded-full border-l border-border/50 -translate-y-1/2"></div>
 
           <div className="flex justify-between items-center border-b border-dashed border-border/50 pb-4">
             <Typography variant="body" className="text-muted-foreground">
@@ -231,14 +231,14 @@ export function ClubPlayPage() {
   const renderStage = (): React.ReactNode => {
     if (!courtId) {
       return (
-        <div className="flex items-center justify-center min-h-dvh bg-surface">
+        <div className="flex items-center justify-center min-h-dvh bg-background">
           <Typography variant="body">{i18nText('scoreboardInvalidCourtId')}</Typography>
         </div>
       )
     }
     if (error) {
       return (
-        <div className="flex flex-col items-center justify-center min-h-dvh bg-surface gap-4 p-4">
+        <div className="flex flex-col items-center justify-center min-h-dvh bg-background gap-4 p-4">
           <Typography variant="body" className="text-red-500">
             {error === 'CONNECTION_ERROR' ? i18nText('toastConnectionError') : i18nText('scoreboardLoading')}
           </Typography>
@@ -312,7 +312,7 @@ export function ClubPlayPage() {
     // Match-live — ScoreboardMain with all standard controls.
     if (matchState.status === 'LIVE') {
       return (
-        <div className="flex flex-col h-dvh bg-surface relative">
+        <div className="flex flex-col h-dvh bg-background relative">
           <AnimatePresence>
             {refereeReplaced && (
               <motion.div

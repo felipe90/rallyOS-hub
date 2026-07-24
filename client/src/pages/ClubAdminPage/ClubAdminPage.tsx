@@ -9,6 +9,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CLUB_STATUS } from '@shared/types'
 import type { ClubCourtInfo, SessionMode } from '@shared/types'
+import { CreateCourtButton } from '@/components/molecules/CreateCourtButton'
 import { Input } from '@/components/atoms/Input'
 import { Button } from '@/components/atoms/Button'
 import { Body, Title } from '@/components/atoms/Typography'
@@ -28,7 +29,6 @@ import { useI18n } from '@/i18n'
 import { Routes } from '@/routes'
 import {
   Shield,
-  Plus,
   Play,
   Trash2,
   LogOut,
@@ -164,17 +164,8 @@ export function ClubAdminPage() {
     }
   }
 
-  const handleCreateCourt = () => {
-    let nextNumber = courtMgmt.courts.length + 1
-    let defaultName = i18nText('clubAdminDefaultCourtName', { number: String(nextNumber) })
-    
-    // Prevent naming collisions
-    while (courtMgmt.courts.some(c => c.name === defaultName)) {
-      nextNumber++
-      defaultName = i18nText('clubAdminDefaultCourtName', { number: String(nextNumber) })
-    }
-    
-    courtMgmt.createCourt(defaultName)
+  const handleCreateCourt = (name: string) => {
+    courtMgmt.createCourt(name)
   }
 
   const handleForceEndConfirm = () => {
@@ -203,11 +194,11 @@ export function ClubAdminPage() {
   // Admin PIN verification screen
   if (!isAdmin) {
     return (
-      <div className="flex items-center justify-center min-h-dvh bg-surface p-4">
+      <div className="flex items-center justify-center min-h-dvh bg-background p-4">
         <motion.div 
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="card bg-surface-low rounded-lg shadow-xl p-8 w-full max-w-sm space-y-6"
+          className="card-light p-8 w-full max-w-sm space-y-6"
         >
           <div className="text-center space-y-2">
             <div className="flex justify-center">
@@ -257,7 +248,7 @@ export function ClubAdminPage() {
 
   // Admin dashboard
   return (
-    <div className="flex flex-col h-dvh bg-surface">
+    <div className="flex flex-col h-dvh bg-primary/10">
       <PageHeader
         title={i18nText('clubAdminTitle')}
         subtitle={i18nText('clubAdminSubtitle')}
@@ -292,19 +283,13 @@ export function ClubAdminPage() {
               label: i18nText('clubAdminTabCourts'),
               content: (
                 <div className="space-y-4">
-                  {/* Create court area */}
-                  <div className="flex justify-center">
-                    <Button
-                      variant="outline"
-                      className="w-full border-dashed border-2 py-6 text-text/70 hover:text-primary hover:border-primary/50"
-                      onClick={handleCreateCourt}
-                      disabled={courtMgmt.loading}
-                      loading={courtMgmt.loading}
-                    >
-                      <Plus size={18} className="mr-2" />
-                      {i18nText('clubAdminCreateCourt')}
-                    </Button>
-                  </div>
+                  <CreateCourtButton
+                    existingNames={courtMgmt.courts.map(c => c.name)}
+                    onCreate={handleCreateCourt}
+                    disabled={courtMgmt.loading}
+                    loading={courtMgmt.loading}
+                    label={i18nText('clubAdminCreateCourt')}
+                  />
 
                   {/* Court list */}
                   {courtMgmt.courts.length === 0 ? (
@@ -327,7 +312,7 @@ export function ClubAdminPage() {
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
                             transition={{ duration: 0.2 }}
-                            className={`card bg-surface-low rounded-lg shadow-sm p-4 flex items-center justify-between border-l-4 ${statusColor(court.status).split(' ')[1]} transition-colors relative overflow-hidden`}
+                            className={`card-light p-4 flex items-center justify-between border-l-4 ${statusColor(court.status).split(' ')[1]} transition-colors relative overflow-hidden`}
                           >
                             <div className="flex flex-col gap-1 z-10">
                               <Body className="font-medium">{court.name}</Body>

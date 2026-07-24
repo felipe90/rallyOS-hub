@@ -48,6 +48,26 @@ const statusBadgeLabelKeys: Record<string, string> = {
   FINISHED: 'courtStatusFinished',
 };
 
+function statusBorderColor(status: string): string {
+  switch (status) {
+    case 'WAITING':
+    case 'AVAILABLE':
+      return 'border-l-blue-500'
+    case 'CONFIGURING':
+    case 'RESERVED':
+      return 'border-l-amber-500'
+    case 'LIVE':
+    case 'OCCUPIED':
+      return 'border-l-emerald-500'
+    case 'FINISHED':
+      return 'border-l-gray-400'
+    case 'MAINTENANCE':
+      return 'border-l-red-500'
+    default:
+      return 'border-l-transparent'
+  }
+}
+
 export function TableStatusChip({
   tableNumber,
   tableName,
@@ -90,8 +110,7 @@ export function TableStatusChip({
     <div
       onClick={onClick}
       className={`
-        card flex flex-col gap-2 p-4 rounded-[--radius-md]
-        bg-surface shadow-sm hover:shadow-md
+        card-light flex flex-col gap-2 p-4 border-l-4 ${statusBorderColor(status)}
         transition-shadow duration-200
         cursor-pointer
         ${className}

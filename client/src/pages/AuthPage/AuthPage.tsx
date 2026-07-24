@@ -200,7 +200,7 @@ export function AuthPage() {
 
   return (
     <motion.div
-      className="flex flex-col items-center justify-center min-h-dvh bg-background gap-6 p-4"
+      className="flex flex-col items-center justify-center min-h-dvh bg-primary/10 gap-6 p-4"
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: 'easeOut' }}
@@ -235,15 +235,16 @@ export function AuthPage() {
             <motion.button
               onClick={handlePlayClick}
               whileTap={{ scale: 0.97 }}
-              whileHover={{ scale: 1.01 }}
-              className="flex flex-col items-center gap-2 p-6 rounded-2xl cursor-pointer border-none outline-none
-                bg-gradient-to-br from-primary to-primary-light
-                shadow-md hover:shadow-lg
-                text-white transition-shadow duration-200"
+              whileHover={{ scale: 1.02 }}
+              className="flex flex-col items-center gap-2 p-6 rounded-2xl cursor-pointer border border-teal-400/30 outline-none
+                bg-gradient-to-br from-teal-700 via-teal-600 to-emerald-600
+                shadow-[0_8px_30px_rgb(0,128,128,0.3)] hover:shadow-[0_12px_40px_rgba(0,245,212,0.4)]
+                text-white transition-all duration-300 backdrop-blur-md relative overflow-hidden group"
             >
-              <CirclePlay size={32} strokeWidth={1.75} />
-              <span className="text-lg font-semibold font-heading">{i18nText('authClubPlay')}</span>
-              <span className="text-sm text-white/80 font-body">{i18nText('authClubPlaySubtitle')}</span>
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+              <CirclePlay size={36} strokeWidth={2} className="drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]" />
+              <span className="text-xl font-bold font-heading tracking-wide drop-shadow">{i18nText('authClubPlay')}</span>
+              <span className="text-sm text-white/90 font-body font-medium">{i18nText('authClubPlaySubtitle')}</span>
             </motion.button>
 
             {/* Divider with Tournament label */}

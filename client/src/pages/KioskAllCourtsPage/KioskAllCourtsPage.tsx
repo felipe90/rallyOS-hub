@@ -5,8 +5,8 @@ import { ConnectionStatus, Typography, LiveBadge } from '@/components/atoms'
 import { KioskCourtCard } from '@/components/organisms/KioskCourtCard'
 import { KioskNotificationToast } from '@/components/organisms/KioskNotificationToast'
 import { KioskScoreboard } from '@/components/organisms/KioskScoreboard'
-import { QRCodeSVG } from 'qrcode.react'
-import logoBig from '@/assets/logo-big.png'
+import { KioskHeader } from '@/components/molecules/KioskHeader'
+import { KioskSportsTicker } from '@/components/organisms/KioskSportsTicker'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Table2 } from 'lucide-react'
 import { SocketEvents } from '@shared/events'
@@ -196,12 +196,12 @@ export function KioskAllCourtsPage() {
   const featuredCourt = inSpotlight ? courts.find((t) => t.id === featuredCourtId) : null
 
   return (
-    <div className="h-dvh bg-surface flex flex-col">
+    <div className="h-dvh stadium-bg flex flex-col">
       {/* Spotlight mode: Destacado bar + KioskScoreboard (no header) */}
       {inSpotlight ? (
         <>
           {/* Destacado Bar (Task 3.3) */}
-          <div className="flex items-center justify-between px-6 py-3 bg-surface border-b border-border/20">
+          <div className="flex items-center justify-between px-6 py-3 bg-[var(--color-stadium-surface)] border-b border-[var(--color-stadium-border)]">
             <div className="flex items-center gap-2">
               <span className="text-amber-400 font-bold text-sm tracking-wide">
                 {i18nText('kioskDestacado')}
@@ -258,51 +258,18 @@ export function KioskAllCourtsPage() {
           />
 
           {/* Header — Logo + QR (visible only in non-spotlight mode) */}
-          <div className="flex items-center justify-between px-8 pt-6 pb-4">
-            <img src={logoBig} alt="RallyOS" style={{ height: 180 }} className="w-auto rounded-[--radius-md]" />
-            {hubConfig?.domain && (
-              <div className="flex flex-row items-start gap-6">
-                {/* WiFi QR — conditional */}
-                {hubConfig.wifiPassword && (
-                  <div className="flex flex-col items-center gap-2">
-                    <span className="text-sm font-semibold">{i18nText('scoreboardWifiQrCta')}</span>
-                    <QRCodeSVG
-                      value={`WIFI:T:WPA2;S:${hubConfig.ssid};P:${hubConfig.wifiPassword};H:false;;`}
-                      size={180}
-                      bgColor="#ffffff"
-                      fgColor="#000000"
-                      level="H"
-                      includeMargin={true}
-                    />
-                  </div>
-                )}
-                {/* URL QR — always visible */}
-                <div className="flex flex-col items-center gap-2">
-                  <span className="text-sm font-semibold">{i18nText('scoreboardUrlQrCta')}</span>
-                  <QRCodeSVG
-                    value={`https://${hubConfig.domain}:${hubConfig.port}`}
-                    size={180}
-                    bgColor="#ffffff"
-                    fgColor="#000000"
-                    level="H"
-                    includeMargin={true}
-                  />
-                  <Typography variant="label" className="text-text/80 text-xs font-mono">
-                    https://{hubConfig.domain}:{hubConfig.port}
-                  </Typography>
-                </div>
-              </div>
-            )}
-          </div>
+          <KioskHeader hubConfig={hubConfig} />
 
           {/* Content — Grid / Rotation / Empty */}
           <main id="main-content" className="flex-1 flex flex-col">
           {activeCourts.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center gap-4">
-              <Table2 size={64} className="text-border" />
-              <Typography variant="title" className="text-2xl text-text-muted text-center px-4">
-                {i18nText('kioskNoActiveMatches')}
-              </Typography>
+              <div className="stadium-card rounded-2xl p-8 flex flex-col items-center gap-4">
+                <Table2 size={64} className="text-border" />
+                <Typography variant="title" className="text-2xl text-text-muted text-center px-4">
+                  {i18nText('kioskNoActiveMatches')}
+                </Typography>
+              </div>
             </div>
           ) : isRotating ? (
             /* Rotation mode — show one page at a time with fade + indicators */
@@ -329,7 +296,7 @@ export function KioskAllCourtsPage() {
                     data-testid={`page-dot-${i}`}
                     data-active={i === currentPage}
                     className={`w-3 h-3 rounded-full transition-colors duration-300 ${
-                      i === currentPage ? 'bg-primary' : 'bg-primary/30'
+                      i === currentPage ? 'bg-primary-light' : 'bg-primary-light/30'
                     }`}
                   />
                 ))}
@@ -344,6 +311,8 @@ export function KioskAllCourtsPage() {
             </div>
           )}
           </main>
+
+          <KioskSportsTicker defaultText="BIENVENIDOS A RALLYOS" />
         </>
       )}
 

@@ -43,6 +43,12 @@
   --color-text-muted: #858093;
   --color-text-h: #08060d;
   --color-border: #e5e4e7;
+
+  /* Stadium Dark Theme Tokens */
+  --color-stadium-bg: #001e1a;
+  --color-stadium-surface: rgba(0, 46, 41, 0.88);
+  --color-stadium-border: rgba(0, 200, 180, 0.40);
+  --color-stadium-glow: rgba(0, 107, 95, 0.20);
   
   --color-gradient-primary: linear-gradient(135deg, #006b5f 0%, #00897b 100%);
   --color-gradient-live: linear-gradient(135deg, #da8a00 0%, #b27500 100%);
@@ -266,5 +272,105 @@
 
   .rounded-\[--radius-xl\] {
     border-radius: var(--radius-xl);
+  }
+
+  /* Kinetic Stadium Glassmorphism Panels */
+  .glass-panel {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.25);
+  }
+
+  .glass-panel-interactive {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .glass-panel-interactive:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(0, 245, 212, 0.3);
+    box-shadow: 0 12px 40px 0 rgba(0, 245, 212, 0.12);
+    transform: translateY(-2px);
+  }
+
+  /* Tabular numbers for stable scoreboards */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Stadium LED Glow Utilities */
+  .glow-text-emerald {
+    text-shadow: 0 0 20px rgba(0, 245, 212, 0.6), 0 0 40px rgba(0, 245, 212, 0.3);
+  }
+
+  .glow-text-amber {
+    text-shadow: 0 0 20px rgba(255, 184, 0, 0.6), 0 0 40px rgba(255, 184, 0, 0.3);
+  }
+
+  .glow-border-emerald {
+    box-shadow: 0 0 15px rgba(0, 245, 212, 0.3), inset 0 0 15px rgba(0, 245, 212, 0.15);
+  }
+
+  /* LIVE Indicator Pulsing Ring */
+  @keyframes pulse-glow {
+    0%, 100% {
+      transform: scale(1);
+      opacity: 0.8;
+    }
+    50% {
+      transform: scale(1.4);
+      opacity: 0.3;
+    }
+  }
+
+  .pulse-ring {
+    animation: pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  /* Global Stadium Dark Background Utility */
+  .stadium-bg {
+    background-color: var(--color-stadium-bg);
+    background-image: radial-gradient(circle at 50% 30%, var(--color-stadium-glow) 0%, var(--color-stadium-bg) 75%);
+    background-attachment: fixed;
+  }
+
+  /* Global Stadium Dark High-Contrast Glass Card */
+  .stadium-card {
+    background-color: var(--color-stadium-surface);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--color-stadium-border);
+    box-shadow: 0 16px 48px 0 rgba(0, 0, 0, 0.4);
+    will-change: transform, opacity;
+  }
+
+  /* Light-theme card with visible boundaries for functional pages */
+  .card-light {
+    background-color: var(--color-surface);
+    border: 1px solid #e4e7ec;
+    border-radius: var(--radius-md);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
+  }
+
+  /* Broadcast Sports Ticker Marquee Animation */
+  @keyframes marquee-slide {
+    0% {
+      transform: translateX(100%);
+    }
+    100% {
+      transform: translateX(-100%);
+    }
+  }
+
+  .animate-marquee {
+    display: inline-block;
+    white-space: nowrap;
+    animation: marquee-slide 20s linear infinite;
   }
 }

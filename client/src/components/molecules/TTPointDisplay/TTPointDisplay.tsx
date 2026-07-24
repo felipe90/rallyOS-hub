@@ -94,16 +94,16 @@ function PlayerSide({
             </span>
           </div>
 
-          <div className="font-heading font-bold text-[clamp(14rem,30vw,26rem)] leading-none text-white tracking-tighter">
+          <div className="font-heading font-bold text-[clamp(14rem,30vw,26rem)] leading-none text-white tracking-tighter tabular-nums drop-shadow-[0_0_25px_rgba(255,255,255,0.25)]">
             {shouldReduceMotion ? (
               score
             ) : (
               <AnimatePresence mode="wait">
                 <motion.div
                   key={displayScore}
-                  initial={{ y: 20, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  exit={{ y: -20, opacity: 0 }}
+                  initial={{ y: 20, opacity: 0, scale: 0.95 }}
+                  animate={{ y: 0, opacity: 1, scale: 1 }}
+                  exit={{ y: -20, opacity: 0, scale: 0.95 }}
                   transition={{ duration: 0.25, ease: 'easeOut' }}
                   className="inline-block"
                 >

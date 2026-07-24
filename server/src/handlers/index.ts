@@ -14,3 +14,4 @@ export { SpotlightHandler } from './SpotlightHandler';
 export { ClubAdminHandler } from './ClubAdminHandler';
 export { ClubCourtHandler } from './ClubCourtHandler';
 export { ClubPlayerHandler } from './ClubPlayerHandler';
+export { ClubSessionHistoryHandler } from './ClubSessionHistoryHandler';

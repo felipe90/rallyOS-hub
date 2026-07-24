@@ -6,6 +6,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useI18n } from '@/i18n'
+import { CreateCourtButton } from '@/components/molecules/CreateCourtButton'
 import { DashboardGrid } from '@/components/organisms/DashboardGrid'
 import { DashboardHeader } from '@/components/organisms/DashboardGrid'
 import { PageHeader } from '@/components/molecules/PageHeader'
@@ -25,7 +26,7 @@ import { Body } from '@/components/atoms/Typography'
 import { SocketEvents } from '@shared/events'
 import { Routes, buildScoreboardRoute } from '@/routes'
 import type { CourtInfoWithPin, KioskNotificationType } from '@shared/types'
-import { Plus, FileText, Table2, Swords, Users, Bell, Flag, Download, AlertTriangle } from 'lucide-react'
+import { FileText, Table2, Swords, Users, Bell, Flag, Download, AlertTriangle } from 'lucide-react'
 
 
 export interface OwnerDashboardPageProps {
@@ -239,19 +240,8 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
     return map[code] || code
   }
 
-  const handleOneClickCreate = () => {
-    if (courtMgmt.isCreating) return;
-    
-    // Auto-calculate the next sequential court number
-    let nextNum = 1;
-    let newName = i18nText('clubAdminDefaultCourtName', { number: String(nextNum) });
-    
-    while (courts.some(c => c.name === newName)) {
-      nextNum++;
-      newName = i18nText('clubAdminDefaultCourtName', { number: String(nextNum) });
-    }
-    
-    courtMgmt.setCourtName(newName);
+  const handleCreateCourt = (name: string) => {
+    courtMgmt.setCourtName(name);
     courtMgmt.createCourt();
   };
 
@@ -315,7 +305,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
   </div>
 
   return (
-    <div className="flex flex-col h-dvh bg-surface ">
+    <div className="flex flex-col h-dvh bg-background">
       <PageHeader
         title={i18nText('ownerTitle')}
         subtitle={i18nText('ownerSubtitle')}
@@ -336,21 +326,13 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
 
       <main id="main-content" className="flex-1 overflow-auto bg-primary/10">
         <div className="p-4 space-y-4">
-          {/* Create court — big dashed button like ClubAdmin */}
-          {!courtMgmt.isCreating && (
-            <div className="flex justify-center">
-              <Button
-                variant="outline"
-                className="w-full border-dashed border-2 py-6 text-text/70 hover:text-primary hover:border-primary/50"
-                onClick={handleOneClickCreate}
-                disabled={courtMgmt.isCreating}
-                loading={courtMgmt.isCreating}
-              >
-                <Plus size={18} className="mr-2" />
-                {i18nText('ownerCreateCourt')}
-              </Button>
-            </div>
-          )}
+          <CreateCourtButton
+            existingNames={courts.map(c => c.name)}
+            onCreate={handleCreateCourt}
+            disabled={courtMgmt.isCreating}
+            loading={courtMgmt.isCreating}
+            label={i18nText('ownerCreateCourt')}
+          />
           <DashboardHeader
             totalTables={stats.totalTables}
             liveMatches={stats.liveMatches}

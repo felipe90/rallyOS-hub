@@ -36,7 +36,7 @@ export function SpectatorDashboardPage(_props: SpectatorDashboardPageProps) {
   }
 
   return (
-    <div className="flex flex-col h-dvh bg-surface">
+    <div className="flex flex-col h-dvh bg-background">
       <PageHeader
         title={i18nText('spectatorTitle')}
         connectionLabels={{
@@ -70,7 +70,7 @@ export function SpectatorDashboardPage(_props: SpectatorDashboardPageProps) {
             {availableCourts.map((court) => (
               <div
                 key={court.id}
-                className="card p-4 bg-surface-secondary rounded-lg border border-border cursor-pointer hover:border-primary transition-colors"
+                className="card-light p-4 cursor-pointer hover:border-primary transition-colors"
                 onClick={() => handleJoinTable(court.id)}
               >
                 <h3 className="font-heading font-bold text-lg mb-2">{court.name}</h3>

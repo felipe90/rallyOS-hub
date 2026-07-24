@@ -20,7 +20,7 @@ import type { IClubConfigRepository } from '../domain/ports/IClubConfigRepositor
 import { AdminPinService } from '../services/security/AdminPinService';
 import { SessionTokenService } from '../services/security/SessionTokenService';
 import type { SessionClaims } from '../services/security/SessionTokenService';
-import { CourtInfo, HubConfig } from '../domain/types';
+import { CourtInfo, HubConfig, isClubCourt } from '../domain/types';
 import type { SocketData } from '../domain/types';
 import { logger } from '../utils/logger';
 import { RateLimiter } from '../services/security/RateLimiter';
@@ -35,7 +35,11 @@ import {
   ClubAdminHandler,
   ClubCourtHandler,
   ClubPlayerHandler,
+  ClubSessionHistoryHandler,
 } from './index';
+import { SessionHistoryStore } from '../services/store/SessionHistoryStore';
+import { PhoneRevealAuditStore } from '../services/store/PhoneRevealAuditStore';
+import { ClubConfigStore } from '../services/store/ClubConfigStore';
 
 export class SocketHandler {
   private io: Server;
@@ -54,6 +58,8 @@ export class SocketHandler {
   private clubAdminHandler: ClubAdminHandler;
   private clubCourtHandler: ClubCourtHandler;
   private clubPlayerHandler: ClubPlayerHandler;
+  private clubHistoryHandler?: ClubSessionHistoryHandler;
+  private phoneRevealAuditStore: PhoneRevealAuditStore;
 
   constructor(
     io: Server,
@@ -61,6 +67,8 @@ export class SocketHandler {
     ownerPin: string,
     hubConfig: HubConfig,
     clubConfigStore?: IClubConfigRepository,
+    sessionHistoryStore?: SessionHistoryStore,
+    phoneRevealAuditStore?: PhoneRevealAuditStore,
   ) {
     this.io = io;
     this.tableManager = tableManager;
@@ -68,6 +76,7 @@ export class SocketHandler {
     this.hubConfig = hubConfig;
     this.connectionRateLimiter = new RateLimiter(60_000, 20); // 20 connections per 60s per IP
     this.clubConfigStore = clubConfigStore;
+    this.phoneRevealAuditStore = phoneRevealAuditStore ?? new PhoneRevealAuditStore();
     
     // Initialize services
     const adminPinService = new AdminPinService();
@@ -79,9 +88,33 @@ export class SocketHandler {
     this.authHandler = new AuthHandler(io, tableManager, ownerPin, sessionTokenService);
     this.adminHandler = new AdminHandler(io, tableManager, ownerPin);
     this.spotlightHandler = new SpotlightHandler(io, tableManager, ownerPin);
-    this.clubAdminHandler = new ClubAdminHandler(io, tableManager, ownerPin, clubConfigStore!, adminPinService, sessionTokenService);
-    this.clubCourtHandler = new ClubCourtHandler(io, tableManager, ownerPin);
-    this.clubPlayerHandler = new ClubPlayerHandler(io, tableManager, ownerPin, clubConfigStore!);
+    // Spec (club-session-history / Persistence Trigger): when a
+    // SessionHistoryStore is injected via the SocketHandler ctor, it is
+    // forwarded to ClubPlayerHandler so session-end writes a SessionRecord.
+    // When omitted (older tests, or while PR 2 production wiring is in
+    // progress), the no-store safety-net path inside ClubPlayerHandler is
+    // exercised — see gotchas #3/#4 in sdd/club-session-history/apply-gotchas.
+    //
+    // History handler (task 3.6): a SINGLE ClubSessionHistoryHandler is
+    // constructed up front so the pending-clear state is shared across:
+    //   - CLUB_VERIFY_ADMIN success → historyHandler.sendHistoryToSocket
+    //     (closes the PIN-only gap; JWT reconnect path is handled in the
+    //     io.on('connection') hook below).
+    //   - CLUB_CLEAR_HISTORY / CLUB_CLEAR_HISTORY_CONFIRM socket events
+    //     (registered in registerHandlers).
+    // Instantiating TWO handlers would split the 30s pending-clear window;
+    // the structural interface ClubHistoryBridge keeps the seam narrow.
+    if (sessionHistoryStore) {
+      const auditStore = this.phoneRevealAuditStore;
+      const configStore = this.clubConfigStore ?? new ClubConfigStore();
+      this.clubHistoryHandler = new ClubSessionHistoryHandler(io, sessionHistoryStore, auditStore, configStore);
+    }
+    this.clubAdminHandler = new ClubAdminHandler(io, tableManager, ownerPin, clubConfigStore!, adminPinService, sessionTokenService, this.clubHistoryHandler);
+    // Phase 3 / U2: pass clubConfigStore so CLUB_ADMIN_OCCUPY can resolve
+    // the configured sport for the default match config on the freshly
+    // occupied court.
+    this.clubCourtHandler = new ClubCourtHandler(io, tableManager, ownerPin, clubConfigStore);
+    this.clubPlayerHandler = new ClubPlayerHandler(io, tableManager, ownerPin, clubConfigStore!, sessionHistoryStore);
     
     // Set up global court update listener once
     // COURT_UPDATE always goes to the court's room; COURT_LIST / CLUB_KIOSK_DATA
@@ -112,25 +145,39 @@ export class SocketHandler {
       } else if (event.type === 'MATCH_WON') {
         this.io.to(courtId).emit(SocketEvents.SERVER.MATCH_WON, { courtId: courtId, ...event });
 
-        // Auto-clear featured when match ends on a featured court
         const court = this.tableManager.getCourt(courtId);
-        if (court && court.featured) {
-          court.featured = false;
-          const updatedInfo = this.tableManager.courtToInfo(court);
-          this.io.emit(SocketEvents.SERVER.COURT_UPDATE, updatedInfo);
-          logger.info({ courtId }, 'Featured auto-cleared on match end');
-        }
 
-        // Auto-notify kiosk clients on match won (server-sourced, bypasses rate limit)
-        const ms = this.tableManager.getMatchState(courtId);
-        const names = ms?.playerNames ?? { a: 'Player A', b: 'Player B' };
-        const winner = names[event.winner === 'A' ? 'a' : 'b'];
-        this.io.emit(SocketEvents.SERVER.KIOSK_NOTIFICATION, {
-          type: 'important',
-          duration: 10,
-          message: `¡Ganador: ${winner}!`,
-          timestamp: Date.now(),
-        });
+        if (court && isClubCourt(court)) {
+          // Club mode: keep the court OCCUPIED after the match finishes.
+          // Spec scenario 3 —— the session is NOT auto-ended; the player
+          // choses the next post-match action (reset / new match / free /
+          // end session). Emit MATCH_UPDATE with the final matchState so
+          // the client renders the post-match modal in PR 4.
+          const finalState = this.tableManager.getMatchState(courtId);
+          if (finalState) {
+            this.io.to(courtId).emit(SocketEvents.SERVER.MATCH_UPDATE, finalState);
+          }
+        } else {
+          // Tournament mode: existing behavior — auto-clear featured on a
+          // featured court, then notify kiosk clients on match won.
+          if (court && court.featured) {
+            court.featured = false;
+            const updatedInfo = this.tableManager.courtToInfo(court);
+            this.io.emit(SocketEvents.SERVER.COURT_UPDATE, updatedInfo);
+            logger.info({ courtId }, 'Featured auto-cleared on match end');
+          }
+
+          // Auto-notify kiosk clients on match won (server-sourced, bypasses rate limit)
+          const ms = this.tableManager.getMatchState(courtId);
+          const names = ms?.playerNames ?? { a: 'Player A', b: 'Player B' };
+          const winner = names[event.winner === 'A' ? 'a' : 'b'];
+          this.io.emit(SocketEvents.SERVER.KIOSK_NOTIFICATION, {
+            type: 'important',
+            duration: 10,
+            message: `¡Ganador: ${winner}!`,
+            timestamp: Date.now(),
+          });
+        }
       } else if (event.type === 'GAME_WON') {
         this.io.to(courtId).emit(SocketEvents.SERVER.GAME_WON, { courtId: courtId, ...event });
       } else if (event.type === 'DEUCE') {
@@ -205,12 +252,19 @@ export class SocketHandler {
       this.clubAdminHandler.registerHandlers(socket);
       this.clubCourtHandler.registerHandlers(socket);
       this.clubPlayerHandler.registerHandlers(socket);
+      this.clubHistoryHandler?.registerHandlers(socket);
 
       // Signal club admin that their session was restored from JWT on reload
       // (REQ-11). The io.use() middleware already set isClubAdmin; this
       // lets the client restore the admin UI without re-entering the PIN.
       if ((socket.data as SocketData).isClubAdmin) {
         socket.emit(SocketEvents.SERVER.CLUB_SESSION_RESTORED);
+
+        // Spec (club-session-history / Server Events): on admin connect,
+        // push the full persisted session history to that admin. Only
+        // emitted to admin sockets — sendHistoryToSocket re-checks
+        // isClubAdmin before emitting (defense-in-depth).
+        this.clubHistoryHandler?.sendHistoryToSocket(socket);
       }
 
       // Handle disconnection
@@ -253,9 +307,21 @@ export class SocketHandler {
         isAuthenticated: true,
       };
     } else if (claims.role === 'club_admin') {
+      // player-identity (Phase 3 / U2 fix for U1 review warning #2):
+      // JWT restore previously set isClubAdmin only, leaving adminId
+      // undefined. The admin occupy + force-end flows attribute the
+      // session to `socket.data.adminId`; without it, the handler refuses
+      // (CLUB_ADMIN_OCCUPY → UNAUTHORIZED) and the SessionRecord would
+      // silently lose admin traceability for JWT-restored admins. Use the
+      // freshly-allocated socket.id as the adminId — matches the
+      // PIN-verify path (ClubAdminHandler.CLUB_VERIFY_ADMIN sets
+      // socket.id). The id is not stable across reconnects, but the spec
+      // accepts socket.id as the adminId unit (design "Open Questions
+      // RESOLVED" + session-record MODIFIED requirement).
       socket.data = {
         ...socketData,
         isClubAdmin: true,
+        adminId: socket.id,
       };
     }
   }

@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { QRCodeSVG } from 'qrcode.react'
 import { useSocketContext } from '@/contexts/SocketContext'
 import { useI18n } from '@/i18n'
 import { Typography } from '@/components/atoms'
 import { ClubKioskCard } from '@/components/organisms/ClubKioskCard'
+import { KioskHeader } from '@/components/molecules/KioskHeader'
+import { KioskSportsTicker } from '@/components/organisms/KioskSportsTicker'
 import { SocketEvents } from '@shared/events'
 import type { ClubKioskPayload } from '@shared/types'
-import logoBig from '@/assets/logo-big.png'
 
 /** Cards per page for auto-rotation */
 const PAGE_SIZE = 8
@@ -67,49 +67,8 @@ export function ClubKioskPage() {
   }, [socket])
 
   return (
-    <div className="h-dvh bg-surface flex flex-col">
-      {/* Header — Logo + Club Name + QR (matching tournament kiosk style) */}
-      <div className="flex items-center justify-between px-8 pt-6 pb-4">
-        <div className="flex items-center gap-6">
-          <img src={logoBig} alt="RallyOS" style={{ height: 180 }} className="w-auto rounded-[--radius-md]" />
-          <Typography variant="headline" className="text-4xl font-bold text-text">
-            {clubName}
-          </Typography>
-        </div>
-        {hubConfig?.domain && (
-          <div className="flex flex-row items-start gap-6">
-            {/* WiFi QR — conditional */}
-            {hubConfig.wifiPassword && (
-              <div className="flex flex-col items-center gap-2">
-                <span className="text-sm font-semibold">{i18nText('scoreboardWifiQrCta')}</span>
-                <QRCodeSVG
-                  value={`WIFI:T:WPA2;S:${hubConfig.ssid};P:${hubConfig.wifiPassword};H:false;;`}
-                  size={180}
-                  bgColor="#ffffff"
-                  fgColor="#000000"
-                  level="H"
-                  includeMargin={true}
-                />
-              </div>
-            )}
-            {/* URL QR — always visible */}
-            <div className="flex flex-col items-center gap-2">
-              <span className="text-sm font-semibold">{i18nText('scoreboardUrlQrCta')}</span>
-              <QRCodeSVG
-                value={`https://${hubConfig.domain}:${hubConfig.port}`}
-                size={180}
-                bgColor="#ffffff"
-                fgColor="#000000"
-                level="H"
-                includeMargin={true}
-              />
-              <Typography variant="label" className="text-text/80 text-xs font-mono">
-                https://{hubConfig.domain}:{hubConfig.port}
-              </Typography>
-            </div>
-          </div>
-        )}
-      </div>
+    <div className="h-dvh stadium-bg flex flex-col">
+      <KioskHeader title={clubName} hubConfig={hubConfig} />
 
       {/* Empty state */}
       {courts.length === 0 ? (
@@ -154,6 +113,8 @@ export function ClubKioskPage() {
           )}
         </>
       )}
+
+      <KioskSportsTicker defaultText="BIENVENIDOS A RALLYOS" />
     </div>
   )
 }

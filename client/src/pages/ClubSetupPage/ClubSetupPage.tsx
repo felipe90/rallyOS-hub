@@ -54,7 +54,7 @@ export function ClubSetupPage() {
 
   if (configLoading) {
     return (
-      <div className="flex items-center justify-center h-dvh bg-surface">
+      <div className="flex items-center justify-center h-dvh bg-background">
         <Body>{i18nText('clubAdminLoading')}</Body>
       </div>
     )
@@ -63,8 +63,8 @@ export function ClubSetupPage() {
   // If already configured, show info instead of form
   if (clubConfig?.configured && !setupComplete) {
     return (
-      <div className="flex items-center justify-center h-dvh bg-surface p-4">
-        <div className="card bg-surface-low rounded-lg shadow-xl p-8 max-w-sm w-full text-center space-y-4">
+      <div className="flex items-center justify-center h-dvh bg-background p-4">
+        <div className="card-light p-8 max-w-sm w-full text-center space-y-4">
           <div className="flex justify-center">
             <div className="bg-amber-100 text-amber-600 p-3 rounded-full">
               <Settings size={32} />
@@ -101,7 +101,7 @@ export function ClubSetupPage() {
 
   if (setupComplete) {
     return (
-      <div className="flex flex-col items-center justify-center h-dvh bg-surface p-4 gap-6">
+      <div className="flex flex-col items-center justify-center h-dvh bg-background p-4 gap-6">
         <div className="bg-green-100 text-green-600 p-4 rounded-full">
           <CheckCircle size={48} />
         </div>
@@ -117,8 +117,8 @@ export function ClubSetupPage() {
   }
 
   return (
-    <div className="flex items-center justify-center min-h-dvh bg-surface p-4">
-      <div className="card bg-surface-low rounded-lg shadow-xl p-8 w-full max-w-md space-y-6">
+    <div className="flex items-center justify-center min-h-dvh bg-background p-4">
+      <div className="card-light p-8 w-full max-w-md space-y-6">
         {/* Header */}
         <div className="text-center space-y-2">
           <div className="flex justify-center">

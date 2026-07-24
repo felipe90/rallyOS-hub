@@ -53,6 +53,26 @@ export const SocketEvents = {
     CLUB_DEACTIVATE_COURT: 'CLUB_DEACTIVATE_COURT',
     CLUB_RESET_COURT: 'CLUB_RESET_COURT',
     CLUB_END_SESSION: 'CLUB_END_SESSION',
+    // Club Session Lifecycle
+    CLUB_START_FREE: 'CLUB_START_FREE',
+    CLUB_RESET_MATCH: 'CLUB_RESET_MATCH',
+    CLUB_NEW_MATCH: 'CLUB_NEW_MATCH',
+    // Club Session History — admin requests history deletion (two-step
+    // confirmation flow). See `club-session-history` spec: the server enters
+    // a pending-clear state on CLUB_CLEAR_HISTORY and only acts after
+    // CLUB_CLEAR_HISTORY_CONFIRM with confirm=true within 30s.
+    CLUB_CLEAR_HISTORY: 'CLUB_CLEAR_HISTORY',
+    CLUB_CLEAR_HISTORY_CONFIRM: 'CLUB_CLEAR_HISTORY_CONFIRM',
+    // player-identity — admin takes an AVAILABLE court through the modal flow
+    // (name + phone + mode) and occupies it without scanning a QR. See
+    // `admin-session-start` spec.
+    CLUB_ADMIN_OCCUPY: 'CLUB_ADMIN_OCCUPY',
+    // player-identity — admin requests server-side decryption of a specific
+    // session's stored phone. See `phone-reveal` spec: requires
+    // socket.data.isClubAdmin === true; non-admin → unauthorized. Server
+    // decrypts using ClubConfig.encryptionKey, never sends the key to the
+    // admin client.
+    CLUB_REVEAL_PHONE: 'CLUB_REVEAL_PHONE',
   },
   // Emitted by SERVER → received by CLIENT
   SERVER: {
@@ -93,6 +113,26 @@ export const SocketEvents = {
     CLUB_SESSION_ENDED: 'CLUB_SESSION_ENDED',
     CLUB_RECONNECT_RESULT: 'CLUB_RECONNECT_RESULT',
     CLUB_SESSION_RESTORED: 'CLUB_SESSION_RESTORED',
+    // Club Session Lifecycle
+    CLUB_FREE_STARTED: 'CLUB_FREE_STARTED',
+    CLUB_MATCH_RESET: 'CLUB_MATCH_RESET',
+    CLUB_SESSION_TIMER: 'CLUB_SESSION_TIMER',
+    // Club Session History — S→C push of the full persisted session record
+    // array. Emitted on admin socket connect (after auth) and on
+    // CLUB_CLEAR_HISTORY_CONFIRM (with empty array, broadcast to ALL admin
+    // sockets). See `club-session-history` spec.
+    CLUB_SESSION_HISTORY: 'CLUB_SESSION_HISTORY',
+    // PR 3 — dedicated confirmation signal for player-initiated
+    // CLUB_END_SESSION. Previously the server reused CLUB_SESSION_TIMER to
+    // carry the end-session confirmation payload, which forced the client to
+    // disambiguate a periodic sync from a confirmation. CLUB_END_SESSION_CONFIRM
+    // is S→C only and carries the same `{ courtId, elapsedSeconds }` payload.
+    CLUB_END_SESSION_CONFIRM: 'CLUB_END_SESSION_CONFIRM',
+    // player-identity — server response to CLUB_REVEAL_PHONE. Delivered ONLY
+    // to the requesting admin socket. On success: { success: true, phone }.
+    // On failure: { success: false, error: 'unauthorized' | 'not_found' }.
+    // No audit entry is written on failure (spec: `phone-reveal` scenarios).
+    CLUB_REVEAL_PHONE_RESULT: 'CLUB_REVEAL_PHONE_RESULT',
   },
 } as const;
 

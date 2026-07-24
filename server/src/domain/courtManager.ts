@@ -12,7 +12,7 @@
 
 import crypto from 'crypto';
 import { MatchEngine } from './matchEngine';
-import { Court, TournamentCourt, ClubCourt, isClubCourt, isTournamentCourt, CourtInfo, CourtInfoWithPin, Player, MatchConfig, MatchStateExtended, QRData, Sport, SPORT, COURT_MODE, TournamentStatus, ClubStatus, CLUB_STATUS } from './types';
+import { Court, TournamentCourt, ClubCourt, isClubCourt, isTournamentCourt, CourtInfo, CourtInfoWithPin, Player, MatchConfig, MatchStateExtended, QRData, Sport, SPORT, COURT_MODE, TournamentStatus, ClubStatus, CLUB_STATUS, SessionMode, SESSION_MODE } from './types';
 import { AllHistoryEntry, ClubKioskPayload, ClubKioskCourtInfo, ClubConfig } from '../../../shared/types';
 import { logger } from '../utils/logger';
 import { sanitizeInput } from '../utils/validation';
@@ -46,7 +46,7 @@ export class CourtManager {
   public onTableUpdate: (table: CourtInfo) => void = () => {};
   public onTournamentFinish: () => void = () => {};
   public onMatchEvent: (courtId: string, event: any) => void = () => {};
-  public onClubSessionEnd: (courtId: string, elapsedMinutes: number, reason: string) => void = () => {};
+  public onClubSessionEnd: (courtId: string, elapsedMinutes: number, elapsedSeconds: number, reason: string) => void = () => {};
 
   constructor(deps: CourtManagerDeps) {
     this.repository = deps.repository;
@@ -115,7 +115,7 @@ export class CourtManager {
     if (deleted) {
       logger.info({ courtId }, 'Court deleted');
       if (this.stateStore) {
-        this.autoSave();
+        this.persistState();
       }
     }
     return deleted;
@@ -146,6 +146,12 @@ export class CourtManager {
       createdAt: Date.now(),
       featured: false,
       occupiedAt: null,
+      sessionMode: null,
+      // player-identity defaults — null until populate by startFreePlay /
+      // newMatch / adminOccupyCourt. Cleared back to null by resetCourt.
+      playerName: null,
+      phone: null,
+      adminId: null,
     };
 
     court.sportRules.setCourtId(id, courtName);
@@ -202,6 +208,13 @@ export class CourtManager {
         playerNames: info.playerNames,
         currentScore: info.currentScore,
         winner: info.winner,
+        sessionMode: c.sessionMode ?? undefined,
+        // player-identity (Phase 2 task 2.2) — surface playerName on the
+        // kiosk card so the kiosk can render the player's name when the
+        // court is OCCUPIED. `undefined` (rather than null) when unset so
+        // the field is omitted from the wire payload entirely (matches
+        // the ClubKioskCourtInfo optional type).
+        playerName: c.playerName ?? undefined,
       };
     });
 
@@ -261,6 +274,14 @@ export class CourtManager {
     court.playerNames = { a: '', b: '' };
     court.players = [];
 
+    // player-identity (Phase 2 task 2.2) — clear player fields so the next
+    // session starts fresh. The kiosk MUT NOT show a stale name, and the
+    // SessionRecord for the next session must not inherit the previous
+    // player's identity.
+    court.playerName = null;
+    court.phone = null;
+    court.adminId = null;
+
     // Reset match engine to fresh WAITING state
     this.matchOrchestrator.resetTable(court);
 
@@ -280,6 +301,124 @@ export class CourtManager {
       (c) => isClubCourt(c) && c.pin === pin &&
             (c.clubStatus === CLUB_STATUS.RESERVED || c.clubStatus === CLUB_STATUS.OCCUPIED),
     );
+  }
+
+  /**
+   * Admin-occupy a club court: RESERVED → OCCUPIED with player identity
+   * captured up-front (playerName + phone + adminId + sessionMode).
+   *
+   * player-identity (Phase 3 / U2 task 3.2 + 3.6). Mirrors `occupyClubCourt`
+   * but is invoked by the admin "Iniciar sesión" modal flow: the admin
+   * supplies the player's name + AES-256-GCM-encrypted phone and chooses
+   * the session mode (free/match) up-front. The server transitions the court
+   * straight from RESERVED → OCCUPIED, sets the timer, and persists the
+   * supplied identity on the court so the subsequent `onClubSessionEnd`
+   * callback builds a fully-populated SessionRecord with `endedBy='admin'`
+   * when the admin later force-ends the session.
+   *
+   * Contrast with `occupyClubCourt` (player flow): that one leaves
+   * playerName/phone/adminId null at occupy time — they are filled in
+   * later by `startFreePlay` / `newMatch` once the player submits the
+   * mode-select form. Here the form is submitted BEFORE the occupy; the
+   * court is born already-occupied with identity in place.
+   *
+   * Validation:
+   *   - court must exist, be a club court, and be in RESERVED state.
+   *   - `params.adminId` MUST be a non-empty string (the caller is
+   *     expected to source it from `socket.data.adminId`, set by
+   *     CLUB_VERIFY_ADMIN or by JWT restore in `applySessionClaims`).
+   *
+   * Returns `{ court, matchState }` on success, null on failure (invalid
+   * state, missing adminId, match-engine rollback).
+   */
+  adminOccupyCourt(
+    courtId: string,
+    params: {
+      playerName: string;
+      phone: string;
+      adminId: string;
+      mode: SessionMode;
+      sport: Sport;
+    },
+  ): { court: ClubCourt; matchState: MatchStateExtended } | null {
+    let court = this.repository.get(courtId);
+    if (!court || !isClubCourt(court)) return null;
+    if (typeof params.adminId !== 'string' || params.adminId.length === 0) return null;
+
+    // Auto-activate if the court is still AVAILABLE (freshly created, never
+    // activated). This lets the admin occupy in a single step without a
+    // separate "Activar" click — the PIN is generated and the court transitions
+    // AVAILABLE → RESERVED → OCCUPIED atomically.
+    if (court.clubStatus === CLUB_STATUS.AVAILABLE) {
+      const activated = this.activateCourt(court.id);
+      if (!activated) return null;
+      // Re-fetch the court — activateCourt mutates repository state.
+      const refreshed = this.repository.get(courtId);
+      if (!refreshed || !isClubCourt(refreshed)) return null;
+      court = refreshed;
+    }
+
+    if (court.clubStatus !== CLUB_STATUS.RESERVED) return null;
+
+    // Transition RESERVED → OCCUPIED and start the session timer.
+    court.clubStatus = CLUB_STATUS.OCCUPIED;
+    court.occupiedAt = Date.now();
+
+    // Capture player identity + admin attribution + session mode up-front.
+    court.playerName = params.playerName;
+    court.phone = params.phone;
+    court.adminId = params.adminId;
+    court.sessionMode = params.mode;
+
+    // Same default player names + match-config builder as occupyClubCourt.
+    court.playerNames = { a: 'Jugador 1', b: 'Jugador 2' };
+    court.sportRules.setPlayerNames({ a: 'Jugador 1', b: 'Jugador 2' });
+
+    const matchConfig: MatchConfig = params.sport === SPORT.PADEL
+      ? {
+          sport: SPORT.PADEL,
+          bestOf: 1,
+          gamesPerSet: 6,
+          tiebreakPoints: 7,
+          goldenPoint: false,
+        } as MatchConfig
+      : {
+          sport: SPORT.TABLE_TENNIS,
+          bestOf: 1,
+          pointsPerSet: 11,
+          minDifference: 2,
+          handicapA: 0,
+          handicapB: 0,
+        } as MatchConfig;
+
+    // Start a default match so score + serve rendering work the moment the
+    // admin lands on the post-occupy view. The sessionMode is set above; the
+    // client decides whether to actually score (match mode) or treat the
+    // session as free-play only (free mode).
+    const matchState = this.matchOrchestrator.startMatch(court, {
+      ...matchConfig,
+      playerNameA: 'Jugador 1',
+      playerNameB: 'Jugador 2',
+    });
+
+    if (!matchState) {
+      // Rollback on failure — restore RESERVED so the admin can retry.
+      court.clubStatus = CLUB_STATUS.RESERVED;
+      court.occupiedAt = null;
+      court.playerName = null;
+      court.phone = null;
+      court.adminId = null;
+      court.sessionMode = null;
+      court.playerNames = { a: '', b: '' };
+      return null;
+    }
+
+    court.sportRules.setEventCallback((event: any) => {
+      this.onMatchEvent(courtId, event);
+    });
+
+    this.notifyUpdate(court);
+    return { court, matchState };
   }
 
   /**
@@ -308,6 +447,16 @@ export class CourtManager {
     court.clubStatus = CLUB_STATUS.OCCUPIED;
     court.occupiedAt = Date.now();
 
+    // player-identity (Phase 2 task 2.2) — initialize player fields to null
+    // at session start. createClubCourt already nulls them, but make this
+    // explicit on the fresh-occupy path so a court that was reset, then
+    // re-activated, then re-occupied starts from a clean state. The
+    // reconnection branch above preserves any values set by startFreePlay/
+    // newMatch/adminOccupyCourt by NOT touching them.
+    court.playerName = null;
+    court.phone = null;
+    court.adminId = null;
+
     // Set default player names
     court.playerNames = { a: 'Jugador 1', b: 'Jugador 2' };
     court.sportRules.setPlayerNames({ a: 'Jugador 1', b: 'Jugador 2' });
@@ -330,7 +479,11 @@ export class CourtManager {
           handicapB: 0,
         } as MatchConfig;
 
-    // Auto-init match via MatchOrchestrator
+    // Auto-init match via MatchOrchestrator.
+    // The match starts LIVE with default names; the client's
+    // ClubSessionConfig (PR 4) shows the mode selector on top when
+    // sessionMode is null, letting players choose free or match mode
+    // before interacting with the scoreboard.
     const matchState = this.matchOrchestrator.startMatch(court, {
       ...matchConfig,
       playerNameA: 'Jugador 1',
@@ -359,7 +512,7 @@ export class CourtManager {
    *
    * @returns { elapsedMinutes } on success, null on failure.
    */
-  endSession(courtId: string, reason: string): { elapsedMinutes: number } | null {
+  endSession(courtId: string, reason: string): { elapsedMinutes: number; elapsedSeconds: number } | null {
     const court = this.repository.get(courtId);
     if (!court || !isClubCourt(court)) return null;
     if (court.clubStatus !== CLUB_STATUS.OCCUPIED) return null;
@@ -367,22 +520,43 @@ export class CourtManager {
     const now = Date.now();
     const elapsedMs = court.occupiedAt ? now - court.occupiedAt : 0;
     const elapsedMinutes = Math.max(1, Math.ceil(elapsedMs / 60000));
+    const elapsedSeconds = Math.max(0, Math.floor(elapsedMs / 1000));
 
     court.clubStatus = CLUB_STATUS.FINISHED;
     court.pin = '';
 
-    logger.info({ courtId, courtName: court.name, reason, elapsedMinutes }, 'Club court session ended');
+    logger.info({ courtId, courtName: court.name, reason, elapsedMinutes, elapsedSeconds }, 'Club court session ended');
     this.notifyUpdate(court);
-    this.onClubSessionEnd(courtId, elapsedMinutes, reason);
+    this.onClubSessionEnd(courtId, elapsedMinutes, elapsedSeconds, reason);
 
-    return { elapsedMinutes };
+    return { elapsedMinutes, elapsedSeconds };
   }
 
   /**
    * Force-end a club court session: delegates to endSession('force').
    * Keeps backward-compatible return (Court | null) by looking up the court.
+   *
+   * player-identity (Phase 3 / U2 task 3.6) — admin traceability:
+   *   When `adminId` is supplied (a non-empty string sourced from
+   *   `socket.data.adminId` by the CLUB_FORCE_END handler), it is stamped
+   *   onto the court BEFORE endSession fires `onClubSessionEnd`. The
+   *   callback (in ClubPlayerHandler) reads `clubCourt.adminId` to build
+   *   the SessionRecord, so the stamp there carries the admin who ENDED
+   *   the session — not whoever started it. Without this, a player-
+   *   occupied court (adminId=null) force-ended by an admin would produce
+   *   a record with `endedBy='admin'` but `adminId=null` (unattributed).
+   *
+   *   Omitting `adminId` (legacy callers, internal force-end without an
+   *   admin id) preserves the court's existing adminId untouched —
+   *   backward compatible with every existing caller + test.
    */
-  forceEndSession(courtId: string): Court | null {
+  forceEndSession(courtId: string, adminId?: string): Court | null {
+    if (typeof adminId === 'string' && adminId.length > 0) {
+      const court = this.repository.get(courtId);
+      if (court && isClubCourt(court)) {
+        court.adminId = adminId;
+      }
+    }
     const result = this.endSession(courtId, 'force');
     if (!result) return null;
     return this.repository.get(courtId) ?? null;
@@ -500,15 +674,197 @@ export class CourtManager {
       this.notifyUpdate(court);
     }
 
-    // Auto-finish: if the match just ended on a club OCCUPIED court, end the session
-    if (isClubCourt(court) && court.clubStatus === CLUB_STATUS.OCCUPIED) {
-      const matchState = court.sportRules.getState();
-      if (matchState.status === 'FINISHED') {
-        this.endSession(courtId, 'auto');
-      }
-    }
+    // Club session lifecycle: when a match finishes on a club OCCUPIED
+    // court, the court STAYS OCCUPIED. The session continues until the
+    // player emits CLUB_END_SESSION or the admin force-ends via
+    // CLUB_FORCE_END. The previous auto-endSession('auto') call has been
+    // intentionally removed — see docs/club-session-lifecycle-feature.md.
 
     return state;
+  }
+
+  // ── Club Session Lifecycle ──────────────────────────────────────────
+
+  /**
+   * Switch a club court to "free" session mode.
+   *
+   * Validates that the court exists, is a club-mode court, and is
+   * currently OCCUPIED. On success, sets `court.sessionMode = 'free'`,
+   * leaves the court in OCCUPIED state with the timer running, and
+   * returns the new session mode.
+   *
+   * player-identity (Phase 2 task 2.2) — optionally accepts the player's
+   * own name + phone (the player flow submits these alongside the mode
+   * choice, encrypted client-side via AES-256-GCM). When provided, the
+   * values are stored on the court so that the subsequent
+   * `onClubSessionEnd` callback (in ClubPlayerHandler) can build a
+   * fully-populated SessionRecord. When omitted, any previously set
+   * values are PRESERVED — this supports idempotent re-entry (e.g. the
+   * client resending CLUB_START_FREE without re-sending identity).
+   *
+   * @returns `{ sessionMode: 'free' }` on success, null on failure.
+   */
+  startFreePlay(
+    courtId: string,
+    player?: { playerName?: string; phone?: string },
+  ): { sessionMode: SessionMode } | null {
+    const court = this.repository.get(courtId);
+    if (!court || !isClubCourt(court)) return null;
+    if (court.clubStatus !== CLUB_STATUS.OCCUPIED) return null;
+
+    court.sessionMode = SESSION_MODE.FREE;
+
+    // player-identity — populate when provided, preserve otherwise. The
+    // admin flow (adminOccupyCourt, Phase 3 / U2) sets adminId; here the
+    // player own identified → adminId stays null.
+    if (player && typeof player.playerName === 'string') {
+      court.playerName = player.playerName;
+    }
+    if (player && typeof player.phone === 'string') {
+      court.phone = player.phone;
+    }
+
+    logger.info({ courtId, courtName: court.name }, 'Club court entered free mode');
+    this.notifyUpdate(court);
+
+    return { sessionMode: SESSION_MODE.FREE };
+  }
+
+  /**
+   * Reset the match on a club court to 0-0 with the same config and
+   * player names. Used by the post-match "Reset" action.
+   *
+   * Validates that the court is a club OCCUPIED court. Returns the
+   * fresh LIVE match state with zeroed scores. The court stays OCCUPIED
+   * and the sessionMode is preserved (calling resetMatch does NOT
+   * change free↔match — if the court was in match mode it stays in
+   * match mode; if it was in free mode it stays in free mode).
+   *
+   * @returns `{ matchState }` on success, null on failure.
+   */
+  resetMatch(courtId: string): { matchState: MatchStateExtended } | null {
+    const court = this.repository.get(courtId);
+    if (!court || !isClubCourt(court)) return null;
+    if (court.clubStatus !== CLUB_STATUS.OCCUPIED) return null;
+
+    // Reuse the CURRENT match config (preserve points per set, best of,
+    // handicap, sport). If no config is present (e.g., court was in free
+    // mode with no prior match), fall back to the default table-tennis
+    // config — the spec ties resetMatch to a concluded match.
+    const currentConfig = court.sportRules.getConfig();
+    const config: MatchConfig = currentConfig
+      ? { ...currentConfig }
+      : { sport: SPORT.TABLE_TENNIS, pointsPerSet: 11, bestOf: 1, minDifference: 2 };
+
+    // Re-create the engine with the same config and SAME player names.
+    // This zeroes all scores and returns the match to LIVE.
+    const matchState = this.matchOrchestrator.startMatch(court, {
+      ...config,
+      ...(court.playerNames.a ? { playerNameA: court.playerNames.a } : {}),
+      ...(court.playerNames.b ? { playerNameB: court.playerNames.b } : {}),
+    });
+
+    if (!matchState) return null;
+
+    // Rewire event callback (startMatch replaces the engine).
+    court.sportRules.setEventCallback((event: any) => {
+      this.onMatchEvent(courtId, event);
+    });
+
+    // The orchestrator's startMatch sets match status to LIVE; update
+    // the runtime court playerNames from the resulting matchState
+    // because MatchEngine's startMatch may copy defaults when names
+    // are missing. Reset to the existing stored names explicitly.
+    if (court.playerNames.a || court.playerNames.b) {
+      court.playerNames = { ...court.playerNames };
+      court.sportRules.setPlayerNames({ ...court.playerNames });
+    }
+
+    logger.info({ courtId, courtName: court.name }, 'Club court match reset to 0-0');
+    this.notifyUpdate(court);
+
+    return { matchState };
+  }
+
+  /**
+   * Start a new match on a club court with new player names. Used by the
+   * post-match "New Match" action and by the "Jugar partido" flow from
+   * free mode.
+   *
+   * Validates that the court is a club OCCUPIED court. Updates player
+   * names, sets `sessionMode = 'match'`, and starts a fresh match with
+   * zeroed scores using the existing config (or the default TT config
+   * when none has been configured yet).
+   *
+   * player-identity (Phase 2 task 2.2) — `params.playerName` and
+   * `params.phone` (the player's OWN identity — distinct from the match
+   * participants in `playerNameA`/`playerNameB`) are persisted on the
+   * court when provided, so that the subsequent `onClubSessionEnd`
+   * callback can populate the SessionRecord with player info. When
+   * omitted, prior values are PRESERVED (idempotent re-entry / post-match
+   * "New Match" that doesn't re-collect identity).
+   *
+   * @returns `{ matchState }` on success, null on failure.
+   */
+  newMatch(
+    courtId: string,
+    params: {
+      playerNameA: string;
+      playerNameB: string;
+      matchConfig?: Partial<MatchConfig>;
+      playerName?: string;
+      phone?: string;
+    },
+  ): { matchState: MatchStateExtended } | null {
+    const court = this.repository.get(courtId);
+    if (!court || !isClubCourt(court)) return null;
+    if (court.clubStatus !== CLUB_STATUS.OCCUPIED) return null;
+
+    // Update player names on the court
+    court.playerNames = { a: params.playerNameA, b: params.playerNameB };
+    court.sessionMode = SESSION_MODE.MATCH;
+
+    // player-identity — populate when provided, preserve otherwise.
+    // The admin flow (adminOccupyCourt, Phase 3 / U2) sets adminId; here
+    // the player owns the session → adminId stays null.
+    if (typeof params.playerName === 'string') {
+      court.playerName = params.playerName;
+    }
+    if (typeof params.phone === 'string') {
+      court.phone = params.phone;
+    }
+
+    // Reuse the existing config when one exists; otherwise default to
+    // table-tennis bestOf=1. PR 2 risk fix #2 — the optional matchConfig
+    // passed by the CLUB_NEW_MATCH handler overrides the relevant config
+    // fields so a user can pick non-default points/sets/handicap before
+    // starting a fresh match.
+    const currentConfig = court.sportRules.getConfig();
+    const baseConfig: MatchConfig = currentConfig
+      ? { ...currentConfig }
+      : { sport: SPORT.TABLE_TENNIS, pointsPerSet: 11, bestOf: 1, minDifference: 2 };
+    const config: MatchConfig = { ...baseConfig, ...(params.matchConfig ?? {}) } as MatchConfig;
+
+    const matchState = this.matchOrchestrator.startMatch(court, {
+      ...config,
+      playerNameA: params.playerNameA,
+      playerNameB: params.playerNameB,
+    });
+
+    if (!matchState) return null;
+
+    // Rewire event callback (startMatch replaces the engine).
+    court.sportRules.setEventCallback((event: any) => {
+      this.onMatchEvent(courtId, event);
+    });
+
+    logger.info(
+      { courtId, courtName: court.name, playerNameA: params.playerNameA, playerNameB: params.playerNameB },
+      'Club court new match started',
+    );
+    this.notifyUpdate(court);
+
+    return { matchState };
   }
 
   subtractPoint(courtId: string, player: Player): MatchStateExtended | null {
@@ -625,11 +981,11 @@ export class CourtManager {
     });
 
     logger.info({ courtId, courtName: court.name, oldRefereeId: oldReferee || 'none', newPin: court.pin }, 'Court reset with new PIN');
-    // Only autoSave — skip notifyUpdate (which broadcasts TABLE_LIST without PINs).
+    // Only persistState — skip notifyUpdate (which broadcasts TABLE_LIST without PINs).
     // The client gets the new PIN via PIN_REGENERATED + TABLE_LIST_WITH_PINS,
     // avoiding a race where TABLE_LIST overwrites TABLE_LIST_WITH_PINS state.
     if (this.stateStore) {
-      this.autoSave();
+      this.persistState();
     }
 
     return court.pin;
@@ -665,7 +1021,7 @@ export class CourtManager {
 
     // Auto-save to state store (fire-and-forget — errors logged but don't crash)
     if (this.stateStore) {
-      this.autoSave();
+      this.persistState();
     }
   }
 
@@ -675,7 +1031,7 @@ export class CourtManager {
    * Tournament courts use `status` as discriminator; club courts use `clubStatus`.
    * Errors are caught and logged — the caller is never affected.
    */
-  private autoSave(): void {
+  private persistState(): void {
     try {
       const allCourts = this.repository.getAll();
 
@@ -784,6 +1140,19 @@ export class CourtManager {
       },
       config: null,
       history: court.history as unknown as Record<string, unknown>[],
+      // PR 2 risk fix (a) — persist sessionMode so a mid-session server
+      // restart does not lose free/match context.
+      sessionMode: court.sessionMode,
+      // player-identity (Phase 2 task 2.2) — persist the player info
+      // captured at session-start so a mid-session restart can keep
+      // showing the player on the kiosk and rebuild the SessionRecord
+      // correctly if the session ends after a restart. Matches the
+      // sessionMode loader-plugin pattern: legacy v3 files written
+      // before these fields existed fall back to null via `?? null` in
+      // restoreState.
+      playerName: court.playerName,
+      phone: court.phone,
+      adminId: court.adminId,
     };
   }
 
@@ -800,9 +1169,9 @@ export class CourtManager {
    *
    * @returns true if at least one court was restored, false otherwise.
    */
-  public loadTournament(): boolean {
+  public restoreState(): boolean {
     if (!this.stateStore) {
-      logger.warn('CourtManager.loadTournament: no StateStore configured');
+      logger.warn('CourtManager.restoreState: no StateStore configured');
       return false;
     }
 
@@ -868,7 +1237,7 @@ export class CourtManager {
       } catch (err) {
         logger.warn(
           { err, courtId: pt.id },
-          'CourtManager.loadTournament: failed to restore tournament court, skipping',
+          'CourtManager.restoreState: failed to restore tournament court, skipping',
         );
       }
     }
@@ -905,6 +1274,14 @@ export class CourtManager {
           players: [],
           createdAt: pt.createdAt,
           featured: false,
+          // PR 2 risk fix (a) — restore persisted sessionMode; legacy v3
+          // files written before this field existed fall back to null.
+          sessionMode: (pt as PersistedClubCourt).sessionMode ?? null,
+          // player-identity — restore persisted player fields; legacy v3
+          // files written before these fields existed fall back to null.
+          playerName: (pt as PersistedClubCourt).playerName ?? null,
+          phone: (pt as PersistedClubCourt).phone ?? null,
+          adminId: (pt as PersistedClubCourt).adminId ?? null,
         };
 
         // Wire callbacks so Socket.io events work after restoration
@@ -922,7 +1299,7 @@ export class CourtManager {
       } catch (err) {
         logger.warn(
           { err, courtId: pt.id },
-          'CourtManager.loadTournament: failed to restore club court, skipping',
+          'CourtManager.restoreState: failed to restore club court, skipping',
         );
       }
     }

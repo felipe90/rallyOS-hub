@@ -129,7 +129,7 @@ describe('KioskNotificationModal', () => {
 
   // ── Submission ─────────────────────────────────────────────────────
 
-  it('submits with correct payload: type, message, and default duration', () => {
+  it('submits with correct payload: type, message, duration, and default scope', () => {
     const onSubmit = vi.fn()
     render(<KioskNotificationModal {...defaultProps} onSubmit={onSubmit} />)
 
@@ -142,6 +142,7 @@ describe('KioskNotificationModal', () => {
       type: 'error',
       message: 'System maintenance',
       duration: 5,
+      scope: 'club',
     })
   })
 
@@ -158,6 +159,7 @@ describe('KioskNotificationModal', () => {
       type: 'important',
       message: 'Important announcement',
       duration: 30,
+      scope: 'club',
     })
   })
 
@@ -210,5 +212,182 @@ describe('KioskNotificationModal', () => {
     render(<KioskNotificationModal {...defaultProps} />)
     const textarea = screen.getByRole('textbox')
     expect(textarea).toHaveAttribute('maxLength', '280')
+  })
+
+  // ── Task 3.3: showGeneralToggle + generalLabel props ───────────────
+
+  describe('scope toggle (task 3.3)', () => {
+    it('does NOT render scope toggle by default', () => {
+      render(<KioskNotificationModal {...defaultProps} />)
+      expect(screen.queryByText('notificationScopeLabel')).not.toBeInTheDocument()
+    })
+
+    it('renders scope toggle checkbox when showGeneralToggle is true', () => {
+      render(
+        <KioskNotificationModal
+          {...defaultProps}
+          showGeneralToggle={true}
+          generalLabel="notificationScopeGeneral"
+        />,
+      )
+      expect(screen.getByText('notificationScopeGeneral')).toBeInTheDocument()
+      const checkbox = screen.getByRole('checkbox')
+      expect(checkbox).toBeInTheDocument()
+      expect(checkbox).not.toBeChecked()
+    })
+
+    it('renders scope toggle with custom label', () => {
+      render(
+        <KioskNotificationModal
+          {...defaultProps}
+          showGeneralToggle={true}
+          generalLabel="Broadcast to all"
+        />,
+      )
+      expect(screen.getByText('Broadcast to all')).toBeInTheDocument()
+    })
+
+    it('checkbox can be toggled on and off', () => {
+      render(
+        <KioskNotificationModal
+          {...defaultProps}
+          showGeneralToggle={true}
+          generalLabel="General"
+        />,
+      )
+      const checkbox = screen.getByRole('checkbox')
+      expect(checkbox).not.toBeChecked()
+
+      fireEvent.click(checkbox)
+      expect(checkbox).toBeChecked()
+
+      fireEvent.click(checkbox)
+      expect(checkbox).not.toBeChecked()
+    })
+
+    it('passes scope as "general" in submit payload when checkbox is checked, "club" when unchecked', () => {
+      const onSubmit = vi.fn()
+      render(
+        <KioskNotificationModal
+          {...defaultProps}
+          onSubmit={onSubmit}
+          showGeneralToggle={true}
+          generalLabel="General"
+        />,
+      )
+
+      // Fill required fields
+      fireEvent.click(screen.getByText('notificationTypeInfo'))
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Scope test' } })
+
+      // Check the toggle
+      fireEvent.click(screen.getByRole('checkbox'))
+      fireEvent.click(screen.getByText('notificationSend'))
+
+      expect(onSubmit).toHaveBeenCalledWith({
+        type: 'info',
+        message: 'Scope test',
+        duration: 5,
+        scope: 'general',
+      })
+
+      onSubmit.mockClear()
+
+      // Uncheck and submit again
+      fireEvent.click(screen.getByRole('checkbox'))
+      fireEvent.click(screen.getByText('notificationSend'))
+
+      expect(onSubmit).toHaveBeenCalledWith({
+        type: 'info',
+        message: 'Scope test',
+        duration: 5,
+        scope: 'club',
+      })
+    })
+  })
+
+  // ── Task 3.4: Per-type contextual placeholder ──────────────────────
+
+  describe('per-type contextual placeholder (task 3.4)', () => {
+    const placeholderProps = {
+      messagePlaceholders: {
+        info: 'Notification info',
+        warning: 'Notification warning',
+        error: 'Notification error',
+        important: 'Notification important',
+      } as Record<string, string>,
+    }
+
+    it.each([
+      ['info', 'Notification info'],
+      ['warning', 'Notification warning'],
+      ['error', 'Notification error'],
+      ['important', 'Notification important'],
+    ])('shows %s context placeholder when %s type is selected', (type, expectedPlaceholder) => {
+      render(<KioskNotificationModal {...defaultProps} {...placeholderProps} />)
+      const textarea = screen.getByRole('textbox')
+
+      // Initially has the default placeholder
+      expect(textarea).toHaveAttribute('placeholder', 'notificationMessagePlaceholder')
+
+      // Select a type
+      const typeLabel = type === 'info' ? 'notificationTypeInfo'
+        : type === 'warning' ? 'notificationTypeWarning'
+        : type === 'error' ? 'notificationTypeError'
+        : 'notificationTypeImportant'
+      fireEvent.click(screen.getByText(typeLabel))
+
+      // Placeholder should update to contextual version
+      expect(textarea).toHaveAttribute('placeholder', expectedPlaceholder)
+    })
+
+    it('resets placeholder to default when type selection is cleared', () => {
+      render(<KioskNotificationModal {...defaultProps} {...placeholderProps} />)
+      const textarea = screen.getByRole('textbox')
+
+      fireEvent.click(screen.getByText('notificationTypeInfo'))
+      expect(textarea).toHaveAttribute('placeholder', 'Notification info')
+
+      // Click same type again to deselect
+      fireEvent.click(screen.getByText('notificationTypeInfo'))
+      // When deselected, should go back to default
+      expect(textarea).toHaveAttribute('placeholder', 'notificationMessagePlaceholder')
+    })
+  })
+
+  // ── Task 3.5: Visual ring on selected type button ──────────────────
+
+  describe('selected type highlight ring (task 3.5)', () => {
+    /** Check for the visual ring-2 class (not the focus:ring-2 present on all buttons) */
+    function hasRing(el: HTMLElement): boolean {
+      return el.className.split(' ').includes('ring-2')
+    }
+
+    it('adds visual ring highlight to the selected type button', () => {
+      render(<KioskNotificationModal {...defaultProps} />)
+      const infoBtn = screen.getByText('notificationTypeInfo').closest('button')!
+
+      // Before selection — no ring
+      expect(hasRing(infoBtn)).toBe(false)
+
+      fireEvent.click(infoBtn)
+
+      // After selection — should have visual ring classes
+      expect(hasRing(infoBtn)).toBe(true)
+    })
+
+    it('removes ring from previously selected type when a new type is selected', () => {
+      render(<KioskNotificationModal {...defaultProps} />)
+      const infoBtn = screen.getByText('notificationTypeInfo').closest('button')!
+      const warningBtn = screen.getByText('notificationTypeWarning').closest('button')!
+
+      fireEvent.click(infoBtn)
+      expect(hasRing(infoBtn)).toBe(true)
+
+      fireEvent.click(warningBtn)
+      expect(hasRing(warningBtn)).toBe(true)
+      // Info should no longer have the ring
+      expect(hasRing(infoBtn)).toBe(false)
+    })
   })
 })

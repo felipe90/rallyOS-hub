@@ -15,8 +15,8 @@ import { SessionTokenService } from '../services/security/SessionTokenService';
 import { validateSocketPayload } from '../utils/validation';
 import { logger, maskIp } from '../utils/logger';
 import { SocketEvents } from '../../../shared/events';
-import { ADMIN_PIN_RULES } from '../../../shared/validation';
-import { COURT_MODE } from '../../../shared/types';
+import { ADMIN_PIN_RULES, sanitizeMessage } from '../../../shared/validation';
+import { COURT_MODE, KioskNotificationType } from '../../../shared/types';
 import { SocketHandlerBase } from './SocketHandlerBase';
 import { isClubCourt } from '../domain/types';
 import type { SocketData } from '../domain/types';
@@ -136,6 +136,14 @@ export class ClubAdminHandler extends SocketHandlerBase {
       }
     });
 
+    // CLUB_SEND_NOTIFICATION: Club admin sends kiosk notification
+    socket.on(SocketEvents.CLIENT.CLUB_SEND_NOTIFICATION, (data: {
+      type: KioskNotificationType;
+      message: string;
+      duration: number;
+      general?: boolean;
+    }) => this.handleClubSendNotification(socket, data));
+
     // CLUB_GET_CONFIG: Check if club is configured
     socket.on(SocketEvents.CLIENT.CLUB_GET_CONFIG, () => {
       const config = this.clubConfigStore.load();
@@ -239,5 +247,54 @@ export class ClubAdminHandler extends SocketHandlerBase {
         'Club setup complete',
       );
     });
+  }
+
+  /**
+   * Handle CLUB_SEND_NOTIFICATION: validate isClubAdmin, rate-limit, sanitize, broadcast.
+   * Maps general → scope:'general', omitting general → scope:'club'.
+   */
+  private handleClubSendNotification(socket: Socket, data: {
+    type: KioskNotificationType;
+    message: string;
+    duration: number;
+    general?: boolean;
+  }): void {
+    // Auth: only club admins can send notifications
+    if (!this.validateClubAdmin(socket)) {
+      return;
+    }
+
+    // Rate-limit per IP with separate key prefix (5/min)
+    const clientIp = socket.handshake.address;
+    const rateLimitKey = `CLUB_NOTIFICATION:${clientIp}`;
+    if (this.isRateLimited(rateLimitKey)) {
+      this.logRateLimitBlocked('CLUB_SEND_NOTIFICATION', 'club-notification', clientIp);
+      return this.emitError(socket, 'RATE_LIMITED', 'Demasiadas notificaciones. Esperá un minuto.');
+    }
+
+    // Sanitize HTML and truncate message
+    const sanitizedMessage = sanitizeMessage(data.message || '');
+
+    // Determine scope: general: true → 'general', otherwise 'club'
+    const scope = data.general === true ? 'general' : 'club';
+
+    // Build payload with server-set timestamp
+    const payload = {
+      type: data.type,
+      message: sanitizedMessage,
+      duration: data.duration,
+      timestamp: Date.now(),
+      scope,
+    };
+
+    // Broadcast to all connected clients (clients filter by scope)
+    this.io.emit(SocketEvents.SERVER.KIOSK_NOTIFICATION, payload);
+
+    logger.info({
+      type: data.type,
+      duration: data.duration,
+      scope,
+      ip: maskIp(clientIp),
+    }, 'Club admin notification broadcast');
   }
 }

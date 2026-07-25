@@ -12,12 +12,12 @@ const COLOR_MAP: Record<KioskNotificationData['type'], string> = {
   important: 'bg-primary',
 }
 
-// Static classes so Tailwind JIT sees them at build time (no dynamic /90)
-const COLOR_MAP_KIOSK: Record<KioskNotificationData['type'], string> = {
-  info: 'bg-green-600/90',
-  warning: 'bg-amber-500/90',
-  error: 'bg-red-600/90',
-  important: 'bg-primary/90',
+// Left-border accent colors per type (used as inline style by kiosk mode)
+const BORDER_ACCENT_COLORS: Record<KioskNotificationData['type'], string> = {
+  info: '#16a34a',     // green-600
+  warning: '#d97706',  // amber-500
+  error: '#dc2626',    // red-600
+  important: '#6366f1', // indigo-500 (primary)
 }
 
 const ICON_MAP: Record<KioskNotificationData['type'], React.ComponentType<{ size?: number }>> = {
@@ -194,9 +194,13 @@ export function KioskNotificationToast({ notification, onDismiss, kioskMode = fa
       {...toastMotionProps}
       className={`fixed bottom-0 left-0 right-0 z-[100] text-white m-4 ${
         isKiosk
-          ? `${COLOR_MAP_KIOSK[notification.type]} min-h-[15vh] rounded-xl shadow-2xl`
+          ? 'bg-black/60 backdrop-blur-xl border border-white/10 min-h-[15vh] rounded-xl shadow-2xl'
           : `${colorClass} rounded-lg shadow-lg`
       }`}
+      style={isKiosk ? {
+        borderLeftColor: BORDER_ACCENT_COLORS[notification.type],
+        borderLeftWidth: '4px',
+      } : undefined}
       role="alert"
     >
       <div className={`flex items-center justify-center ${

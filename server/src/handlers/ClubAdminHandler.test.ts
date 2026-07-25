@@ -406,7 +406,164 @@ describe('ClubAdminHandler — CLUB_ADMIN_VERIFIED JWT (REQ-10)', () => {
       expect(first[0].encryptionKey).not.toBe(second[0].encryptionKey);
     });
 
-    it('does NOT overwrite encryptionKey when the request somehow carries one (server is authoritative on setup)', () => {
+    // ── Club Admin Notifications: CLUB_SEND_NOTIFICATION (Phase 2, tasks 2.1–2.2) ──
+
+  describe('ClubAdminHandler — CLUB_SEND_NOTIFICATION (club admin notifications)', () => {
+    let handler: ClubAdminHandler;
+    let socket: ReturnType<typeof makeMockSocket>;
+
+    beforeEach(() => {
+      handler = new ClubAdminHandler(
+        mockIo,
+        tableManager,
+        '12345678',
+        clubConfigStore,
+        adminPinService as any,
+        sessionTokenService,
+      );
+      socket = makeMockSocket();
+      handler.registerHandlers(socket as unknown as Socket);
+      // Mark the socket as club admin (simulating successful verify)
+      socket.data = { ...socket.data, isClubAdmin: true };
+    });
+
+    it('registers a handler for CLUB_SEND_NOTIFICATION (task 2.2)', () => {
+      expect(socket.on).toHaveBeenCalledWith(
+        SocketEvents.CLIENT.CLUB_SEND_NOTIFICATION,
+        expect.any(Function),
+      );
+    });
+
+    it('rejects the request when socket is NOT a club admin', () => {
+      socket.data = { ...socket.data, isClubAdmin: false };
+
+      socket._trigger(SocketEvents.CLIENT.CLUB_SEND_NOTIFICATION, {
+        type: 'info',
+        message: 'Unauthorized attempt',
+        duration: 5,
+      });
+
+      const error = (socket._emitted as any[]).find(
+        (e) => e.event === 'ERROR',
+      );
+      expect(error).toBeDefined();
+      expect(error.data.code).toBe('UNAUTHORIZED');
+      expect((mockIo.emit as jest.Mock).mock.calls.length).toBe(0);
+    });
+
+    it('broadcasts KIOSK_NOTIFICATION when a club admin sends a notification', () => {
+      const now = Date.now();
+      // Fake Date.now so the timestamp assertion is deterministic
+      jest.spyOn(Date, 'now').mockReturnValue(now);
+
+      socket._trigger(SocketEvents.CLIENT.CLUB_SEND_NOTIFICATION, {
+        type: 'info',
+        message: 'Cancha 3 lista',
+        duration: 5,
+      });
+
+      expect(mockIo.emit).toHaveBeenCalledTimes(1);
+      expect(mockIo.emit).toHaveBeenCalledWith(
+        SocketEvents.SERVER.KIOSK_NOTIFICATION,
+        {
+          type: 'info',
+          message: 'Cancha 3 lista',
+          duration: 5,
+          timestamp: now,
+          scope: 'club',
+        },
+      );
+
+      jest.restoreAllMocks();
+    });
+
+    it('broadcasts with scope "general" when { general: true } is sent', () => {
+      const now = Date.now();
+      jest.spyOn(Date, 'now').mockReturnValue(now);
+
+      socket._trigger(SocketEvents.CLIENT.CLUB_SEND_NOTIFICATION, {
+        type: 'important',
+        message: 'All courts closed',
+        duration: 10,
+        general: true,
+      });
+
+      expect(mockIo.emit).toHaveBeenCalledWith(
+        SocketEvents.SERVER.KIOSK_NOTIFICATION,
+        {
+          type: 'important',
+          message: 'All courts closed',
+          duration: 10,
+          timestamp: now,
+          scope: 'general',
+        },
+      );
+
+      jest.restoreAllMocks();
+    });
+
+    it('sanitizes HTML tags from the message before broadcasting', () => {
+      socket._trigger(SocketEvents.CLIENT.CLUB_SEND_NOTIFICATION, {
+        type: 'warning',
+        message: '<script>alert("xss")</script>Mantenimiento',
+        duration: 5,
+      });
+
+      const emitted = (mockIo.emit as jest.Mock).mock.calls.find(
+        (call: any[]) => call[0] === SocketEvents.SERVER.KIOSK_NOTIFICATION,
+      );
+      expect(emitted).toBeDefined();
+      expect(emitted[1].message).toBe('alert("xss")Mantenimiento');
+    });
+
+    it('rate-limits after 5 notifications per minute per IP', () => {
+      // First 5 should succeed
+      for (let i = 0; i < 5; i++) {
+        socket._trigger(SocketEvents.CLIENT.CLUB_SEND_NOTIFICATION, {
+          type: 'info',
+          message: `Notification ${i}`,
+          duration: 5,
+        });
+      }
+
+      expect((mockIo.emit as jest.Mock).mock.calls.filter(
+        (call: any[]) => call[0] === SocketEvents.SERVER.KIOSK_NOTIFICATION,
+      ).length).toBe(5);
+
+      // 6th should be rate-limited
+      socket._trigger(SocketEvents.CLIENT.CLUB_SEND_NOTIFICATION, {
+        type: 'info',
+        message: 'Too many',
+        duration: 5,
+      });
+
+      const error = (socket._emitted as any[]).filter(
+        (e) => e.event === 'ERROR',
+      ).slice(-1)[0];
+      expect(error).toBeDefined();
+      expect(error.data.code).toBe('RATE_LIMITED');
+      expect((mockIo.emit as jest.Mock).mock.calls.filter(
+        (call: any[]) => call[0] === SocketEvents.SERVER.KIOSK_NOTIFICATION,
+      ).length).toBe(5);
+    });
+
+    it('truncates message longer than 280 characters', () => {
+      const longMsg = 'x'.repeat(300);
+      socket._trigger(SocketEvents.CLIENT.CLUB_SEND_NOTIFICATION, {
+        type: 'info',
+        message: longMsg,
+        duration: 5,
+      });
+
+      const emitted = (mockIo.emit as jest.Mock).mock.calls.find(
+        (call: any[]) => call[0] === SocketEvents.SERVER.KIOSK_NOTIFICATION,
+      );
+      expect(emitted).toBeDefined();
+      expect(emitted[1].message.length).toBe(280);
+    });
+  });
+
+  it('does NOT overwrite encryptionKey when the request somehow carries one (server is authoritative on setup)', () => {
       // Defensive contract: CLUB_SETUP is first-run, so there is no prior
       // ClubConfig; the SERVER generates the key, never the client. The
       // request payload does not carry an encryptionKey field, and even

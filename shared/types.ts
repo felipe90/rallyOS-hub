@@ -388,11 +388,16 @@ export interface RefRevokedEvent {
 
 export type KioskNotificationType = 'info' | 'warning' | 'error' | 'important';
 
+/** Notification scope — 'club' targets only the club room, 'general' targets all kiosks */
+export type KioskNotificationScope = 'club' | 'general';
+
 export interface KioskNotificationData {
   type: KioskNotificationType;
   message: string;
   duration: number;
   timestamp: number;
+  /** Optional scope — defaults to 'general' for backward compat with owner notifications */
+  scope?: KioskNotificationScope;
 }
 
 // ── Session Record (club session history) ──────────────────────────────

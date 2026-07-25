@@ -73,6 +73,8 @@ export const SocketEvents = {
     // decrypts using ClubConfig.encryptionKey, never sends the key to the
     // admin client.
     CLUB_REVEAL_PHONE: 'CLUB_REVEAL_PHONE',
+    // Club Admin Notifications
+    CLUB_SEND_NOTIFICATION: 'CLUB_SEND_NOTIFICATION',
   },
   // Emitted by SERVER → received by CLIENT
   SERVER: {

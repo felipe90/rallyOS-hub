@@ -5,7 +5,7 @@
  * SocketEvents entries, NOTIFICATION_RULES constants, and sanitizeMessage().
  */
 
-import { KioskNotificationType, KioskNotificationData } from '../types';
+import { KioskNotificationType, KioskNotificationData, KioskNotificationScope } from '../types';
 import { SocketEvents } from '../events';
 import { NOTIFICATION_RULES, sanitizeMessage } from '../validation';
 
@@ -65,6 +65,54 @@ describe('KioskNotificationData (interface shape)', () => {
   });
 });
 
+// ── KioskNotificationScope (new type) ────────────────────────────────
+
+describe('KioskNotificationScope', () => {
+  test('accepts "club"', () => {
+    const scope: KioskNotificationScope = 'club';
+    expect(scope).toBe('club');
+  });
+
+  test('accepts "general"', () => {
+    const scope: KioskNotificationScope = 'general';
+    expect(scope).toBe('general');
+  });
+});
+
+describe('KioskNotificationData — scope field (task 1.1)', () => {
+  test('accepts optional scope field set to "club"', () => {
+    const data: KioskNotificationData = {
+      type: 'info',
+      message: 'Club notification',
+      duration: 5,
+      timestamp: 1715971200000,
+      scope: 'club',
+    };
+    expect(data.scope).toBe('club');
+  });
+
+  test('accepts optional scope field set to "general"', () => {
+    const data: KioskNotificationData = {
+      type: 'warning',
+      message: 'General announcement',
+      duration: 10,
+      timestamp: 1715971200000,
+      scope: 'general',
+    };
+    expect(data.scope).toBe('general');
+  });
+
+  test('scope is optional — data without scope is valid', () => {
+    const data: KioskNotificationData = {
+      type: 'error',
+      message: 'No scope set',
+      duration: 5,
+      timestamp: 1715971200000,
+    };
+    expect(data.scope).toBeUndefined();
+  });
+});
+
 // ── SocketEvents (event names) ──────────────────────────────────────
 
 describe('SocketEvents — notification events', () => {
@@ -74,6 +122,10 @@ describe('SocketEvents — notification events', () => {
 
   test('KIOSK_NOTIFICATION is in SERVER events', () => {
     expect(SocketEvents.SERVER.KIOSK_NOTIFICATION).toBe('KIOSK_NOTIFICATION');
+  });
+
+  test('CLUB_SEND_NOTIFICATION is in CLIENT events (task 1.2)', () => {
+    expect(SocketEvents.CLIENT.CLUB_SEND_NOTIFICATION).toBe('CLUB_SEND_NOTIFICATION');
   });
 });
 

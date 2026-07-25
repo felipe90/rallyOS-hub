@@ -8,7 +8,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CLUB_STATUS } from '@shared/types'
-import type { ClubCourtInfo, SessionMode } from '@shared/types'
+import type { ClubCourtInfo, KioskNotificationType, SessionMode } from '@shared/types'
 import { CreateCourtButton } from '@/components/molecules/CreateCourtButton'
 import { Input } from '@/components/atoms/Input'
 import { Button } from '@/components/atoms/Button'
@@ -18,8 +18,10 @@ import { PageHeader } from '@/components/molecules/PageHeader'
 import { ConfirmDialog } from '@/components/molecules/ConfirmDialog'
 import { ClubSessionHistoryPanel } from '@/components/molecules/ClubSessionHistoryPanel'
 import { AdminOccupyModal } from '@/components/organisms/AdminOccupyModal'
+import { KioskNotificationModal } from '@/components/molecules/KioskNotificationModal'
 import { useToast } from '@/components/molecules/Toast'
 import { useSocketContext } from '@/contexts/SocketContext'
+import { SocketEvents } from '@shared/events'
 import { useAuthContext } from '@/contexts/AuthContext'
 import { useClubAdmin } from '@/hooks/useClubAdmin'
 import { useClubCourtManagement } from '@/hooks/useClubCourtManagement'
@@ -39,6 +41,7 @@ import {
   Monitor,
   Trophy,
   UserPlus,
+  Bell,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -99,6 +102,9 @@ export function ClubAdminPage() {
   const [forceEndCourt, setForceEndCourt] = useState<ClubCourtInfo | null>(null)
   const [deleteCourtTarget, setDeleteCourtTarget] = useState<ClubCourtInfo | null>(null)
   const [occupyCourt, setOccupyCourt] = useState<ClubCourtInfo | null>(null)
+  const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false)
+  const [notificationLoading, setNotificationLoading] = useState(false)
+  const [notificationError, setNotificationError] = useState<string | null>(null)
 
   // Toast for operation events
   useEffect(() => {
@@ -191,6 +197,17 @@ export function ClubAdminPage() {
     [occupyCourt, courtMgmt],
   )
 
+  const handleSendNotification = useCallback(
+    (data: { type: KioskNotificationType; message: string; duration: number; scope?: 'club' | 'general' }) => {
+      if (!socket) return
+      setNotificationLoading(true)
+      setNotificationError(null)
+      socket.emit(SocketEvents.CLIENT.CLUB_SEND_NOTIFICATION, data)
+      // Loading resolves when modal closes or on socket error
+    },
+    [socket],
+  )
+
   // Admin PIN verification screen
   if (!isAdmin) {
     return (
@@ -261,6 +278,14 @@ export function ClubAdminPage() {
         }}
         actions={
           <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsNotificationModalOpen(true)}
+              title="Send Notification"
+            >
+              <Bell size={16} />
+            </Button>
             <Button variant="ghost" size="sm" onClick={() => window.open(Routes.KIOSK_CLUB, '_blank')} title="Abrir Kiosk Club">
               <Monitor size={16} />
             </Button>
@@ -468,6 +493,27 @@ export function ClubAdminPage() {
         cancelLabel={i18nText('commonCancel')}
         onConfirm={handleDeleteConfirm}
         onCancel={() => setDeleteCourtTarget(null)}
+      />
+
+      {/* Club admin notification modal */}
+      <KioskNotificationModal
+        isOpen={isNotificationModalOpen}
+        onClose={() => {
+          setIsNotificationModalOpen(false)
+          setNotificationLoading(false)
+          setNotificationError(null)
+        }}
+        onSubmit={handleSendNotification}
+        isLoading={notificationLoading}
+        error={notificationError}
+        showGeneralToggle
+        title={i18nText('notificationModalTitle')}
+        generalLabel={i18nText('notificationScopeGeneral')}
+        typeInfoLabel={i18nText('notificationTypeInfo')}
+        typeWarningLabel={i18nText('notificationTypeWarning')}
+        typeErrorLabel={i18nText('notificationTypeError')}
+        typeImportantLabel={i18nText('notificationTypeImportant')}
+        submitLabel={i18nText('notificationSend')}
       />
     </div>
   )

@@ -22,7 +22,7 @@ const ROTATION_INTERVAL_MS = 10_000
  * a responsive grid of ClubKioskCard components with auto-rotation.
  */
 export function ClubKioskPage() {
-  const { socket, hubConfig } = useSocketContext()
+  const { socket, hubConfig, kioskNotification } = useSocketContext()
   const { i18nText } = useI18n()
   const [courts, setCourts] = useState<ClubKioskPayload['courts']>([])
   const [clubName, setClubName] = useState('Club')
@@ -114,7 +114,11 @@ export function ClubKioskPage() {
         </>
       )}
 
-      <KioskSportsTicker defaultText="BIENVENIDOS A RALLYOS" />
+      <KioskSportsTicker
+        notification={kioskNotification?.scope === 'general' ? null : kioskNotification}
+        defaultText="BIENVENIDOS A RALLYOS"
+        defaultTexts={['▶ CANCHAS DISPONIBLES', '▶ RESERVAS', '▶ ESCANEA QR PARA JUGAR']}
+      />
     </div>
   )
 }

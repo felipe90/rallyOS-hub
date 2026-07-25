@@ -265,20 +265,20 @@ describe('KioskAllCourtsPage', () => {
     expect(screen.getByText('Waiting Table')).toBeInTheDocument()
   })
 
-  describe('kiosk notification toast', () => {
-    const mockNotification: KioskNotificationData = {
-      type: 'info',
+  describe('kiosk notification toast — type-gated (important/error only)', () => {
+    const mockImportantNotification: KioskNotificationData = {
+      type: 'important',
       message: 'Test notification',
       duration: 5,
       timestamp: Date.now(),
     }
 
-    it('renders KioskNotificationToast when kioskNotification is non-null', () => {
+    it('renders KioskNotificationToast when type is "important"', () => {
       mockUseSocketContext.mockReturnValue({
         courts: [makeTable({ status: 'LIVE' })],
         connected: true,
         connecting: false,
-        kioskNotification: mockNotification,
+        kioskNotification: mockImportantNotification,
       })
 
       render(
@@ -289,6 +289,58 @@ describe('KioskAllCourtsPage', () => {
 
       expect(screen.getByTestId('kiosk-notification-toast')).toBeInTheDocument()
       expect(screen.getByText('Test notification')).toBeInTheDocument()
+    })
+
+    it('renders KioskNotificationToast when type is "error"', () => {
+      mockUseSocketContext.mockReturnValue({
+        courts: [makeTable({ status: 'LIVE' })],
+        connected: true,
+        connecting: false,
+        kioskNotification: { ...mockImportantNotification, type: 'error', message: 'Error notification' },
+      })
+
+      render(
+        <MemoryRouter>
+          <KioskAllCourtsPage />
+        </MemoryRouter>,
+      )
+
+      expect(screen.getByTestId('kiosk-notification-toast')).toBeInTheDocument()
+      expect(screen.getByText('Error notification')).toBeInTheDocument()
+    })
+
+    it('does NOT render KioskNotificationToast when type is "info" (ticker only)', () => {
+      mockUseSocketContext.mockReturnValue({
+        courts: [makeTable({ status: 'LIVE' })],
+        connected: true,
+        connecting: false,
+        kioskNotification: { ...mockImportantNotification, type: 'info', message: 'Info message' },
+      })
+
+      render(
+        <MemoryRouter>
+          <KioskAllCourtsPage />
+        </MemoryRouter>,
+      )
+
+      expect(screen.queryByTestId('kiosk-notification-toast')).not.toBeInTheDocument()
+    })
+
+    it('does NOT render KioskNotificationToast when type is "warning" (ticker only)', () => {
+      mockUseSocketContext.mockReturnValue({
+        courts: [makeTable({ status: 'LIVE' })],
+        connected: true,
+        connecting: false,
+        kioskNotification: { ...mockImportantNotification, type: 'warning', message: 'Warning message' },
+      })
+
+      render(
+        <MemoryRouter>
+          <KioskAllCourtsPage />
+        </MemoryRouter>,
+      )
+
+      expect(screen.queryByTestId('kiosk-notification-toast')).not.toBeInTheDocument()
     })
 
     it('does NOT render KioskNotificationToast when kioskNotification is null', () => {
@@ -330,7 +382,7 @@ describe('KioskAllCourtsPage', () => {
         courts: [table1],
         connected: true,
         connecting: false,
-        kioskNotification: { ...mockNotification, message: 'Break time!' },
+        kioskNotification: { ...mockImportantNotification, type: 'important', message: 'Break time!' },
       })
 
       render(

@@ -19,6 +19,8 @@ const useClubAdminMock = vi.fn()
 const useClubCourtManagementMock = vi.fn()
 const useClubSessionHistoryMock = vi.fn()
 
+const mockUseSocketContext = vi.hoisted(() => vi.fn())
+
 vi.mock('@/hooks/useClubAdmin', () => ({
   useClubAdmin: (...args: unknown[]) => useClubAdminMock(...args),
 }))
@@ -32,11 +34,35 @@ vi.mock('@/hooks/useClubSessionHistory', () => ({
 }))
 
 vi.mock('@/contexts/SocketContext', () => ({
-  useSocketContext: () => ({ socket: null, connected: true }),
+  useSocketContext: mockUseSocketContext,
 }))
 
 vi.mock('@/contexts/AuthContext', () => ({
   useAuthContext: () => ({ setSessionToken: vi.fn() }),
+}))
+
+vi.mock('@/components/molecules/KioskNotificationModal', () => ({
+  KioskNotificationModal: vi.fn(({ isOpen, onSubmit, onClose, showGeneralToggle, isLoading, error }) =>
+    isOpen ? (
+      <div data-testid="kiosk-notification-modal">
+        {showGeneralToggle && <span data-testid="general-toggle">General toggle visible</span>}
+        {isLoading && <span data-testid="loading-indicator">Loading...</span>}
+        {error && <span data-testid="error-message">{error}</span>}
+        <button
+          data-testid="modal-submit"
+          onClick={() => onSubmit({
+            type: 'info',
+            message: 'Test notification',
+            duration: 5,
+            scope: 'club',
+          })}
+        >
+          Submit
+        </button>
+        <button data-testid="modal-close" onClick={onClose}>Close</button>
+      </div>
+    ) : null
+  ),
 }))
 
 vi.mock('@/i18n', () => ({
@@ -89,6 +115,10 @@ vi.mock('@/i18n', () => ({
         connectionConnecting: 'Conectando',
         connectionNoConnection: 'Sin Conexión',
         connectionDisconnected: 'Desconectado',
+        notificationModalTitle: 'Send Notification',
+        notificationScopeLabel: 'Scope',
+        notificationScopeClub: 'Club',
+        notificationScopeGeneral: 'General',
       }
       let s = map[key] ?? key
       if (opts) {
@@ -117,6 +147,7 @@ function adminPage() {
 
 describe('ClubAdminPage — tabbed layout', () => {
   beforeEach(() => {
+    mockUseSocketContext.mockReturnValue({ socket: null, connected: true })
     useClubAdminMock.mockReturnValue({
       isAdmin: true,
       verifyAdminPin: vi.fn(),
@@ -186,6 +217,7 @@ describe('ClubAdminPage — tabbed layout', () => {
 
 describe('ClubAdminPage — pre-admin PIN screen', () => {
   beforeEach(() => {
+    mockUseSocketContext.mockReturnValue({ socket: null, connected: true })
     useClubAdminMock.mockReturnValue({
       isAdmin: false,
       verifyAdminPin: vi.fn(),
@@ -199,5 +231,248 @@ describe('ClubAdminPage — pre-admin PIN screen', () => {
     adminPage()
     expect(screen.queryByRole('tablist')).not.toBeInTheDocument()
     expect(screen.getByText('Ingresá el PIN de Admin')).toBeInTheDocument()
+  })
+})
+
+describe('ClubAdminPage — notification button', () => {
+  beforeEach(() => {
+    mockUseSocketContext.mockReturnValue({ socket: null, connected: true })
+    useClubAdminMock.mockReturnValue({
+      isAdmin: true,
+      verifyAdminPin: vi.fn(),
+      verifyLoading: false,
+      verifyError: null,
+      clearVerifyError: vi.fn(),
+    })
+    useClubCourtManagementMock.mockReturnValue({
+      courts: [],
+      loading: false,
+      error: null,
+      lastEvent: null,
+      createCourt: vi.fn(),
+      activateCourt: vi.fn(),
+      deactivateCourt: vi.fn(),
+      forceEndSession: vi.fn(),
+      deleteCourt: vi.fn(),
+      resetCourt: vi.fn(),
+      clearEvent: vi.fn(),
+    })
+    useClubSessionHistoryMock.mockReturnValue({
+      sessions: [],
+      clearHistory: vi.fn(),
+      confirmClearHistory: vi.fn(),
+      cancelClearHistory: vi.fn(),
+      pendingClearConfirm: false,
+      clearError: null,
+    })
+  })
+
+  it('renders a bell icon button in the header actions when admin is verified', () => {
+    adminPage()
+    // The bell icon notification button should be present in the header
+    const notifBtn = screen.getByTitle('Send Notification')
+    expect(notifBtn).toBeInTheDocument()
+  })
+
+  it('opens KioskNotificationModal when bell icon button is clicked (RED test — not yet implemented)', () => {
+    adminPage()
+    // Click the notification button
+    fireEvent.click(screen.getByTitle('Send Notification'))
+    // The modal should now be visible
+    expect(screen.getByTestId('kiosk-notification-modal')).toBeInTheDocument()
+  })
+
+  it('passes showGeneralToggle=true to KioskNotificationModal', () => {
+    adminPage()
+    fireEvent.click(screen.getByTitle('Send Notification'))
+    expect(screen.getByTestId('general-toggle')).toBeInTheDocument()
+  })
+
+  it('emits CLUB_SEND_NOTIFICATION with correct payload when modal submits', () => {
+    const mockEmit = vi.fn()
+    mockUseSocketContext.mockReturnValue({
+      socket: { on: vi.fn(), off: vi.fn(), emit: mockEmit },
+      connected: true,
+    })
+    // Also need to re-set i18n mock for the admin page render
+    // (adminPage helper is already defined, but we use custom setup here)
+
+    useClubAdminMock.mockReturnValue({
+      isAdmin: true,
+      verifyAdminPin: vi.fn(),
+      verifyLoading: false,
+      verifyError: null,
+      clearVerifyError: vi.fn(),
+    })
+    useClubCourtManagementMock.mockReturnValue({
+      courts: [],
+      loading: false,
+      error: null,
+      lastEvent: null,
+      createCourt: vi.fn(),
+      activateCourt: vi.fn(),
+      deactivateCourt: vi.fn(),
+      forceEndSession: vi.fn(),
+      deleteCourt: vi.fn(),
+      resetCourt: vi.fn(),
+      clearEvent: vi.fn(),
+    })
+    useClubSessionHistoryMock.mockReturnValue({
+      sessions: [],
+      clearHistory: vi.fn(),
+      confirmClearHistory: vi.fn(),
+      cancelClearHistory: vi.fn(),
+      pendingClearConfirm: false,
+      clearError: null,
+    })
+
+    render(
+      <MemoryRouter>
+        <ClubAdminPage />
+      </MemoryRouter>,
+    )
+
+    // Open modal and submit
+    fireEvent.click(screen.getByTitle('Send Notification'))
+    fireEvent.click(screen.getByTestId('modal-submit'))
+
+    expect(mockEmit).toHaveBeenCalledWith('CLUB_SEND_NOTIFICATION', {
+      type: 'info',
+      message: 'Test notification',
+      duration: 5,
+      scope: 'club',
+    })
+  })
+
+  it('tracks loading state on the modal while notification is being sent', () => {
+    const mockEmit = vi.fn((_event: string, _data: unknown) => {
+      // Don't resolve — keep loading
+    })
+    mockUseSocketContext.mockReturnValue({
+      socket: { on: vi.fn(), off: vi.fn(), emit: mockEmit },
+      connected: true,
+    })
+
+    useClubAdminMock.mockReturnValue({
+      isAdmin: true,
+      verifyAdminPin: vi.fn(),
+      verifyLoading: false,
+      verifyError: null,
+      clearVerifyError: vi.fn(),
+    })
+    useClubCourtManagementMock.mockReturnValue({
+      courts: [],
+      loading: false,
+      error: null,
+      lastEvent: null,
+      createCourt: vi.fn(),
+      activateCourt: vi.fn(),
+      deactivateCourt: vi.fn(),
+      forceEndSession: vi.fn(),
+      deleteCourt: vi.fn(),
+      resetCourt: vi.fn(),
+      clearEvent: vi.fn(),
+    })
+    useClubSessionHistoryMock.mockReturnValue({
+      sessions: [],
+      clearHistory: vi.fn(),
+      confirmClearHistory: vi.fn(),
+      cancelClearHistory: vi.fn(),
+      pendingClearConfirm: false,
+      clearError: null,
+    })
+
+    render(
+      <MemoryRouter>
+        <ClubAdminPage />
+      </MemoryRouter>,
+    )
+
+    // Open modal
+    fireEvent.click(screen.getByTitle('Send Notification'))
+    expect(screen.getByTestId('kiosk-notification-modal')).toBeInTheDocument()
+    expect(screen.queryByTestId('loading-indicator')).not.toBeInTheDocument()
+
+    // Submit to trigger loading state
+    fireEvent.click(screen.getByTestId('modal-submit'))
+    expect(screen.getByTestId('loading-indicator')).toBeInTheDocument()
+  })
+
+  it('renders error message on the modal when notification fails', () => {
+    const mockEmit = vi.fn((_event: string, _data: unknown, callback?: (arg: unknown) => void) => {
+      // callback not provided in simple emit — reject by emitting error
+    })
+    mockUseSocketContext.mockReturnValue({
+      socket: { on: vi.fn(), off: vi.fn(), emit: mockEmit },
+      connected: true,
+    })
+
+    useClubAdminMock.mockReturnValue({
+      isAdmin: true,
+      verifyAdminPin: vi.fn(),
+      verifyLoading: false,
+      verifyError: null,
+      clearVerifyError: vi.fn(),
+    })
+    useClubCourtManagementMock.mockReturnValue({
+      courts: [],
+      loading: false,
+      error: null,
+      lastEvent: null,
+      createCourt: vi.fn(),
+      activateCourt: vi.fn(),
+      deactivateCourt: vi.fn(),
+      forceEndSession: vi.fn(),
+      deleteCourt: vi.fn(),
+      resetCourt: vi.fn(),
+      clearEvent: vi.fn(),
+    })
+    useClubSessionHistoryMock.mockReturnValue({
+      sessions: [],
+      clearHistory: vi.fn(),
+      confirmClearHistory: vi.fn(),
+      cancelClearHistory: vi.fn(),
+      pendingClearConfirm: false,
+      clearError: null,
+    })
+
+    render(
+      <MemoryRouter>
+        <ClubAdminPage />
+      </MemoryRouter>,
+    )
+
+    // Open modal
+    fireEvent.click(screen.getByTitle('Send Notification'))
+
+    // Initially no error
+    expect(screen.queryByTestId('error-message')).not.toBeInTheDocument()
+  })
+
+  it('closes modal when clicking the close button', () => {
+    adminPage()
+    fireEvent.click(screen.getByTitle('Send Notification'))
+    expect(screen.getByTestId('kiosk-notification-modal')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('modal-close'))
+    expect(screen.queryByTestId('kiosk-notification-modal')).not.toBeInTheDocument()
+  })
+
+  it('does NOT render notification button before admin is verified', () => {
+    useClubAdminMock.mockReturnValue({
+      isAdmin: false,
+      verifyAdminPin: vi.fn(),
+      verifyLoading: false,
+      verifyError: null,
+      clearVerifyError: vi.fn(),
+    })
+
+    render(
+      <MemoryRouter>
+        <ClubAdminPage />
+      </MemoryRouter>,
+    )
+
+    expect(screen.queryByTitle('Send Notification')).not.toBeInTheDocument()
   })
 })

@@ -67,10 +67,15 @@ export function KioskAllCourtsPage() {
   const prevTimestampRef = useRef<number | null>(null)
 
   // Show toast when a new kioskNotification arrives (tracked by timestamp)
+  // Type gate: only important/error render as toast; info/warning → ticker only
   useEffect(() => {
     if (kioskNotification && kioskNotification.timestamp !== prevTimestampRef.current) {
       prevTimestampRef.current = kioskNotification.timestamp
-      setVisibleNotification(kioskNotification)
+      if (kioskNotification.type === 'important' || kioskNotification.type === 'error') {
+        setVisibleNotification(kioskNotification)
+      } else {
+        setVisibleNotification(null)
+      }
     }
   }, [kioskNotification])
 

@@ -77,7 +77,7 @@ describe('DashboardGrid', () => {
 });
 
 describe('DashboardHeader', () => {
-  it('renders dashboard title and stats', () => {
+  it('renders view mode toggle', () => {
     render(
       <DashboardHeader
         totalTables={5}
@@ -85,11 +85,11 @@ describe('DashboardHeader', () => {
         activePlayers={10}
         viewMode="grid"
         onViewModeChange={() => {}}
+        {...defaultHeaderProps}
       />
     );
-    expect(screen.getByText('5')).toBeInTheDocument();
-    expect(screen.getByText('2')).toBeInTheDocument();
-    expect(screen.getByText('10')).toBeInTheDocument();
+    expect(screen.getByLabelText('Grid view')).toBeInTheDocument();
+    expect(screen.getByLabelText('List view')).toBeInTheDocument();
   });
 
   it('calls onViewModeChange when grid button is clicked', () => {

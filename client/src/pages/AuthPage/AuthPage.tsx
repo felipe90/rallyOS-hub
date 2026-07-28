@@ -17,7 +17,7 @@ import type { Sport } from '@shared/types'
 import { SocketEvents } from '@shared/events'
 import logoBig from '@/assets/logo-big.png'
 import { Routes } from '@/routes'
-import { CirclePlay, Trophy, Settings } from 'lucide-react'
+import { CirclePlay, Trophy, Settings, ArrowLeft } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 
@@ -440,6 +440,7 @@ export function AuthPage() {
               disabled={loading}
               animate
               fullWidth
+              icon={<ArrowLeft size={16} />}
             >
               {i18nText('commonBack')}
             </Button>

@@ -19,7 +19,7 @@ import { useRefereeSession } from '@/hooks/useRefereeSession'
 import { Button } from '@/components/atoms/Button'
 import { Routes, buildScoreboardRoute } from '@/routes'
 import type { CourtInfoWithPin } from '@shared/types'
-import { Table2, Swords, Users } from 'lucide-react'
+import { Table2, Swords, Users, ArrowLeft } from 'lucide-react'
 
 export interface RefereeDashboardPageProps {
   viewMode?: 'grid' | 'list'
@@ -127,7 +127,7 @@ export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashb
           disconnected: i18nText('connectionDisconnected'),
         }}
         actions={
-          <Button variant="ghost" onClick={handleLogout} size="sm">
+          <Button variant="ghost" onClick={handleLogout} size="sm" icon={<ArrowLeft size={16} />}>
             {i18nText('commonBack')}
           </Button>
         }

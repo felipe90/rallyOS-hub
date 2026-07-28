@@ -12,6 +12,7 @@ import { Button } from '@/components/atoms/Button'
 import { Typography } from '@/components/atoms/Typography'
 import { SocketEvents } from '@shared/events'
 import { Routes, buildScoreboardRoute } from '@/routes'
+import { ArrowLeft } from 'lucide-react'
 
 export interface SpectatorDashboardPageProps {}
 
@@ -50,6 +51,7 @@ export function SpectatorDashboardPage(_props: SpectatorDashboardPageProps) {
             variant="ghost"
             onClick={() => navigate(Routes.AUTH)}
             size="sm"
+            icon={<ArrowLeft size={16} />}
           >
             {i18nText('commonBack')}
           </Button>

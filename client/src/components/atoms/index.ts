@@ -29,3 +29,6 @@ export type { TabProps } from './Tab'
 
 export { TabContainer } from './TabContainer'
 export type { TabDefinition, TabContainerProps } from './TabContainer'
+
+export { FloatingActionButton } from './FloatingActionButton'
+export type { FloatingActionButtonProps } from './FloatingActionButton'

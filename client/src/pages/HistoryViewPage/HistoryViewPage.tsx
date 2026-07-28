@@ -17,7 +17,7 @@ import { Button } from '@/components/atoms/Button'
 import { Typography } from '@/components/atoms/Typography'
 import { Routes } from '@/routes'
 import { SocketEvents } from '@shared/events'
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, ArrowLeft } from 'lucide-react'
 
 export function HistoryViewPage() {
   const navigate = useNavigate()
@@ -71,7 +71,7 @@ export function HistoryViewPage() {
             <Button variant="ghost" size="sm" onClick={requestHistory} disabled={!connected}>
               <RefreshCw className="w-4 h-4" />
             </Button>
-            <Button variant="ghost" onClick={() => navigate(Routes.DASHBOARD_OWNER)} size="sm">
+            <Button variant="ghost" onClick={() => navigate(Routes.DASHBOARD_OWNER)} size="sm" icon={<ArrowLeft size={16} />}>
               {i18nText('commonBack')}
             </Button>
           </div>

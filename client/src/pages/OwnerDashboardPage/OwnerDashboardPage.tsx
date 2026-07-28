@@ -6,7 +6,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useI18n } from '@/i18n'
-import { CreateCourtButton } from '@/components/molecules/CreateCourtButton'
 import { DashboardGrid } from '@/components/organisms/DashboardGrid'
 import { DashboardHeader } from '@/components/organisms/DashboardGrid'
 import { PageHeader } from '@/components/molecules/PageHeader'
@@ -21,12 +20,12 @@ import { usePinSubmission } from '@/hooks/usePinSubmission'
 import { useRefereeSession } from '@/hooks/useRefereeSession'
 import { useCourtManagement } from '@/hooks/useCourtManagement'
 import { useToast } from '@/components/molecules/Toast'
-import { Button } from '@/components/atoms/Button'
+import { Button, FloatingActionButton } from '@/components/atoms'
 import { Body } from '@/components/atoms/Typography'
 import { SocketEvents } from '@shared/events'
 import { Routes, buildScoreboardRoute } from '@/routes'
 import type { CourtInfoWithPin, KioskNotificationType } from '@shared/types'
-import { FileText, Table2, Swords, Users, Bell, Flag, Download, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, FileText, Table2, Swords, Users, Bell, Flag, Download, AlertTriangle, Plus } from 'lucide-react'
 
 
 export interface OwnerDashboardPageProps {
@@ -245,32 +244,32 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
     courtMgmt.createCourt();
   };
 
-  const dashboardActions = <div className="flex flex-wrap gap-2 items-center">
+  const dashboardActions = <div className="flex flex-wrap gap-1 items-center">
     {!courtMgmt.isCreating ? (
       <>
         <Button
-          variant="ghost"
-          size="sm"
+          variant="secondary"
+          size="xs"
           onClick={() => setNotifModalOpen(true)}
-          icon={<Bell size={18} />}
+          icon={<Bell size={14} />}
         >
           {i18nText('ownerCreateNotification')}
         </Button>
-            <Button
-          variant="ghost"
-          size="sm"
+        <Button
+          variant="secondary"
+          size="xs"
           onClick={() => navigate(Routes.HISTORY)}
-          icon={<FileText size={18} />}
+          icon={<FileText size={14} />}
         >
           {i18nText('ownerViewHistory')}
         </Button>
         {/* Export CSV button — only for owners when FINISHED courts exist */}
         {isOwner && hasFinishedCourts && (
           <Button
-            variant="ghost"
-            size="sm"
+            variant="secondary"
+            size="xs"
             onClick={downloadCsv}
-            icon={<Download size={18} />}
+            icon={<Download size={14} />}
           >
             {i18nText('exportCsv')}
           </Button>
@@ -279,9 +278,9 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
         {isOwner && hasCourts && (
           <Button
             variant="danger"
-            size="sm"
+            size="xs"
             onClick={() => setFinishDialogOpen(true)}
-            icon={<Flag size={18} />}
+            icon={<Flag size={14} />}
           >
             {i18nText('finishTournament')}
           </Button>
@@ -318,41 +317,36 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
           disconnected: i18nText('connectionDisconnected'),
         }}
         actions={
-          <Button variant="ghost" onClick={() => { sessionStorage.removeItem('rallyos-owner-restored'); logout(); navigate(Routes.AUTH) }} size="sm">
+          <Button variant="ghost" onClick={() => { sessionStorage.removeItem('rallyos-owner-restored'); logout(); navigate(Routes.AUTH) }} size="sm" icon={<ArrowLeft size={16} />}>
             {i18nText('commonBack')}
           </Button>
         }
       />
 
       <main id="main-content" className="flex-1 overflow-auto bg-primary/10">
-        <div className="p-4 space-y-4">
-          <CreateCourtButton
-            existingNames={courts.map(c => c.name)}
-            onCreate={handleCreateCourt}
-            disabled={courtMgmt.isCreating}
-            loading={courtMgmt.isCreating}
-            label={i18nText('ownerCreateCourt')}
-          />
-          <DashboardHeader
-            totalTables={stats.totalTables}
-            liveMatches={stats.liveMatches}
-            activePlayers={stats.activePlayers}
-            viewMode={viewMode}
-            onViewModeChange={setViewMode}
-            actions={dashboardActions}
-            statIcons={{
-              canchas: <Table2 className="text-blue-500" size={28} />,
-              partidos: <Swords className="text-amber-500" size={28} />,
-              jugadores: <Users className="text-emerald-500" size={28} />,
-            }}
-            statLabels={{
-              courts: i18nText('dashboardStatCourts'),
-              matches: i18nText('dashboardStatMatches'),
-              players: i18nText('dashboardStatPlayers'),
-            }}
-            gridViewLabel={i18nText('dashboardGridView')}
-            listViewLabel={i18nText('dashboardListView')}
-          />
+        <div className="px-4 pb-4 pt-0 space-y-4">
+          <div className="sticky top-0 z-10 bg-white shadow-sm border-b border-primary/5 -mx-4 px-4 py-2">
+            <DashboardHeader
+              totalTables={stats.totalTables}
+              liveMatches={stats.liveMatches}
+              activePlayers={stats.activePlayers}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              actions={dashboardActions}
+              statIcons={{
+                canchas: <Table2 className="text-blue-500" size={28} />,
+                partidos: <Swords className="text-amber-500" size={28} />,
+                jugadores: <Users className="text-emerald-500" size={28} />,
+              }}
+              statLabels={{
+                courts: i18nText('dashboardStatCourts'),
+                matches: i18nText('dashboardStatMatches'),
+                players: i18nText('dashboardStatPlayers'),
+              }}
+              gridViewLabel={i18nText('dashboardGridView')}
+              listViewLabel={i18nText('dashboardListView')}
+            />
+          </div>
           <DashboardGrid
             courts={courts}
             onCourtClick={handleCourtClick}
@@ -379,6 +373,23 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
           />
         </div>
       </main>
+
+      {/* Floating Action Button — Nueva Cancha */}
+      <FloatingActionButton
+        icon={<Plus size={20} />}
+        label={i18nText('ownerCreateCourt')}
+        onClick={() => {
+          let next = courts.length + 1
+          let name = i18nText('clubAdminDefaultCourtName', { number: String(next) })
+          while (courts.some(c => c.name === name)) {
+            next++
+            name = i18nText('clubAdminDefaultCourtName', { number: String(next) })
+          }
+          handleCreateCourt(name)
+        }}
+        disabled={courtMgmt.isCreating}
+        loading={courtMgmt.isCreating}
+      />
 
       <PinModal
         isOpen={pinModalOpen}

@@ -254,6 +254,7 @@ export function ClubAdminPage() {
               fullWidth
               onClick={() => navigate(Routes.AUTH)}
               disabled={verifyLoading}
+              icon={<ArrowLeft size={16} />}
             >
               {i18nText('commonBack')}
             </Button>

@@ -1,5 +1,6 @@
 import { useI18n } from '@/i18n'
 import { Typography } from '@/components/atoms'
+import { Star } from 'lucide-react'
 import type { ClubKioskCourtInfo } from '@shared/types'
 
 export interface ClubKioskCardProps {
@@ -16,6 +17,9 @@ export interface ClubKioskCardProps {
  * - OCCUPIED (free): green border, player names only, "En cancha — Modo Libre" badge
  * - FINISHED: gray border, final score, "Finalizado" badge
  *
+ * When `court.featured === true` the card gets a golden border + glow
+ * and a "Destacada" star badge, regardless of status.
+ *
  * PR 4 — when `sessionMode === 'free'`, the card MUST NOT render any score
  * numbers (spec: Free mode MUST NOT display scoring). Only names + badge
  * are displayed.
@@ -27,13 +31,16 @@ export function ClubKioskCard({ court }: ClubKioskCardProps) {
   const scoreA = court.currentScore?.a ?? 0
   const scoreB = court.currentScore?.b ?? 0
   const isFreeMode = status === 'OCCUPIED' && court.sessionMode === 'free'
+  const isFeatured = court.featured === true
 
-  const borderColor =
-    status === 'AVAILABLE' ? 'border-green-500/50' :
-    status === 'RESERVED' ? 'border-blue-500/50' :
-    isFreeMode ? 'border-green-500/50' :
-    status === 'OCCUPIED' ? 'border-amber-500/50' :
-    'border-gray-500/30'
+  // Featured overrides status border — golden glow
+  const borderColor = isFeatured
+    ? 'border-amber-400/80 shadow-[0_0_20px_rgba(251,191,36,0.3)]'
+    : status === 'AVAILABLE' ? 'border-green-500/50' :
+      status === 'RESERVED' ? 'border-blue-500/50' :
+      isFreeMode ? 'border-green-500/50' :
+      status === 'OCCUPIED' ? 'border-amber-500/50' :
+      'border-gray-500/30'
 
   const badgeColor =
     status === 'AVAILABLE' ? 'bg-green-500/15 text-green-400' :
@@ -52,10 +59,20 @@ export function ClubKioskCard({ court }: ClubKioskCardProps) {
   return (
     <div
       className={`
-        stadium-card rounded-2xl p-5 flex flex-col gap-3
+        stadium-card rounded-3xl p-6 md:p-8 flex flex-col gap-3 relative
         border-2 ${borderColor} transition-all duration-300 hover:scale-[1.01]
       `}
     >
+      {/* Featured star badge — top-right corner, always visible when featured */}
+      {isFeatured && (
+        <div className="absolute top-2 right-2 z-10">
+          <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/40">
+            <Star size={12} className="fill-amber-400 text-amber-400" />
+            <span className="text-[10px] font-bold tracking-wider text-amber-300 uppercase">{i18nText('clubKioskFeatured')}</span>
+          </div>
+        </div>
+      )}
+
       {/* Court name + status badge */}
       <div className="flex items-center justify-between gap-2">
         <div className="bg-black/30 px-4 py-1.5 rounded-full">

@@ -9,7 +9,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CLUB_STATUS } from '@shared/types'
 import type { ClubCourtInfo, KioskNotificationType, SessionMode } from '@shared/types'
-import { CreateCourtButton } from '@/components/molecules/CreateCourtButton'
+import { FloatingActionButton } from '@/components/atoms'
+import { Badge } from '@/components/atoms/Badge'
 import { Input } from '@/components/atoms/Input'
 import { Button } from '@/components/atoms/Button'
 import { Body, Title } from '@/components/atoms/Typography'
@@ -41,7 +42,9 @@ import {
   Monitor,
   Trophy,
   UserPlus,
+  Plus,
   Bell,
+  Star,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -71,15 +74,27 @@ function translateVerifyError(code: string | null, i18nText: (key: string) => st
   return map[code] || code
 }
 
-/** Status-based badge colour and border */
-function statusColor(status: ClubCourtInfo['status']): string {
+/** Status-based pill class — matches the Badge atom design from tournament cards */
+function statusPillClass(status: ClubCourtInfo['status']): string {
   switch (status) {
-    case CLUB_STATUS.AVAILABLE: return 'text-emerald-600 border-l-emerald-500'
-    case CLUB_STATUS.RESERVED: return 'text-blue-600 border-l-blue-500'
-    case CLUB_STATUS.OCCUPIED: return 'text-amber-600 border-l-amber-500'
-    case CLUB_STATUS.FINISHED: return 'text-gray-500 border-l-gray-400'
-    case CLUB_STATUS.MAINTENANCE: return 'text-red-600 border-l-red-500'
-    default: return 'text-text border-l-transparent'
+    case CLUB_STATUS.AVAILABLE: return 'bg-emerald-500/10 text-emerald-600'
+    case CLUB_STATUS.RESERVED: return 'bg-blue-500/10 text-blue-600'
+    case CLUB_STATUS.OCCUPIED: return 'bg-amber-500/10 text-amber-600'
+    case CLUB_STATUS.FINISHED: return 'bg-gray-500/10 text-gray-500'
+    case CLUB_STATUS.MAINTENANCE: return 'bg-red-500/10 text-red-600'
+    default: return 'bg-surface-low text-text'
+  }
+}
+
+/** Status-based border colour */
+function statusBorderClass(status: ClubCourtInfo['status']): string {
+  switch (status) {
+    case CLUB_STATUS.AVAILABLE: return 'border-l-emerald-500'
+    case CLUB_STATUS.RESERVED: return 'border-l-blue-500'
+    case CLUB_STATUS.OCCUPIED: return 'border-l-amber-500'
+    case CLUB_STATUS.FINISHED: return 'border-l-gray-400'
+    case CLUB_STATUS.MAINTENANCE: return 'border-l-red-500'
+    default: return 'border-l-transparent'
   }
 }
 
@@ -98,6 +113,7 @@ export function ClubAdminPage() {
   const sessionHistory = useClubSessionHistory(socket, connected)
 
   const { addToast } = useToast()
+  const [activeTab, setActiveTab] = useState('courts')
   const [adminPin, setAdminPin] = useState('')
   const [forceEndCourt, setForceEndCourt] = useState<ClubCourtInfo | null>(null)
   const [deleteCourtTarget, setDeleteCourtTarget] = useState<ClubCourtInfo | null>(null)
@@ -203,7 +219,8 @@ export function ClubAdminPage() {
       setNotificationLoading(true)
       setNotificationError(null)
       socket.emit(SocketEvents.CLIENT.CLUB_SEND_NOTIFICATION, data)
-      // Loading resolves when modal closes or on socket error
+      setIsNotificationModalOpen(false)
+      setNotificationLoading(false)
     },
     [socket],
   )
@@ -266,7 +283,7 @@ export function ClubAdminPage() {
 
   // Admin dashboard
   return (
-    <div className="flex flex-col h-dvh bg-primary/10">
+    <div className="flex flex-col h-dvh bg-background">
       <PageHeader
         title={i18nText('clubAdminTitle')}
         subtitle={i18nText('clubAdminSubtitle')}
@@ -278,45 +295,51 @@ export function ClubAdminPage() {
           disconnected: i18nText('connectionDisconnected'),
         }}
         actions={
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsNotificationModalOpen(true)}
-              title="Send Notification"
-            >
-              <Bell size={16} />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => window.open(Routes.KIOSK_CLUB, '_blank')} title="Abrir Kiosk Club">
-              <Monitor size={16} />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => window.open(Routes.KIOSK_TOURNAMENT, '_blank')} title="Abrir Kiosk Torneo">
-              <Trophy size={16} />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => navigate(Routes.AUTH)}>
-              <ArrowLeft size={16} className="mr-1" />
-              {i18nText('clubAdminBack')}
-            </Button>
-          </div>
+          <Button variant="ghost" size="sm" onClick={() => navigate(Routes.AUTH)} icon={<ArrowLeft size={16} />}>
+            {i18nText('clubAdminBack')}
+          </Button>
         }
       />
 
-      <main className="flex-1 overflow-auto p-4 space-y-4">
+      <main id="main-content" className="flex-1 overflow-auto bg-primary/10">
+        <div className="px-4 pb-20 pt-0 space-y-4">
+          {/* Sticky action bar */}
+          <div className="sticky top-0 z-20 bg-white shadow-sm border-b border-primary/5 -mx-4 px-4 py-2">
+            <div className="flex flex-wrap items-center gap-1">
+              <Button
+                variant="secondary"
+                size="xs"
+                onClick={() => setIsNotificationModalOpen(true)}
+                icon={<Bell size={14} />}
+              >
+                {i18nText('notificationModalTitle')}
+              </Button>
+              <Button
+                variant="secondary"
+                size="xs"
+                onClick={() => window.open(Routes.KIOSK_CLUB, '_blank')}
+                icon={<Monitor size={14} />}
+              >
+                Kiosko
+              </Button>
+              <Button
+                variant="secondary"
+                size="xs"
+                onClick={() => window.open(Routes.KIOSK_TOURNAMENT, '_blank')}
+                icon={<Trophy size={14} />}
+              >
+                Torneo
+              </Button>
+            </div>
+          </div>
         <TabContainer
+          onTabChange={setActiveTab}
           tabs={[
             {
               id: 'courts',
               label: i18nText('clubAdminTabCourts'),
               content: (
                 <div className="space-y-4">
-                  <CreateCourtButton
-                    existingNames={courtMgmt.courts.map(c => c.name)}
-                    onCreate={handleCreateCourt}
-                    disabled={courtMgmt.loading}
-                    loading={courtMgmt.loading}
-                    label={i18nText('clubAdminCreateCourt')}
-                  />
-
                   {/* Court list */}
                   {courtMgmt.courts.length === 0 ? (
                     <motion.div
@@ -328,7 +351,7 @@ export function ClubAdminPage() {
                       <Body className="text-text/50 text-center">{i18nText('clubAdminNoCourts')}</Body>
                     </motion.div>
                   ) : (
-                    <motion.div layout className="space-y-2">
+                    <motion.div layout className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                       <AnimatePresence>
                         {courtMgmt.courts.map((court) => (
                           <motion.div
@@ -338,51 +361,64 @@ export function ClubAdminPage() {
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
                             transition={{ duration: 0.2 }}
-                            className={`card-light p-4 flex items-center justify-between border-l-4 ${statusColor(court.status).split(' ')[1]} transition-colors relative overflow-hidden`}
+                            className={`card-light flex flex-col gap-2 p-4 border-l-4 ${statusBorderClass(court.status)} transition-colors relative`}
                           >
-                            <div className="flex flex-col gap-1 z-10">
-                              <Body className="font-medium">{court.name}</Body>
-                              <div className="flex items-center gap-3 text-sm">
-                                <span className={`font-medium ${statusColor(court.status).split(' ')[0]}`}>
-                                  {statusLabel(court.status, i18nText)}
-                                </span>
-                                {court.pin && (
-                                  <span className="font-mono font-bold bg-surface-high px-2 py-0.5 rounded text-xs text-text">
-                                    {i18nText('clubAdminPinLabel', { pin: court.pin })}
+                            {/* Title row: court name + status pill (Badge-style, matches tournament cards) */}
+                            <div className="flex items-center justify-between gap-2">
+                              <Body className="font-medium truncate">{court.name}</Body>
+                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold tracking-wide shrink-0 ${statusPillClass(court.status)}`}>
+                                {court.status === CLUB_STATUS.OCCUPIED && (
+                                  <span className="relative flex h-2 w-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
                                   </span>
                                 )}
-                              </div>
+                                {statusLabel(court.status, i18nText)}
+                              </span>
                             </div>
 
-                            <div className="flex gap-2 z-10">
+                            {/* PIN badge — top center */}
+                            {court.pin && (
+                              <div className="flex justify-center -mt-1">
+                                <Badge className="font-mono font-bold text-xs tracking-wider">
+                                  PIN {court.pin}
+                                </Badge>
+                              </div>
+                            )}
+
+                            {/* Action buttons stacked below */}
+                            <div className="flex flex-col gap-2 mt-2">
                               {court.status === CLUB_STATUS.AVAILABLE && (
                                 <>
                                   <Button
                                     variant="primary"
                                     size="xs"
+                                    fullWidth
                                     onClick={() => courtMgmt.activateCourt(court.id)}
                                     disabled={courtMgmt.loading}
+                                    icon={<Play size={14} />}
                                   >
-                                    <Play size={14} className="mr-1" />
                                     {i18nText('clubAdminActivate')}
                                   </Button>
                                   <Button
                                     variant="outline"
                                     size="xs"
+                                    fullWidth
                                     onClick={() => setOccupyCourt(court)}
                                     disabled={courtMgmt.loading}
+                                    icon={<UserPlus size={14} />}
                                   >
-                                    <UserPlus size={14} className="mr-1" />
                                     {i18nText('clubAdminOccupy')}
                                   </Button>
                                   <Button
-                                    variant="ghost"
+                                    variant="secondary"
                                     size="xs"
-                                    className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                                    fullWidth
                                     onClick={() => setDeleteCourtTarget(court)}
                                     disabled={courtMgmt.loading}
+                                    icon={<Trash2 size={14} />}
                                   >
-                                    <Trash2 size={14} />
+                                    {i18nText('clubAdminDelete')}
                                   </Button>
                                 </>
                               )}
@@ -391,52 +427,73 @@ export function ClubAdminPage() {
                                   <Button
                                     variant="primary"
                                     size="xs"
+                                    fullWidth
                                     onClick={() => setOccupyCourt(court)}
                                     disabled={courtMgmt.loading}
+                                    icon={<UserPlus size={14} />}
                                   >
-                                    <UserPlus size={14} className="mr-1" />
                                     {i18nText('clubAdminOccupy')}
                                   </Button>
                                   <Button
                                     variant="ghost"
                                     size="xs"
+                                    fullWidth
                                     onClick={() => courtMgmt.deactivateCourt(court.id)}
                                     disabled={courtMgmt.loading}
+                                    icon={<XCircle size={14} />}
                                   >
-                                    <XCircle size={14} />
+                                    {i18nText('clubAdminDeactivate')}
                                   </Button>
                                 </>
                               )}
                               {court.status === CLUB_STATUS.OCCUPIED && (
-                                <Button
-                                  variant="danger"
-                                  size="xs"
-                                  onClick={() => setForceEndCourt(court)}
-                                  disabled={courtMgmt.loading}
-                                >
-                                  <LogOut size={14} className="mr-1" />
-                                  {i18nText('clubAdminForceEnd')}
-                                </Button>
+                                <>
+                                  <Button
+                                    variant="danger"
+                                    size="xs"
+                                    fullWidth
+                                    onClick={() => setForceEndCourt(court)}
+                                    disabled={courtMgmt.loading}
+                                    icon={<LogOut size={14} />}
+                                  >
+                                    {i18nText('clubAdminForceEnd')}
+                                  </Button>
+                                  {/* Destacar solo en modo partido — modo libre no necesita spotlight */}
+                                  {court.sessionMode && court.sessionMode !== 'free' && (
+                                    <Button
+                                      variant={court.featured ? 'primary' : 'secondary'}
+                                      size="xs"
+                                      fullWidth
+                                      onClick={() => courtMgmt.toggleFeatured(court.id)}
+                                      disabled={courtMgmt.loading}
+                                      icon={<Star size={14} className={court.featured ? 'fill-amber-400 text-amber-400' : ''} />}
+                                    >
+                                      {court.featured ? i18nText('courtQuitarDestacado') : i18nText('courtDestacar')}
+                                    </Button>
+                                  )}
+                                </>
                               )}
                               {court.status === CLUB_STATUS.FINISHED && (
                                 <>
                                   <Button
-                                    variant="ghost"
+                                    variant="primary"
                                     size="xs"
+                                    fullWidth
                                     onClick={() => courtMgmt.resetCourt(court.id)}
                                     disabled={courtMgmt.loading}
+                                    icon={<RefreshCw size={14} />}
                                   >
-                                    <RefreshCw size={14} className="mr-1" />
                                     {i18nText('clubAdminReset')}
                                   </Button>
                                   <Button
-                                    variant="ghost"
+                                    variant="secondary"
                                     size="xs"
-                                    className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                                    fullWidth
                                     onClick={() => setDeleteCourtTarget(court)}
                                     disabled={courtMgmt.loading}
+                                    icon={<Trash2 size={14} />}
                                   >
-                                    <Trash2 size={14} />
+                                    {i18nText('clubAdminDelete')}
                                   </Button>
                                 </>
                               )}
@@ -461,7 +518,31 @@ export function ClubAdminPage() {
             },
           ]}
         />
+        </div>
       </main>
+
+      {/* Floating Action Button — Nueva Cancha (solo en tab Canchas) */}
+      {activeTab === 'courts' && (
+      <div className="fixed bottom-6 right-6 z-50">
+        <FloatingActionButton
+          icon={<Plus size={20} />}
+          label={i18nText('clubAdminCreateCourt')}
+          onClick={() => handleCreateCourt(
+            (() => {
+              let next = courtMgmt.courts.length + 1
+              let name = i18nText('clubAdminDefaultCourtName', { number: String(next) })
+              while (courtMgmt.courts.some(c => c.name === name)) {
+                next++
+                name = i18nText('clubAdminDefaultCourtName', { number: String(next) })
+              }
+              return name
+            })()
+          )}
+          disabled={courtMgmt.loading}
+          loading={courtMgmt.loading}
+        />
+      </div>
+      )}
 
       {/* Admin occupy modal */}
       <AdminOccupyModal
@@ -509,12 +590,17 @@ export function ClubAdminPage() {
         error={notificationError}
         showGeneralToggle
         title={i18nText('notificationModalTitle')}
-        generalLabel={i18nText('notificationScopeGeneral')}
+        typeLabel={i18nText('notificationTypeLabel')}
         typeInfoLabel={i18nText('notificationTypeInfo')}
         typeWarningLabel={i18nText('notificationTypeWarning')}
         typeErrorLabel={i18nText('notificationTypeError')}
         typeImportantLabel={i18nText('notificationTypeImportant')}
+        messageLabel={i18nText('notificationMessageLabel')}
+        messagePlaceholder={i18nText('notificationMessagePlaceholder')}
+        durationLabel={i18nText('notificationDurationLabel')}
+        cancelLabel={i18nText('commonCancel')}
         submitLabel={i18nText('notificationSend')}
+        generalLabel={i18nText('notificationScopeGeneral')}
       />
     </div>
   )

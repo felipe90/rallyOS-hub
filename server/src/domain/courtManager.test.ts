@@ -1293,6 +1293,28 @@ describe('CourtManager with StateStore', () => {
       expect(info!.status).toBe(CLUB_STATUS.OCCUPIED);
       expect(info!.winner).toBe('A');
     });
+
+    it('surfaces featured=false on the kiosk court card when the court is not featured (club-featured-courts)', () => {
+      const manager = createTestCourtManager({ persistence: stateStore });
+      const court = manager.createClubCourt('Featured Court');
+      expect(court.featured).toBe(false);
+
+      const payload = manager.getClubKioskPayload(null);
+      const info = payload.courts.find((c: any) => c.id === court.id);
+      expect(info).toBeDefined();
+      expect(info!.featured).toBe(false);
+    });
+
+    it('surfaces featured=true on the kiosk court card when the court is featured (club-featured-courts)', () => {
+      const manager = createTestCourtManager({ persistence: stateStore });
+      const court = manager.createClubCourt('Featured Court');
+      court.featured = true;
+
+      const payload = manager.getClubKioskPayload(null);
+      const info = payload.courts.find((c: any) => c.id === court.id);
+      expect(info).toBeDefined();
+      expect(info!.featured).toBe(true);
+    });
   });
 
   describe('club courts — occupiedAt round-trip', () => {

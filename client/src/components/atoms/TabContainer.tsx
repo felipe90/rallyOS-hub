@@ -24,13 +24,20 @@ export interface TabContainerProps {
   /** Initial active tab id; defaults to the first tab. */
   defaultTab?: string
   className?: string
+  /** Called when the active tab changes. */
+  onTabChange?: (tabId: string) => void
 }
 
-export function TabContainer({ tabs, defaultTab, className }: TabContainerProps) {
+export function TabContainer({ tabs, defaultTab, className, onTabChange }: TabContainerProps) {
   const fallback = tabs[0]?.id
   const [activeId, setActiveId] = useState<string | undefined>(defaultTab ?? fallback)
 
   const activeTab = tabs.find((t) => t.id === activeId) ?? tabs[0]
+
+  const handleTabClick = (id: string) => {
+    setActiveId(id)
+    onTabChange?.(id)
+  }
 
   return (
     <div className={className}>
@@ -42,7 +49,7 @@ export function TabContainer({ tabs, defaultTab, className }: TabContainerProps)
             label={t.label}
             active={t.id === activeTab?.id}
             disabled={t.disabled}
-            onClick={() => setActiveId(t.id)}
+            onClick={() => handleTabClick(t.id)}
           />
         ))}
       </div>

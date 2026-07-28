@@ -160,20 +160,36 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
   }, [socket, courts])
 
   /** ── Notification Modal ── */
-  const handleNotificationSubmit = ({ type, message, duration }: { type: KioskNotificationType; message: string; duration: number }) => {
-    if (!socket || !ownerPin) return
+  const handleNotificationSubmit = useCallback(({ type, message, duration }: { type: KioskNotificationType; message: string; duration: number }) => {
+    if (!socket || !connected || !ownerPin) {
+      addToast('error', i18nText('errorConnectionLost'))
+      return
+    }
+    setNotifModalOpen(false)
     socket.emit(SocketEvents.CLIENT.SEND_NOTIFICATION, {
       pin: ownerPin,
       type,
       message,
       duration,
     })
-    setNotifModalOpen(false)
-  }
+  }, [socket, connected, ownerPin, addToast, i18nText])
 
   const handleNotificationClose = () => {
     setNotifModalOpen(false)
   }
+
+  // Listen for notification-related ERROR events from the server
+  // (wrong PIN, rate-limited, etc.) and show a toast with the message.
+  useEffect(() => {
+    if (!socket) return
+    const handler = (err: { code: string; message: string }) => {
+      if (err.code === 'UNAUTHORIZED' || err.code === 'RATE_LIMITED') {
+        addToast('error', err.message)
+      }
+    }
+    socket.on('ERROR', handler)
+    return () => { socket.off('ERROR', handler) }
+  }, [socket, addToast])
 
   /** ── Export CSV (authenticated fetch + blob download) ── */
   const downloadCsv = useCallback(async () => {
@@ -375,7 +391,8 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
       </main>
 
       {/* Floating Action Button — Nueva Cancha */}
-      <FloatingActionButton
+      <div className="fixed bottom-6 right-6 z-50">
+        <FloatingActionButton
         icon={<Plus size={20} />}
         label={i18nText('ownerCreateCourt')}
         onClick={() => {
@@ -390,6 +407,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
         disabled={courtMgmt.isCreating}
         loading={courtMgmt.isCreating}
       />
+      </div>
 
       <PinModal
         isOpen={pinModalOpen}

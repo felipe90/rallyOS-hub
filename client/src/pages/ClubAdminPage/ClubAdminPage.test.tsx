@@ -234,6 +234,100 @@ describe('ClubAdminPage — pre-admin PIN screen', () => {
   })
 })
 
+describe('ClubAdminPage — featured toggle button (club-featured-courts)', () => {
+  function makeCourt(overrides: Record<string, unknown> = {}) {
+    return {
+      id: 'court-1',
+      name: 'Mesa 1',
+      status: 'OCCUPIED',
+      mode: 'club',
+      featured: false,
+      sessionMode: 'match',
+      ...overrides,
+    }
+  }
+
+  function setupCourt(courts: ReturnType<typeof makeCourt>[]) {
+    mockUseSocketContext.mockReturnValue({ socket: null, connected: true })
+    useClubAdminMock.mockReturnValue({
+      isAdmin: true,
+      verifyAdminPin: vi.fn(),
+      verifyLoading: false,
+      verifyError: null,
+      clearVerifyError: vi.fn(),
+    })
+    const toggleFeatured = vi.fn()
+    useClubCourtManagementMock.mockReturnValue({
+      courts,
+      loading: false,
+      error: null,
+      lastEvent: null,
+      createCourt: vi.fn(),
+      activateCourt: vi.fn(),
+      deactivateCourt: vi.fn(),
+      forceEndSession: vi.fn(),
+      deleteCourt: vi.fn(),
+      resetCourt: vi.fn(),
+      clearEvent: vi.fn(),
+      toggleFeatured,
+    })
+    useClubSessionHistoryMock.mockReturnValue({
+      sessions: [],
+      clearHistory: vi.fn(),
+      confirmClearHistory: vi.fn(),
+      cancelClearHistory: vi.fn(),
+      pendingClearConfirm: false,
+      clearError: null,
+    })
+    return { toggleFeatured }
+  }
+
+  it('renders the Destacar (Feature) button on a match-mode OCCUPIED court card when featured is false', () => {
+    setupCourt([makeCourt({ status: 'OCCUPIED', sessionMode: 'match', featured: false })])
+    adminPage()
+    expect(screen.getByRole('button', { name: /courtDestacar/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /courtQuitarDestacado/ })).not.toBeInTheDocument()
+  })
+
+  it('renders the Quitar Destacado button on a match-mode court card when featured is true', () => {
+    setupCourt([makeCourt({ status: 'OCCUPIED', sessionMode: 'match', featured: true })])
+    adminPage()
+    expect(screen.getByRole('button', { name: /courtQuitarDestacado/ })).toBeInTheDocument()
+  })
+
+  it('does NOT render the Destacar button on free-mode OCCUPIED courts', () => {
+    setupCourt([makeCourt({ status: 'OCCUPIED', sessionMode: 'free', featured: false })])
+    adminPage()
+    expect(screen.queryByRole('button', { name: /courtDestacar/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /courtQuitarDestacado/ })).not.toBeInTheDocument()
+  })
+
+  it('does NOT render the Destacar button on non-OCCUPIED statuses', () => {
+    setupCourt([
+      makeCourt({ id: 'c-a', status: 'AVAILABLE', sessionMode: undefined }),
+      makeCourt({ id: 'c-r', status: 'RESERVED', sessionMode: undefined }),
+      makeCourt({ id: 'c-f', status: 'FINISHED', sessionMode: undefined }),
+    ])
+    adminPage()
+    expect(screen.queryByRole('button', { name: /courtDestacar/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /courtQuitarDestacado/ })).not.toBeInTheDocument()
+  })
+
+  it('calls toggleFeatured(courtId) when the Destacar button is clicked', () => {
+    const { toggleFeatured } = setupCourt([makeCourt({ id: 'court-1', status: 'OCCUPIED', sessionMode: 'match', featured: false })])
+    adminPage()
+    fireEvent.click(screen.getByRole('button', { name: /courtDestacar/ }))
+    expect(toggleFeatured).toHaveBeenCalledWith('court-1')
+  })
+
+  it('calls toggleFeatured(courtId) when the Quitar Destacado button is clicked', () => {
+    const { toggleFeatured } = setupCourt([makeCourt({ id: 'court-1', status: 'OCCUPIED', sessionMode: 'match', featured: true })])
+    adminPage()
+    fireEvent.click(screen.getByRole('button', { name: /courtQuitarDestacado/ }))
+    expect(toggleFeatured).toHaveBeenCalledWith('court-1')
+  })
+})
+
 describe('ClubAdminPage — notification button', () => {
   beforeEach(() => {
     mockUseSocketContext.mockReturnValue({ socket: null, connected: true })
@@ -267,24 +361,21 @@ describe('ClubAdminPage — notification button', () => {
     })
   })
 
-  it('renders a bell icon button in the header actions when admin is verified', () => {
+  it('renders a bell icon button in the action bar when admin is verified', () => {
     adminPage()
-    // The bell icon notification button should be present in the header
-    const notifBtn = screen.getByTitle('Send Notification')
+    const notifBtn = screen.getByRole('button', { name: /send notification/i })
     expect(notifBtn).toBeInTheDocument()
   })
 
   it('opens KioskNotificationModal when bell icon button is clicked (RED test — not yet implemented)', () => {
     adminPage()
-    // Click the notification button
-    fireEvent.click(screen.getByTitle('Send Notification'))
-    // The modal should now be visible
+    fireEvent.click(screen.getByRole('button', { name: /send notification/i }))
     expect(screen.getByTestId('kiosk-notification-modal')).toBeInTheDocument()
   })
 
   it('passes showGeneralToggle=true to KioskNotificationModal', () => {
     adminPage()
-    fireEvent.click(screen.getByTitle('Send Notification'))
+    fireEvent.click(screen.getByRole('button', { name: /send notification/i }))
     expect(screen.getByTestId('general-toggle')).toBeInTheDocument()
   })
 
@@ -333,7 +424,7 @@ describe('ClubAdminPage — notification button', () => {
     )
 
     // Open modal and submit
-    fireEvent.click(screen.getByTitle('Send Notification'))
+    fireEvent.click(screen.getByRole('button', { name: /send notification/i }))
     fireEvent.click(screen.getByTestId('modal-submit'))
 
     expect(mockEmit).toHaveBeenCalledWith('CLUB_SEND_NOTIFICATION', {
@@ -344,10 +435,8 @@ describe('ClubAdminPage — notification button', () => {
     })
   })
 
-  it('tracks loading state on the modal while notification is being sent', () => {
-    const mockEmit = vi.fn((_event: string, _data: unknown) => {
-      // Don't resolve — keep loading
-    })
+  it('closes the notification modal after submitting', () => {
+    const mockEmit = vi.fn()
     mockUseSocketContext.mockReturnValue({
       socket: { on: vi.fn(), off: vi.fn(), emit: mockEmit },
       connected: true,
@@ -389,13 +478,12 @@ describe('ClubAdminPage — notification button', () => {
     )
 
     // Open modal
-    fireEvent.click(screen.getByTitle('Send Notification'))
+    fireEvent.click(screen.getByRole('button', { name: /send notification/i }))
     expect(screen.getByTestId('kiosk-notification-modal')).toBeInTheDocument()
-    expect(screen.queryByTestId('loading-indicator')).not.toBeInTheDocument()
 
-    // Submit to trigger loading state
+    // Submit — modal should close
     fireEvent.click(screen.getByTestId('modal-submit'))
-    expect(screen.getByTestId('loading-indicator')).toBeInTheDocument()
+    expect(screen.queryByTestId('kiosk-notification-modal')).not.toBeInTheDocument()
   })
 
   it('renders error message on the modal when notification fails', () => {
@@ -443,7 +531,7 @@ describe('ClubAdminPage — notification button', () => {
     )
 
     // Open modal
-    fireEvent.click(screen.getByTitle('Send Notification'))
+    fireEvent.click(screen.getByRole('button', { name: /send notification/i }))
 
     // Initially no error
     expect(screen.queryByTestId('error-message')).not.toBeInTheDocument()
@@ -451,7 +539,7 @@ describe('ClubAdminPage — notification button', () => {
 
   it('closes modal when clicking the close button', () => {
     adminPage()
-    fireEvent.click(screen.getByTitle('Send Notification'))
+    fireEvent.click(screen.getByRole('button', { name: /send notification/i }))
     expect(screen.getByTestId('kiosk-notification-modal')).toBeInTheDocument()
 
     fireEvent.click(screen.getByTestId('modal-close'))
@@ -473,6 +561,6 @@ describe('ClubAdminPage — notification button', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.queryByTitle('Send Notification')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /send notification/i })).not.toBeInTheDocument()
   })
 })

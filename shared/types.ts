@@ -331,6 +331,13 @@ export interface ClubKioskCourtInfo {
    * sessions created before this change).
    */
   playerName?: string;
+  /**
+   * Whether this court is the featured/spotlight court for the club kiosk
+   * (see `club-featured-courts` spec). Optional for backward compatibility —
+   * existing payloads that pre-date this change omit the field and the
+   * client treats absence as `false` (see useClubCourtManagement.handleKioskData).
+   */
+  featured?: boolean;
 }
 
 /** Club kiosk payload — emitted via CLUB_KIOSK_DATA server event */
@@ -348,6 +355,12 @@ export interface ClubCourtInfo {
   pin?: string;
   /** Club session mode — present when status === 'OCCUPIED'. Undefined for AVAILABLE/RESERVED/FINISHED. */
   sessionMode?: SessionMode;
+  /**
+   * Whether this court is the featured/spotlight court for the club kiosk
+   * (see `club-featured-courts` spec). Optional for backward compatibility —
+   * the admin client defaults to `false` when absent.
+   */
+  featured?: boolean;
 }
 
 // ── QR Data ─────────────────────────────────────────────────────────

@@ -19,18 +19,16 @@ export function FloatingActionButton({
   'aria-label': ariaLabel,
 }: FloatingActionButtonProps) {
   return (
-    <div className="fixed bottom-6 right-6 z-50">
-      <Button
-        variant="primary"
-        className="rounded-full shadow-lg px-5 h-12"
-        onClick={onClick}
-        disabled={disabled}
-        loading={loading}
-        icon={icon}
-        aria-label={ariaLabel || label}
-      >
-        {label}
-      </Button>
-    </div>
+    <Button
+      variant="primary"
+      className="rounded-full shadow-lg px-5 h-12"
+      onClick={onClick}
+      disabled={disabled}
+      loading={loading}
+      icon={icon}
+      aria-label={ariaLabel || label}
+    >
+      {label}
+    </Button>
   );
 }

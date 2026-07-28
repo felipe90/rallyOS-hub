@@ -394,6 +394,6 @@
     display: inline-block;
     white-space: nowrap;
     margin-left: 100%;
-    animation: marquee-slide 20s linear infinite;
+    animation: marquee-slide 10s linear infinite;
   }
 }

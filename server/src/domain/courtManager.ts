@@ -215,6 +215,10 @@ export class CourtManager {
         // the field is omitted from the wire payload entirely (matches
         // the ClubKioskCourtInfo optional type).
         playerName: c.playerName ?? undefined,
+        // club-featured-courts — surface `featured` on the kiosk court card
+        // so the club admin UI can render the star/destacado state via
+        // useClubCourtManagement.handleKioskData.
+        featured: c.featured,
       };
     });
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { TournamentStatus, ClubStatus } from '@shared/types';
-import { WaitingBadge, ConfiguringBadge, LiveBadge, FinishedBadge } from '../../atoms/Badge';
+import { WaitingBadge, ConfiguringBadge, LiveBadge, FinishedBadge, Badge } from '../../atoms/Badge';
 import { Body } from '../../atoms/Typography';
 import { Button } from '../../atoms/Button';
 import { ConfirmDialog } from '../ConfirmDialog';
@@ -124,6 +124,15 @@ export function TableStatusChip({
           <Body className="text-xs text-muted-foreground">{resolvedLabel}</Body>
         )}
       </div>
+
+      {/* PIN badge — top center */}
+      {hasPin && (
+        <div className="flex justify-center -mt-1">
+          <Badge className="font-mono font-bold text-xs tracking-wider">
+            PIN {displayPin}
+          </Badge>
+        </div>
+      )}
       
       <Body className="text-sm text-text/70">{tableName}</Body>
       
@@ -143,16 +152,6 @@ export function TableStatusChip({
             <span className="text-sm font-bold text-text-h">{currentSets.a}</span>
             <span className="text-text-muted">-</span>
             <span className="text-sm font-bold text-text-h">{currentSets.b}</span>
-          </div>
-        </div>
-      )}
-
-      {/* PIN for Owner */}
-      {hasPin && (
-        <div className="flex items-center gap-2 mt-1 pt-2 border-t border-border/30">
-          <div className="flex items-center gap-1">
-            <Body className="text-xs text-text-muted">PIN:</Body>
-            <Body className="text-sm font-mono font-bold text-primary">{displayPin}</Body>
           </div>
         </div>
       )}

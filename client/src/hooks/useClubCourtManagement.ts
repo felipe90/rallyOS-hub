@@ -88,6 +88,11 @@ export function useClubCourtManagement(socket: Socket | null, connected: boolean
         status: kc.status as ClubCourtInfo['status'],
         mode: 'club' as const,
         pin: kc.pin,
+        // club-featured-courts — propagate featured from the authoritative
+        // server payload. Default to false when absent (legacy payloads or
+        // club courts that pre-date this change) so the UI never renders
+        // a stale/undefined star state.
+        featured: kc.featured ?? false,
       })))
       setLoading(false)
       setError(null)
@@ -197,6 +202,26 @@ export function useClubCourtManagement(socket: Socket | null, connected: boolean
   const cancelForceEnd = useCallback(() => setForceEndConfirmId(null), [])
   const clearError = useCallback(() => setError(null), [])
 
+  // club-featured-courts — toggle featured state for a single club court.
+  // Reads the current featured state from local `courts` and emits
+  // SET_FEATURED with `targetCourtId: courtId` to feature, or
+  // `targetCourtId: null` to clear. The server is authoritative: local
+  // state is reconciled on the next CLUB_KIOSK_DATA broadcast, so we do
+  // NOT optimistically flip `featured` here.
+  const toggleFeatured = useCallback((courtId: string) => {
+    if (!socket || !connected) {
+      setError('NO_CONNECTION')
+      return
+    }
+    setLoading(true)
+    setError(null)
+    const target = courts.find(c => c.id === courtId)
+    const isFeatured = target?.featured === true
+    socket.emit(SocketEvents.CLIENT.SET_FEATURED, {
+      targetCourtId: isFeatured ? null : courtId,
+    })
+  }, [socket, connected, courts])
+
   return {
     courts,
     loading,
@@ -214,5 +239,6 @@ export function useClubCourtManagement(socket: Socket | null, connected: boolean
     cancelForceEnd,
     clearError,
     clearEvent,
+    toggleFeatured,
   }
 }

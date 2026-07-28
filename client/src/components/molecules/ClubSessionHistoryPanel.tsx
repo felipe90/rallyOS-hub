@@ -93,10 +93,10 @@ export function ClubSessionHistoryPanel({
   return (
     <div className="space-y-4">
       {/* Action bar */}
-      <div className="flex flex-wrap gap-2 justify-end">
+      <div className="flex flex-wrap gap-1 justify-end">
         <Button
           variant="outline"
-          size="sm"
+          size="xs"
           onClick={handleExport}
           disabled={exporting || isEmpty}
           loading={exporting}
@@ -105,7 +105,7 @@ export function ClubSessionHistoryPanel({
         </Button>
         <Button
           variant="danger"
-          size="sm"
+          size="xs"
           onClick={() => history.clearHistory()}
           disabled={isEmpty || history.pendingClearConfirm}
         >

@@ -87,7 +87,7 @@ export class SocketHandler {
     this.matchHandler = new MatchEventHandler(io, tableManager, ownerPin);
     this.authHandler = new AuthHandler(io, tableManager, ownerPin, sessionTokenService);
     this.adminHandler = new AdminHandler(io, tableManager, ownerPin);
-    this.spotlightHandler = new SpotlightHandler(io, tableManager, ownerPin);
+    this.spotlightHandler = new SpotlightHandler(io, tableManager, ownerPin, clubConfigStore);
     // Spec (club-session-history / Persistence Trigger): when a
     // SessionHistoryStore is injected via the SocketHandler ctor, it is
     // forwarded to ClubPlayerHandler so session-end writes a SessionRecord.

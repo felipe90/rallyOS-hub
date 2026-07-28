@@ -7,6 +7,10 @@ vi.mock('../../hooks/useSocket', () => ({
   useSocket: vi.fn()
 }))
 
+vi.mock('../AuthContext', () => ({
+  useAuthContext: vi.fn(() => ({ logout: vi.fn(), role: null })),
+}))
+
 const mockUseSocket = useSocket as ReturnType<typeof vi.fn>
 
 const TestConsumer = () => {

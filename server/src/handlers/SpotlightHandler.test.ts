@@ -242,6 +242,146 @@ describe('SET_FEATURED', () => {
   });
 });
 
+// ── SET_FEATURED — Club Admin Auth (club-featured-courts) ───────────────
+
+describe('SET_FEATURED — club admin auth (club-featured-courts)', () => {
+  let handler: SpotlightHandler;
+  let mockSocket: any;
+  let mockIo: any;
+  let tableManager: any;
+  let clubConfigStore: any;
+  let registeredHandlers: Map<string, (...args: any[]) => void>;
+
+  function createClubCourt(overrides: Record<string, any> = {}): any {
+    return {
+      id: 'club-court-1',
+      number: 1,
+      name: 'Club Cancha 1',
+      kind: 'club',
+      clubStatus: 'AVAILABLE',
+      featured: false,
+      playerNames: { a: '', b: '' },
+      pin: '',
+      sportRules: { setCourtId: jest.fn(), setEventCallback: jest.fn() },
+      ...overrides,
+    };
+  }
+
+  beforeEach(() => {
+    mockIo = createMockIo();
+
+    const clubCourt = createClubCourt({ id: 'club-court-1', featured: false });
+
+    tableManager = {
+      getCourt: jest.fn((id: string) => (id === 'club-court-1' ? clubCourt : undefined)),
+      getAllCourts: jest.fn(() => [clubCourt]),
+      courtToInfo: jest.fn((c: any) => ({
+        id: c.id,
+        number: c.number,
+        name: c.name,
+        status: c.clubStatus,
+        featured: c.featured,
+        mode: 'club',
+      })),
+      getClubKioskPayload: jest.fn(() => ({
+        clubName: 'Test Club',
+        courts: [{ id: 'club-court-1', name: clubCourt.name, status: clubCourt.clubStatus, mode: 'club', featured: false }],
+      })),
+      onTableUpdate: () => {},
+      onMatchEvent: () => {},
+    };
+
+    clubConfigStore = { load: jest.fn(() => ({ clubName: 'Test Club', sport: 'tableTennis', configured: true, adminPinHash: 'h', createdAt: 0 })) };
+
+    handler = new SpotlightHandler(mockIo, tableManager, '12345678', clubConfigStore);
+  });
+
+  function registerOn(socket: any) {
+    registeredHandlers = new Map();
+    socket.on.mockImplementation((event: string, fn: (...args: any[]) => void) => {
+      registeredHandlers.set(event, fn);
+    });
+    handler.registerHandlers(socket);
+  }
+
+  function getHandler(event: string): (...args: any[]) => void {
+    const h = registeredHandlers.get(event);
+    if (!h) throw new Error(`Handler not registered for event: ${event}`);
+    return h;
+  }
+
+  it('accepts SET_FEATURED from a club admin socket (isClubAdmin=true, isOwner=false)', () => {
+    mockSocket = createMockSocket('club-admin-1', { isOwner: false, isClubAdmin: true });
+    registerOn(mockSocket);
+
+    const handlerFn = getHandler(SocketEvents.CLIENT.SET_FEATURED);
+    handlerFn({ targetCourtId: 'club-court-1' });
+
+    expect(mockSocket.emit).not.toHaveBeenCalledWith('ERROR', expect.objectContaining({ code: 'UNAUTHORIZED' }));
+    const court = tableManager.getCourt('club-court-1');
+    expect(court.featured).toBe(true);
+  });
+
+  it('rejects SET_FEATURED from a socket that is neither owner nor club admin', () => {
+    mockSocket = createMockSocket('anon-1', { isOwner: false, isClubAdmin: false });
+    registerOn(mockSocket);
+
+    const handlerFn = getHandler(SocketEvents.CLIENT.SET_FEATURED);
+    handlerFn({ targetCourtId: 'club-court-1' });
+
+    expect(mockSocket.emit).toHaveBeenCalledWith('ERROR', expect.objectContaining({ code: 'UNAUTHORIZED' }));
+    const court = tableManager.getCourt('club-court-1');
+    expect(court.featured).toBe(false);
+  });
+
+  it('emits CLUB_KIOSK_DATA globally after featuring a club court', () => {
+    mockSocket = createMockSocket('club-admin-2', { isOwner: false, isClubAdmin: true });
+    registerOn(mockSocket);
+
+    const handlerFn = getHandler(SocketEvents.CLIENT.SET_FEATURED);
+    handlerFn({ targetCourtId: 'club-court-1' });
+
+    expect(mockIo.emit).toHaveBeenCalledWith(
+      SocketEvents.SERVER.CLUB_KIOSK_DATA,
+      expect.objectContaining({ clubName: 'Test Club' }),
+    );
+  });
+
+  it('emits CLUB_KIOSK_DATA globally after clearing featured on a club court (targetCourtId=null)', () => {
+    const clubCourt = tableManager.getCourt('club-court-1');
+    clubCourt.featured = true;
+
+    mockSocket = createMockSocket('club-admin-3', { isOwner: false, isClubAdmin: true });
+    registerOn(mockSocket);
+
+    const handlerFn = getHandler(SocketEvents.CLIENT.SET_FEATURED);
+    handlerFn({ targetCourtId: null });
+
+    expect(clubCourt.featured).toBe(false);
+    expect(mockIo.emit).toHaveBeenCalledWith(
+      SocketEvents.SERVER.CLUB_KIOSK_DATA,
+      expect.objectContaining({ clubName: 'Test Club' }),
+    );
+  });
+
+  it('does NOT emit CLUB_KIOSK_DATA when the featured court is a tournament court', () => {
+    const tournamentCourt = createCourt({ id: 'tourney-1', featured: false });
+    tableManager.getCourt = jest.fn((id: string) => (id === 'tourney-1' ? tournamentCourt : undefined));
+    tableManager.getAllCourts = jest.fn(() => [tournamentCourt]);
+
+    mockSocket = createMockSocket('owner-1', { isOwner: true, isClubAdmin: false });
+    registerOn(mockSocket);
+
+    const handlerFn = getHandler(SocketEvents.CLIENT.SET_FEATURED);
+    handlerFn({ targetCourtId: 'tourney-1' });
+
+    expect(mockIo.emit).not.toHaveBeenCalledWith(
+      SocketEvents.SERVER.CLUB_KIOSK_DATA,
+      expect.anything(),
+    );
+  });
+});
+
 // ── SUBSCRIBE_MATCH Handler ────────────────────────────────────────────
 
 describe('SUBSCRIBE_MATCH', () => {

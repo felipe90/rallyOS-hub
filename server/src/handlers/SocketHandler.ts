@@ -61,6 +61,9 @@ export class SocketHandler {
   private clubHistoryHandler?: ClubSessionHistoryHandler;
   private phoneRevealAuditStore: PhoneRevealAuditStore;
 
+  /** Current kiosk display mode — broadcast to all clients on connect and on change */
+  private kioskMode: 'club' | 'tournament' = 'tournament';
+
   constructor(
     io: Server,
     tableManager: CourtManager,
@@ -115,6 +118,10 @@ export class SocketHandler {
     // occupied court.
     this.clubCourtHandler = new ClubCourtHandler(io, tableManager, ownerPin, clubConfigStore);
     this.clubPlayerHandler = new ClubPlayerHandler(io, tableManager, ownerPin, clubConfigStore!, sessionHistoryStore);
+
+    // Default kiosk mode — tournament unless club is configured
+    const existingConfig = this.clubConfigStore?.load() ?? null
+    this.kioskMode = existingConfig?.configured ? 'club' : 'tournament'
     
     // Set up global court update listener once
     // COURT_UPDATE always goes to the court's room; COURT_LIST / CLUB_KIOSK_DATA
@@ -242,6 +249,17 @@ export class SocketHandler {
         wifiPassword: this.hubConfig.wifiPassword,
         domain: this.hubConfig.domain,
       });
+
+      // Send current kiosk mode — TV display uses this to switch views
+      socket.emit(SocketEvents.SERVER.KIOSK_MODE, { mode: this.kioskMode });
+
+      // Handle kiosk mode switch from admin/owner dashboard
+      socket.on(SocketEvents.CLIENT.SET_KIOSK_MODE, (data: { mode: 'club' | 'tournament' }) => {
+        if (data.mode !== 'club' && data.mode !== 'tournament') return
+        this.kioskMode = data.mode
+        this.io.emit(SocketEvents.SERVER.KIOSK_MODE, { mode: this.kioskMode })
+        logger.info({ mode: this.kioskMode }, 'Kiosk mode updated')
+      })
 
       // Register all handler events
       this.courtHandler.registerHandlers(socket);

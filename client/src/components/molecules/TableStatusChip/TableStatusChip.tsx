@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { TournamentStatus, ClubStatus } from '@shared/types';
-import { WaitingBadge, ConfiguringBadge, LiveBadge, FinishedBadge, Badge } from '../../atoms/Badge';
+import { Badge } from '../../atoms/Badge';
 import { Body } from '../../atoms/Typography';
 import { Button } from '../../atoms/Button';
 import { ConfirmDialog } from '../ConfirmDialog';
@@ -34,11 +34,12 @@ export interface TableStatusChipProps {
   onToggleFeatured?: () => void;
 }
 
-const statusBadge: Record<string, typeof WaitingBadge | undefined> = {
-  WAITING: WaitingBadge,
-  CONFIGURING: ConfiguringBadge,
-  LIVE: LiveBadge,
-  FINISHED: FinishedBadge,
+// Status pill colors synced with card border colors (statusBorderColor below)
+const statusPillClass: Record<string, string> = {
+  WAITING: 'bg-blue-500/15 text-blue-600',
+  CONFIGURING: 'bg-amber-500/15 text-amber-600',
+  LIVE: 'bg-emerald-500/15 text-emerald-600',
+  FINISHED: 'bg-gray-500/15 text-gray-500',
 };
 
 const statusBadgeLabelKeys: Record<string, string> = {
@@ -90,7 +91,7 @@ export function TableStatusChip({
   onToggleFeatured,
 }: TableStatusChipProps) {
   const { i18nText } = useI18n();
-  const StatusBadgeComponent = statusBadge[status];
+  const pillClass = statusPillClass[status];
   const resolvedLabel = statusLabel || (statusBadgeLabelKeys[status] ? i18nText(statusBadgeLabelKeys[status]) : status);
 
   // Keep last known PIN to prevent flicker during updates
@@ -116,25 +117,23 @@ export function TableStatusChip({
         ${className}
       `}
     >
-      <div className="flex items-center justify-between">
-        <Body className="font-medium text-text-h">Cancha {tableNumber}</Body>
-        {StatusBadgeComponent ? (
-          <StatusBadgeComponent label={resolvedLabel} />
-        ) : (
-          <Body className="text-xs text-muted-foreground">{resolvedLabel}</Body>
-        )}
-      </div>
-
-      {/* PIN badge — top center */}
-      {hasPin && (
-        <div className="flex justify-center -mt-1">
-          <Badge className="font-mono font-bold text-xs tracking-wider">
-            PIN {displayPin}
-          </Badge>
+      <div className="flex items-center justify-between gap-2">
+        <Body className="font-medium text-text-h truncate">{tableName}</Body>
+        <div className="flex items-center gap-2 shrink-0">
+          {hasPin && (
+            <Badge className="bg-primary/10 text-primary font-bold tracking-wider font-mono">
+              PIN {displayPin}
+            </Badge>
+          )}
+          {pillClass ? (
+            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold tracking-wide ${pillClass}`}>
+              {resolvedLabel}
+            </span>
+          ) : (
+            <Body className="text-xs text-muted-foreground">{resolvedLabel}</Body>
+          )}
         </div>
-      )}
-      
-      <Body className="text-sm text-text/70">{tableName}</Body>
+      </div>
       
       {playerNames && (playerNames.a || playerNames.b) && (
         <div className="flex gap-2 text-sm text-text-muted">
@@ -164,7 +163,6 @@ export function TableStatusChip({
           icon={<RefreshCw size={16} />}
           onClick={() => onClean()}
           stopPropagation
-          className="mt-2"
         >
           Limpiar Cancha
         </Button>
@@ -178,7 +176,6 @@ export function TableStatusChip({
           icon={<Star size={16} className={featured ? 'fill-amber-400 text-amber-400' : ''} />}
           onClick={() => onToggleFeatured()}
           stopPropagation
-          className="mt-2"
         >
           {featured ? i18nText('courtQuitarDestacado') : i18nText('courtDestacar')}
         </Button>

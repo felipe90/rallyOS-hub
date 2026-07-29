@@ -67,9 +67,9 @@ vi.mock('@/i18n', () => ({
     i18nText: (key: string) => {
       const map: Record<string, string> = {
         'ownerTitle': 'Organizer Panel',
-        'ownerSubtitle': 'Create tables, manage referees and matches',
+        'ownerSubtitle': 'Manage courts, referees and matches',
         'ownerCreateTable': 'New Table',
-        'ownerViewHistory': 'View History',
+        'ownerViewHistory': 'History',
         'ownerCreate': 'Create',
         'ownerCreating': 'Creating...',
         'ownerTableNamePlaceholder': 'Table name...',
@@ -84,7 +84,7 @@ vi.mock('@/i18n', () => ({
         'connectionConnecting': 'Connecting',
         'connectionNoConnection': 'No Connection',
         'connectionDisconnected': 'Disconnected',
-        'ownerCreateNotification': 'Create Notification',
+        'notificationModalTitle': 'Send Notification',
         'finishTournament': 'End Tournament',
         'finishTournamentConfirm': 'End tournament? It will be archived and can no longer be edited.',
         'finishTournamentExportCsv': 'Export CSV before finishing',
@@ -147,6 +147,7 @@ function renderPage(options?: {
     socket: { on: vi.fn(), off: vi.fn(), emit: vi.fn() },
     requestCourtsWithPins: vi.fn(),
     appError: null,
+    allHistories: null,
   }
 
   mockUseSocketContext.mockReturnValue({
@@ -183,16 +184,16 @@ function renderPage(options?: {
 }
 
 describe('OwnerDashboardPage — Notification Button', () => {
-  it('renders Create Notification button in dashboardActions', () => {
+  it('renders Send Notification button in dashboardActions', () => {
     renderPage()
-    expect(screen.getByText('Create Notification')).toBeInTheDocument()
+    expect(screen.getByText('Send Notification')).toBeInTheDocument()
   })
 
-  it('opens the KioskNotificationModal when Create Notification is clicked', () => {
+  it('opens the KioskNotificationModal when Send Notification is clicked', () => {
     renderPage()
     expect(screen.queryByTestId('kiosk-notification-modal')).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByText('Create Notification'))
+    fireEvent.click(screen.getByText('Send Notification'))
 
     expect(screen.getByTestId('kiosk-notification-modal')).toBeInTheDocument()
   })
@@ -200,7 +201,7 @@ describe('OwnerDashboardPage — Notification Button', () => {
   it('closes the KioskNotificationModal when onClose is called', () => {
     renderPage()
 
-    fireEvent.click(screen.getByText('Create Notification'))
+    fireEvent.click(screen.getByText('Send Notification'))
     expect(screen.getByTestId('kiosk-notification-modal')).toBeInTheDocument()
 
     fireEvent.click(screen.getByTestId('modal-close'))
@@ -216,7 +217,7 @@ describe('OwnerDashboardPage — Notification Button', () => {
       },
     })
 
-    fireEvent.click(screen.getByText('Create Notification'))
+    fireEvent.click(screen.getByText('Send Notification'))
     fireEvent.click(screen.getByTestId('modal-submit'))
 
     expect(mockEmit).toHaveBeenCalledTimes(1)

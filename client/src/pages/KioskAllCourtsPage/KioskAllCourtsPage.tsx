@@ -317,7 +317,11 @@ export function KioskAllCourtsPage() {
           )}
           </main>
 
-          <KioskSportsTicker defaultText="BIENVENIDOS A RALLYOS" />
+          <KioskSportsTicker
+            notification={kioskNotification}
+            defaultText="BIENVENIDOS A RALLYOS"
+            defaultTexts={['▶ CANCHAS DISPONIBLES', '▶ RESERVAS', '▶ ESCANEA QR PARA JUGAR']}
+          />
         </>
       )}
 

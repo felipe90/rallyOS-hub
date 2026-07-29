@@ -75,6 +75,8 @@ export const SocketEvents = {
     CLUB_REVEAL_PHONE: 'CLUB_REVEAL_PHONE',
     // Club Admin Notifications
     CLUB_SEND_NOTIFICATION: 'CLUB_SEND_NOTIFICATION',
+    // Kiosk mode switch
+    SET_KIOSK_MODE: 'SET_KIOSK_MODE',
   },
   // Emitted by SERVER → received by CLIENT
   SERVER: {
@@ -135,6 +137,8 @@ export const SocketEvents = {
     // On failure: { success: false, error: 'unauthorized' | 'not_found' }.
     // No audit entry is written on failure (spec: `phone-reveal` scenarios).
     CLUB_REVEAL_PHONE_RESULT: 'CLUB_REVEAL_PHONE_RESULT',
+    // Kiosk mode — broadcast to all clients on change or connect
+    KIOSK_MODE: 'KIOSK_MODE',
   },
 } as const;
 

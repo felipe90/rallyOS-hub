@@ -213,11 +213,19 @@ export function AuthPage() {
             {i18nText('authTagline')}
           </Typography>
         ) : (
-          <Typography variant="title">
-            {mode === 'sport-select' ? i18nText('configSportLabel')
-             : mode === 'club-pin' ? i18nText('authClubPlayTitle')
-             : i18nText('authEnterOwnerPin')}
-          </Typography>
+          <>
+            <Typography variant="title">
+              {mode === 'sport-select' ? i18nText('configSportLabel')
+               : mode === 'club-pin' ? i18nText('authClubPlayTitle')
+               : mode === 'owner-pin' ? i18nText('authRoleOwner')
+               : i18nText('authEnterOwnerPin')}
+            </Typography>
+            {mode === 'owner-pin' && (
+              <Typography variant="body" className="text-center text-muted-foreground">
+                {randomOwnerPin ? i18nText('authOwnerPinDescription') : i18nText('authOwnerPinEnterPin')}
+              </Typography>
+            )}
+          </>
         )}
       </div>
 
@@ -343,6 +351,7 @@ export function AuthPage() {
               disabled={clubLoading}
               animate
               fullWidth
+              className="bg-white/[0.06] border border-white/10 hover:bg-white/[0.12]"
             >
               {i18nText('authPinBack')}
             </Button>
@@ -385,11 +394,7 @@ export function AuthPage() {
             className="flex flex-col gap-4 w-full max-w-sm"
           >
             {randomOwnerPin ? (
-              <>
-                <Typography variant="body" className="text-center text-muted-foreground">
-                  {i18nText('authOwnerPinDescription')}
-                </Typography>
-                <div className="card flex flex-col items-center gap-2 p-4 bg-surface-low rounded-lg border border-outline/20">
+              <div className="card flex flex-col items-center gap-2 p-4 bg-surface-low rounded-lg border border-outline/20">
                   <Typography variant="label" className="text-muted-foreground">
                     {i18nText('authOwnerPinYourPinIs')}
                   </Typography>
@@ -400,12 +405,7 @@ export function AuthPage() {
                     {i18nText('authOwnerPinUseHint')}
                   </Typography>
                 </div>
-              </>
-            ) : (
-              <Typography variant="body" className="text-center text-muted-foreground">
-                {i18nText('authOwnerPinEnterPin')}
-              </Typography>
-            )}
+            ) : null}
             <PinInput
               length={8}
               value={pin}
@@ -441,6 +441,7 @@ export function AuthPage() {
               animate
               fullWidth
               icon={<ArrowLeft size={16} />}
+              className="bg-white/[0.06] border border-white/10 hover:bg-white/[0.12]"
             >
               {i18nText('commonBack')}
             </Button>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useSocketContext } from '@/contexts/SocketContext'
 import { useI18n } from '@/i18n'
@@ -6,10 +6,11 @@ import { Typography } from '@/components/atoms'
 import { ClubKioskCard } from '@/components/organisms/ClubKioskCard'
 import { KioskHeader } from '@/components/molecules/KioskHeader'
 import { KioskSportsTicker } from '@/components/organisms/KioskSportsTicker'
+import { KioskNotificationToast } from '@/components/organisms/KioskNotificationToast'
 import { KioskScoreboard } from '@/components/organisms/KioskScoreboard'
 import { SocketEvents } from '@shared/events'
 import { Table2 } from 'lucide-react'
-import type { ClubKioskPayload, MatchStateExtended } from '@shared/types'
+import type { ClubKioskPayload, MatchStateExtended, KioskNotificationData } from '@shared/types'
 
 /** Cards per page for auto-rotation */
 const PAGE_SIZE = 8
@@ -38,6 +39,21 @@ export function ClubKioskPage() {
 
   const totalPages = Math.max(1, Math.ceil(courts.length / PAGE_SIZE))
   const visibleCourts = courts.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+
+  // Notification toast — same type-gating as tournament kiosk
+  const [visibleNotification, setVisibleNotification] = useState<KioskNotificationData | null>(null)
+  const prevNotifTsRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    if (kioskNotification && kioskNotification.timestamp !== prevNotifTsRef.current) {
+      prevNotifTsRef.current = kioskNotification.timestamp
+      if (kioskNotification.type === 'important' || kioskNotification.type === 'error') {
+        setVisibleNotification(kioskNotification)
+      } else {
+        setVisibleNotification(null)
+      }
+    }
+  }, [kioskNotification])
 
   // Detect featured match-mode court for spotlight
   const featuredMatchCourt = courts.find(
@@ -167,7 +183,15 @@ export function ClubKioskPage() {
           </AnimatePresence>
         </main>
 
-        <KioskSportsTicker
+      {/* Kiosk Notification Toast — important/error only */}
+      {visibleNotification && (
+        <KioskNotificationToast
+          notification={visibleNotification}
+          onDismiss={() => setVisibleNotification(null)}
+        />
+      )}
+
+      <KioskSportsTicker
           notification={kioskNotification?.scope === 'general' ? null : kioskNotification}
           defaultText="BIENVENIDOS A RALLYOS"
           defaultTexts={['▶ CANCHAS DISPONIBLES', '▶ RESERVAS', '▶ ESCANEA QR PARA JUGAR']}

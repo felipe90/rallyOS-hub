@@ -3,7 +3,6 @@ import { render, screen, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { KioskPage } from './KioskPage'
 import { useSocketContext } from '@/contexts/SocketContext'
-import type { ClubConfig } from '@shared/types'
 
 // Mock SocketContext
 vi.mock('@/contexts/SocketContext', () => ({
@@ -23,15 +22,10 @@ const mockUseSocketContext = useSocketContext as ReturnType<typeof vi.fn>
 
 describe('KioskPage', () => {
   beforeEach(() => {
-    vi.useFakeTimers()
     vi.clearAllMocks()
   })
 
-  afterEach(() => {
-    vi.useRealTimers()
-  })
-
-  it('shows loading spinner while detecting mode', () => {
+  it('shows loading spinner while waiting for mode', () => {
     const mockOn = vi.fn()
     mockUseSocketContext.mockReturnValue({
       socket: { on: mockOn, emit: vi.fn(), off: vi.fn() },
@@ -39,23 +33,10 @@ describe('KioskPage', () => {
 
     render(<MemoryRouter><KioskPage /></MemoryRouter>)
 
-    // Should show spinner in loading state
     expect(screen.getByText('Cargando...')).toBeInTheDocument()
   })
 
-  it('emits CLUB_GET_CONFIG on mount', () => {
-    const mockEmit = vi.fn()
-    const mockOn = vi.fn()
-    mockUseSocketContext.mockReturnValue({
-      socket: { on: mockOn, emit: mockEmit, off: vi.fn() },
-    })
-
-    render(<MemoryRouter><KioskPage /></MemoryRouter>)
-
-    expect(mockEmit).toHaveBeenCalledWith('CLUB_GET_CONFIG')
-  })
-
-  it('renders ClubKioskPage when CLUB_CONFIG returns configured=true', () => {
+  it('renders ClubKioskPage when KIOSK_MODE is club', () => {
     let handler: (...args: unknown[]) => void = () => {}
     const mockOn = vi.fn((_event: string, h: (...args: unknown[]) => void) => {
       handler = h
@@ -67,14 +48,14 @@ describe('KioskPage', () => {
     render(<MemoryRouter><KioskPage /></MemoryRouter>)
 
     act(() => {
-      handler({ configured: true, clubName: 'Mi Club', sport: 'tableTennis', adminPinHash: '', adminPin: '', createdAt: 0 } satisfies ClubConfig)
+      handler({ mode: 'club' })
     })
 
     expect(screen.getByTestId('club-kiosk')).toBeInTheDocument()
     expect(screen.queryByTestId('tournament-kiosk')).not.toBeInTheDocument()
   })
 
-  it('renders KioskAllCourtsPage when CLUB_CONFIG returns configured=false', () => {
+  it('renders KioskAllCourtsPage when KIOSK_MODE is tournament', () => {
     let handler: (...args: unknown[]) => void = () => {}
     const mockOn = vi.fn((_event: string, h: (...args: unknown[]) => void) => {
       handler = h
@@ -86,35 +67,33 @@ describe('KioskPage', () => {
     render(<MemoryRouter><KioskPage /></MemoryRouter>)
 
     act(() => {
-      handler({ configured: false, clubName: '', sport: '', adminPinHash: '', adminPin: '', createdAt: 0 } satisfies ClubConfig)
+      handler({ mode: 'tournament' })
     })
 
     expect(screen.getByTestId('tournament-kiosk')).toBeInTheDocument()
     expect(screen.queryByTestId('club-kiosk')).not.toBeInTheDocument()
   })
 
-  it('falls back to tournament kiosk after timeout when no CLUB_CONFIG arrives', () => {
-    const mockOn = vi.fn()
-    const mockOff = vi.fn()
+  it('switches mode when KIOSK_MODE changes', () => {
+    let handler: (...args: unknown[]) => void = () => {}
+    const mockOn = vi.fn((_event: string, h: (...args: unknown[]) => void) => {
+      handler = h
+    })
     mockUseSocketContext.mockReturnValue({
-      socket: { on: mockOn, emit: vi.fn(), off: mockOff },
+      socket: { on: mockOn, emit: vi.fn(), off: vi.fn() },
     })
 
     render(<MemoryRouter><KioskPage /></MemoryRouter>)
 
-    // Before timeout, should be loading
-    expect(screen.getByText('Cargando...')).toBeInTheDocument()
+    act(() => { handler({ mode: 'club' }) })
+    expect(screen.getByTestId('club-kiosk')).toBeInTheDocument()
 
-    // Advance past the 5s timeout
-    act(() => {
-      vi.advanceTimersByTime(5000)
-    })
-
-    // Should fallback to tournament kiosk
+    act(() => { handler({ mode: 'tournament' }) })
     expect(screen.getByTestId('tournament-kiosk')).toBeInTheDocument()
+    expect(screen.queryByTestId('club-kiosk')).not.toBeInTheDocument()
   })
 
-  it('cleans up socket listener on unmount', () => {
+  it('cleans up KIOSK_MODE listener on unmount', () => {
     const mockOff = vi.fn()
     const mockOn = vi.fn()
     mockUseSocketContext.mockReturnValue({
@@ -124,7 +103,7 @@ describe('KioskPage', () => {
     const { unmount } = render(<MemoryRouter><KioskPage /></MemoryRouter>)
     unmount()
 
-    expect(mockOff).toHaveBeenCalledWith('CLUB_CONFIG', expect.any(Function))
+    expect(mockOff).toHaveBeenCalledWith('KIOSK_MODE', expect.any(Function))
   })
 
   it('renders without crashing when socket is null', () => {
@@ -133,5 +112,25 @@ describe('KioskPage', () => {
     })
 
     expect(() => render(<MemoryRouter><KioskPage /></MemoryRouter>)).not.toThrow()
+  })
+
+  it('force mode via URL /kiosk/club shows club kiosk', () => {
+    mockUseSocketContext.mockReturnValue({
+      socket: { on: vi.fn(), emit: vi.fn(), off: vi.fn() },
+    })
+
+    render(<MemoryRouter initialEntries={['/kiosk/club']}><KioskPage /></MemoryRouter>)
+
+    expect(screen.getByTestId('club-kiosk')).toBeInTheDocument()
+  })
+
+  it('force mode via URL /kiosk/tournament shows tournament kiosk', () => {
+    mockUseSocketContext.mockReturnValue({
+      socket: { on: vi.fn(), emit: vi.fn(), off: vi.fn() },
+    })
+
+    render(<MemoryRouter initialEntries={['/kiosk/tournament']}><KioskPage /></MemoryRouter>)
+
+    expect(screen.getByTestId('tournament-kiosk')).toBeInTheDocument()
   })
 })

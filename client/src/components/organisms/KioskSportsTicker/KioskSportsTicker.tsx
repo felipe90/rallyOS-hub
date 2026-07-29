@@ -74,10 +74,11 @@ export function KioskSportsTicker({ notification, defaultText, defaultTexts }: K
         <span>RALLYOS LIVE</span>
       </div>
 
-      {/* Marquee Ticker Stream */}
+      {/* Marquee Ticker Stream — seamless loop */}
       <div className="flex-1 overflow-hidden relative flex items-center">
-        <div className="animate-marquee font-mono text-sm tracking-wider text-teal-100 font-semibold px-4">
-          {text}
+        <div className="animate-marquee font-mono text-sm tracking-wider text-teal-100 font-semibold whitespace-nowrap will-change-transform">
+          <span className="px-4">{text}</span>
+          <span className="px-4">{text}</span>
         </div>
       </div>
     </footer>

@@ -41,7 +41,7 @@ export function TabContainer({ tabs, defaultTab, className, onTabChange }: TabCo
 
   return (
     <div className={className}>
-      <div role="tablist" className="flex gap-1 border-b border-surface-high">
+      <div role="tablist" className="flex border-b border-surface-high">
         {tabs.map((t) => (
           <Tab
             key={t.id}

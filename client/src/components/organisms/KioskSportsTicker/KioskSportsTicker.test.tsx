@@ -28,17 +28,17 @@ describe('KioskSportsTicker', () => {
 
   it('renders notification message when present', () => {
     render(<KioskSportsTicker notification={makeNotification({ message: 'Court 4 ready' })} />)
-    expect(screen.getByText('Court 4 ready')).toBeInTheDocument()
+    expect(screen.getAllByText('Court 4 ready')).toHaveLength(2)
   })
 
   it('renders defaultText when no notification', () => {
     render(<KioskSportsTicker defaultText="Welcome to RallyOS" />)
-    expect(screen.getByText('Welcome to RallyOS')).toBeInTheDocument()
+    expect(screen.getAllByText('Welcome to RallyOS')).toHaveLength(2)
   })
 
   it('renders default text when notification is null', () => {
     render(<KioskSportsTicker notification={null} defaultText="No notifications" />)
-    expect(screen.getByText('No notifications')).toBeInTheDocument()
+    expect(screen.getAllByText('No notifications')).toHaveLength(2)
   })
 
   // ── Task 3.1: Priority/duration logic ──────────────────────────────
@@ -50,7 +50,7 @@ describe('KioskSportsTicker', () => {
           notification={makeNotification({ type: 'important', message: 'URGENT' })}
         />,
       )
-      expect(screen.getByText('URGENT')).toBeInTheDocument()
+      expect(screen.getAllByText('URGENT')).toHaveLength(2)
     })
 
     it('shows error notification immediately', () => {
@@ -59,7 +59,7 @@ describe('KioskSportsTicker', () => {
           notification={makeNotification({ type: 'error', message: 'ERROR' })}
         />,
       )
-      expect(screen.getByText('ERROR')).toBeInTheDocument()
+      expect(screen.getAllByText('ERROR')).toHaveLength(2)
     })
 
     it('important notification persists after duration elapses (does not auto-expire)', () => {
@@ -69,13 +69,13 @@ describe('KioskSportsTicker', () => {
           defaultText="Default"
         />,
       )
-      expect(screen.getByText('PERSIST')).toBeInTheDocument()
+      expect(screen.getAllByText('PERSIST')).toHaveLength(2)
 
       // Advance beyond duration
       act(() => { vi.advanceTimersByTime(10_000) })
 
       // Should still show the important notification
-      expect(screen.getByText('PERSIST')).toBeInTheDocument()
+      expect(screen.getAllByText('PERSIST')).toHaveLength(2)
     })
 
     it('error notification persists after duration elapses (does not auto-expire)', () => {
@@ -85,11 +85,11 @@ describe('KioskSportsTicker', () => {
           defaultText="Default"
         />,
       )
-      expect(screen.getByText('PERSIST ERROR')).toBeInTheDocument()
+      expect(screen.getAllByText('PERSIST ERROR')).toHaveLength(2)
 
       act(() => { vi.advanceTimersByTime(10_000) })
 
-      expect(screen.getByText('PERSIST ERROR')).toBeInTheDocument()
+      expect(screen.getAllByText('PERSIST ERROR')).toHaveLength(2)
     })
 
     it('info notification auto-expires after duration', () => {
@@ -100,12 +100,12 @@ describe('KioskSportsTicker', () => {
         />,
       )
 
-      expect(screen.getByText('Will expire')).toBeInTheDocument()
+      expect(screen.getAllByText('Will expire')).toHaveLength(2)
 
       act(() => { vi.advanceTimersByTime(5_000) })
 
-      expect(screen.queryByText('Will expire')).not.toBeInTheDocument()
-      expect(screen.getByText('Default')).toBeInTheDocument()
+      expect(screen.queryAllByText('Will expire')).toHaveLength(0)
+      expect(screen.getAllByText('Default')).toHaveLength(2)
     })
 
     it('warning notification auto-expires after duration', () => {
@@ -116,11 +116,11 @@ describe('KioskSportsTicker', () => {
         />,
       )
 
-      expect(screen.getByText('Warning msg')).toBeInTheDocument()
+      expect(screen.getAllByText('Warning msg')).toHaveLength(2)
 
       act(() => { vi.advanceTimersByTime(3_000) })
 
-      expect(screen.queryByText('Warning msg')).not.toBeInTheDocument()
+      expect(screen.queryAllByText('Warning msg')).toHaveLength(0)
     })
 
     it('does NOT clear info notification before the duration expires', () => {
@@ -133,7 +133,7 @@ describe('KioskSportsTicker', () => {
 
       act(() => { vi.advanceTimersByTime(9_000) })
 
-      expect(screen.getByText('Still visible')).toBeInTheDocument()
+      expect(screen.getAllByText('Still visible')).toHaveLength(2)
     })
 
     it('important notification is replaced by a newer notification', () => {
@@ -143,7 +143,7 @@ describe('KioskSportsTicker', () => {
           defaultText="Default"
         />,
       )
-      expect(screen.getByText('First')).toBeInTheDocument()
+      expect(screen.getAllByText('First')).toHaveLength(2)
 
       rerender(
         <KioskSportsTicker
@@ -152,8 +152,8 @@ describe('KioskSportsTicker', () => {
         />,
       )
 
-      expect(screen.queryByText('First')).not.toBeInTheDocument()
-      expect(screen.getByText('Second')).toBeInTheDocument()
+      expect(screen.queryAllByText('First')).toHaveLength(0)
+      expect(screen.getAllByText('Second')).toHaveLength(2)
     })
 
     it('clears notification when replaced with null', () => {
@@ -163,7 +163,7 @@ describe('KioskSportsTicker', () => {
           defaultText="Default"
         />,
       )
-      expect(screen.getByText('Gone')).toBeInTheDocument()
+      expect(screen.getAllByText('Gone')).toHaveLength(2)
 
       rerender(
         <KioskSportsTicker
@@ -172,8 +172,8 @@ describe('KioskSportsTicker', () => {
         />,
       )
 
-      expect(screen.queryByText('Gone')).not.toBeInTheDocument()
-      expect(screen.getByText('Default')).toBeInTheDocument()
+      expect(screen.queryAllByText('Gone')).toHaveLength(0)
+      expect(screen.getAllByText('Default')).toHaveLength(2)
     })
   })
 
@@ -185,30 +185,30 @@ describe('KioskSportsTicker', () => {
       render(<KioskSportsTicker defaultTexts={texts} />)
 
       // Initially shows first item
-      expect(screen.getByText('Court status')).toBeInTheDocument()
+      expect(screen.getAllByText('Court status')).toHaveLength(2)
 
       // Advance 10s → second item
       act(() => { vi.advanceTimersByTime(10_000) })
-      expect(screen.queryByText('Court status')).not.toBeInTheDocument()
-      expect(screen.getByText('Reservations')).toBeInTheDocument()
+      expect(screen.queryAllByText('Court status')).toHaveLength(0)
+      expect(screen.getAllByText('Reservations')).toHaveLength(2)
 
       // Advance 10s → third item
       act(() => { vi.advanceTimersByTime(10_000) })
-      expect(screen.getByText('QR reminder')).toBeInTheDocument()
+      expect(screen.getAllByText('QR reminder')).toHaveLength(2)
 
       // Advance 10s → wraps back to first
       act(() => { vi.advanceTimersByTime(10_000) })
-      expect(screen.getByText('Court status')).toBeInTheDocument()
+      expect(screen.getAllByText('Court status')).toHaveLength(2)
     })
 
     it('falls back to defaultText when defaultTexts is empty', () => {
       render(<KioskSportsTicker defaultTexts={[]} defaultText="Fallback" />)
-      expect(screen.getByText('Fallback')).toBeInTheDocument()
+      expect(screen.getAllByText('Fallback')).toHaveLength(2)
     })
 
     it('falls back to defaultText when defaultTexts is not provided', () => {
       render(<KioskSportsTicker defaultText="Single text" />)
-      expect(screen.getByText('Single text')).toBeInTheDocument()
+      expect(screen.getAllByText('Single text')).toHaveLength(2)
     })
 
     it('notification interrupts defaultTexts rotation', () => {
@@ -216,7 +216,7 @@ describe('KioskSportsTicker', () => {
       const { rerender } = render(
         <KioskSportsTicker defaultTexts={texts} />,
       )
-      expect(screen.getByText('Default 1')).toBeInTheDocument()
+      expect(screen.getAllByText('Default 1')).toHaveLength(2)
 
       // Send a notification
       rerender(
@@ -226,8 +226,8 @@ describe('KioskSportsTicker', () => {
         />,
       )
 
-      expect(screen.queryByText('Default 1')).not.toBeInTheDocument()
-      expect(screen.getByText('INTERRUPT')).toBeInTheDocument()
+      expect(screen.queryAllByText('Default 1')).toHaveLength(0)
+      expect(screen.getAllByText('INTERRUPT')).toHaveLength(2)
     })
   })
 })

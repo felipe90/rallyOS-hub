@@ -6,14 +6,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useI18n } from '@/i18n'
-import { DashboardGrid } from '@/components/organisms/DashboardGrid'
-import { DashboardHeader } from '@/components/organisms/DashboardGrid'
+import { DashboardGrid, DashboardHeader } from '@/components/organisms/DashboardGrid'
 import { PageHeader } from '@/components/molecules/PageHeader'
 import { PinModal } from '@/components/molecules/PinModal'
 import { KioskNotificationModal } from '@/components/molecules/KioskNotificationModal'
 import { ConfirmDialog } from '@/components/molecules/ConfirmDialog'
+import { HistoryAccordion } from '@/components/molecules/HistoryAccordion'
+import { Tab } from '@/components/atoms/Tab'
 import { useSocketContext } from '@/contexts/SocketContext'
-import logoImg from '@/assets/logo-big.png'
 import { useAuthContext } from '@/contexts/AuthContext'
 import { useDashboardStats } from '@/hooks/useDashboardStats'
 import { usePinSubmission } from '@/hooks/usePinSubmission'
@@ -21,11 +21,11 @@ import { useRefereeSession } from '@/hooks/useRefereeSession'
 import { useCourtManagement } from '@/hooks/useCourtManagement'
 import { useToast } from '@/components/molecules/Toast'
 import { Button, FloatingActionButton } from '@/components/atoms'
-import { Body } from '@/components/atoms/Typography'
+import { Body, Typography } from '@/components/atoms/Typography'
 import { SocketEvents } from '@shared/events'
 import { Routes, buildScoreboardRoute } from '@/routes'
 import type { CourtInfoWithPin, KioskNotificationType } from '@shared/types'
-import { ArrowLeft, FileText, Table2, Swords, Users, Bell, Flag, Download, AlertTriangle, Plus } from 'lucide-react'
+import { ArrowLeft, Table2, Swords, Users, Bell, Flag, Download, AlertTriangle, Plus, Clock } from 'lucide-react'
 
 
 export interface OwnerDashboardPageProps {
@@ -39,9 +39,10 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
   const [finishDialogOpen, setFinishDialogOpen] = useState(false)
   const [exportCsvChecked, setExportCsvChecked] = useState(true)
   const [selectedCourt, setSelectedCourt] = useState<CourtInfoWithPin | null>(null)
+  const [activeTab, setActiveTab] = useState('courts')
   const navigate = useNavigate()
   const { i18nText } = useI18n()
-  const { courts, connected, socket, requestCourtsWithPins, appError } = useSocketContext()
+  const { courts, connected, socket, requestCourtsWithPins, appError, allHistories } = useSocketContext()
   const { logout, ownerPin, setCourtPin, isOwner, tournamentToken } = useAuthContext()
   const stats = useDashboardStats(courts)
   const { submitPin, loading: pinLoading, error: pinError, clearError } = usePinSubmission(socket)
@@ -159,12 +160,16 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
     })
   }, [socket, courts])
 
+  // Request history when the history tab is activated
+  useEffect(() => {
+    if (activeTab === 'history' && socket && connected && allHistories === null) {
+      socket.emit(SocketEvents.CLIENT.GET_ALL_HISTORY)
+    }
+  }, [activeTab, socket, connected, allHistories])
+
   /** ── Notification Modal ── */
   const handleNotificationSubmit = useCallback(({ type, message, duration }: { type: KioskNotificationType; message: string; duration: number }) => {
-    if (!socket || !connected || !ownerPin) {
-      addToast('error', i18nText('errorConnectionLost'))
-      return
-    }
+    if (!socket || !ownerPin) return
     setNotifModalOpen(false)
     socket.emit(SocketEvents.CLIENT.SEND_NOTIFICATION, {
       pin: ownerPin,
@@ -172,24 +177,11 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
       message,
       duration,
     })
-  }, [socket, connected, ownerPin, addToast, i18nText])
+  }, [socket, ownerPin])
 
   const handleNotificationClose = () => {
     setNotifModalOpen(false)
   }
-
-  // Listen for notification-related ERROR events from the server
-  // (wrong PIN, rate-limited, etc.) and show a toast with the message.
-  useEffect(() => {
-    if (!socket) return
-    const handler = (err: { code: string; message: string }) => {
-      if (err.code === 'UNAUTHORIZED' || err.code === 'RATE_LIMITED') {
-        addToast('error', err.message)
-      }
-    }
-    socket.on('ERROR', handler)
-    return () => { socket.off('ERROR', handler) }
-  }, [socket, addToast])
 
   /** ── Export CSV (authenticated fetch + blob download) ── */
   const downloadCsv = useCallback(async () => {
@@ -269,15 +261,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
           onClick={() => setNotifModalOpen(true)}
           icon={<Bell size={14} />}
         >
-          {i18nText('ownerCreateNotification')}
-        </Button>
-        <Button
-          variant="secondary"
-          size="xs"
-          onClick={() => navigate(Routes.HISTORY)}
-          icon={<FileText size={14} />}
-        >
-          {i18nText('ownerViewHistory')}
+          {i18nText('notificationModalTitle')}
         </Button>
         {/* Export CSV button — only for owners when FINISHED courts exist */}
         {isOwner && hasFinishedCourts && (
@@ -324,7 +308,6 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
       <PageHeader
         title={i18nText('ownerTitle')}
         subtitle={i18nText('ownerSubtitle')}
-        logo={logoImg}
         showStatus={true}
         connectionLabels={{
           connected: i18nText('connectionConnected'),
@@ -340,8 +323,9 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
       />
 
       <main id="main-content" className="flex-1 overflow-auto bg-primary/10">
-        <div className="px-4 pb-4 pt-0 space-y-4">
-          <div className="sticky top-0 z-10 bg-white shadow-sm border-b border-primary/5 -mx-4 px-4 py-2">
+        {/* Sticky top bar: stats + actions + integrated tabs */}
+        <div className="sticky top-0 z-10 bg-white shadow-sm border-b border-primary/5">
+          <div className="px-4 py-2">
             <DashboardHeader
               totalTables={stats.totalTables}
               liveMatches={stats.liveMatches}
@@ -363,30 +347,61 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
               listViewLabel={i18nText('dashboardListView')}
             />
           </div>
-          <DashboardGrid
-            courts={courts}
-            onCourtClick={handleCourtClick}
-            viewMode={viewMode}
-            showPin={true}
-            showQr={true}
-            onCleanCourt={courtMgmt.requestClean}
-            cleanConfirmCourtId={courtMgmt.cleanConfirmCourtId}
-            onCleanCourtConfirm={() => {
-              courtMgmt.confirmClean();
-              requestCourtsWithPins(ownerPin || '');
-              addToast('success', i18nText('toastCourtCleaned'));
-            }}
-            onCleanCourtCancel={courtMgmt.cancelClean}
-            onDeleteCourt={courtMgmt.requestDelete}
-            showDeleteConfirm={courtMgmt.deleteConfirmCourtId}
-            onDeleteCourtConfirm={() => {
-              courtMgmt.confirmDelete();
-              addToast('success', i18nText('toastCourtDeleted'));
-            }}
-            onDeleteCourtCancel={courtMgmt.cancelDelete}
-            featuredCourtId={courts.find(t => t.featured)?.id ?? null}
-            onToggleFeatured={handleToggleFeatured}
-          />
+          {/* Tabs integrated into the same white surface — full width, selectable */}
+          <div role="tablist" className="flex border-b border-surface-high px-4">
+            <Tab
+              id="courts"
+              label={i18nText('clubAdminTabCourts')}
+              icon={<Table2 size={16} />}
+              active={activeTab === 'courts'}
+              onClick={() => setActiveTab('courts')}
+            />
+            <Tab
+              id="history"
+              label={i18nText('ownerViewHistory')}
+              icon={<Clock size={16} />}
+              active={activeTab === 'history'}
+              onClick={() => setActiveTab('history')}
+            />
+          </div>
+        </div>
+
+        {/* Tab content */}
+        <div className="p-4">
+          {activeTab === 'courts' ? (
+            <DashboardGrid
+              courts={courts}
+              onCourtClick={handleCourtClick}
+              viewMode={viewMode}
+              showPin={true}
+              showQr={true}
+              onCleanCourt={courtMgmt.requestClean}
+              cleanConfirmCourtId={courtMgmt.cleanConfirmCourtId}
+              onCleanCourtConfirm={() => {
+                courtMgmt.confirmClean();
+                requestCourtsWithPins(ownerPin || '');
+                addToast('success', i18nText('toastCourtCleaned'));
+              }}
+              onCleanCourtCancel={courtMgmt.cancelClean}
+              onDeleteCourt={courtMgmt.requestDelete}
+              showDeleteConfirm={courtMgmt.deleteConfirmCourtId}
+              onDeleteCourtConfirm={() => {
+                courtMgmt.confirmDelete();
+                addToast('success', i18nText('toastCourtDeleted'));
+              }}
+              onDeleteCourtCancel={courtMgmt.cancelDelete}
+              featuredCourtId={courts.find(t => t.featured)?.id ?? null}
+              onToggleFeatured={handleToggleFeatured}
+            />
+          ) : allHistories !== null && allHistories.length > 0 ? (
+            <HistoryAccordion entries={allHistories} />
+          ) : (
+            <div className="flex items-center justify-center py-12">
+              <Typography variant="body" className="text-text-muted">
+                {i18nText('historyNoEvents')}
+              </Typography>
+            </div>
+          )}
         </div>
       </main>
 

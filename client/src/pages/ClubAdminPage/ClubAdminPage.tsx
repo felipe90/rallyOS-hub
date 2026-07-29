@@ -11,7 +11,7 @@ import { CLUB_STATUS } from '@shared/types'
 import type { ClubCourtInfo, KioskNotificationType, SessionMode } from '@shared/types'
 import { FloatingActionButton } from '@/components/atoms'
 import { Badge } from '@/components/atoms/Badge'
-import { Input } from '@/components/atoms/Input'
+import { PinInput } from '@/components/atoms/PinInput'
 import { Button } from '@/components/atoms/Button'
 import { Body, Title } from '@/components/atoms/Typography'
 import { TabContainer } from '@/components/atoms/TabContainer'
@@ -30,8 +30,8 @@ import { useClubSessionHistory } from '@/hooks/useClubSessionHistory'
 import type { ClubOperationEvent } from '@/hooks/useClubCourtManagement'
 import { useI18n } from '@/i18n'
 import { Routes } from '@/routes'
+import logoBig from '@/assets/logo-big.png'
 import {
-  Shield,
   Play,
   Trash2,
   LogOut,
@@ -117,6 +117,7 @@ export function ClubAdminPage() {
   const [adminPin, setAdminPin] = useState('')
   const [forceEndCourt, setForceEndCourt] = useState<ClubCourtInfo | null>(null)
   const [deleteCourtTarget, setDeleteCourtTarget] = useState<ClubCourtInfo | null>(null)
+  const [kioskMode, setKioskModeState] = useState<'club' | 'tournament'>('club')
   const [occupyCourt, setOccupyCourt] = useState<ClubCourtInfo | null>(null)
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false)
   const [notificationLoading, setNotificationLoading] = useState(false)
@@ -166,6 +167,14 @@ export function ClubAdminPage() {
 
     courtMgmt.clearEvent()
   }, [courtMgmt.lastEvent, courtMgmt.clearEvent, addToast, i18nText])
+
+  // Listen for server kiosk mode changes
+  useEffect(() => {
+    if (!socket) return
+    const handler = (data: { mode: 'club' | 'tournament' }) => setKioskModeState(data.mode)
+    socket.on(SocketEvents.SERVER.KIOSK_MODE, handler)
+    return () => { socket.off(SocketEvents.SERVER.KIOSK_MODE, handler) }
+  }, [socket])
 
   // Toast for verify errors
   useEffect(() => {
@@ -218,7 +227,7 @@ export function ClubAdminPage() {
       if (!socket) return
       setNotificationLoading(true)
       setNotificationError(null)
-      socket.emit(SocketEvents.CLIENT.CLUB_SEND_NOTIFICATION, data)
+    socket.emit(SocketEvents.CLIENT.CLUB_SEND_NOTIFICATION, data)
       setIsNotificationModalOpen(false)
       setNotificationLoading(false)
     },
@@ -228,56 +237,54 @@ export function ClubAdminPage() {
   // Admin PIN verification screen
   if (!isAdmin) {
     return (
-      <div className="flex items-center justify-center min-h-dvh bg-background p-4">
-        <motion.div 
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="card-light p-8 w-full max-w-sm space-y-6"
-        >
-          <div className="text-center space-y-2">
-            <div className="flex justify-center">
-              <div className="bg-primary/10 text-primary p-3 rounded-full">
-                <Shield size={32} />
-              </div>
-            </div>
-            <Title className="text-center">{i18nText('clubAdminTitle')}</Title>
-            <Body className="text-text/70">{i18nText('clubAdminEnterPin')}</Body>
-          </div>
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, ease: 'easeOut' }}
+        className="flex flex-col items-center justify-center min-h-dvh bg-primary/10 gap-6 p-4"
+      >
+        {/* Logo */}
+        <div className="flex flex-col items-center gap-2">
+          <img src={logoBig} alt="RallyOS" className="w-16 h-auto mb-1 rounded-[--radius-md]" />
+          <Title className="text-center">{i18nText('clubAdminTitle')}</Title>
+          <Body className="text-text/70">{i18nText('clubAdminEnterPin')}</Body>
+        </div>
 
-          <Input
-            type="password"
+        {/* PIN input */}
+        <div className="flex flex-col gap-4 w-full max-w-sm">
+          <PinInput
+            length={8}
             value={adminPin}
-            onChange={(e) => { setAdminPin(e.target.value); clearVerifyError() }}
-            placeholder="••••••"
+            onChange={(value) => { setAdminPin(value); clearVerifyError() }}
+            onComplete={() => {}} // Auto-submit disabled — user must click button
+            placeholder="••••••••"
             disabled={verifyLoading}
             error={translateVerifyError(verifyError, i18nText)}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleVerify() }}
             autoFocus
           />
 
-          <div className="space-y-3">
-            <Button
-              variant="primary"
-              fullWidth
-              onClick={handleVerify}
-              loading={verifyLoading}
-              disabled={verifyLoading || !adminPin.trim()}
-            >
-              {verifyLoading ? i18nText('clubAdminVerifying') : i18nText('clubAdminVerify')}
-            </Button>
-            
-            <Button
-              variant="ghost"
-              fullWidth
-              onClick={() => navigate(Routes.AUTH)}
-              disabled={verifyLoading}
-              icon={<ArrowLeft size={16} />}
-            >
-              {i18nText('commonBack')}
-            </Button>
-          </div>
-        </motion.div>
-      </div>
+          <Button
+            variant="primary"
+            fullWidth
+            onClick={handleVerify}
+            loading={verifyLoading}
+            disabled={verifyLoading || !adminPin.trim()}
+          >
+            {verifyLoading ? i18nText('clubAdminVerifying') : i18nText('clubAdminVerify')}
+          </Button>
+
+          <Button
+            variant="ghost"
+            fullWidth
+            onClick={() => navigate(Routes.AUTH)}
+            disabled={verifyLoading}
+            icon={<ArrowLeft size={16} />}
+            className="bg-white/[0.06] border border-white/10 hover:bg-white/[0.12]"
+          >
+            {i18nText('commonBack')}
+          </Button>
+        </div>
+      </motion.div>
     )
   }
 
@@ -314,22 +321,26 @@ export function ClubAdminPage() {
               >
                 {i18nText('notificationModalTitle')}
               </Button>
-              <Button
-                variant="secondary"
-                size="xs"
-                onClick={() => window.open(Routes.KIOSK_CLUB, '_blank')}
-                icon={<Monitor size={14} />}
-              >
-                Kiosko
-              </Button>
-              <Button
-                variant="secondary"
-                size="xs"
-                onClick={() => window.open(Routes.KIOSK_TOURNAMENT, '_blank')}
-                icon={<Trophy size={14} />}
-              >
-                Torneo
-              </Button>
+              <div className="flex gap-1 p-0.5 rounded-lg bg-surface-low border border-border">
+                <button
+                  onClick={() => socket?.emit(SocketEvents.CLIENT.SET_KIOSK_MODE, { mode: 'club' })}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold tracking-wide transition-all duration-150 ${
+                    kioskMode === 'club' ? 'bg-surface text-text shadow-sm' : 'text-text-muted hover:text-text'
+                  }`}
+                >
+                  <Monitor size={14} />
+                  Kiosko
+                </button>
+                <button
+                  onClick={() => socket?.emit(SocketEvents.CLIENT.SET_KIOSK_MODE, { mode: 'tournament' })}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold tracking-wide transition-all duration-150 ${
+                    kioskMode === 'tournament' ? 'bg-surface text-text shadow-sm' : 'text-text-muted hover:text-text'
+                  }`}
+                >
+                  <Trophy size={14} />
+                  Torneo
+                </button>
+              </div>
             </div>
           </div>
         <TabContainer
@@ -363,28 +374,26 @@ export function ClubAdminPage() {
                             transition={{ duration: 0.2 }}
                             className={`card-light flex flex-col gap-2 p-4 border-l-4 ${statusBorderClass(court.status)} transition-colors relative`}
                           >
-                            {/* Title row: court name + status pill (Badge-style, matches tournament cards) */}
+                            {/* Title row: court name + PIN badge + status pill */}
                             <div className="flex items-center justify-between gap-2">
                               <Body className="font-medium truncate">{court.name}</Body>
-                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold tracking-wide shrink-0 ${statusPillClass(court.status)}`}>
-                                {court.status === CLUB_STATUS.OCCUPIED && (
-                                  <span className="relative flex h-2 w-2">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
-                                  </span>
+                              <div className="flex items-center gap-2">
+                                {court.pin && (
+                                  <Badge className="bg-primary/10 text-primary font-mono font-bold tracking-wider">
+                                    PIN {court.pin}
+                                  </Badge>
                                 )}
-                                {statusLabel(court.status, i18nText)}
-                              </span>
-                            </div>
-
-                            {/* PIN badge — top center */}
-                            {court.pin && (
-                              <div className="flex justify-center -mt-1">
-                                <Badge className="font-mono font-bold text-xs tracking-wider">
-                                  PIN {court.pin}
-                                </Badge>
+                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold tracking-wide shrink-0 ${statusPillClass(court.status)}`}>
+                                  {court.status === CLUB_STATUS.OCCUPIED && (
+                                    <span className="relative flex h-2 w-2">
+                                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                                      <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
+                                    </span>
+                                  )}
+                                  {statusLabel(court.status, i18nText)}
+                                </span>
                               </div>
-                            )}
+                            </div>
 
                             {/* Action buttons stacked below */}
                             <div className="flex flex-col gap-2 mt-2">

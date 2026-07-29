@@ -13,6 +13,11 @@ vi.mock('@/components/organisms/KioskNotificationToast', () => ({
   )),
 }))
 
+// Mock KioskSportsTicker to avoid testing ticker internals here
+vi.mock('@/components/organisms/KioskSportsTicker', () => ({
+  KioskSportsTicker: vi.fn(() => <div data-testid="kiosk-ticker" />),
+}))
+
 const mockScoreboardMount = vi.fn()
 
 // Mock KioskScoreboard for featured court spotlight tests

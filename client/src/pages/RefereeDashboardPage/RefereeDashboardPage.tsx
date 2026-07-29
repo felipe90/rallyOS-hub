@@ -13,7 +13,6 @@ import { PinModal } from '@/components/molecules/PinModal'
 import { useSocketContext } from '@/contexts/SocketContext'
 import { useAuthContext } from '@/contexts/AuthContext'
 import { useDashboardStats } from '@/hooks/useDashboardStats'
-import logoImg from '@/assets/logo-big.png'
 import { usePinSubmission } from '@/hooks/usePinSubmission'
 import { useRefereeSession } from '@/hooks/useRefereeSession'
 import { Button } from '@/components/atoms/Button'
@@ -118,7 +117,6 @@ export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashb
       <PageHeader
         title={i18nText('refereeTitle')}
         subtitle={i18nText('refereeSubtitle')}
-        logo={logoImg}
         showStatus={true}
         connectionLabels={{
           connected: i18nText('connectionConnected'),

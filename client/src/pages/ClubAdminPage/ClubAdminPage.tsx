@@ -14,7 +14,7 @@ import { Badge } from '@/components/atoms/Badge'
 import { PinInput } from '@/components/atoms/PinInput'
 import { Button } from '@/components/atoms/Button'
 import { Body, Title } from '@/components/atoms/Typography'
-import { TabContainer } from '@/components/atoms/TabContainer'
+import { Tab } from '@/components/atoms/Tab'
 import { PageHeader } from '@/components/molecules/PageHeader'
 import { ConfirmDialog } from '@/components/molecules/ConfirmDialog'
 import { ClubSessionHistoryPanel } from '@/components/molecules/ClubSessionHistoryPanel'
@@ -45,6 +45,8 @@ import {
   Plus,
   Bell,
   Star,
+  Table2,
+  Clock,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -309,224 +311,163 @@ export function ClubAdminPage() {
       />
 
       <main id="main-content" className="flex-1 overflow-auto bg-primary/10">
-        <div className="px-4 pb-20 pt-0 space-y-4">
-          {/* Sticky action bar */}
-          <div className="sticky top-0 z-20 bg-white shadow-sm border-b border-primary/5 -mx-4 px-4 py-2">
-            <div className="flex flex-wrap items-center gap-1">
-              <Button
-                variant="secondary"
-                size="xs"
-                onClick={() => setIsNotificationModalOpen(true)}
-                icon={<Bell size={14} />}
+        {/* Sticky bar: action buttons + integrated tabs */}
+        <div className="sticky top-0 z-20 bg-white shadow-sm border-b border-primary/5">
+          <div className="flex flex-wrap items-center gap-1 px-4 py-2">
+            <Button
+              variant="secondary"
+              size="xs"
+              onClick={() => setIsNotificationModalOpen(true)}
+              icon={<Bell size={14} />}
+            >
+              {i18nText('notificationModalTitle')}
+            </Button>
+            <div className="flex gap-1 p-0.5 rounded-lg bg-surface-low border border-border">
+              <button
+                onClick={() => socket?.emit(SocketEvents.CLIENT.SET_KIOSK_MODE, { mode: 'club' })}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold tracking-wide transition-all duration-150 ${
+                  kioskMode === 'club' ? 'bg-surface text-text shadow-sm' : 'text-text-muted hover:text-text'
+                }`}
               >
-                {i18nText('notificationModalTitle')}
-              </Button>
-              <div className="flex gap-1 p-0.5 rounded-lg bg-surface-low border border-border">
-                <button
-                  onClick={() => socket?.emit(SocketEvents.CLIENT.SET_KIOSK_MODE, { mode: 'club' })}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold tracking-wide transition-all duration-150 ${
-                    kioskMode === 'club' ? 'bg-surface text-text shadow-sm' : 'text-text-muted hover:text-text'
-                  }`}
-                >
-                  <Monitor size={14} />
-                  Kiosko
-                </button>
-                <button
-                  onClick={() => socket?.emit(SocketEvents.CLIENT.SET_KIOSK_MODE, { mode: 'tournament' })}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold tracking-wide transition-all duration-150 ${
-                    kioskMode === 'tournament' ? 'bg-surface text-text shadow-sm' : 'text-text-muted hover:text-text'
-                  }`}
-                >
-                  <Trophy size={14} />
-                  Torneo
-                </button>
-              </div>
+                <Monitor size={14} />
+                Kiosko
+              </button>
+              <button
+                onClick={() => socket?.emit(SocketEvents.CLIENT.SET_KIOSK_MODE, { mode: 'tournament' })}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold tracking-wide transition-all duration-150 ${
+                  kioskMode === 'tournament' ? 'bg-surface text-text shadow-sm' : 'text-text-muted hover:text-text'
+                }`}
+              >
+                <Trophy size={14} />
+                Torneo
+              </button>
             </div>
           </div>
-        <TabContainer
-          onTabChange={setActiveTab}
-          tabs={[
-            {
-              id: 'courts',
-              label: i18nText('clubAdminTabCourts'),
-              content: (
-                <div className="space-y-4">
-                  {/* Court list */}
-                  {courtMgmt.courts.length === 0 ? (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="flex flex-col items-center justify-center py-12 gap-2"
-                    >
-                      <Building2 size={40} className="text-text/30" />
-                      <Body className="text-text/50 text-center">{i18nText('clubAdminNoCourts')}</Body>
-                    </motion.div>
-                  ) : (
-                    <motion.div layout className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-                      <AnimatePresence>
-                        {courtMgmt.courts.map((court) => (
-                          <motion.div
-                            layout
-                            key={court.id}
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            transition={{ duration: 0.2 }}
-                            className={`card-light flex flex-col gap-2 p-4 border-l-4 ${statusBorderClass(court.status)} transition-colors relative`}
-                          >
-                            {/* Title row: court name + PIN badge + status pill */}
-                            <div className="flex items-center justify-between gap-2">
-                              <Body className="font-medium truncate">{court.name}</Body>
-                              <div className="flex items-center gap-2">
-                                {court.pin && (
-                                  <Badge className="bg-primary/10 text-primary font-mono font-bold tracking-wider">
-                                    PIN {court.pin}
-                                  </Badge>
-                                )}
-                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold tracking-wide shrink-0 ${statusPillClass(court.status)}`}>
-                                  {court.status === CLUB_STATUS.OCCUPIED && (
-                                    <span className="relative flex h-2 w-2">
-                                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                                      <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
-                                    </span>
-                                  )}
-                                  {statusLabel(court.status, i18nText)}
-                                </span>
-                              </div>
-                            </div>
+          <div role="tablist" className="flex border-b border-surface-high px-4">
+            <Tab
+              id="courts"
+              label={i18nText('clubAdminTabCourts')}
+              icon={<Table2 size={16} />}
+              active={activeTab === 'courts'}
+              onClick={() => setActiveTab('courts')}
+            />
+            <Tab
+              id="history"
+              label={i18nText('clubAdminTabHistory')}
+              icon={<Clock size={16} />}
+              active={activeTab === 'history'}
+              onClick={() => setActiveTab('history')}
+            />
+          </div>
+        </div>
 
-                            {/* Action buttons stacked below */}
-                            <div className="flex flex-col gap-2 mt-2">
-                              {court.status === CLUB_STATUS.AVAILABLE && (
-                                <>
-                                  <Button
-                                    variant="primary"
-                                    size="xs"
-                                    fullWidth
-                                    onClick={() => courtMgmt.activateCourt(court.id)}
-                                    disabled={courtMgmt.loading}
-                                    icon={<Play size={14} />}
-                                  >
-                                    {i18nText('clubAdminActivate')}
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                    size="xs"
-                                    fullWidth
-                                    onClick={() => setOccupyCourt(court)}
-                                    disabled={courtMgmt.loading}
-                                    icon={<UserPlus size={14} />}
-                                  >
-                                    {i18nText('clubAdminOccupy')}
-                                  </Button>
-                                  <Button
-                                    variant="secondary"
-                                    size="xs"
-                                    fullWidth
-                                    onClick={() => setDeleteCourtTarget(court)}
-                                    disabled={courtMgmt.loading}
-                                    icon={<Trash2 size={14} />}
-                                  >
-                                    {i18nText('clubAdminDelete')}
-                                  </Button>
-                                </>
-                              )}
-                              {court.status === CLUB_STATUS.RESERVED && (
-                                <>
-                                  <Button
-                                    variant="primary"
-                                    size="xs"
-                                    fullWidth
-                                    onClick={() => setOccupyCourt(court)}
-                                    disabled={courtMgmt.loading}
-                                    icon={<UserPlus size={14} />}
-                                  >
-                                    {i18nText('clubAdminOccupy')}
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="xs"
-                                    fullWidth
-                                    onClick={() => courtMgmt.deactivateCourt(court.id)}
-                                    disabled={courtMgmt.loading}
-                                    icon={<XCircle size={14} />}
-                                  >
-                                    {i18nText('clubAdminDeactivate')}
-                                  </Button>
-                                </>
-                              )}
+        {/* Tab content */}
+        <div className="p-4">
+          {activeTab === 'courts' ? (
+            <div className="space-y-4">
+              {courtMgmt.courts.length === 0 ? (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="flex flex-col items-center justify-center py-12 gap-2"
+                >
+                  <Building2 size={40} className="text-text/30" />
+                  <Body className="text-text/50 text-center">{i18nText('clubAdminNoCourts')}</Body>
+                </motion.div>
+              ) : (
+                <motion.div layout className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                  <AnimatePresence>
+                    {courtMgmt.courts.map((court) => (
+                      <motion.div
+                        layout
+                        key={court.id}
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        transition={{ duration: 0.2 }}
+                        className={`card-light flex flex-col gap-2 p-4 border-l-4 ${statusBorderClass(court.status)} transition-colors relative`}
+                      >
+                        {/* Title row: court name + PIN badge + status pill */}
+                        <div className="flex items-center justify-between gap-2">
+                          <Body className="font-medium truncate">{court.name}</Body>
+                          <div className="flex items-center gap-2">
+                            {court.pin && (
+                              <Badge className="bg-primary/10 text-primary font-mono font-bold tracking-wider">
+                                PIN {court.pin}
+                              </Badge>
+                            )}
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold tracking-wide shrink-0 ${statusPillClass(court.status)}`}>
                               {court.status === CLUB_STATUS.OCCUPIED && (
-                                <>
-                                  <Button
-                                    variant="danger"
-                                    size="xs"
-                                    fullWidth
-                                    onClick={() => setForceEndCourt(court)}
-                                    disabled={courtMgmt.loading}
-                                    icon={<LogOut size={14} />}
-                                  >
-                                    {i18nText('clubAdminForceEnd')}
-                                  </Button>
-                                  {/* Destacar solo en modo partido — modo libre no necesita spotlight */}
-                                  {court.sessionMode && court.sessionMode !== 'free' && (
-                                    <Button
-                                      variant={court.featured ? 'primary' : 'secondary'}
-                                      size="xs"
-                                      fullWidth
-                                      onClick={() => courtMgmt.toggleFeatured(court.id)}
-                                      disabled={courtMgmt.loading}
-                                      icon={<Star size={14} className={court.featured ? 'fill-amber-400 text-amber-400' : ''} />}
-                                    >
-                                      {court.featured ? i18nText('courtQuitarDestacado') : i18nText('courtDestacar')}
-                                    </Button>
-                                  )}
-                                </>
+                                <span className="relative flex h-2 w-2">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
+                                </span>
                               )}
-                              {court.status === CLUB_STATUS.FINISHED && (
-                                <>
-                                  <Button
-                                    variant="primary"
-                                    size="xs"
-                                    fullWidth
-                                    onClick={() => courtMgmt.resetCourt(court.id)}
-                                    disabled={courtMgmt.loading}
-                                    icon={<RefreshCw size={14} />}
-                                  >
-                                    {i18nText('clubAdminReset')}
-                                  </Button>
-                                  <Button
-                                    variant="secondary"
-                                    size="xs"
-                                    fullWidth
-                                    onClick={() => setDeleteCourtTarget(court)}
-                                    disabled={courtMgmt.loading}
-                                    icon={<Trash2 size={14} />}
-                                  >
-                                    {i18nText('clubAdminDelete')}
-                                  </Button>
-                                </>
+                              {statusLabel(court.status, i18nText)}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Action buttons stacked below */}
+                        <div className="flex flex-col gap-2 mt-2">
+                          {court.status === CLUB_STATUS.AVAILABLE && (
+                            <>
+                              <Button variant="primary" size="xs" fullWidth onClick={() => courtMgmt.activateCourt(court.id)} disabled={courtMgmt.loading} icon={<Play size={14} />}>
+                                {i18nText('clubAdminActivate')}
+                              </Button>
+                              <Button variant="outline" size="xs" fullWidth onClick={() => setOccupyCourt(court)} disabled={courtMgmt.loading} icon={<UserPlus size={14} />}>
+                                {i18nText('clubAdminOccupy')}
+                              </Button>
+                              <Button variant="secondary" size="xs" fullWidth onClick={() => setDeleteCourtTarget(court)} disabled={courtMgmt.loading} icon={<Trash2 size={14} />}>
+                                {i18nText('clubAdminDelete')}
+                              </Button>
+                            </>
+                          )}
+                          {court.status === CLUB_STATUS.RESERVED && (
+                            <>
+                              <Button variant="primary" size="xs" fullWidth onClick={() => setOccupyCourt(court)} disabled={courtMgmt.loading} icon={<UserPlus size={14} />}>
+                                {i18nText('clubAdminOccupy')}
+                              </Button>
+                              <Button variant="ghost" size="xs" fullWidth onClick={() => courtMgmt.deactivateCourt(court.id)} disabled={courtMgmt.loading} icon={<XCircle size={14} />}>
+                                {i18nText('clubAdminDeactivate')}
+                              </Button>
+                            </>
+                          )}
+                          {court.status === CLUB_STATUS.OCCUPIED && (
+                            <>
+                              <Button variant="danger" size="xs" fullWidth onClick={() => setForceEndCourt(court)} disabled={courtMgmt.loading} icon={<LogOut size={14} />}>
+                                {i18nText('clubAdminForceEnd')}
+                              </Button>
+                              {court.sessionMode && court.sessionMode !== 'free' && (
+                                <Button variant={court.featured ? 'primary' : 'secondary'} size="xs" fullWidth onClick={() => courtMgmt.toggleFeatured(court.id)} disabled={courtMgmt.loading} icon={<Star size={14} className={court.featured ? 'fill-amber-400 text-amber-400' : ''} />}>
+                                  {court.featured ? i18nText('courtQuitarDestacado') : i18nText('courtDestacar')}
+                                </Button>
                               )}
-                            </div>
-                          </motion.div>
-                        ))}
-                      </AnimatePresence>
-                    </motion.div>
-                  )}
-                </div>
-              ),
-            },
-            {
-              id: 'history',
-              label: i18nText('clubAdminTabHistory'),
-              content: (
-                <ClubSessionHistoryPanel
-                  history={sessionHistory}
-                  clubConfigured={true}
-                />
-              ),
-            },
-          ]}
-        />
+                            </>
+                          )}
+                          {court.status === CLUB_STATUS.FINISHED && (
+                            <>
+                              <Button variant="primary" size="xs" fullWidth onClick={() => courtMgmt.resetCourt(court.id)} disabled={courtMgmt.loading} icon={<RefreshCw size={14} />}>
+                                {i18nText('clubAdminReset')}
+                              </Button>
+                              <Button variant="secondary" size="xs" fullWidth onClick={() => setDeleteCourtTarget(court)} disabled={courtMgmt.loading} icon={<Trash2 size={14} />}>
+                                {i18nText('clubAdminDelete')}
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </motion.div>
+              )}
+            </div>
+          ) : (
+            <ClubSessionHistoryPanel
+              history={sessionHistory}
+              clubConfigured={true}
+            />
+          )}
         </div>
       </main>
 

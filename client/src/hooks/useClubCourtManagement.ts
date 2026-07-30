@@ -8,10 +8,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { Socket } from 'socket.io-client'
 import { SocketEvents } from '@shared/events'
-import type { ClubCourtInfo, ClubKioskPayload } from '@shared/types'
+import type { ClubCourtInfo, ClubKioskPayload, SessionMode } from '@shared/types'
 
 export type ClubOperationEvent = {
-  type: 'court-created' | 'court-activated' | 'court-deactivated' | 'court-resetted' | 'session-ended' | 'court-deleted'
+  type: 'court-created' | 'court-activated' | 'court-deactivated' | 'court-resetted' | 'session-ended' | 'court-deleted' | 'court-occupied'
 } | {
   type: 'error'
   code: string
@@ -88,6 +88,11 @@ export function useClubCourtManagement(socket: Socket | null, connected: boolean
         status: kc.status as ClubCourtInfo['status'],
         mode: 'club' as const,
         pin: kc.pin,
+        // club-featured-courts — propagate featured from the authoritative
+        // server payload. Default to false when absent (legacy payloads or
+        // club courts that pre-date this change) so the UI never renders
+        // a stale/undefined star state.
+        featured: kc.featured ?? false,
       })))
       setLoading(false)
       setError(null)
@@ -175,9 +180,47 @@ export function useClubCourtManagement(socket: Socket | null, connected: boolean
     socket.emit(SocketEvents.CLIENT.CLUB_DELETE_COURT, { courtId })
   }, [socket, connected])
 
+  const adminOccupyCourt = useCallback(
+    (courtId: string, playerName: string, phone: string, mode: SessionMode) => {
+      if (!socket || !connected) {
+        setError('NO_CONNECTION')
+        return
+      }
+      setLoading(true)
+      setError(null)
+      socket.emit(SocketEvents.CLIENT.CLUB_ADMIN_OCCUPY, {
+        courtId,
+        playerName,
+        phone,
+        mode,
+      })
+    },
+    [socket, connected],
+  )
+
   const requestForceEnd = useCallback((courtId: string) => setForceEndConfirmId(courtId), [])
   const cancelForceEnd = useCallback(() => setForceEndConfirmId(null), [])
   const clearError = useCallback(() => setError(null), [])
+
+  // club-featured-courts — toggle featured state for a single club court.
+  // Reads the current featured state from local `courts` and emits
+  // SET_FEATURED with `targetCourtId: courtId` to feature, or
+  // `targetCourtId: null` to clear. The server is authoritative: local
+  // state is reconciled on the next CLUB_KIOSK_DATA broadcast, so we do
+  // NOT optimistically flip `featured` here.
+  const toggleFeatured = useCallback((courtId: string) => {
+    if (!socket || !connected) {
+      setError('NO_CONNECTION')
+      return
+    }
+    setLoading(true)
+    setError(null)
+    const target = courts.find(c => c.id === courtId)
+    const isFeatured = target?.featured === true
+    socket.emit(SocketEvents.CLIENT.SET_FEATURED, {
+      targetCourtId: isFeatured ? null : courtId,
+    })
+  }, [socket, connected, courts])
 
   return {
     courts,
@@ -191,9 +234,11 @@ export function useClubCourtManagement(socket: Socket | null, connected: boolean
     resetCourt,
     forceEndSession,
     deleteCourt,
+    adminOccupyCourt,
     requestForceEnd,
     cancelForceEnd,
     clearError,
     clearEvent,
+    toggleFeatured,
   }
 }

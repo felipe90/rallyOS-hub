@@ -11,7 +11,7 @@
  */
 
 import { ScoreChange, TournamentStatus } from '../../../../shared/types';
-import type { MatchConfig } from '../../../../shared/types';
+import type { MatchConfig, SessionMode } from '../../../../shared/types';
 
 /**
  * Serializable match state for persistence.
@@ -77,6 +77,29 @@ export interface PersistedClubCourt {
   matchState: PersistedMatchState | null;
   config: Record<string, unknown> | null;
   history: Record<string, unknown>[];
+  /**
+   * PR 2 — persisted session mode for the club court.
+   * Optional so that legacy v3 files (written before this field existed)
+   * still parse cleanly; restoreState falls back to `null` when absent.
+   */
+  sessionMode?: SessionMode | null;
+  /**
+   * player-identity — persisted player name snapshot captured at session
+   * start (see `player-identity` spec — session-record MODIFIED).
+   * Optional so legacy v3 files (pre-change) still parse cleanly; load
+   * falls back to `null` when absent.
+   */
+  playerName?: string | null;
+  /**
+   * player-identity — persisted phone ciphertext (AES-256-GCM base64
+   * `{nonce}:{ciphertext}:{authTag}`). Optional for legacy v3 compat.
+   */
+  phone?: string | null;
+  /**
+   * player-identity — persisted adminId (admin socket id, or null for
+   * player-initiated sessions). Optional for legacy v3 compat.
+   */
+  adminId?: string | null;
 }
 
 /**

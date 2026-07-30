@@ -37,22 +37,22 @@ const mockCourts: CourtInfo[] = [
 describe('DashboardGrid', () => {
   it('renders list of courts in grid mode', () => {
     render(<DashboardGrid courts={mockCourts} viewMode="grid" />);
-    expect(screen.getAllByText('Cancha 1')).toHaveLength(2);
-    expect(screen.getAllByText('Cancha 2')).toHaveLength(2);
-    expect(screen.getAllByText('Cancha 3')).toHaveLength(2);
+    expect(screen.getAllByText('Cancha 1')).toHaveLength(1);
+    expect(screen.getAllByText('Cancha 2')).toHaveLength(1);
+    expect(screen.getAllByText('Cancha 3')).toHaveLength(1);
   });
 
   it('renders list of courts in list mode', () => {
     render(<DashboardGrid courts={mockCourts} viewMode="list" />);
-    expect(screen.getAllByText('Cancha 1')).toHaveLength(2);
-    expect(screen.getAllByText('Cancha 2')).toHaveLength(2);
+    expect(screen.getAllByText('Cancha 1')).toHaveLength(1);
+    expect(screen.getAllByText('Cancha 2')).toHaveLength(1);
   });
 
   it('calls onCourtClick when court is clicked', () => {
     const handleClick = vi.fn();
     render(<DashboardGrid courts={mockCourts} onCourtClick={handleClick} />);
     
-    const firstCourt = screen.getAllByText('Cancha 1')[0].closest('div');
+    const firstCourt = screen.getByText('Cancha 1').closest('div');
     fireEvent.click(firstCourt!);
     expect(handleClick).toHaveBeenCalledWith('court-1');
   });
@@ -77,7 +77,7 @@ describe('DashboardGrid', () => {
 });
 
 describe('DashboardHeader', () => {
-  it('renders dashboard title and stats', () => {
+  it('renders view mode toggle', () => {
     render(
       <DashboardHeader
         totalTables={5}
@@ -85,11 +85,11 @@ describe('DashboardHeader', () => {
         activePlayers={10}
         viewMode="grid"
         onViewModeChange={() => {}}
+        {...defaultHeaderProps}
       />
     );
-    expect(screen.getByText('5')).toBeInTheDocument();
-    expect(screen.getByText('2')).toBeInTheDocument();
-    expect(screen.getByText('10')).toBeInTheDocument();
+    expect(screen.getByLabelText('Grid view')).toBeInTheDocument();
+    expect(screen.getByLabelText('List view')).toBeInTheDocument();
   });
 
   it('calls onViewModeChange when grid button is clicked', () => {

@@ -9,12 +9,13 @@ import { ClubKioskPage } from '@/pages/ClubKioskPage'
 type Mode = 'loading' | 'club' | 'tournament'
 
 /**
- * KioskPage — auto-detect wrapper with URL override
+ * KioskPage — auto-detect wrapper with URL override and remote kiosk mode switching.
  *
  * Route-based mode selection:
  * - /kiosk/club       → always club kiosk
  * - /kiosk/tournament → always tournament kiosk
- * - /kiosk            → auto-detect (club if configured, else tournament)
+ * - /kiosk            → uses KIOSK_MODE from server (switchable via SET_KIOSK_MODE from dashboards)
+ *                       falls back to auto-detect (club if configured, else tournament)
  */
 export function KioskPage() {
   const { socket } = useSocketContext()
@@ -22,13 +23,13 @@ export function KioskPage() {
   const [mode, setMode] = useState<Mode>('loading')
   const hasResolved = useRef(false)
 
-  // URL-based mode override — bypasses auto-detect
+  // URL-based mode override — bypasses auto-detect and remote mode
   const forceMode = location.pathname.includes('/kiosk/club') ? 'club'
     : location.pathname.includes('/kiosk/tournament') || location.pathname.includes('/scoreboard/all/kiosk') ? 'tournament'
     : null
 
   useEffect(() => {
-    // If URL forces a mode, skip auto-detect entirely
+    // If URL forces a mode, skip everything else
     if (forceMode) {
       setMode(forceMode)
       hasResolved.current = true
@@ -37,31 +38,22 @@ export function KioskPage() {
 
     if (!socket) return
 
-    const handleClubConfig = (config: ClubConfig) => {
-      if (hasResolved.current) return
+    // Listen for remote kiosk mode from server (set by admin/owner dashboard)
+    const handleKioskMode = (data: { mode: 'club' | 'tournament' }) => {
+      setMode(data.mode)
       hasResolved.current = true
-      setMode(config.configured === true ? 'club' : 'tournament')
     }
 
-    socket.on(SocketEvents.SERVER.CLUB_CONFIG, handleClubConfig)
-    socket.emit(SocketEvents.CLIENT.CLUB_GET_CONFIG)
-
-    // Timeout fallback — assume tournament if no config arrives
-    const timeout = setTimeout(() => {
-      if (hasResolved.current) return
-      hasResolved.current = true
-      setMode('tournament')
-    }, 5000)
+    socket.on(SocketEvents.SERVER.KIOSK_MODE, handleKioskMode)
 
     return () => {
-      socket.off(SocketEvents.SERVER.CLUB_CONFIG, handleClubConfig)
-      clearTimeout(timeout)
+      socket.off(SocketEvents.SERVER.KIOSK_MODE, handleKioskMode)
     }
   }, [socket, forceMode])
 
   if (mode === 'loading') {
     return (
-      <div className="h-dvh bg-surface flex items-center justify-center">
+      <div className="h-dvh bg-background flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           <span className="text-text-muted text-lg">Cargando...</span>

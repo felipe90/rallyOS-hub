@@ -34,9 +34,8 @@ describe('TableStatusChip', () => {
     expect(screen.getByText(text)).toBeInTheDocument();
   });
 
-  it('renders table number and name correctly', () => {
+  it('renders table name correctly', () => {
     render(<TableStatusChip tableNumber={5} tableName="Tournament Table" status="WAITING" />);
-    expect(screen.getByText('Cancha 5')).toBeInTheDocument();
     expect(screen.getByText('Tournament Table')).toBeInTheDocument();
   });
 
@@ -56,7 +55,7 @@ describe('TableStatusChip', () => {
   it('calls onClick when clicked', () => {
     const handleClick = vi.fn();
     render(<TableStatusChip tableNumber={1} tableName="Test" status="WAITING" onClick={handleClick} />);
-    screen.getByText('Cancha 1').parentElement?.click();
+    screen.getByText('Test').click();
     expect(handleClick).toHaveBeenCalledTimes(1);
   });
 
@@ -69,7 +68,7 @@ describe('TableStatusChip', () => {
   it('calls onClick on mouse click', () => {
     const handleClick = vi.fn();
     render(<TableStatusChip tableNumber={1} tableName="Test" status="WAITING" onClick={handleClick} />);
-    screen.getByText('Cancha 1').parentElement?.click();
+    screen.getByText('Test').click();
     expect(handleClick).toHaveBeenCalledTimes(1);
   });
 
@@ -163,7 +162,7 @@ describe('TableStatusChip', () => {
       />
     );
 
-    const cardText = screen.getByText('Cancha 1');
+    const cardText = screen.getByText('Test');
     fireEvent.click(cardText);
 
     expect(handleClick).toHaveBeenCalledTimes(1);

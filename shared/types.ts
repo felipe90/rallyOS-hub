@@ -237,6 +237,8 @@ export interface CourtInfo {
   mode?: CourtMode;
   /** Club-specific status — only present when mode === 'club' */
   clubStatus?: ClubStatus;
+  /** Club session mode — only meaningful when mode === 'club' and status === 'OCCUPIED'. Undefined for tournament courts and unoccupied club courts. */
+  sessionMode?: SessionMode;
 }
 
 export interface CourtInfoWithPin extends CourtInfo {
@@ -272,6 +274,18 @@ export const COURT_MODE = {
 /** Court mode discriminator — derived from COURT_MODE const */
 export type CourtMode = (typeof COURT_MODE)[keyof typeof COURT_MODE];
 
+/**
+ * Session mode const — use instead of magic strings.
+ * Only meaningful for club courts in OCCUPIED state.
+ */
+export const SESSION_MODE = {
+  FREE: 'free',
+  MATCH: 'match',
+} as const;
+
+/** Session mode discriminator — derived from SESSION_MODE const */
+export type SessionMode = (typeof SESSION_MODE)[keyof typeof SESSION_MODE];
+
 /** Club configuration — persisted to disk */
 export interface ClubConfig {
   clubName: string;
@@ -285,6 +299,17 @@ export interface ClubConfig {
   costPerMinute?: number;
   /** Currency code for pricing display (e.g. ARS, USD) */
   currency?: string;
+  /**
+   * Base64-encoded 32-byte AES-256-GCM key used to encrypt/decrypt player
+   * phone numbers (see `player-identity` spec — "Client-Side Phone
+   * Encryption" and `phone-reveal` requirement).
+   *
+   * OPTIONAL so legacy clubs that pre-date this change still parse without
+   * crashing. Auto-generated on first CLUB_SETUP (Phase 2 task 2.6) and on
+   * first CLUB_JOIN when the configured club lacks one (Phase 2 task 2.5).
+   * Persisted back to disk on first generation.
+   */
+  encryptionKey?: string;
 }
 
 /** Club kiosk court info — public kiosk display data for a single court */
@@ -297,6 +322,22 @@ export interface ClubKioskCourtInfo {
   playerNames?: { a: string; b: string };
   currentScore?: { a: number; b: number };
   winner?: string | null;
+  /** Club session mode — present when status === 'OCCUPIED'. Undefined otherwise. */
+  sessionMode?: SessionMode;
+  /**
+   * Player name — shown on the kiosk court card when the court is OCCUPIED
+   * (see `player-identity` spec — "Kiosk Player Name Display"). Undefined
+   * for non-OCCUPIED courts or when no player name was set (e.g. legacy
+   * sessions created before this change).
+   */
+  playerName?: string;
+  /**
+   * Whether this court is the featured/spotlight court for the club kiosk
+   * (see `club-featured-courts` spec). Optional for backward compatibility —
+   * existing payloads that pre-date this change omit the field and the
+   * client treats absence as `false` (see useClubCourtManagement.handleKioskData).
+   */
+  featured?: boolean;
 }
 
 /** Club kiosk payload — emitted via CLUB_KIOSK_DATA server event */
@@ -312,6 +353,14 @@ export interface ClubCourtInfo {
   status: ClubStatus;
   mode: CourtMode;
   pin?: string;
+  /** Club session mode — present when status === 'OCCUPIED'. Undefined for AVAILABLE/RESERVED/FINISHED. */
+  sessionMode?: SessionMode;
+  /**
+   * Whether this court is the featured/spotlight court for the club kiosk
+   * (see `club-featured-courts` spec). Optional for backward compatibility —
+   * the admin client defaults to `false` when absent.
+   */
+  featured?: boolean;
 }
 
 // ── QR Data ─────────────────────────────────────────────────────────
@@ -352,11 +401,82 @@ export interface RefRevokedEvent {
 
 export type KioskNotificationType = 'info' | 'warning' | 'error' | 'important';
 
+/** Notification scope — 'club' targets only the club room, 'general' targets all kiosks */
+export type KioskNotificationScope = 'club' | 'general';
+
 export interface KioskNotificationData {
   type: KioskNotificationType;
   message: string;
   duration: number;
   timestamp: number;
+  /** Optional scope — defaults to 'general' for backward compat with owner notifications */
+  scope?: KioskNotificationScope;
+}
+
+// ── Session Record (club session history) ──────────────────────────────
+
+/**
+ * SessionRecord — persisted snapshot of a single completed club session.
+ *
+ * Written to `data/session-history.json` (via SessionHistoryStore) whenever a
+ * club court transitions from `OCCUPIED` to `FINISHED` (player-initiated end
+ * via `CLUB_END_SESSION` confirm=true, or admin force-end via `CLUB_FORCE_END`).
+ *
+ * Field sourcing rules (see `club-session-history` spec):
+ * - `courtName` is a snapshot captured at session end, NOT a live reference
+ *   to the court — later court renames MUST NOT mutate stored records.
+ * - `elapsedSeconds` is server-authoritative (`now − occupiedAt`).
+ * - `elapsedMinutes` is the ceiling of `elapsedSeconds / 60` (minimum 1).
+ * - `mode` is the court's `sessionMode` value captured at session end
+ *   (`'free' | 'match'`). Defaulted to `'match'` when the court never had an
+ *   explicit `sessionMode` set.
+ * - `cost` is `Math.ceil(elapsedMinutes × costPerMinute)`; `0` for free mode.
+ * - `currency` comes from `ClubConfig.currency` (default `ARS`).
+ * - `timestamp` is an ISO 8601 string generated at session end.
+ * - `sessionId` is a UUID v4 generated at record creation — guarantees
+ *   uniqueness even if two records share the same timestamp.
+ */
+export interface SessionRecord {
+  courtName: string;
+  elapsedSeconds: number;
+  elapsedMinutes: number;
+  mode: SessionMode;
+  cost: number;
+  currency: string;
+  timestamp: string; // ISO 8601
+  sessionId: string; // UUID v4
+  // ── player-identity additions (spec: session-record MODIFIED) ──────────
+  // Player name in plain text — always populated for new sessions.
+  // History panel tolerates `undefined` for legacy records that pre-date
+  // this change (existing files with 8 fields still parse).
+  playerName: string;
+  // Phone — AES-256-GCM base64 ciphertext (`{nonce}:{ciphertext}:{authTag}`).
+  // Always populated for new sessions; legacy records may have `undefined`.
+  phone: string;
+  // Who ended the session: 'player' (player-initiated CLUB_END_SESSION) or
+  // 'admin' (admin CLUB_FORCE_END).
+  endedBy: 'player' | 'admin';
+  // Admin socket id who started/ended the session. `null` for player-initiated
+  // sessions. Populated (with the admin's socket.id) for admin-initiated
+  // sessions (Phase 3 / U2).
+  adminId: string | null;
+}
+
+/**
+ * PhoneRevealAuditEntry — appended to PhoneRevealAuditStore on every
+ * successful admin phone reveal (spec: `phone-reveal` — "Phone Reveal Is
+ * Explicit And Audited"). The audit trail supports habeas data / GDPR
+ * compliance: each individual phone decryption is traceable to a specific
+ * admin action.
+ *
+ * Persisted to `data/phone-reveal-audit.json` in Phase 4 / U2.
+ */
+export interface PhoneRevealAuditEntry {
+  adminId: string;
+  sessionId: string;
+  courtName: string;
+  playerName: string;
+  timestamp: string; // ISO 8601
 }
 
 // ── Type Guard Helpers ────────────────────────────────────────────────

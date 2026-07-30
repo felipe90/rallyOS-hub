@@ -1,13 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { QRCodeSVG } from 'qrcode.react'
 import { useSocketContext } from '@/contexts/SocketContext'
 import { useI18n } from '@/i18n'
 import { Typography } from '@/components/atoms'
 import { ClubKioskCard } from '@/components/organisms/ClubKioskCard'
+import { KioskHeader } from '@/components/molecules/KioskHeader'
+import { KioskSportsTicker } from '@/components/organisms/KioskSportsTicker'
+import { KioskNotificationToast } from '@/components/organisms/KioskNotificationToast'
+import { KioskScoreboard } from '@/components/organisms/KioskScoreboard'
 import { SocketEvents } from '@shared/events'
-import type { ClubKioskPayload } from '@shared/types'
-import logoBig from '@/assets/logo-big.png'
+import { Table2 } from 'lucide-react'
+import type { ClubKioskPayload, MatchStateExtended, KioskNotificationData } from '@shared/types'
 
 /** Cards per page for auto-rotation */
 const PAGE_SIZE = 8
@@ -20,38 +23,72 @@ const ROTATION_INTERVAL_MS = 10_000
  *
  * Subscribes to CLUB_KIOSK_DATA for live updates and renders
  * a responsive grid of ClubKioskCard components with auto-rotation.
+ *
+ * Spotlight mode: when a court is featured AND OCCUPIED in match mode
+ * (sessionMode !== 'free'), the kiosk switches to a full-screen scoreboard
+ * view with real-time MATCH_UPDATE subscription — same as tournament spotlight.
+ * Free-mode featured courts stay in the grid with a glow/badge indicator.
  */
 export function ClubKioskPage() {
-  const { socket, hubConfig } = useSocketContext()
+  const { socket, hubConfig, kioskNotification } = useSocketContext()
   const { i18nText } = useI18n()
   const [courts, setCourts] = useState<ClubKioskPayload['courts']>([])
   const [clubName, setClubName] = useState('Club')
   const [page, setPage] = useState(0)
+  const [spotlightMatch, setSpotlightMatch] = useState<MatchStateExtended | null>(null)
 
   const totalPages = Math.max(1, Math.ceil(courts.length / PAGE_SIZE))
   const visibleCourts = courts.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+
+  // Notification toast — same type-gating as tournament kiosk
+  const [visibleNotification, setVisibleNotification] = useState<KioskNotificationData | null>(null)
+  const prevNotifTsRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    if (kioskNotification && kioskNotification.timestamp !== prevNotifTsRef.current) {
+      prevNotifTsRef.current = kioskNotification.timestamp
+      if (kioskNotification.type === 'important' || kioskNotification.type === 'error') {
+        setVisibleNotification(kioskNotification)
+      } else {
+        setVisibleNotification(null)
+      }
+    }
+  }, [kioskNotification])
+
+  // Detect featured match-mode court for spotlight
+  const featuredMatchCourt = courts.find(
+    c => c.featured === true && c.status === 'OCCUPIED' && c.sessionMode !== 'free',
+  )
+  const spotlightCourtId = featuredMatchCourt?.id ?? null
+  const isSpotlight = spotlightCourtId !== null
 
   // Reset to first page when courts change
   useEffect(() => {
     setPage(0)
   }, [courts.length])
 
-  // Rotation timer
+  // Rotation timer — only when NOT in spotlight
   useEffect(() => {
-    if (totalPages <= 1) return
+    if (isSpotlight || totalPages <= 1) return
 
     const interval = setInterval(() => {
       setPage((prev) => (prev + 1) % totalPages)
     }, ROTATION_INTERVAL_MS)
 
     return () => clearInterval(interval)
-  }, [totalPages])
+  }, [totalPages, isSpotlight])
 
   useEffect(() => {
     if (!socket) return
 
     const handleKioskData = (payload: ClubKioskPayload) => {
-      setCourts(payload.courts)
+      // Sort featured court to first position so it appears first in grid
+      const sorted = [...payload.courts].sort((a, b) => {
+        if (a.featured && !b.featured) return -1
+        if (!a.featured && b.featured) return 1
+        return 0
+      })
+      setCourts(sorted)
       setClubName(payload.clubName)
     }
 
@@ -66,50 +103,107 @@ export function ClubKioskPage() {
     }
   }, [socket])
 
-  return (
-    <div className="h-dvh bg-surface flex flex-col">
-      {/* Header — Logo + Club Name + QR (matching tournament kiosk style) */}
-      <div className="flex items-center justify-between px-8 pt-6 pb-4">
-        <div className="flex items-center gap-6">
-          <img src={logoBig} alt="RallyOS" style={{ height: 180 }} className="w-auto rounded-[--radius-md]" />
-          <Typography variant="headline" className="text-4xl font-bold text-text">
-            {clubName}
-          </Typography>
-        </div>
-        {hubConfig?.domain && (
-          <div className="flex flex-row items-start gap-6">
-            {/* WiFi QR — conditional */}
-            {hubConfig.wifiPassword && (
-              <div className="flex flex-col items-center gap-2">
-                <span className="text-sm font-semibold">{i18nText('scoreboardWifiQrCta')}</span>
-                <QRCodeSVG
-                  value={`WIFI:T:WPA2;S:${hubConfig.ssid};P:${hubConfig.wifiPassword};H:false;;`}
-                  size={180}
-                  bgColor="#ffffff"
-                  fgColor="#000000"
-                  level="H"
-                  includeMargin={true}
-                />
-              </div>
-            )}
-            {/* URL QR — always visible */}
-            <div className="flex flex-col items-center gap-2">
-              <span className="text-sm font-semibold">{i18nText('scoreboardUrlQrCta')}</span>
-              <QRCodeSVG
-                value={`https://${hubConfig.domain}:${hubConfig.port}`}
-                size={180}
-                bgColor="#ffffff"
-                fgColor="#000000"
-                level="H"
-                includeMargin={true}
-              />
-              <Typography variant="label" className="text-text/80 text-xs font-mono">
-                https://{hubConfig.domain}:{hubConfig.port}
-              </Typography>
-            </div>
+  // Spotlight: subscribe/unsubscribe to match updates for the featured match court
+  useEffect(() => {
+    if (!socket || !spotlightCourtId) return
+
+    socket.emit(SocketEvents.CLIENT.SUBSCRIBE_MATCH, { courtId: spotlightCourtId })
+
+    return () => {
+      socket.emit(SocketEvents.CLIENT.UNSUBSCRIBE_MATCH, { courtId: spotlightCourtId })
+    }
+  }, [socket, spotlightCourtId])
+
+  // Spotlight: listen for MATCH_UPDATE events
+  useEffect(() => {
+    if (!socket || !spotlightCourtId) {
+      setSpotlightMatch(null)
+      return
+    }
+
+    const handleMatchUpdate = (match: MatchStateExtended) => {
+      setSpotlightMatch(match)
+    }
+
+    socket.on(SocketEvents.SERVER.MATCH_UPDATE, handleMatchUpdate)
+
+    return () => {
+      socket.off(SocketEvents.SERVER.MATCH_UPDATE, handleMatchUpdate)
+    }
+  }, [socket, spotlightCourtId])
+
+  // Spotlight mode — full-screen Destacado bar + KioskScoreboard
+  if (isSpotlight) {
+    return (
+      <div className="h-dvh stadium-bg flex flex-col">
+        {/* Destacado bar */}
+        <div className="flex items-center justify-between px-6 py-3 bg-[var(--color-stadium-surface)] border-b border-[var(--color-stadium-border)]">
+          <div className="flex items-center gap-2">
+            <span className="text-amber-400 font-bold text-sm tracking-wide">
+              {i18nText('kioskDestacado')}
+            </span>
           </div>
-        )}
+          <Typography variant="body" className="font-semibold text-text-h text-base">
+            {featuredMatchCourt?.name ?? ''}
+          </Typography>
+          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/15 text-amber-400">
+            En Vivo
+          </span>
+        </div>
+
+        {/* Spotlight KioskScoreboard with animated transitions */}
+        <main className="flex-1 flex flex-col relative">
+          <AnimatePresence mode="wait">
+            {spotlightMatch ? (
+              <motion.div
+                key={spotlightCourtId}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.5 }}
+                className="flex-1 flex flex-col absolute inset-0"
+              >
+                <KioskScoreboard match={spotlightMatch} />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="empty"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.5 }}
+                className="flex-1 flex flex-col items-center justify-center gap-4 absolute inset-0"
+              >
+                <Table2 size={64} className="text-border" />
+                <Typography variant="title" className="text-2xl text-text-muted text-center px-4">
+                  {i18nText('kioskNoActiveMatches')}
+                </Typography>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </main>
+
+      {/* Kiosk Notification Toast — important/error only */}
+      {visibleNotification && (
+        <KioskNotificationToast
+          notification={visibleNotification}
+          onDismiss={() => setVisibleNotification(null)}
+        />
+      )}
+
+      <KioskSportsTicker
+          notification={kioskNotification?.scope === 'general' ? null : kioskNotification}
+          defaultText="BIENVENIDOS A RALLYOS"
+          defaultTexts={['▶ CANCHAS DISPONIBLES', '▶ RESERVAS', '▶ ESCANEA QR PARA JUGAR']}
+        />
       </div>
+    )
+  }
+
+  // Normal grid mode (no spotlight or free-mode featured court)
+  return (
+    <div className="h-dvh stadium-bg flex flex-col">
+      <KioskHeader title={clubName} hubConfig={hubConfig} />
 
       {/* Empty state */}
       {courts.length === 0 ? (
@@ -129,7 +223,7 @@ export function ClubKioskPage() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.5 }}
-                className="absolute inset-0 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-4 content-start overflow-y-auto"
+                className="absolute inset-0 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 p-6 content-start overflow-y-auto"
               >
                 {visibleCourts.map((court) => (
                   <ClubKioskCard key={court.id} court={court} />
@@ -154,6 +248,12 @@ export function ClubKioskPage() {
           )}
         </>
       )}
+
+      <KioskSportsTicker
+        notification={kioskNotification?.scope === 'general' ? null : kioskNotification}
+        defaultText="BIENVENIDOS A RALLYOS"
+        defaultTexts={['▶ CANCHAS DISPONIBLES', '▶ RESERVAS', '▶ ESCANEA QR PARA JUGAR']}
+      />
     </div>
   )
 }

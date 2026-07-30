@@ -9,16 +9,21 @@
  */
 
 import { Server, Socket } from 'socket.io';
+import crypto from 'crypto';
 import { CourtManager } from '../domain/courtManager';
 import type { IClubConfigRepository } from '../domain/ports/IClubConfigRepository';
 import { validateSocketPayload } from '../utils/validation';
 import { logger, maskIp } from '../utils/logger';
 import { SocketEvents } from '../../../shared/events';
 import { PIN_RULES } from '../../../shared/validation';
-import { SPORT, CLUB_STATUS } from '../../../shared/types';
+import { SPORT, CLUB_STATUS, SESSION_MODE } from '../../../shared/types';
+import type { MatchConfig, SessionRecord, SessionMode, ClubConfig } from '../../../shared/types';
 import { isClubCourt } from '../domain/types';
+import type { ClubCourt } from '../domain/types';
 import { SocketHandlerBase } from './SocketHandlerBase';
 import { PinRateLimiter } from '../services/security/PinRateLimiter';
+import { SessionHistoryStore } from '../services/store/SessionHistoryStore';
+import { generateKey } from '../services/crypto/phoneCipher';
 
 // ═══════════════════════════════════════════════════════════════
 // ClubPlayerHandler
@@ -34,36 +39,121 @@ import { PinRateLimiter } from '../services/security/PinRateLimiter';
 export class ClubPlayerHandler extends SocketHandlerBase {
   private clubConfigStore: IClubConfigRepository;
   private pinRateLimiter: PinRateLimiter;
+  private sessionHistoryStore?: SessionHistoryStore;
 
   constructor(
     io: Server,
     tableManager: CourtManager,
     ownerPin: string,
     clubConfigStore: IClubConfigRepository,
+    sessionHistoryStore?: SessionHistoryStore,
   ) {
     super(io, tableManager, ownerPin);
     this.clubConfigStore = clubConfigStore;
     this.pinRateLimiter = new PinRateLimiter();
+    this.sessionHistoryStore = sessionHistoryStore;
   }
 
   /**
    * Register all club player event handlers
    */
   public registerHandlers(socket: Socket): void {
-    // Wire onClubSessionEnd callback to calculate cost and broadcast to the room
-    this.tableManager.onClubSessionEnd = (courtId: string, elapsedMinutes: number, reason: string) => {
+    // Wire onClubSessionEnd callback to calculate cost, broadcast to the room,
+    // and — when a SessionHistoryStore is injected — persist a SessionRecord
+    // snapshot for the admin history tab. See `club-session-history` spec
+    // ("Persistence Trigger" and "SessionRecord Schema" requirements):
+    //   - The callback fires on BOTH endSession (player confirm=true) and
+    //     forceEndSession (admin force-end). One hook covers both paths.
+    //   - When no SessionHistoryStore is injected (PR 1 intermediate state,
+    //     or a write-time failure inside append) the session end flow MUST
+    //     still complete — the court still transitions to FINISHED and the
+    //     broadcast still fires. Persistence is best-effort and never
+    //     blocks session end.
+    //   - When the club is not configured (clubConfigStore.load() returns
+    //     null) no SessionRecord is created (spec: "history disabled without
+    //     club config").
+    this.tableManager.onClubSessionEnd = (courtId: string, elapsedMinutes: number, elapsedSeconds: number, reason: string) => {
       const clubConfig = this.clubConfigStore.load();
       const costPerMinute = clubConfig?.costPerMinute ?? 0;
       const currency = clubConfig?.currency ?? 'ARS';
       const cost = Math.ceil(elapsedMinutes * costPerMinute);
 
+      // Spec: CLUB_SESSION_ENDED MUST include elapsedSeconds (server authoritative
+      // timer) in addition to the existing elapsedMinutes/cost/currency/reason.
       this.io.to(courtId).emit(SocketEvents.SERVER.CLUB_SESSION_ENDED, {
         courtId,
         elapsedMinutes,
+        elapsedSeconds,
         cost,
         currency,
         reason,
       });
+
+      // Persist a SessionRecord snapshot ONLY when both a SessionHistoryStore
+      // is injected AND the club is configured. Non-configured clubs disable
+      // history per spec ("Club Not Configured" requirement).
+      if (!this.sessionHistoryStore || !clubConfig || !clubConfig.configured) {
+        return;
+      }
+
+      // Capture the courtName + mode at session-end time as a SNAPSHOT. The
+      // court has already transitioned to FINISHED in CourtManager.endSession
+      // (which fires this callback), but the court object still carries its
+      // name and sessionMode values at this point in the lifecycle.
+      const court = this.tableManager.getCourt(courtId);
+      const courtName = court?.name ?? '';
+      const sessionMode: SessionMode | null =
+        court && isClubCourt(court) ? court.sessionMode : null;
+      const mode: SessionMode = sessionMode ?? SESSION_MODE.MATCH;
+
+      // Free mode costs the same as match mode — the court is occupied and
+      // elapsed time × costPerMinute applies regardless of scoring mode.
+      //
+      // player-identity (Phase 2 task 2.5) — the SessionRecord is enriched
+      // with the four new fields flowing from the court:
+      //   - `playerName` / `phone` — captured at session-start by
+      //     startFreePlay / newMatch (player flow) or adminOccupyCourt
+      //     (Phase 3 / U2 admin flow). Empty when no player info was
+      //     captured for this session (e.g. legacy client that pre-dates
+      //     this change).
+      //   - `endedBy` — derived from the server-side `reason` string:
+      //     'player' → 'player' (player-initiated CLUB_END_SESSION,
+      //     reason='player'); 'force' → 'admin' (admin CLUB_FORCE_END,
+      //     reason='force'). Phase 3 / U2 will pass an explicit 'admin'
+      //     reason from the admin force-end path.
+      //   - `adminId` — `null` for player-initiated sessions (no admin
+      //     started or ended this). Populated with `socket.data.adminId`
+      //     (set at CLUB_VERIFY_ADMIN) by the admin flows in Phase 3 / U2.
+      const clubCourt = court && isClubCourt(court) ? court : null;
+      const record: SessionRecord = {
+        courtName,
+        elapsedSeconds,
+        elapsedMinutes,
+        mode,
+        cost,
+        currency,
+        timestamp: new Date().toISOString(),
+        sessionId: crypto.randomUUID(),
+        playerName: clubCourt?.playerName ?? '',
+        phone: clubCourt?.phone ?? '',
+        endedBy: reason === 'force' ? 'admin' : 'player',
+        adminId: clubCourt?.adminId ?? null,
+      };
+
+      // append() logs errors and never throws — session end is not blocked
+      // by persistence failure.
+      this.sessionHistoryStore.append(record);
+
+      // Broadcast the updated history to ALL connected admin sockets so the
+      // history table updates live (no page reload needed). The admin-connect
+      // and clear paths already emit CLUB_SESSION_HISTORY; this closes the
+      // gap for the session-end path.
+      const updatedSessions = this.sessionHistoryStore.getAll();
+      for (const [, s] of this.io.sockets.sockets) {
+        if (s.data?.isClubAdmin) {
+          s.emit(SocketEvents.SERVER.CLUB_SESSION_HISTORY, { sessions: updatedSessions });
+        }
+      }
     };
 
     // CLUB_JOIN: Player attempts to join a club court using a 4-digit PIN
@@ -145,6 +235,15 @@ export class ClubPlayerHandler extends SocketHandlerBase {
         courtId: result.court.id,
         courtName: result.court.name,
         matchState: result.matchState,
+        // player-identity (Phase 2 task 2.5) — surface the club's
+        // encryptionKey so the client can AES-256-GCM-encrypt the player's
+        // phone with Web Crypto before sending it back via
+        // CLUB_START_FREE / CLUB_NEW_MATCH / CLUB_ADMIN_OCCUPY. Auto-
+        // generate + persist a fresh key for clubs that pre-date this change
+        // (legacy ClubConfig without `encryptionKey`). See design's "Open
+        // Questions RESOLVED" block and `phone-reveal` spec — the server
+        // holds the only key copy, never sends it to non-joining sockets.
+        encryptionKey: resolveOrCreateEncryptionKey(clubConfig, this.clubConfigStore),
       });
 
       // notifyUpdate (called inside occupyClubCourt) already broadcasts
@@ -215,20 +314,44 @@ export class ClubPlayerHandler extends SocketHandlerBase {
       // Get current match state
       const matchState = this.tableManager.getMatchState(court.id);
 
+      // Spec: CLUB_RECONNECT MUST return sessionMode and elapsedSeconds so the
+      // client can render the correct mode (free vs match) and the running
+      // timer on reconnect. sessionMode is sourced from the in-memory ClubCourt
+      // — toPersistedClubCourt persists it (PR 2 fix), so this also covers
+      // reconnect-after-restart once the StateStore reloads the court.
+      const clubCourt = court as ClubCourt;
+      const elapsedSeconds = clubCourt.occupiedAt
+        ? Math.max(0, Math.floor((Date.now() - clubCourt.occupiedAt) / 1000))
+        : 0;
+
       socket.emit(SocketEvents.SERVER.CLUB_RECONNECT_RESULT, {
         success: true,
         courtId: court.id,
         matchState,
+        sessionMode: clubCourt.sessionMode,
+        elapsedSeconds,
       });
 
       logger.info(
-        { courtId: court.id, socketId: socket.id },
+        { courtId: court.id, socketId: socket.id, sessionMode: clubCourt.sessionMode, elapsedSeconds },
         'CLUB_RECONNECT: bridge ownership re-established',
       );
     });
 
-    // CLUB_END_SESSION: Player-initiated session end
-    socket.on(SocketEvents.CLIENT.CLUB_END_SESSION, (data: { courtId: string }) => {
+    // CLUB_END_SESSION: Player-initiated session end with confirmation flow
+    //
+    // Spec scenarios 4, 5, 6:
+    //   - first emit WITHOUT confirm → server computes elapsedSeconds and
+    //     emits CLUB_END_SESSION_CONFIRM to the requesting socket so the
+    //     client renders the confirmation modal. Court STAYS OCCUPIED (timer
+    //     runs). PR 3 event swap — previously reused CLUB_SESSION_TIMER, which
+    //     conflated confirmation with periodic sync.
+    //   - emit with confirm=true → server transitions to FINISHED and the
+    //     onClubSessionEnd callback broadcasts CLUB_SESSION_ENDED with
+    //     elapsedSeconds/elapsedMinutes.
+    //   - cancel → client does not emit confirm; the court stays OCCUPIED
+    //     and the timer keeps running server-side.
+    socket.on(SocketEvents.CLIENT.CLUB_END_SESSION, (data: { courtId: string; confirm?: boolean }) => {
       if (!data || typeof data.courtId !== 'string' || !data.courtId.trim()) {
         socket.emit(SocketEvents.SERVER.ERROR, {
           code: 'INVALID_PARAMS',
@@ -240,7 +363,8 @@ export class ClubPlayerHandler extends SocketHandlerBase {
       // Validate socket is referee for this court
       if (!this.validateReferee(socket, data.courtId)) return;
 
-      // Validate court exists and is OCCUPIED
+      // Validate court exists and is OCCUPIED (both for confirm and
+      // confirmation-request paths). FINISHED courts return ERROR.
       const court = this.tableManager.getCourt(data.courtId);
       if (!court || !isClubCourt(court) || court.clubStatus !== CLUB_STATUS.OCCUPIED) {
         socket.emit(SocketEvents.SERVER.ERROR, {
@@ -250,7 +374,25 @@ export class ClubPlayerHandler extends SocketHandlerBase {
         return;
       }
 
-      // End the session — the onClubSessionEnd callback handles the broadcast
+      // Confirmation request — do NOT transition. Notify the requesting
+      // socket with elapsedSeconds so the client can show the modal.
+      if (data.confirm !== true) {
+        const now = Date.now();
+        const elapsedSeconds = court.occupiedAt
+          ? Math.max(0, Math.floor((now - court.occupiedAt) / 1000))
+          : 0;
+        socket.emit(SocketEvents.SERVER.CLUB_END_SESSION_CONFIRM, {
+          courtId: court.id,
+          elapsedSeconds,
+        });
+        logger.info(
+          { courtId: court.id, elapsedSeconds },
+          'CLUB_END_SESSION: confirmation requested',
+        );
+        return;
+      }
+
+      // Confirmed end — transition FINISHED, fire onClubSessionEnd broadcast.
       const result = this.tableManager.endSession(data.courtId, 'player');
       if (!result) {
         socket.emit(SocketEvents.SERVER.ERROR, {
@@ -261,9 +403,196 @@ export class ClubPlayerHandler extends SocketHandlerBase {
       }
 
       logger.info(
-        { courtId: data.courtId, elapsedMinutes: result.elapsedMinutes, reason: 'player' },
+        { courtId: data.courtId, elapsedMinutes: result.elapsedMinutes, elapsedSeconds: result.elapsedSeconds, reason: 'player' },
         'CLUB_END_SESSION: player ended session',
       );
     });
+
+    // CLUB_START_FREE: Switch the OCCUPIED club court to "free" session mode.
+    // Spec scenario 1 — emit CLUB_FREE_STARTED to the room and keep the court
+    // OCCUPIED with the timer running.
+    //
+    // player-identity (Phase 2 task 2.5) — the payload now also carries the
+    // player's OWN name + phone (encrypted client-side with the
+    // encryptionKey returned in CLUB_JOIN_RESULT). They are forwarded to
+    // CourtManager.startFreePlay which persists them on the court, so the
+    // subsequent onClubSessionEnd callback can populate the SessionRecord.
+    // Omitted values are preserved (idempotent re-entry).
+    socket.on(SocketEvents.CLIENT.CLUB_START_FREE, (data: {
+      courtId: string;
+      playerName?: string;
+      phone?: string;
+    }) => {
+      if (!validateSocketPayload(socket, data, {
+        courtId: { required: true, type: 'string', maxLength: 36 },
+        playerName: { required: false, type: 'string', maxLength: 100 },
+        phone: { required: false, type: 'string', maxLength: 512 },
+      }, 'CLUB_START_FREE')) {
+        return;
+      }
+
+      if (!this.validateReferee(socket, data.courtId)) return;
+
+      const result = this.tableManager.startFreePlay(data.courtId, {
+        playerName: data.playerName,
+        phone: data.phone,
+      });
+      if (!result) {
+        this.emitError(socket, 'START_FREE_FAILED', 'No se pudo iniciar modo libre. La cancha debe estar ocupada.');
+        return;
+      }
+
+      this.io.to(data.courtId).emit(SocketEvents.SERVER.CLUB_FREE_STARTED, {
+        courtId: data.courtId,
+      });
+
+      logger.info(
+        { courtId: data.courtId, sessionMode: result.sessionMode },
+        'CLUB_START_FREE: court entered free mode',
+      );
+    });
+
+    // CLUB_RESET_MATCH: Reset the running match to 0-0 with the SAME config.
+    // Spec post-match "Reset" action. Emits CLUB_MATCH_RESET with the fresh
+    // zeroed matchState to the room.
+    socket.on(SocketEvents.CLIENT.CLUB_RESET_MATCH, (data: { courtId: string }) => {
+      if (!validateSocketPayload(socket, data, {
+        courtId: { required: true, type: 'string', maxLength: 36 },
+      }, 'CLUB_RESET_MATCH')) {
+        return;
+      }
+
+      if (!this.validateReferee(socket, data.courtId)) return;
+
+      const result = this.tableManager.resetMatch(data.courtId);
+      if (!result) {
+        this.emitError(socket, 'RESET_MATCH_FAILED', 'No se pudo reiniciar el partido. La cancha debe estar ocupada.');
+        return;
+      }
+
+      this.io.to(data.courtId).emit(SocketEvents.SERVER.CLUB_MATCH_RESET, {
+        courtId: data.courtId,
+        matchState: result.matchState,
+      });
+
+      logger.info(
+        { courtId: data.courtId },
+        'CLUB_RESET_MATCH: match reset to 0-0',
+      );
+    });
+
+    // CLUB_NEW_MATCH: Start a new match with new player names (optionally a
+    // new matchConfig). Spec scenario 2 — transitions free→match and serves
+    // the post-match "New Match" action. PR 1 risk fix #2 — passes the
+    // optional matchConfig through to CourtManager.newMatch so the user can
+    // pick non-default points/sets before starting.
+    //
+    // player-identity (Phase 2 task 2.5) — the payload now also carries
+    // the player's OWN name + phone (distinct from the match participants
+    // playerNameA/B). They are forwarded to CourtManager.newMatch which
+    // persists them on the court, so the subsequent onClubSessionEnd
+    // callback can populate the SessionRecord. Omitted values are
+    // preserved (idempotent re-entry / "New Match" without recollecting
+    // identity).
+    socket.on(SocketEvents.CLIENT.CLUB_NEW_MATCH, (data: {
+      courtId: string;
+      playerNameA: string;
+      playerNameB: string;
+      matchConfig?: Partial<MatchConfig>;
+      playerName?: string;
+      phone?: string;
+    }) => {
+      if (!validateSocketPayload(socket, data, {
+        courtId: { required: true, type: 'string', maxLength: 36 },
+        playerNameA: { required: true, type: 'string', maxLength: 50 },
+        playerNameB: { required: true, type: 'string', maxLength: 50 },
+        matchConfig: { type: 'object', required: false },
+        playerName: { required: false, type: 'string', maxLength: 100 },
+        phone: { required: false, type: 'string', maxLength: 512 },
+      }, 'CLUB_NEW_MATCH')) {
+        return;
+      }
+
+      if (!this.validateReferee(socket, data.courtId)) return;
+
+      const result = this.tableManager.newMatch(data.courtId, {
+        playerNameA: data.playerNameA,
+        playerNameB: data.playerNameB,
+        matchConfig: data.matchConfig,
+        playerName: data.playerName,
+        phone: data.phone,
+      });
+      if (!result) {
+        this.emitError(socket, 'NEW_MATCH_FAILED', 'No se pudo iniciar el nuevo partido. La cancha debe estar ocupada.');
+        return;
+      }
+
+      this.io.to(data.courtId).emit(SocketEvents.SERVER.MATCH_UPDATE, result.matchState);
+
+      logger.info(
+        { courtId: data.courtId, playerNameA: data.playerNameA, playerNameB: data.playerNameB },
+        'CLUB_NEW_MATCH: new match started',
+      );
+    });
   }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// player-identity (Phase 2 task 2.5) — encryptionKey resolver helper
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Resolve the club's encryptionKey, auto-generating + persisting one when
+ * the configured club is missing it (legacy club that pre-dates the
+ * player-identity change).
+ *
+ * The generated key is 32 random bytes (AES-256-GCM) base64-encoded — the
+ * exact shape `phoneCipher.generateKey()` returns. Persistence is BEST
+ * EFFORT: a save failure is logged but does NOT block the join flow (the
+ * returned key is still valid for the immediate session, the next join
+ * will simply regenerate it). See design's "Open Questions RESOLVED" and
+ * the `phone-reveal` spec.
+ *
+ * @param config        Currently-loaded ClubConfig (may be null only when
+ *                      the club is not configured; in that case the
+ *                      caller's CLUB_JOIN short-circuits earlier, so this
+ *                      path is unreachable — but we return null defensively
+ *                      so the helper stays total).
+ * @param configStore   Repository used to persist a freshly-generated key
+ *                      back to the ClubConfig file.
+ * @returns Base64-encoded AES-256-GCM key, or null when config is null.
+ */
+function resolveOrCreateEncryptionKey(
+  config: ClubConfig | null,
+  configStore: IClubConfigRepository,
+): string | null {
+  if (!config) return null;
+
+  if (typeof config.encryptionKey === 'string' && config.encryptionKey.length > 0) {
+    return config.encryptionKey;
+  }
+
+  // Legacy / pre-change club — generate a fresh key and persist it.
+  const freshKey = generateKey();
+  try {
+    configStore.save({
+      ...config,
+      encryptionKey: freshKey,
+    });
+    logger.info(
+      { clubName: config.clubName },
+      'ClubPlayerHandler: generated and persisted a new encryptionKey for a legacy club',
+    );
+  } catch (err) {
+    // Persistence failure — returning an unpersisted key would make any
+    // phone ciphertext unrecoverable after a server restart (CRITICAL).
+    // The client receives null encryptionKey and the join effectively
+    // fails (phone cannot be encrypted). The player can retry.
+    logger.error(
+      { err, clubName: config.clubName },
+      'ClubPlayerHandler: failed to persist a freshly-generated encryptionKey — returning null; player must retry',
+    );
+    return null;
+  }
+  return freshKey;
 }

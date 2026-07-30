@@ -15,16 +15,32 @@ import { SessionTokenService } from '../services/security/SessionTokenService';
 import { validateSocketPayload } from '../utils/validation';
 import { logger, maskIp } from '../utils/logger';
 import { SocketEvents } from '../../../shared/events';
-import { ADMIN_PIN_RULES } from '../../../shared/validation';
-import { COURT_MODE } from '../../../shared/types';
+import { ADMIN_PIN_RULES, sanitizeMessage } from '../../../shared/validation';
+import { COURT_MODE, KioskNotificationType } from '../../../shared/types';
 import { SocketHandlerBase } from './SocketHandlerBase';
 import { isClubCourt } from '../domain/types';
 import type { SocketData } from '../domain/types';
+import type { ClubSessionHistoryHandler } from './ClubSessionHistoryHandler';
+// player-identity (Phase 2 task 2.6) — AES-256-GCM key generator used on
+// CLUB_SETUP so the club is born with an encryption key. No key copy reaches
+// non-admin/non-joining sockets.
+import { generateKey } from '../services/crypto/phoneCipher';
+
+/**
+ * Minimal collaborator surface that ClubAdminHandler needs from
+ * ClubSessionHistoryHandler. Declared as a structural interface so the
+ * handler stays decoupled from the concrete class and tests can pass a
+ * stub. See task 3.6 (club-session-history) and apply-gotchas-pr2 #4.
+ */
+export interface ClubHistoryBridge {
+  sendHistoryToSocket(socket: Socket): void;
+}
 
 export class ClubAdminHandler extends SocketHandlerBase {
   private clubConfigStore: IClubConfigRepository;
   private adminPinService: AdminPinService;
   private sessionTokenService: SessionTokenService;
+  private readonly historyHandler?: ClubHistoryBridge;
 
   constructor(
     io: Server,
@@ -33,11 +49,21 @@ export class ClubAdminHandler extends SocketHandlerBase {
     clubConfigStore: IClubConfigRepository,
     adminPinService: AdminPinService,
     sessionTokenService: SessionTokenService,
+    /**
+     * Optional bridge to ClubSessionHistoryHandler. When injected, a
+     * successful PIN verify triggers `sendHistoryToSocket(socket)` so
+     * admins that arrive without a JWT (no session-restore path) still
+     * receive CLUB_SESSION_HISTORY immediately. Omit to preserve the
+     * pre-history backward-compat shape (gotcha #4 — do NOT silently
+     * remove the no-history branch).
+     */
+    historyHandler?: ClubHistoryBridge,
   ) {
     super(io, tableManager, ownerPin);
     this.clubConfigStore = clubConfigStore;
     this.adminPinService = adminPinService;
     this.sessionTokenService = sessionTokenService;
+    this.historyHandler = historyHandler;
   }
 
   /**
@@ -67,14 +93,41 @@ export class ClubAdminHandler extends SocketHandlerBase {
 
       if (this.adminPinService.verifyPin(data.pin, config.adminPinHash)) {
         const socketData = socket.data as SocketData;
-        socket.data = { ...socketData, isClubAdmin: true };
+        // player-identity (Phase 2 task 2.3) — capture the admin's socket id
+        // at verify time so subsequent handlers can attribute admin actions
+        // (SessionRecord.adminId) WITHOUT re-decoding the JWT or re-asking
+        // the client. Mirrors the existing isClubAdmin flag pattern.
+        socket.data = {
+          ...socketData,
+          isClubAdmin: true,
+          adminId: socket.id,
+        };
         const token = this.sessionTokenService.signToken({
           sub: (config as any).clubId ?? 'club',
           role: 'club_admin',
         });
-        socket.emit(SocketEvents.SERVER.CLUB_ADMIN_VERIFIED, { success: true, token });
+        // player-identity (U1 review fix #1) — deliver the club's encryptionKey
+        // to the admin client so AdminOccupyModal can encrypt the admin-entered
+        // phone with AES-256-GCM before transmitting. The config is already
+        // loaded above (guard: config exists and is configured).
+        socket.emit(SocketEvents.SERVER.CLUB_ADMIN_VERIFIED, {
+          success: true,
+          token,
+          encryptionKey: config.encryptionKey || null,
+        });
 
-        // Club courts are already delivered via CLUB_KIOSK_DATA at connection time
+        // Re-send club kiosk data so the admin dashboard sees all courts
+        // even if the initial CLUB_KIOSK_DATA (sent at socket connection
+        // time) arrived before the React hook had registered its listener.
+        const freshKioskPayload = this.tableManager.getClubKioskPayload(config);
+        socket.emit(SocketEvents.SERVER.CLUB_KIOSK_DATA, freshKioskPayload);
+
+        // Task 3.6 (club-session-history): when a history handler is
+        // injected, push the persisted session history to the freshly
+        // verified admin. This closes the gap for PIN-only clients that
+        // did not arrive via the JWT-reconnect path (gotchas-pr2 #4) —
+        // the SocketHandler admin-connect hook only covers JWT reconnect.
+        this.historyHandler?.sendHistoryToSocket(socket);
 
         logger.info({ socketId: socket.id }, 'Club admin verified successfully');
       } else {
@@ -82,6 +135,14 @@ export class ClubAdminHandler extends SocketHandlerBase {
         logger.warn({ socketId: socket.id, ip: maskIp(clientIp) }, 'Club admin verification failed');
       }
     });
+
+    // CLUB_SEND_NOTIFICATION: Club admin sends kiosk notification
+    socket.on(SocketEvents.CLIENT.CLUB_SEND_NOTIFICATION, (data: {
+      type: KioskNotificationType;
+      message: string;
+      duration: number;
+      general?: boolean;
+    }) => this.handleClubSendNotification(socket, data));
 
     // CLUB_GET_CONFIG: Check if club is configured
     socket.on(SocketEvents.CLIENT.CLUB_GET_CONFIG, () => {
@@ -131,6 +192,16 @@ export class ClubAdminHandler extends SocketHandlerBase {
       const adminPinHash = this.adminPinService.hashPin(data.pin);
 
       // Save club config (only the scrypt hash — never plaintext)
+      //
+      // player-identity (Phase 2 task 2.6) — auto-generate a 32-byte
+      // AES-256-GCM key (base64-encoded) on first CLUB_SETUP. Persisted to
+      // ClubConfig.encryptionKey so the subsequent CLUB_JOIN_RESULT +
+      // CLUB_ADMIN_OCCUPY responses can surface it back to the client for
+      // phone encryption. The SERVER is authoritative on key generation —
+      // any client-supplied `encryptionKey` field is ignored (the request
+      // payload type does not even include it). See `player-identity`
+      // spec ("Open Questions RESOLVED" + "Client-Side Phone Encryption"
+      // requirement).
       const clubConfig = {
         clubName: data.clubName,
         sport: data.sport,
@@ -139,6 +210,7 @@ export class ClubAdminHandler extends SocketHandlerBase {
         createdAt: Date.now(),
         costPerMinute: data.costPerMinute ?? 0,
         currency: data.currency ?? 'ARS',
+        encryptionKey: generateKey(),
       };
       this.clubConfigStore.save(clubConfig);
 
@@ -175,5 +247,54 @@ export class ClubAdminHandler extends SocketHandlerBase {
         'Club setup complete',
       );
     });
+  }
+
+  /**
+   * Handle CLUB_SEND_NOTIFICATION: validate isClubAdmin, rate-limit, sanitize, broadcast.
+   * Maps general → scope:'general', omitting general → scope:'club'.
+   */
+  private handleClubSendNotification(socket: Socket, data: {
+    type: KioskNotificationType;
+    message: string;
+    duration: number;
+    general?: boolean;
+  }): void {
+    // Auth: only club admins can send notifications
+    if (!this.validateClubAdmin(socket)) {
+      return;
+    }
+
+    // Rate-limit per IP with separate key prefix (5/min)
+    const clientIp = socket.handshake.address;
+    const rateLimitKey = `CLUB_NOTIFICATION:${clientIp}`;
+    if (this.isRateLimited(rateLimitKey)) {
+      this.logRateLimitBlocked('CLUB_SEND_NOTIFICATION', 'club-notification', clientIp);
+      return this.emitError(socket, 'RATE_LIMITED', 'Demasiadas notificaciones. Esperá un minuto.');
+    }
+
+    // Sanitize HTML and truncate message
+    const sanitizedMessage = sanitizeMessage(data.message || '');
+
+    // Determine scope: general: true → 'general', otherwise 'club'
+    const scope = data.general === true ? 'general' : 'club';
+
+    // Build payload with server-set timestamp
+    const payload = {
+      type: data.type,
+      message: sanitizedMessage,
+      duration: data.duration,
+      timestamp: Date.now(),
+      scope,
+    };
+
+    // Broadcast to all connected clients (clients filter by scope)
+    this.io.emit(SocketEvents.SERVER.KIOSK_NOTIFICATION, payload);
+
+    logger.info({
+      type: data.type,
+      duration: data.duration,
+      scope,
+      ip: maskIp(clientIp),
+    }, 'Club admin notification broadcast');
   }
 }

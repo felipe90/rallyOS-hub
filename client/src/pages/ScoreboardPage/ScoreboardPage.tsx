@@ -33,7 +33,7 @@ export interface ScoreboardPageProps {}
 function RefRevokedView() {
   const { i18nText } = useI18n()
   return (
-    <div className="flex flex-col items-center justify-center h-dvh bg-surface gap-4 p-4">
+    <div className="flex flex-col items-center justify-center h-dvh bg-background gap-4 p-4">
       <Typography variant="headline" className="text-center">{i18nText('scoreboardRefRevokedTitle')}</Typography>
       <Typography variant="body" className="text-center text-muted-foreground">
         {i18nText('scoreboardRefRevokedMessage')}
@@ -139,7 +139,7 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
   const backRoute = isOwner ? Routes.DASHBOARD_OWNER : isReferee ? Routes.DASHBOARD_REFEREE : Routes.DASHBOARD_SPECTATOR
 
   return (
-    <div className="flex flex-col h-dvh bg-surface">
+    <div className="flex flex-col h-dvh bg-background">
       <PageHeader
         title={`${currentMatch.playerNames?.a || 'A'} vs ${currentMatch.playerNames?.b || 'B'}`}
         landscape={isLandscape}

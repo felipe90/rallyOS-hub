@@ -12,25 +12,60 @@
 
 import { Server, Socket } from 'socket.io';
 import { CourtManager } from '../domain/courtManager';
+import { isClubCourt } from '../domain/types';
+import type { IClubConfigRepository } from '../domain/ports/IClubConfigRepository';
 import { logger } from '../utils/logger';
 import { SocketEvents } from '../../../shared/events';
 import { SocketHandlerBase } from './SocketHandlerBase';
 import type { SocketData } from '../domain/types';
 
 export class SpotlightHandler extends SocketHandlerBase {
-  constructor(io: Server, tableManager: CourtManager, ownerPin: string) {
+  private clubConfigStore?: IClubConfigRepository;
+
+  constructor(
+    io: Server,
+    tableManager: CourtManager,
+    ownerPin: string,
+    /**
+     * Club config repository — required for the club-featured flow to
+     * build a fresh `ClubKioskPayload` (which carries the configured
+     * `clubName`) after a club admin toggles `featured` on a club court.
+     * Optional so the legacy 3-arg wiring in `SocketHandler` and existing
+     * tests that instantiate `new SpotlightHandler(io, tm, pin)` keep
+     * working — when omitted the re-broadcast still emits, only the
+     * `clubName` falls back to the courtManager default.
+     */
+    clubConfigStore?: IClubConfigRepository,
+  ) {
     super(io, tableManager, ownerPin);
+    this.clubConfigStore = clubConfigStore;
+  }
+
+  /**
+   * After featuring (or un-featuring) a club court, broadcast the updated
+   * `CLUB_KIOSK_DATA` payload so every club admin client reconciles the
+   * starred-court state via `useClubCourtManagement.handleKioskData`.
+   *
+   * No-op for tournament courts — the tournament kiosk reads featured
+   * via the ambient `COURT_UPDATE` stream, not `CLUB_KIOSK_DATA`.
+   */
+  private broadcastClubKioskData(court: { kind?: string }): void {
+    if (!isClubCourt(court as any)) return;
+    const clubConfig = this.clubConfigStore?.load() ?? null;
+    const payload = this.tableManager.getClubKioskPayload(clubConfig);
+    this.io.emit(SocketEvents.SERVER.CLUB_KIOSK_DATA, payload);
+    logger.debug({ courtId: (court as any).id }, 'CLUB_KIOSK_DATA re-broadcast after featured toggle');
   }
 
   /**
    * Register all spotlight event handlers
    */
   public registerHandlers(socket: Socket): void {
-    // SET_FEATURED: Owner-only — set or clear the featured court
+    // SET_FEATURED: Owner or club admin — set or clear the featured court
     socket.on(SocketEvents.CLIENT.SET_FEATURED, (data: { targetCourtId?: string | null }) => {
       const socketData = socket.data as SocketData;
-      if (!socketData.isOwner) {
-        return this.emitError(socket, 'UNAUTHORIZED', 'Solo el organizador puede destacar una cancha');
+      if (!socketData.isOwner && !socketData.isClubAdmin) {
+        return this.emitError(socket, 'UNAUTHORIZED', 'Solo el organizador o admin del club puede destacar una cancha');
       }
 
       // Clear all featured if targetCourtId is null/undefined/empty
@@ -43,6 +78,7 @@ export class SpotlightHandler extends SocketHandlerBase {
             const courtInfo = this.tableManager.courtToInfo(court);
             this.io.emit(SocketEvents.SERVER.COURT_UPDATE, courtInfo);
             logger.debug({ courtId: court.id }, 'Featured cleared via SET_FEATURED(null)');
+            this.broadcastClubKioskData(court);
           }
         }
         return;
@@ -71,6 +107,7 @@ export class SpotlightHandler extends SocketHandlerBase {
       const courtInfo = this.tableManager.courtToInfo(targetCourt);
       this.io.emit(SocketEvents.SERVER.COURT_UPDATE, courtInfo);
       logger.info({ courtId: targetCourt.id }, 'Court set as featured');
+      this.broadcastClubKioskData(targetCourt);
     });
 
     // SUBSCRIBE_MATCH: Subscribe to match updates for a featured court

@@ -23,3 +23,12 @@ export type { CoachMarkProps } from './CoachMark/CoachMark'
 
 export { LanguageSwitcher } from './LanguageSwitcher/LanguageSwitcher'
 export type { LanguageSwitcherProps } from './LanguageSwitcher/LanguageSwitcher'
+
+export { Tab } from './Tab'
+export type { TabProps } from './Tab'
+
+export { TabContainer } from './TabContainer'
+export type { TabDefinition, TabContainerProps } from './TabContainer'
+
+export { FloatingActionButton } from './FloatingActionButton'
+export type { FloatingActionButtonProps } from './FloatingActionButton'

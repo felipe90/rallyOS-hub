@@ -409,6 +409,12 @@ describe('port interfaces', () => {
       createdAt: 2000,
       featured: false,
       occupiedAt: 3000,
+      sessionMode: null,
+      // player-identity neutral defaults — null until startFreePlay/newMatch/
+      // adminOccupyCourt populate them. Cleared by resetCourt.
+      playerName: null,
+      phone: null,
+      adminId: null,
       onTableUpdate: undefined,
       onMatchEvent: undefined,
     });
@@ -1079,6 +1085,7 @@ describe('Phase 2 port interfaces', () => {
     function createMatchOrchestrator(): IMatchOrchestrator {
       return {
         configureMatch(_court: Court, _config: { playerNames?: { a: string; b: string }; matchConfig?: MatchConfig }): void {},
+        prepareCourt(_court: Court, _config: { matchConfig: MatchConfig; playerNames: { a: string; b: string } }): MatchStateExtended | null { return null; },
         startMatch(_court: Court, _config?: Partial<MatchConfig> & { playerNameA?: string; playerNameB?: string }): MatchStateExtended | null { return null; },
         recordPoint(_court: Court, _player: Player): MatchStateExtended | null { return null; },
         subtractPoint(_court: Court, _player: Player): MatchStateExtended | null { return null; },
@@ -1101,6 +1108,7 @@ describe('Phase 2 port interfaces', () => {
       expect(typeof orch.swapSides).toBe('function');
       expect(typeof orch.resetTable).toBe('function');
       expect(typeof orch.getMatchState).toBe('function');
+      expect(typeof orch.prepareCourt).toBe('function');
     });
 
     it('should accept a court and config in configureMatch', () => {

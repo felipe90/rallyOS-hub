@@ -12,7 +12,6 @@ import { OwnerDashboardPage } from './pages/OwnerDashboardPage'
 import { RefereeDashboardPage } from './pages/RefereeDashboardPage'
 import { SpectatorDashboardPage } from './pages/SpectatorDashboardPage'
 import { ScoreboardPage } from './pages/ScoreboardPage'
-import { HistoryViewPage } from './pages/HistoryViewPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { KioskPage } from './pages/KioskPage'
 import { ClubSetupPage } from './pages/ClubSetupPage'
@@ -49,8 +48,6 @@ function AppRoutes() {
           <Route path="/scoreboard/:tableId" element={<Navigate to={Routes.SCOREBOARD_VIEW} replace />} />
           <Route path={Routes.SCOREBOARD_REFEREE} element={<ScoreboardPage />} />
           <Route path={Routes.SCOREBOARD_VIEW} element={<ScoreboardPage />} />
-
-          <Route path={Routes.HISTORY} element={<HistoryViewPage />} />
 
           {/* Redirect root to auth */}
           <Route index element={<Navigate to={Routes.AUTH} replace />} />

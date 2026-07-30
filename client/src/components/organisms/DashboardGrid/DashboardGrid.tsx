@@ -1,7 +1,6 @@
 import { motion, useReducedMotion } from 'framer-motion';
 import type { TableInfo, TableInfoWithPin } from '@shared/types';
 import { CourtStatusChip } from '../../molecules/CourtStatusChip';
-import { Body, Title } from '../../atoms/Typography';
 import { Button } from '../../atoms/Button';
 import { LayoutGrid, List } from 'lucide-react';
 import { useState, useRef, useCallback, type ReactNode } from 'react';
@@ -179,33 +178,33 @@ export function DashboardHeader({
     setTooltip(null)
   }, [])
   return (
-    <div className="flex flex-col gap-4 mb-6">
+    <div className="flex flex-col">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap gap-2 items-center">
           {actions}
         </div>
 
-        <div className="relative flex-shrink-0">
+        <div className="hidden md:relative md:flex-shrink-0">
           <div className="flex gap-1 p-1 bg-slate-100 rounded-full">
             <Button
               variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
-              size="sm"
+              size="xs"
               onClick={() => onViewModeChange('grid')}
               onMouseEnter={() => showTooltip(gridViewLabel)}
               onMouseLeave={hideTooltip}
               className={`${viewMode === 'grid' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400 hover:text-slate-600'} transition-colors duration-200`}
               aria-label={gridViewLabel}
-              icon={<LayoutGrid size={20} />}
+              icon={<LayoutGrid size={14} />}
             />
             <Button
               variant={viewMode === 'list' ? 'secondary' : 'ghost'}
-              size="sm"
+              size="xs"
               onClick={() => onViewModeChange('list')}
               onMouseEnter={() => showTooltip(listViewLabel)}
               onMouseLeave={hideTooltip}
               className={`${viewMode === 'list' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400 hover:text-slate-600'} transition-colors duration-200`}
               aria-label={listViewLabel}
-              icon={<List size={20} />}
+              icon={<List size={14} />}
             />
           </div>
           {tooltip && (
@@ -213,24 +212,6 @@ export function DashboardHeader({
               {tooltip}
             </span>
           )}
-        </div>
-      </div>
-      
-      <div className="flex items-center gap-4 flex-wrap">
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-surface shadow-sm">
-          {statIcons?.canchas}
-          <Body className="text-text-muted text-xs">{statLabels.courts || ''}</Body>
-          <Title className="text-text-h text-lg">{totalTables ?? 0}</Title>
-        </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-surface shadow-sm">
-          {statIcons?.partidos}
-          <Body className="text-text-muted text-xs">{statLabels.matches || ''}</Body>
-          <Title className="text-text-h text-lg">{liveMatches ?? 0}</Title>
-        </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-surface shadow-sm">
-          {statIcons?.jugadores}
-          <Body className="text-text-muted text-xs">{statLabels.players || ''}</Body>
-          <Title className="text-text-h text-lg">{activePlayers ?? 0}</Title>
         </div>
       </div>
     </div>

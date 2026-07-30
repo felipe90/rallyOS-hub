@@ -12,6 +12,7 @@ import { Button } from '@/components/atoms/Button'
 import { Typography } from '@/components/atoms/Typography'
 import { SocketEvents } from '@shared/events'
 import { Routes, buildScoreboardRoute } from '@/routes'
+import { ArrowLeft } from 'lucide-react'
 
 export interface SpectatorDashboardPageProps {}
 
@@ -36,7 +37,7 @@ export function SpectatorDashboardPage(_props: SpectatorDashboardPageProps) {
   }
 
   return (
-    <div className="flex flex-col h-dvh bg-surface">
+    <div className="flex flex-col h-dvh bg-background">
       <PageHeader
         title={i18nText('spectatorTitle')}
         connectionLabels={{
@@ -50,6 +51,7 @@ export function SpectatorDashboardPage(_props: SpectatorDashboardPageProps) {
             variant="ghost"
             onClick={() => navigate(Routes.AUTH)}
             size="sm"
+            icon={<ArrowLeft size={16} />}
           >
             {i18nText('commonBack')}
           </Button>
@@ -70,7 +72,7 @@ export function SpectatorDashboardPage(_props: SpectatorDashboardPageProps) {
             {availableCourts.map((court) => (
               <div
                 key={court.id}
-                className="card p-4 bg-surface-secondary rounded-lg border border-border cursor-pointer hover:border-primary transition-colors"
+                className="card-light p-4 cursor-pointer hover:border-primary transition-colors"
                 onClick={() => handleJoinTable(court.id)}
               >
                 <h3 className="font-heading font-bold text-lg mb-2">{court.name}</h3>

@@ -592,12 +592,9 @@ describe('KioskNotificationToast', () => {
     })
 
     it.each([
-      ['info', 'bg-green-600/90'],
-      ['warning', 'bg-amber-500/90'],
-      ['error', 'bg-red-600/90'],
-      ['important', 'bg-primary/90'],
-    ] as const)('renders %s toast with %s background in kiosk mode', (type, expectedClass) => {
-      const notification = makeNotification({ type, message: 'Color test' })
+      'info', 'warning', 'error', 'important',
+    ] as const)('renders %s toast with dark glassmorphism in kiosk mode (task 3.2)', (type) => {
+      const notification = makeNotification({ type, message: 'Glass test' })
 
       render(
         <KioskNotificationToast
@@ -608,7 +605,31 @@ describe('KioskNotificationToast', () => {
       )
 
       const container = screen.getByRole('alert')
-      expect(container.className).toContain(expectedClass)
+      expect(container.className).toContain('bg-black/60')
+      expect(container.className).toContain('backdrop-blur-xl')
+      expect(container.className).toContain('border-white/10')
+    })
+
+    it.each([
+      ['info', 'rgb(22, 163, 74)'],
+      ['warning', 'rgb(217, 119, 6)'],
+      ['error', 'rgb(220, 38, 38)'],
+      ['important', 'rgb(99, 102, 241)'],
+    ] as const)('applies %s left-border accent via inline style in kiosk mode (task 3.2)', (type, expectedColor) => {
+      const notification = makeNotification({ type, message: 'Border test' })
+
+      render(
+        <KioskNotificationToast
+          notification={notification}
+          onDismiss={vi.fn()}
+          kioskMode={true}
+        />,
+      )
+
+      const container = screen.getByRole('alert')
+      // The left-border accent is applied via inline borderLeftColor
+      expect(container.style.borderLeftColor).toBe(expectedColor)
+      expect(container.style.borderLeftWidth).toBe('4px')
     })
 
     it.each([

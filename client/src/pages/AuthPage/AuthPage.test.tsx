@@ -18,7 +18,7 @@ vi.mock('@/i18n', () => ({
         'authOwnerPinDescription': 'PIN de organizador de este torneo',
         'authOwnerPinYourPinIs': 'Tu PIN es:',
         'authOwnerPinUseHint': 'Usalo para entrar como organizador',
-        'authOwnerPinEnterPin': 'Ingresa el PIN de organizador del torneo',
+        'authOwnerPinEnterPin': 'Ingresá el PIN de Organizador del torneo',
         'authVerifying': 'Verificando...',
         'authEnter': 'Ingresar',
         'commonBack': 'Atrás',
@@ -163,7 +163,7 @@ describe('AuthPage', () => {
       const organizerButton = screen.getByText('Organizador')
       fireEvent.click(organizerButton)
 
-      expect(screen.getByText('Ingresa tu PIN de Organizador')).toBeInTheDocument()
+      expect(screen.getByText('Organizador')).toBeInTheDocument()
       expect(screen.getByPlaceholderText('••••••••')).toBeInTheDocument()
     })
 
@@ -225,7 +225,7 @@ describe('AuthPage', () => {
       const organizerButton = screen.getByText('Organizador')
       fireEvent.click(organizerButton)
 
-      expect(screen.getByText('Ingresa tu PIN de Organizador')).toBeInTheDocument()
+      expect(screen.getByText('Organizador')).toBeInTheDocument()
     })
   })
 

@@ -36,6 +36,8 @@ import {
   COURT_MODE,
   ClubStatus,
   CLUB_STATUS,
+  SessionMode,
+  SESSION_MODE,
 } from '../../../shared/types';
 import type { MatchEngine } from './matchEngine';
 
@@ -77,6 +79,8 @@ export {
   COURT_MODE,
   ClubStatus,
   CLUB_STATUS,
+  SessionMode,
+  SESSION_MODE,
 };
 
 /**
@@ -154,6 +158,23 @@ export interface ClubCourt {
   featured: boolean;
   /** Epoch ms when the court was first occupied (set on RESERVED→OCCUPIED transition) */
   occupiedAt: number | null;
+  /** Active session mode — 'free' | 'match'. Null when court is not in an active session (AVAILABLE/RESERVED/FINISHED). */
+  sessionMode: SessionMode | null;
+  // ── player-identity additions (spec: session-record MODIFIED) ──────────
+  // Player name snapshot captured at session-start (CLUB_START_FREE /
+  // CLUB_NEW_MATCH / CLUB_ADMIN_OCCUPY). Null on creation; populated by
+  // `occupyClubCourt` defaults to null and is filled in by
+  // `startFreePlay`/`newMatch`/`adminOccupyCourt` (Phase 2/3). Cleared back
+  // to null by `resetCourt`.
+  playerName: string | null;
+  // Phone — AES-256-GCM base64 ciphertext string. Null on creation;
+  // populated alongside playerName. Server NEVER decrypts inside the
+  // session flow; only the phone-reveal handler (Phase 4) decrypts server-side.
+  phone: string | null;
+  // Admin socket id who started the session (`socket.data.adminId` set at
+  // CLUB_VERIFY_ADMIN). Null for player-initiated sessions. Cleared back
+  // to null by `resetCourt`.
+  adminId: string | null;
   // Event callbacks — internal wiring, never exposed to client
   onTableUpdate?: () => void;
   onMatchEvent?: (event: MatchEvent) => void;
@@ -186,4 +207,13 @@ export interface SocketData {
   tableId?: string;
   roles?: string[];
   isClubAdmin?: boolean;
+  /**
+   * player-identity (Phase 2 task 2.3) — admin socket id captured at
+   * CLUB_VERIFY_ADMIN success. Mirrors the existing `isClubAdmin` pattern:
+   * written by ClubAdminHandler on verify, read by other handlers when
+   * they need to attribute an admin action (SessionRecord.adminId).
+   * `string | null` so the absence of an admin id is representable
+   * (player-initiated sessions explicitly set this to null).
+   */
+  adminId?: string | null;
 }

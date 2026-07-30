@@ -77,6 +77,21 @@ export class MatchOrchestrator implements IMatchOrchestrator {
     setMatchStatus(court, 'CONFIGURING');
   }
 
+  prepareCourt(
+    court: Court,
+    config: { matchConfig: MatchConfig; playerNames: { a: string; b: string } },
+  ): MatchStateExtended | null {
+    const engineConfig = { ...config.matchConfig };
+    court.sportRules = this.createEngine(court, engineConfig, config.playerNames);
+    court.playerNames = { ...config.playerNames };
+    // Do NOT call startMatch — engine stays in WAITING status so the client
+    // can show the mode selector (ClubSessionConfig) before choosing free
+    // or match mode. The match starts when the user picks a mode:
+    //   - CLUB_START_FREE → sets sessionMode='free', no match engine change
+    //   - CLUB_NEW_MATCH  → calls startMatch to set LIVE
+    return court.sportRules.getState();
+  }
+
   startMatch(court: Court, config?: Partial<MatchConfig> & { playerNameA?: string; playerNameB?: string }): MatchStateExtended | null {
     logger.info({ courtId: court.id, config }, 'startMatch called');
 

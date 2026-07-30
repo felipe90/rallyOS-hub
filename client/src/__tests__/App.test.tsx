@@ -19,9 +19,6 @@ vi.mock('@/pages/SpectatorDashboardPage', () => ({
 vi.mock('@/pages/ScoreboardPage', () => ({
   ScoreboardPage: () => <div data-testid="scoreboard" />,
 }))
-vi.mock('@/pages/HistoryViewPage', () => ({
-  HistoryViewPage: () => <div data-testid="history" />,
-}))
 vi.mock('@/pages/NotFoundPage', () => ({
   NotFoundPage: () => <div data-testid="not-found" />,
 }))

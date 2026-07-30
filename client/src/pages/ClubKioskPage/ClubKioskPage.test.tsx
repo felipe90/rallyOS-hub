@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, act } from '@testing-library/react'
 import { ClubKioskPage } from './ClubKioskPage'
 import { useSocketContext } from '@/contexts/SocketContext'
-import type { ClubKioskPayload } from '@shared/types'
+import type { ClubKioskPayload, KioskNotificationData } from '@shared/types'
 
 // Mock SocketContext
 vi.mock('@/contexts/SocketContext', () => ({
@@ -28,6 +28,24 @@ vi.mock('@/components/organisms/ClubKioskCard', () => ({
   ClubKioskCard: vi.fn(({ court }: { court: { name: string } }) => (
     <div data-testid="club-kiosk-card">{court.name}</div>
   )),
+}))
+
+// Mock KioskSportsTicker to verify notification prop wiring
+const MockTicker = vi.hoisted(() => vi.fn(
+  ({ notification, defaultTexts }: { notification?: KioskNotificationData | null; defaultTexts?: string[] }) =>
+    <div data-testid="kiosk-sports-ticker">
+      {notification ? (
+        <span data-testid="ticker-notification">{notification.message}</span>
+      ) : (
+        <span data-testid="ticker-no-notification">No notification</span>
+      )}
+      {defaultTexts && defaultTexts.length > 0 && (
+        <span data-testid="ticker-default-texts">{defaultTexts.join(',')}</span>
+      )}
+    </div>
+))
+vi.mock('@/components/organisms/KioskSportsTicker', () => ({
+  KioskSportsTicker: MockTicker,
 }))
 
 const mockUseSocketContext = useSocketContext as ReturnType<typeof vi.fn>
@@ -173,5 +191,74 @@ describe('ClubKioskPage', () => {
     })
 
     expect(() => render(<ClubKioskPage />)).not.toThrow()
+  })
+})
+
+describe('ClubKioskPage — kiosk notification wiring', () => {
+  const mockNotification: KioskNotificationData = {
+    type: 'info',
+    message: 'Club announcement',
+    duration: 5,
+    timestamp: Date.now(),
+  }
+
+  beforeEach(() => {
+    MockTicker.mockClear()
+  })
+
+  it('passes kioskNotification to ticker when scope is "club"', () => {
+    mockUseSocketContext.mockReturnValue({
+      socket: { on: vi.fn(), off: vi.fn(), emit: vi.fn() },
+      connected: true,
+      connecting: false,
+      kioskNotification: { ...mockNotification, scope: 'club' },
+    })
+
+    render(<ClubKioskPage />)
+
+    expect(screen.getByTestId('kiosk-sports-ticker')).toBeInTheDocument()
+    expect(screen.getByTestId('ticker-notification')).toHaveTextContent('Club announcement')
+  })
+
+  it('passes kioskNotification to ticker when scope is undefined (backward compat)', () => {
+    mockUseSocketContext.mockReturnValue({
+      socket: { on: vi.fn(), off: vi.fn(), emit: vi.fn() },
+      connected: true,
+      connecting: false,
+      kioskNotification: { ...mockNotification, scope: undefined },
+    })
+
+    render(<ClubKioskPage />)
+
+    expect(screen.getByTestId('ticker-notification')).toHaveTextContent('Club announcement')
+  })
+
+  it('filters out general-scoped notifications from ticker', () => {
+    mockUseSocketContext.mockReturnValue({
+      socket: { on: vi.fn(), off: vi.fn(), emit: vi.fn() },
+      connected: true,
+      connecting: false,
+      kioskNotification: { ...mockNotification, scope: 'general' },
+    })
+
+    render(<ClubKioskPage />)
+
+    // Ticker should show no notification (filtered out)
+    expect(screen.getByTestId('ticker-no-notification')).toBeInTheDocument()
+    expect(screen.queryByTestId('ticker-notification')).not.toBeInTheDocument()
+  })
+
+  it('passes defaultTexts rotation strings to ticker', () => {
+    mockUseSocketContext.mockReturnValue({
+      socket: { on: vi.fn(), off: vi.fn(), emit: vi.fn() },
+      connected: true,
+      connecting: false,
+      kioskNotification: null,
+    })
+
+    render(<ClubKioskPage />)
+
+    expect(screen.getByTestId('ticker-default-texts')).toBeInTheDocument()
+    expect(screen.getByTestId('ticker-default-texts')).toHaveTextContent(',')
   })
 })

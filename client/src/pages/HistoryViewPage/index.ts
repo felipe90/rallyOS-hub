@@ -1,1 +1,0 @@
-export { HistoryViewPage } from './HistoryViewPage'

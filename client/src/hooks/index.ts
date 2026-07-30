@@ -35,4 +35,6 @@ export { useFocusTrap } from './useFocusTrap'
 export { useClubAdmin } from './useClubAdmin'
 export type { ClubConfigData, ClubSetupData } from './useClubAdmin'
 export { useClubCourtManagement } from './useClubCourtManagement'
+export { useClubSessionHistory } from './useClubSessionHistory'
+export type { UseClubSessionHistoryReturn } from './useClubSessionHistory'
 

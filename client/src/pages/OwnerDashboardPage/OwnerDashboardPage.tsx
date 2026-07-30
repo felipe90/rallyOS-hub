@@ -6,26 +6,26 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useI18n } from '@/i18n'
-import { DashboardGrid } from '@/components/organisms/DashboardGrid'
-import { DashboardHeader } from '@/components/organisms/DashboardGrid'
+import { DashboardGrid, DashboardHeader } from '@/components/organisms/DashboardGrid'
 import { PageHeader } from '@/components/molecules/PageHeader'
 import { PinModal } from '@/components/molecules/PinModal'
 import { KioskNotificationModal } from '@/components/molecules/KioskNotificationModal'
 import { ConfirmDialog } from '@/components/molecules/ConfirmDialog'
+import { HistoryAccordion } from '@/components/molecules/HistoryAccordion'
+import { Tab } from '@/components/atoms/Tab'
 import { useSocketContext } from '@/contexts/SocketContext'
-import logoImg from '@/assets/logo-big.png'
 import { useAuthContext } from '@/contexts/AuthContext'
 import { useDashboardStats } from '@/hooks/useDashboardStats'
 import { usePinSubmission } from '@/hooks/usePinSubmission'
 import { useRefereeSession } from '@/hooks/useRefereeSession'
 import { useCourtManagement } from '@/hooks/useCourtManagement'
 import { useToast } from '@/components/molecules/Toast'
-import { Button } from '@/components/atoms/Button'
-import { Body } from '@/components/atoms/Typography'
+import { Button, FloatingActionButton } from '@/components/atoms'
+import { Body, Typography } from '@/components/atoms/Typography'
 import { SocketEvents } from '@shared/events'
 import { Routes, buildScoreboardRoute } from '@/routes'
 import type { CourtInfoWithPin, KioskNotificationType } from '@shared/types'
-import { Plus, FileText, Table2, Swords, Users, Bell, Flag, Download, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Table2, Swords, Users, Bell, Flag, Download, AlertTriangle, Plus, Clock } from 'lucide-react'
 
 
 export interface OwnerDashboardPageProps {
@@ -39,9 +39,10 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
   const [finishDialogOpen, setFinishDialogOpen] = useState(false)
   const [exportCsvChecked, setExportCsvChecked] = useState(true)
   const [selectedCourt, setSelectedCourt] = useState<CourtInfoWithPin | null>(null)
+  const [activeTab, setActiveTab] = useState('courts')
   const navigate = useNavigate()
   const { i18nText } = useI18n()
-  const { courts, connected, socket, requestCourtsWithPins, appError } = useSocketContext()
+  const { courts, connected, socket, requestCourtsWithPins, appError, allHistories } = useSocketContext()
   const { logout, ownerPin, setCourtPin, isOwner, tournamentToken } = useAuthContext()
   const stats = useDashboardStats(courts)
   const { submitPin, loading: pinLoading, error: pinError, clearError } = usePinSubmission(socket)
@@ -159,17 +160,24 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
     })
   }, [socket, courts])
 
+  // Request history when the history tab is activated
+  useEffect(() => {
+    if (activeTab === 'history' && socket && connected && allHistories === null) {
+      socket.emit(SocketEvents.CLIENT.GET_ALL_HISTORY)
+    }
+  }, [activeTab, socket, connected, allHistories])
+
   /** ── Notification Modal ── */
-  const handleNotificationSubmit = ({ type, message, duration }: { type: KioskNotificationType; message: string; duration: number }) => {
+  const handleNotificationSubmit = useCallback(({ type, message, duration }: { type: KioskNotificationType; message: string; duration: number }) => {
     if (!socket || !ownerPin) return
+    setNotifModalOpen(false)
     socket.emit(SocketEvents.CLIENT.SEND_NOTIFICATION, {
       pin: ownerPin,
       type,
       message,
       duration,
     })
-    setNotifModalOpen(false)
-  }
+  }, [socket, ownerPin])
 
   const handleNotificationClose = () => {
     setNotifModalOpen(false)
@@ -239,48 +247,29 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
     return map[code] || code
   }
 
-  const handleOneClickCreate = () => {
-    if (courtMgmt.isCreating) return;
-    
-    // Auto-calculate the next sequential court number
-    let nextNum = 1;
-    let newName = i18nText('clubAdminDefaultCourtName', { number: String(nextNum) });
-    
-    while (courts.some(c => c.name === newName)) {
-      nextNum++;
-      newName = i18nText('clubAdminDefaultCourtName', { number: String(nextNum) });
-    }
-    
-    courtMgmt.setCourtName(newName);
+  const handleCreateCourt = (name: string) => {
+    courtMgmt.setCourtName(name);
     courtMgmt.createCourt();
   };
 
-  const dashboardActions = <div className="flex flex-wrap gap-2 items-center">
+  const dashboardActions = <div className="flex flex-wrap gap-1 items-center">
     {!courtMgmt.isCreating ? (
       <>
         <Button
-          variant="ghost"
-          size="sm"
+          variant="secondary"
+          size="xs"
           onClick={() => setNotifModalOpen(true)}
-          icon={<Bell size={18} />}
+          icon={<Bell size={14} />}
         >
-          {i18nText('ownerCreateNotification')}
-        </Button>
-            <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate(Routes.HISTORY)}
-          icon={<FileText size={18} />}
-        >
-          {i18nText('ownerViewHistory')}
+          {i18nText('notificationModalTitle')}
         </Button>
         {/* Export CSV button — only for owners when FINISHED courts exist */}
         {isOwner && hasFinishedCourts && (
           <Button
-            variant="ghost"
-            size="sm"
+            variant="secondary"
+            size="xs"
             onClick={downloadCsv}
-            icon={<Download size={18} />}
+            icon={<Download size={14} />}
           >
             {i18nText('exportCsv')}
           </Button>
@@ -289,9 +278,9 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
         {isOwner && hasCourts && (
           <Button
             variant="danger"
-            size="sm"
+            size="xs"
             onClick={() => setFinishDialogOpen(true)}
-            icon={<Flag size={18} />}
+            icon={<Flag size={14} />}
           >
             {i18nText('finishTournament')}
           </Button>
@@ -315,11 +304,10 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
   </div>
 
   return (
-    <div className="flex flex-col h-dvh bg-surface ">
+    <div className="flex flex-col h-dvh bg-background">
       <PageHeader
         title={i18nText('ownerTitle')}
         subtitle={i18nText('ownerSubtitle')}
-        logo={logoImg}
         showStatus={true}
         connectionLabels={{
           connected: i18nText('connectionConnected'),
@@ -328,75 +316,113 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
           disconnected: i18nText('connectionDisconnected'),
         }}
         actions={
-          <Button variant="ghost" onClick={() => { sessionStorage.removeItem('rallyos-owner-restored'); logout(); navigate(Routes.AUTH) }} size="sm">
+          <Button variant="ghost" onClick={() => { sessionStorage.removeItem('rallyos-owner-restored'); logout(); navigate(Routes.AUTH) }} size="sm" icon={<ArrowLeft size={16} />}>
             {i18nText('commonBack')}
           </Button>
         }
       />
 
       <main id="main-content" className="flex-1 overflow-auto bg-primary/10">
-        <div className="p-4 space-y-4">
-          {/* Create court — big dashed button like ClubAdmin */}
-          {!courtMgmt.isCreating && (
-            <div className="flex justify-center">
-              <Button
-                variant="outline"
-                className="w-full border-dashed border-2 py-6 text-text/70 hover:text-primary hover:border-primary/50"
-                onClick={handleOneClickCreate}
-                disabled={courtMgmt.isCreating}
-                loading={courtMgmt.isCreating}
-              >
-                <Plus size={18} className="mr-2" />
-                {i18nText('ownerCreateCourt')}
-              </Button>
+        {/* Sticky top bar: stats + actions + integrated tabs */}
+        <div className="sticky top-0 z-10 bg-white shadow-sm border-b border-primary/5">
+          <div className="px-4 py-2">
+            <DashboardHeader
+              totalTables={stats.totalTables}
+              liveMatches={stats.liveMatches}
+              activePlayers={stats.activePlayers}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              actions={dashboardActions}
+              statIcons={{
+                canchas: <Table2 className="text-blue-500" size={28} />,
+                partidos: <Swords className="text-amber-500" size={28} />,
+                jugadores: <Users className="text-emerald-500" size={28} />,
+              }}
+              statLabels={{
+                courts: i18nText('dashboardStatCourts'),
+                matches: i18nText('dashboardStatMatches'),
+                players: i18nText('dashboardStatPlayers'),
+              }}
+              gridViewLabel={i18nText('dashboardGridView')}
+              listViewLabel={i18nText('dashboardListView')}
+            />
+          </div>
+          {/* Tabs integrated into the same white surface — full width, selectable */}
+          <div role="tablist" className="flex border-b border-surface-high px-4">
+            <Tab
+              id="courts"
+              label={i18nText('clubAdminTabCourts')}
+              icon={<Table2 size={16} />}
+              active={activeTab === 'courts'}
+              onClick={() => setActiveTab('courts')}
+            />
+            <Tab
+              id="history"
+              label={i18nText('ownerViewHistory')}
+              icon={<Clock size={16} />}
+              active={activeTab === 'history'}
+              onClick={() => setActiveTab('history')}
+            />
+          </div>
+        </div>
+
+        {/* Tab content */}
+        <div className="p-4">
+          {activeTab === 'courts' ? (
+            <DashboardGrid
+              courts={courts}
+              onCourtClick={handleCourtClick}
+              viewMode={viewMode}
+              showPin={true}
+              showQr={true}
+              onCleanCourt={courtMgmt.requestClean}
+              cleanConfirmCourtId={courtMgmt.cleanConfirmCourtId}
+              onCleanCourtConfirm={() => {
+                courtMgmt.confirmClean();
+                requestCourtsWithPins(ownerPin || '');
+                addToast('success', i18nText('toastCourtCleaned'));
+              }}
+              onCleanCourtCancel={courtMgmt.cancelClean}
+              onDeleteCourt={courtMgmt.requestDelete}
+              showDeleteConfirm={courtMgmt.deleteConfirmCourtId}
+              onDeleteCourtConfirm={() => {
+                courtMgmt.confirmDelete();
+                addToast('success', i18nText('toastCourtDeleted'));
+              }}
+              onDeleteCourtCancel={courtMgmt.cancelDelete}
+              featuredCourtId={courts.find(t => t.featured)?.id ?? null}
+              onToggleFeatured={handleToggleFeatured}
+            />
+          ) : allHistories !== null && allHistories.length > 0 ? (
+            <HistoryAccordion entries={allHistories} />
+          ) : (
+            <div className="flex items-center justify-center py-12">
+              <Typography variant="body" className="text-text-muted">
+                {i18nText('historyNoEvents')}
+              </Typography>
             </div>
           )}
-          <DashboardHeader
-            totalTables={stats.totalTables}
-            liveMatches={stats.liveMatches}
-            activePlayers={stats.activePlayers}
-            viewMode={viewMode}
-            onViewModeChange={setViewMode}
-            actions={dashboardActions}
-            statIcons={{
-              canchas: <Table2 className="text-blue-500" size={28} />,
-              partidos: <Swords className="text-amber-500" size={28} />,
-              jugadores: <Users className="text-emerald-500" size={28} />,
-            }}
-            statLabels={{
-              courts: i18nText('dashboardStatCourts'),
-              matches: i18nText('dashboardStatMatches'),
-              players: i18nText('dashboardStatPlayers'),
-            }}
-            gridViewLabel={i18nText('dashboardGridView')}
-            listViewLabel={i18nText('dashboardListView')}
-          />
-          <DashboardGrid
-            courts={courts}
-            onCourtClick={handleCourtClick}
-            viewMode={viewMode}
-            showPin={true}
-            showQr={true}
-            onCleanCourt={courtMgmt.requestClean}
-            cleanConfirmCourtId={courtMgmt.cleanConfirmCourtId}
-            onCleanCourtConfirm={() => {
-              courtMgmt.confirmClean();
-              requestCourtsWithPins(ownerPin || '');
-              addToast('success', i18nText('toastCourtCleaned'));
-            }}
-            onCleanCourtCancel={courtMgmt.cancelClean}
-            onDeleteCourt={courtMgmt.requestDelete}
-            showDeleteConfirm={courtMgmt.deleteConfirmCourtId}
-            onDeleteCourtConfirm={() => {
-              courtMgmt.confirmDelete();
-              addToast('success', i18nText('toastCourtDeleted'));
-            }}
-            onDeleteCourtCancel={courtMgmt.cancelDelete}
-            featuredCourtId={courts.find(t => t.featured)?.id ?? null}
-            onToggleFeatured={handleToggleFeatured}
-          />
         </div>
       </main>
+
+      {/* Floating Action Button — Nueva Cancha */}
+      <div className="fixed bottom-6 right-6 z-50">
+        <FloatingActionButton
+        icon={<Plus size={20} />}
+        label={i18nText('ownerCreateCourt')}
+        onClick={() => {
+          let next = courts.length + 1
+          let name = i18nText('clubAdminDefaultCourtName', { number: String(next) })
+          while (courts.some(c => c.name === name)) {
+            next++
+            name = i18nText('clubAdminDefaultCourtName', { number: String(next) })
+          }
+          handleCreateCourt(name)
+        }}
+        disabled={courtMgmt.isCreating}
+        loading={courtMgmt.isCreating}
+      />
+      </div>
 
       <PinModal
         isOpen={pinModalOpen}

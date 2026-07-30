@@ -19,6 +19,14 @@ export interface IMatchOrchestrator {
   configureMatch(court: Court, config: { playerNames?: { a: string; b: string }; matchConfig?: MatchConfig }): void;
 
   /**
+   * Prepare a court for play without starting the match: create the engine
+   * with the given config and leave the match state in WAITING status.
+   * Used by club courts on player join so the client can show the mode
+   * selector (ClubSessionConfig) before choosing free or match mode.
+   */
+  prepareCourt(court: Court, config: { matchConfig: MatchConfig; playerNames: { a: string; b: string } }): MatchStateExtended | null;
+
+  /**
    * Start a match on the given court. Optionally accepts a partial config
    * and player names. Returns the initial match state, or null if the
    * match could not be started.

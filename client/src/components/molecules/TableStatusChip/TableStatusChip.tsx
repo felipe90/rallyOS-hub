@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { TournamentStatus, ClubStatus } from '@shared/types';
-import { WaitingBadge, ConfiguringBadge, LiveBadge, FinishedBadge } from '../../atoms/Badge';
+import { Badge } from '../../atoms/Badge';
 import { Body } from '../../atoms/Typography';
 import { Button } from '../../atoms/Button';
 import { ConfirmDialog } from '../ConfirmDialog';
@@ -34,11 +34,12 @@ export interface TableStatusChipProps {
   onToggleFeatured?: () => void;
 }
 
-const statusBadge: Record<string, typeof WaitingBadge | undefined> = {
-  WAITING: WaitingBadge,
-  CONFIGURING: ConfiguringBadge,
-  LIVE: LiveBadge,
-  FINISHED: FinishedBadge,
+// Status pill colors synced with card border colors (statusBorderColor below)
+const statusPillClass: Record<string, string> = {
+  WAITING: 'bg-blue-500/15 text-blue-600',
+  CONFIGURING: 'bg-amber-500/15 text-amber-600',
+  LIVE: 'bg-emerald-500/15 text-emerald-600',
+  FINISHED: 'bg-gray-500/15 text-gray-500',
 };
 
 const statusBadgeLabelKeys: Record<string, string> = {
@@ -47,6 +48,26 @@ const statusBadgeLabelKeys: Record<string, string> = {
   LIVE: 'courtStatusLive',
   FINISHED: 'courtStatusFinished',
 };
+
+function statusBorderColor(status: string): string {
+  switch (status) {
+    case 'WAITING':
+    case 'AVAILABLE':
+      return 'border-l-blue-500'
+    case 'CONFIGURING':
+    case 'RESERVED':
+      return 'border-l-amber-500'
+    case 'LIVE':
+    case 'OCCUPIED':
+      return 'border-l-emerald-500'
+    case 'FINISHED':
+      return 'border-l-gray-400'
+    case 'MAINTENANCE':
+      return 'border-l-red-500'
+    default:
+      return 'border-l-transparent'
+  }
+}
 
 export function TableStatusChip({
   tableNumber,
@@ -70,7 +91,7 @@ export function TableStatusChip({
   onToggleFeatured,
 }: TableStatusChipProps) {
   const { i18nText } = useI18n();
-  const StatusBadgeComponent = statusBadge[status];
+  const pillClass = statusPillClass[status];
   const resolvedLabel = statusLabel || (statusBadgeLabelKeys[status] ? i18nText(statusBadgeLabelKeys[status]) : status);
 
   // Keep last known PIN to prevent flicker during updates
@@ -90,23 +111,29 @@ export function TableStatusChip({
     <div
       onClick={onClick}
       className={`
-        card flex flex-col gap-2 p-4 rounded-[--radius-md]
-        bg-surface shadow-sm hover:shadow-md
+        card-light flex flex-col gap-2 p-4 border-l-4 ${statusBorderColor(status)}
         transition-shadow duration-200
         cursor-pointer
         ${className}
       `}
     >
-      <div className="flex items-center justify-between">
-        <Body className="font-medium text-text-h">Cancha {tableNumber}</Body>
-        {StatusBadgeComponent ? (
-          <StatusBadgeComponent label={resolvedLabel} />
-        ) : (
-          <Body className="text-xs text-muted-foreground">{resolvedLabel}</Body>
-        )}
+      <div className="flex items-center justify-between gap-2">
+        <Body className="font-medium text-text-h truncate">{tableName}</Body>
+        <div className="flex items-center gap-2 shrink-0">
+          {hasPin && (
+            <Badge className="bg-primary/10 text-primary font-bold tracking-wider font-mono">
+              PIN {displayPin}
+            </Badge>
+          )}
+          {pillClass ? (
+            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold tracking-wide ${pillClass}`}>
+              {resolvedLabel}
+            </span>
+          ) : (
+            <Body className="text-xs text-muted-foreground">{resolvedLabel}</Body>
+          )}
+        </div>
       </div>
-      
-      <Body className="text-sm text-text/70">{tableName}</Body>
       
       {playerNames && (playerNames.a || playerNames.b) && (
         <div className="flex gap-2 text-sm text-text-muted">
@@ -128,16 +155,6 @@ export function TableStatusChip({
         </div>
       )}
 
-      {/* PIN for Owner */}
-      {hasPin && (
-        <div className="flex items-center gap-2 mt-1 pt-2 border-t border-border/30">
-          <div className="flex items-center gap-1">
-            <Body className="text-xs text-text-muted">PIN:</Body>
-            <Body className="text-sm font-mono font-bold text-primary">{displayPin}</Body>
-          </div>
-        </div>
-      )}
-
       {/* Clean button for Owner */}
       {onClean && (
         <Button
@@ -146,7 +163,6 @@ export function TableStatusChip({
           icon={<RefreshCw size={16} />}
           onClick={() => onClean()}
           stopPropagation
-          className="mt-2"
         >
           Limpiar Cancha
         </Button>
@@ -160,7 +176,6 @@ export function TableStatusChip({
           icon={<Star size={16} className={featured ? 'fill-amber-400 text-amber-400' : ''} />}
           onClick={() => onToggleFeatured()}
           stopPropagation
-          className="mt-2"
         >
           {featured ? i18nText('courtQuitarDestacado') : i18nText('courtDestacar')}
         </Button>

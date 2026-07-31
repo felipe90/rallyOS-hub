@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react'
 import type { Socket } from 'socket.io-client'
 import { SocketEvents } from '@shared/events'
+import { COURT_MODE } from '@shared/types'
 import type { CourtInfo, CourtInfoWithPin, MatchStateExtended, ScoreChange, AllHistoryEntry, KioskNotificationData } from '@shared/types'
 
 export interface HubConfigData {
@@ -30,6 +31,8 @@ export function useSocketState(socket: Socket | null) {
     if (!socket) return
 
     const handleCourtUpdate = (court: CourtInfo) => {
+      // Reject club courts — OwnerDashboard only shows tournament courts.
+      if (court.mode === COURT_MODE.CLUB) return
       setCourts(prev =>
         prev.find(t => t.id === court.id)
           ? prev.map(t => (t.id === court.id ? { ...t, ...court } : t))
@@ -49,6 +52,8 @@ export function useSocketState(socket: Socket | null) {
     }
 
     const handleCourtCreated = (court: CourtInfo) => {
+      // Reject club courts — OwnerDashboard only shows tournament courts.
+      if (court.mode === COURT_MODE.CLUB) return
       setCourts(prev => {
         if (prev.find(t => t.id === court.id)) {
           return prev.map(t => (t.id === court.id ? { ...t, ...court } : t))

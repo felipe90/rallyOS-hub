@@ -12,6 +12,104 @@
 
 export type Player = 'A' | 'B';
 
+// ── Tournament Bracket ────────────────────────────────────────────────
+
+/**
+ * Bracket lifecycle status — const-object enum (matches CLUB_STATUS /
+ * COURT_MODE pattern). The bracket progresses SETUP → ACTIVE → COMPLETED.
+ * - SETUP:    no match has been completed yet (players may still be placed).
+ * - ACTIVE:   at least one match has a declared winner, final not yet decided.
+ * - COMPLETED: the final match has a winner. (Third place, if enabled, does
+ *             NOT block completion — see spec R9.)
+ */
+export const BRACKET_STATUS = {
+  SETUP: 'SETUP',
+  ACTIVE: 'ACTIVE',
+  COMPLETED: 'COMPLETED',
+} as const;
+
+/** Bracket lifecycle status — derived from BRACKET_STATUS const */
+export type BracketStatus = (typeof BRACKET_STATUS)[keyof typeof BRACKET_STATUS];
+
+/**
+ * Per-match status — const-object enum.
+ * - PENDING:   both slots empty (cannot declare a winner yet).
+ * - READY:     both slots filled, OR exactly one filled (implicit bye — the
+ *              occupied player auto-advances on BRACKET_SET_WINNER).
+ * - COMPLETED: a winner has been declared.
+ */
+export const BRACKET_MATCH_STATUS = {
+  PENDING: 'PENDING',
+  READY: 'READY',
+  COMPLETED: 'COMPLETED',
+} as const;
+
+/** Per-match status — derived from BRACKET_MATCH_STATUS const */
+export type BracketMatchStatus =
+  (typeof BRACKET_MATCH_STATUS)[keyof typeof BRACKET_MATCH_STATUS];
+
+/**
+ * Bracket slot identifier — const-object enum. Structurally identical to
+ * `Player` ('A' | 'B') so winners and slots are interchangeable over the wire.
+ */
+export const BRACKET_SLOT = {
+  A: 'A',
+  B: 'B',
+} as const;
+
+/** Bracket slot — derived from BRACKET_SLOT const */
+export type BracketSlot = (typeof BRACKET_SLOT)[keyof typeof BRACKET_SLOT];
+
+/**
+ * A single bracket match.
+ *
+ * `id` follows the form `R{round}-M{position+1}` (e.g. "R1-M1"). `round` is
+ * 1-indexed (round 1 = earliest/largest round). `position` is 0-indexed
+ * within the round and determines winner advancement: the winner of a match
+ * at position P feeds into the next round at `floor(P / 2)`, slot
+ * `P even → playerA`, `P odd → playerB` (R5).
+ *
+ * `winner` is `Player` ('A' | 'B') — null until declared. Byes are implicit
+ * and never persisted: a match is a bye when exactly one slot is occupied.
+ */
+export interface BracketMatch {
+  id: string;
+  round: number;
+  position: number;
+  playerA: string | null;
+  playerB: string | null;
+  winner: Player | null;
+  status: BracketMatchStatus;
+  courtId: string | null;
+}
+
+/**
+ * A named round grouping matches in a bracket tree. Produced by the engine's
+ * `getRounds()` view helper for rendering; the canonical storage is the flat
+ * `TournamentBracket.matches` array.
+ */
+export interface BracketRound {
+  round: number;
+  name: string;
+  matches: BracketMatch[];
+}
+
+/**
+ * A single-elimination tournament bracket (manual seeding — the owner places
+ * players per slot, no algorithmic seeding). `matches` is a flat array ordered
+ * by round then position; `thirdPlaceMatch` is a separate terminal match
+ * generated at creation when `includeThirdPlace` is true (R9).
+ */
+export interface TournamentBracket {
+  name: string;
+  numSlots: 4 | 8 | 16 | 32;
+  includeThirdPlace: boolean;
+  matches: BracketMatch[];
+  thirdPlaceMatch: BracketMatch | null;
+  status: BracketStatus;
+  createdAt: number;
+}
+
 // ── Sport ────────────────────────────────────────────────────────────
 
 /** Sport identifier const — use instead of magic strings */

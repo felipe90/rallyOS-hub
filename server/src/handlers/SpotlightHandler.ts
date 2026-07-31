@@ -76,7 +76,10 @@ export class SpotlightHandler extends SocketHandlerBase {
           if (court && court.featured) {
             court.featured = false;
             const courtInfo = this.tableManager.courtToInfo(court);
-            this.io.emit(SocketEvents.SERVER.COURT_UPDATE, courtInfo);
+            // Do not broadcast COURT_UPDATE for club courts — they use CLUB_KIOSK_DATA.
+            if (!isClubCourt(court)) {
+              this.io.emit(SocketEvents.SERVER.COURT_UPDATE, courtInfo);
+            }
             logger.debug({ courtId: court.id }, 'Featured cleared via SET_FEATURED(null)');
             this.broadcastClubKioskData(court);
           }
@@ -94,18 +97,24 @@ export class SpotlightHandler extends SocketHandlerBase {
       const allCourts = this.tableManager.getAllCourts();
       for (const t of allCourts) {
         const court = this.tableManager.getCourt(t.id);
-        if (court && court.featured && court.id !== data.targetCourtId) {
-          court.featured = false;
-          const courtInfo = this.tableManager.courtToInfo(court);
-          this.io.emit(SocketEvents.SERVER.COURT_UPDATE, courtInfo);
-          logger.debug({ courtId: court.id }, 'Previous featured court cleared');
-        }
+          if (court && court.featured && court.id !== data.targetCourtId) {
+            court.featured = false;
+            const courtInfo = this.tableManager.courtToInfo(court);
+            // Do not broadcast COURT_UPDATE for club courts — they use CLUB_KIOSK_DATA.
+            if (!isClubCourt(court)) {
+              this.io.emit(SocketEvents.SERVER.COURT_UPDATE, courtInfo);
+            }
+            logger.debug({ courtId: court.id }, 'Previous featured court cleared');
+          }
       }
 
       // Set new featured court
       targetCourt.featured = true;
       const courtInfo = this.tableManager.courtToInfo(targetCourt);
-      this.io.emit(SocketEvents.SERVER.COURT_UPDATE, courtInfo);
+      // Do not broadcast COURT_UPDATE for club courts — they use CLUB_KIOSK_DATA.
+      if (!isClubCourt(targetCourt)) {
+        this.io.emit(SocketEvents.SERVER.COURT_UPDATE, courtInfo);
+      }
       logger.info({ courtId: targetCourt.id }, 'Court set as featured');
       this.broadcastClubKioskData(targetCourt);
     });

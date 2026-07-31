@@ -19,13 +19,15 @@ import { useDashboardStats } from '@/hooks/useDashboardStats'
 import { usePinSubmission } from '@/hooks/usePinSubmission'
 import { useRefereeSession } from '@/hooks/useRefereeSession'
 import { useCourtManagement } from '@/hooks/useCourtManagement'
+import { useBracket } from '@/hooks/useBracket'
+import { BracketView } from '@/components/organisms'
 import { useToast } from '@/components/molecules/Toast'
 import { Button, FloatingActionButton } from '@/components/atoms'
 import { Body, Typography } from '@/components/atoms/Typography'
 import { SocketEvents } from '@shared/events'
 import { Routes, buildScoreboardRoute } from '@/routes'
-import type { CourtInfoWithPin, KioskNotificationType } from '@shared/types'
-import { ArrowLeft, Table2, Swords, Users, Bell, Flag, Download, AlertTriangle, Plus, Clock } from 'lucide-react'
+import { COURT_MODE, type CourtInfoWithPin, type KioskNotificationType, type CourtInfo } from '@shared/types'
+import { ArrowLeft, Table2, Swords, Users, Bell, Flag, Download, AlertTriangle, Plus, Clock, Trophy } from 'lucide-react'
 
 
 export interface OwnerDashboardPageProps {
@@ -49,6 +51,9 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
   const { saveSession, findAnyValidSession, clearSession } = useRefereeSession()
 
   const courtMgmt = useCourtManagement({ socket, connected })
+  const bracketApi = useBracket(socket)
+  /** Tournament courts only — pass to BracketView for court assignment. */
+  const tournamentCourts: CourtInfo[] = courts.filter((c) => c.mode !== COURT_MODE.CLUB)
   const { addToast } = useToast()
 
   // Track previous creating state to detect court creation completion
@@ -166,6 +171,13 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
       socket.emit(SocketEvents.CLIENT.GET_ALL_HISTORY)
     }
   }, [activeTab, socket, connected, allHistories])
+
+  // Ask for fresh bracket state whenever the Torneo tab becomes active.
+  useEffect(() => {
+    if (activeTab === 'tournament' && socket && connected) {
+      socket.emit(SocketEvents.CLIENT.BRACKET_GET)
+    }
+  }, [activeTab, socket, connected])
 
   /** ── Notification Modal ── */
   const handleNotificationSubmit = useCallback(({ type, message, duration }: { type: KioskNotificationType; message: string; duration: number }) => {
@@ -363,6 +375,13 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
               active={activeTab === 'history'}
               onClick={() => setActiveTab('history')}
             />
+            <Tab
+              id="tournament"
+              label={i18nText('bracketTabTournament')}
+              icon={<Trophy size={16} />}
+              active={activeTab === 'tournament'}
+              onClick={() => setActiveTab('tournament')}
+            />
           </div>
         </div>
 
@@ -393,6 +412,21 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
               featuredCourtId={courts.find(t => t.featured)?.id ?? null}
               onToggleFeatured={handleToggleFeatured}
             />
+          ) : activeTab === 'tournament' ? (
+            <BracketView
+              bracket={bracketApi.bracket}
+              courts={tournamentCourts}
+              error={bracketApi.error}
+              resetToken={bracketApi.resetToken}
+              onCreate={bracketApi.createBracket}
+              onAssignPlayer={bracketApi.assignPlayer}
+              onSetWinner={bracketApi.setWinner}
+              onAssignCourt={bracketApi.assignCourt}
+              onUndo={bracketApi.undoMatch}
+              onReset={() => bracketApi.reset()}
+              onResetConfirm={bracketApi.resetConfirm}
+              onClearError={bracketApi.clearError}
+            />
           ) : allHistories !== null && allHistories.length > 0 ? (
             <HistoryAccordion entries={allHistories} />
           ) : (
@@ -405,24 +439,26 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
         </div>
       </main>
 
-      {/* Floating Action Button — Nueva Cancha */}
-      <div className="fixed bottom-6 right-6 z-50">
-        <FloatingActionButton
-        icon={<Plus size={20} />}
-        label={i18nText('ownerCreateCourt')}
-        onClick={() => {
-          let next = courts.length + 1
-          let name = i18nText('clubAdminDefaultCourtName', { number: String(next) })
-          while (courts.some(c => c.name === name)) {
-            next++
-            name = i18nText('clubAdminDefaultCourtName', { number: String(next) })
-          }
-          handleCreateCourt(name)
-        }}
-        disabled={courtMgmt.isCreating}
-        loading={courtMgmt.isCreating}
-      />
-      </div>
+      {/* Floating Action Button — Nueva Cancha (solo en tab Canchas) */}
+      {activeTab === 'courts' && (
+        <div className="fixed bottom-6 right-6 z-50">
+          <FloatingActionButton
+          icon={<Plus size={20} />}
+          label={i18nText('ownerCreateCourt')}
+          onClick={() => {
+            let next = courts.length + 1
+            let name = i18nText('clubAdminDefaultCourtName', { number: String(next) })
+            while (courts.some(c => c.name === name)) {
+              next++
+              name = i18nText('clubAdminDefaultCourtName', { number: String(next) })
+            }
+            handleCreateCourt(name)
+          }}
+          disabled={courtMgmt.isCreating}
+          loading={courtMgmt.isCreating}
+        />
+        </div>
+      )}
 
       <PinModal
         isOpen={pinModalOpen}

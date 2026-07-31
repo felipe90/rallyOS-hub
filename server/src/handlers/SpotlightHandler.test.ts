@@ -364,6 +364,86 @@ describe('SET_FEATURED — club admin auth (club-featured-courts)', () => {
     );
   });
 
+  it('does NOT emit COURT_UPDATE when featuring a club court (club leak fix)', () => {
+    mockSocket = createMockSocket('club-admin-4', { isOwner: false, isClubAdmin: true });
+    registerOn(mockSocket);
+
+    const handlerFn = getHandler(SocketEvents.CLIENT.SET_FEATURED);
+    handlerFn({ targetCourtId: 'club-court-1' });
+
+    // CLUB_KIOSK_DATA should be emitted (club admin flow), but COURT_UPDATE should NOT
+    expect(mockIo.emit).not.toHaveBeenCalledWith(
+      SocketEvents.SERVER.COURT_UPDATE,
+      expect.objectContaining({ id: 'club-court-1' }),
+    );
+  });
+
+  it('does emit COURT_UPDATE when featuring a tournament court', () => {
+    const tournamentCourt = createCourt({ id: 'tourney-2', featured: false });
+    tableManager.getCourt = jest.fn((id: string) => (id === 'tourney-2' ? tournamentCourt : undefined));
+    tableManager.getAllCourts = jest.fn(() => [tournamentCourt]);
+
+    mockSocket = createMockSocket('owner-2', { isOwner: true, isClubAdmin: false });
+    registerOn(mockSocket);
+
+    const handlerFn = getHandler(SocketEvents.CLIENT.SET_FEATURED);
+    handlerFn({ targetCourtId: 'tourney-2' });
+
+    expect(mockIo.emit).toHaveBeenCalledWith(
+      SocketEvents.SERVER.COURT_UPDATE,
+      expect.objectContaining({ id: 'tourney-2', featured: true }),
+    );
+  });
+
+  it('does NOT emit COURT_UPDATE when clearing all featured and only club courts exist', () => {
+    const clubCourt = tableManager.getCourt('club-court-1');
+    clubCourt.featured = true;
+
+    mockSocket = createMockSocket('club-admin-5', { isOwner: false, isClubAdmin: true });
+    registerOn(mockSocket);
+
+    const handlerFn = getHandler(SocketEvents.CLIENT.SET_FEATURED);
+    handlerFn({ targetCourtId: null });
+
+    // Club courts should not trigger COURT_UPDATE
+    expect(mockIo.emit).not.toHaveBeenCalledWith(
+      SocketEvents.SERVER.COURT_UPDATE,
+      expect.anything(),
+    );
+  });
+
+  it('does NOT emit COURT_UPDATE for a previously featured club court when clearing it for a new one', () => {
+    const clubCourt = tableManager.getCourt('club-court-1');
+    clubCourt.featured = true;
+
+    // Add a tournament court
+    const tournamentCourt = createCourt({ id: 'tourney-3', featured: false });
+    const originalGetCourt = tableManager.getCourt;
+    tableManager.getCourt = jest.fn((id: string) => {
+      if (id === 'club-court-1') return clubCourt;
+      if (id === 'tourney-3') return tournamentCourt;
+      return originalGetCourt(id);
+    });
+    tableManager.getAllCourts = jest.fn(() => [clubCourt, tournamentCourt]);
+
+    mockSocket = createMockSocket('owner-3', { isOwner: true, isClubAdmin: false });
+    registerOn(mockSocket);
+
+    const handlerFn = getHandler(SocketEvents.CLIENT.SET_FEATURED);
+    handlerFn({ targetCourtId: 'tourney-3' });
+
+    // COURT_UPDATE should be emitted for the NEW tournament court
+    expect(mockIo.emit).toHaveBeenCalledWith(
+      SocketEvents.SERVER.COURT_UPDATE,
+      expect.objectContaining({ id: 'tourney-3', featured: true }),
+    );
+    // But NOT for the previously featured club court
+    expect(mockIo.emit).not.toHaveBeenCalledWith(
+      SocketEvents.SERVER.COURT_UPDATE,
+      expect.objectContaining({ id: 'club-court-1' }),
+    );
+  });
+
   it('does NOT emit CLUB_KIOSK_DATA when the featured court is a tournament court', () => {
     const tournamentCourt = createCourt({ id: 'tourney-1', featured: false });
     tableManager.getCourt = jest.fn((id: string) => (id === 'tourney-1' ? tournamentCourt : undefined));

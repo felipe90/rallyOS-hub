@@ -77,6 +77,15 @@ export const SocketEvents = {
     CLUB_SEND_NOTIFICATION: 'CLUB_SEND_NOTIFICATION',
     // Kiosk mode switch
     SET_KIOSK_MODE: 'SET_KIOSK_MODE',
+    // Tournament Bracket — owner-only manual bracket management
+    // (see `bracket-tournament-mvp` spec).
+    BRACKET_CREATE: 'BRACKET_CREATE',
+    BRACKET_ASSIGN_PLAYER: 'BRACKET_ASSIGN_PLAYER',
+    BRACKET_SET_WINNER: 'BRACKET_SET_WINNER',
+    BRACKET_ASSIGN_COURT: 'BRACKET_ASSIGN_COURT',
+    BRACKET_UNDO_MATCH: 'BRACKET_UNDO_MATCH',
+    BRACKET_GET: 'BRACKET_GET',
+    BRACKET_RESET: 'BRACKET_RESET',
   },
   // Emitted by SERVER → received by CLIENT
   SERVER: {
@@ -139,6 +148,13 @@ export const SocketEvents = {
     CLUB_REVEAL_PHONE_RESULT: 'CLUB_REVEAL_PHONE_RESULT',
     // Kiosk mode — broadcast to all clients on change or connect
     KIOSK_MODE: 'KIOSK_MODE',
+    // Tournament Bracket — server→client bracket state + lifecycle signals.
+    // BRACKET_STATE carries the full TournamentBracket (or null) on every
+    // mutation; BRACKET_ERROR carries { code, message }; BRACKET_RESET_CONFIRM
+    // is the first step of the 2-step reset flow (carries { token, expiresIn }).
+    BRACKET_STATE: 'BRACKET_STATE',
+    BRACKET_ERROR: 'BRACKET_ERROR',
+    BRACKET_RESET_CONFIRM: 'BRACKET_RESET_CONFIRM',
   },
 } as const;
 

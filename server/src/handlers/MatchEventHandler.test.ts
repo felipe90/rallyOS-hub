@@ -17,7 +17,7 @@ import { createTestCourtManager } from '../domain/courtManager.test-factory';
 import { MatchEventHandler } from './MatchEventHandler';
 import { SocketEvents } from '../../../shared/events';
 import type { MatchStateExtended } from '../domain/matchEngine';
-import { SPORT } from '../../../shared/types';
+import { SPORT, COURT_MODE } from '../../../shared/types';
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
@@ -258,6 +258,174 @@ describe('MatchEventHandler — Phase 5.2 (Sport-aware CONFIGURE_MATCH)', () => 
       });
 
       expect(tableManager.configureMatch).toHaveBeenCalled();
+    });
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Club court leak fix — COURT_UPDATE guard (club leak fix, Tier 0)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe('MatchEventHandler — COURT_UPDATE club court guard (club leak fix)', () => {
+  let handler: MatchEventHandler;
+  let mockSocket: any;
+  let mockIo: any;
+  let tableManager: CourtManager;
+  let registeredHandlers: Map<string, (...args: any[]) => void>;
+
+  function createClubCourt(id: string) {
+    return {
+      id,
+      kind: 'club',
+      number: 1,
+      name: 'Club Court',
+      status: 'WAITING',
+      pin: '1234',
+      playerNames: { a: '', b: '' },
+      players: [],
+      history: [],
+      createdAt: Date.now(),
+      featured: false,
+      sportRules: {
+        getState: () => ({ status: 'WAITING' }),
+        getConfig: () => ({ sport: SPORT.TABLE_TENNIS, pointsPerSet: 11, bestOf: 3, minDifference: 2 }),
+        setPlayerNames: jest.fn(),
+        setEventCallback: jest.fn(),
+        setCourtId: jest.fn(),
+        startMatch: jest.fn(),
+        recordPoint: jest.fn(),
+        undoLast: jest.fn(),
+        setServer: jest.fn(),
+        swapSides: jest.fn(),
+        getStateWithHistory: jest.fn(),
+        reset: jest.fn(),
+      },
+      onTableUpdate: undefined,
+      onMatchEvent: undefined,
+    };
+  }
+
+  function createTournamentCourt(id: string) {
+    return {
+      id,
+      kind: 'tournament',
+      number: 2,
+      name: 'Tourney Court',
+      status: 'WAITING',
+      pin: '5678',
+      playerNames: { a: 'Player A', b: 'Player B' },
+      players: [],
+      history: [],
+      createdAt: Date.now(),
+      featured: false,
+      sportRules: {
+        getState: () => ({ status: 'WAITING' }),
+        getConfig: () => ({ sport: SPORT.TABLE_TENNIS, pointsPerSet: 11, bestOf: 3, minDifference: 2 }),
+        setPlayerNames: jest.fn(),
+        setEventCallback: jest.fn(),
+        setCourtId: jest.fn(),
+        startMatch: jest.fn(() => ({ status: 'LIVE' })),
+        recordPoint: jest.fn(),
+        undoLast: jest.fn(),
+        setServer: jest.fn(),
+        swapSides: jest.fn(),
+        getStateWithHistory: jest.fn(),
+        reset: jest.fn(),
+      },
+      onTableUpdate: undefined,
+      onMatchEvent: undefined,
+    };
+  }
+
+  beforeEach(() => {
+    mockSocket = createMockSocket();
+    mockIo = createMockIo(mockSocket);
+
+    const courts: Record<string, any> = {};
+
+    tableManager = {
+      onTableUpdate: () => {},
+      onMatchEvent: () => {},
+      getAllCourts: jest.fn(() => Object.values(courts)),
+      getCourt: jest.fn((id: string) => courts[id] || null),
+      configureMatch: jest.fn(),
+      startMatch: jest.fn(() => courts[Object.keys(courts)[0]]?.sportRules?.getState() ?? null),
+      courtToInfo: jest.fn((c: any) => ({ id: c.id, status: c.status, name: c.name, mode: c.kind === 'club' ? COURT_MODE.CLUB : COURT_MODE.TOURNAMENT })),
+      isReferee: jest.fn(() => true),
+      getMatchState: jest.fn(),
+    } as unknown as CourtManager;
+
+    // Helper to add courts
+    (tableManager as any).addCourt = (court: any) => {
+      courts[court.id] = court;
+    };
+
+    handler = new MatchEventHandler(mockIo, tableManager, '12345678');
+
+    registeredHandlers = new Map();
+    mockSocket.on.mockImplementation((event: string, fn: (...args: any[]) => void) => {
+      registeredHandlers.set(event, fn);
+    });
+
+    handler.registerHandlers(mockSocket);
+  });
+
+  function getHandler(event: string): (...args: any[]) => void {
+    const h = registeredHandlers.get(event);
+    if (!h) throw new Error(`Handler not registered for event: ${event}`);
+    return h;
+  }
+
+  describe('CONFIGURE_MATCH — COURT_UPDATE guard', () => {
+    it('should NOT emit COURT_UPDATE globally for a club court', () => {
+      (tableManager as any).addCourt(createClubCourt('club-1'));
+
+      const handlerFn = getHandler(SocketEvents.CLIENT.CONFIGURE_MATCH);
+      handlerFn({ courtId: 'club-1', playerNames: { a: 'Alice', b: 'Bob' } });
+
+      expect(mockIo.emit).not.toHaveBeenCalledWith(
+        SocketEvents.SERVER.COURT_UPDATE,
+        expect.anything(),
+      );
+    });
+
+    it('should emit COURT_UPDATE globally for a tournament court', () => {
+      (tableManager as any).addCourt(createTournamentCourt('tourney-1'));
+
+      const handlerFn = getHandler(SocketEvents.CLIENT.CONFIGURE_MATCH);
+      handlerFn({ courtId: 'tourney-1', playerNames: { a: 'Alice', b: 'Bob' } });
+
+      expect(mockIo.emit).toHaveBeenCalledWith(
+        SocketEvents.SERVER.COURT_UPDATE,
+        expect.anything(),
+      );
+    });
+  });
+
+  describe('START_MATCH — COURT_UPDATE guard', () => {
+    it('should NOT emit COURT_UPDATE globally for a club court', () => {
+      const clubCourt = createClubCourt('club-2');
+      (tableManager as any).addCourt(clubCourt);
+
+      const handlerFn = getHandler(SocketEvents.CLIENT.START_MATCH);
+      handlerFn({ courtId: 'club-2' });
+
+      expect(mockIo.emit).not.toHaveBeenCalledWith(
+        SocketEvents.SERVER.COURT_UPDATE,
+        expect.anything(),
+      );
+    });
+
+    it('should emit COURT_UPDATE globally for a tournament court', () => {
+      (tableManager as any).addCourt(createTournamentCourt('tourney-2'));
+
+      const handlerFn = getHandler(SocketEvents.CLIENT.START_MATCH);
+      handlerFn({ courtId: 'tourney-2' });
+
+      expect(mockIo.emit).toHaveBeenCalledWith(
+        SocketEvents.SERVER.COURT_UPDATE,
+        expect.anything(),
+      );
     });
   });
 });

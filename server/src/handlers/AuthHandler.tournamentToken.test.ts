@@ -12,6 +12,7 @@ import { SessionTokenService } from '../services/security/SessionTokenService';
 import type { Server, Socket } from 'socket.io';
 import type { CourtManager } from '../domain/courtManager';
 import { SocketEvents } from '../../../shared/events';
+import { COURT_MODE } from '../../../shared/types';
 
 // JWT shape: 3 base64url segments separated by dots.
 const BASE64URL_SEGMENT = /^[A-Za-z0-9_-]+$/;
@@ -142,5 +143,97 @@ describe('AuthHandler VERIFY_OWNER — tournamentToken (JWT)', () => {
     const emitted = (socket as any)._emitted as Array<{ event: string; data: any }>;
     const ownerVerifiedEvent = emitted.find((e: { event: string; data: any }) => e.event === SocketEvents.SERVER.OWNER_VERIFIED);
     expect(ownerVerifiedEvent).toBeUndefined();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+// SET_REF — Club court COURT_UPDATE guard (club court leak fix)
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('AuthHandler SET_REF — club court leak fix', () => {
+  const LOCAL_TEST_SECRET = 'a'.repeat(64);
+  let mockIo: Server;
+  let tableManager: CourtManager;
+  let sessionTokenService: SessionTokenService;
+  let mockSocket: any;
+  let registeredHandlers: Map<string, (...args: any[]) => void>;
+
+  beforeEach(() => {
+    process.env.ENCRYPTION_SECRET = LOCAL_TEST_SECRET;
+    sessionTokenService = new SessionTokenService();
+
+    mockIo = {
+      emit: jest.fn(),
+      to: jest.fn().mockReturnValue({ emit: jest.fn() }),
+    } as unknown as Server;
+
+    tableManager = {
+      setReferee: jest.fn(() => true),
+      getCourt: jest.fn(),
+      getAllCourts: jest.fn(),
+      isReferee: jest.fn(),
+    } as unknown as CourtManager;
+
+    mockSocket = makeMockSocket();
+  });
+
+  function register(socket: any) {
+    registeredHandlers = new Map();
+    socket.on.mockImplementation((event: string, fn: (...args: any[]) => void) => {
+      registeredHandlers.set(event, fn);
+    });
+    const handler = new AuthHandler(mockIo as Server, tableManager, '12345678', sessionTokenService);
+    handler.registerHandlers(socket as unknown as Socket);
+  }
+
+  function getHandler(event: string): (...args: any[]) => void {
+    const h = registeredHandlers.get(event);
+    if (!h) throw new Error(`Handler not registered for event: ${event}`);
+    return h;
+  }
+
+  it('should NOT emit COURT_UPDATE globally when SET_REF targets a club court', () => {
+    const clubCourt = {
+      id: 'club-court-1',
+      kind: 'club',
+      number: 1,
+      name: 'Club Court',
+      status: 'AVAILABLE',
+      mode: COURT_MODE.CLUB,
+    };
+
+    (tableManager.getAllCourts as jest.Mock).mockReturnValue([clubCourt]);
+
+    register(mockSocket);
+    const handler = getHandler(SocketEvents.CLIENT.SET_REF);
+
+    handler({ courtId: 'club-court-1', pin: '1234' });
+
+    expect(mockIo.emit).not.toHaveBeenCalledWith(
+      SocketEvents.SERVER.COURT_UPDATE,
+      expect.anything(),
+    );
+  });
+
+  it('should emit COURT_UPDATE globally when SET_REF targets a tournament court', () => {
+    const tourneyCourt = {
+      id: 'tourney-1',
+      kind: 'tournament',
+      number: 1,
+      name: 'Tourney Court',
+      status: 'LIVE',
+    };
+
+    (tableManager.getAllCourts as jest.Mock).mockReturnValue([tourneyCourt]);
+
+    register(mockSocket);
+    const handler = getHandler(SocketEvents.CLIENT.SET_REF);
+
+    handler({ courtId: 'tourney-1', pin: '1234' });
+
+    expect(mockIo.emit).toHaveBeenCalledWith(
+      SocketEvents.SERVER.COURT_UPDATE,
+      expect.anything(),
+    );
   });
 });

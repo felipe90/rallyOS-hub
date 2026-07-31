@@ -4,6 +4,7 @@ import { FileSystem, PersistedCourt, PersistedClubCourt, PersistedState, Persist
 import { migrateV1toV2, migrateV2toV3 } from './migration';
 import { logger } from '../../utils/logger';
 import type { ICourtPersistence } from '../../domain/ports/ICourtPersistence';
+import type { TournamentBracket } from '../../../../shared/types';
 
 const DEFAULT_PATH = 'data/rallyos-state.json';
 
@@ -26,12 +27,16 @@ export class StateStore implements ICourtPersistence {
    * Always writes version 3 format with separate tournament and club arrays.
    * Only the caller is responsible for filtering to LIVE/FINISHED/OCCUPIED courts.
    */
-  save(tournamentCourts: PersistedCourt[], clubCourts: PersistedClubCourt[]): void {
+  save(tournamentCourts: PersistedCourt[], clubCourts: PersistedClubCourt[], bracket?: TournamentBracket | null): void {
     const persisted: PersistedStateV3 = {
       version: PERSISTENCE_VERSION,
       savedAt: Date.now(),
       tournamentCourts,
       clubCourts,
+      // If the caller provides a bracket, use it; otherwise carry forward any
+      // bracket already on disk so CourtManager.persistState (which doesn't own
+      // the bracket) never wipes it. Spec R10: bracket survives court saves.
+      bracket: bracket !== undefined ? bracket : this.readBracketFromDisk(),
     };
 
     const dir = path.dirname(this.filePath);
@@ -109,6 +114,58 @@ export class StateStore implements ICourtPersistence {
   /** Check whether the state file exists on disk. */
   checkExists(): boolean {
     return this.fs.existsSync(this.filePath);
+  }
+
+  /**
+   * Read the persisted bracket (R10). Returns `null` when the file is absent,
+   * has no `bracket` key (legacy v3 files), or the bracket was explicitly
+   * cleared (`bracket: null`).
+   */
+  getBracket(): TournamentBracket | null {
+    return this.load()?.bracket ?? null;
+  }
+
+  /**
+   * Persist the bracket independently of the court arrays. Reads the current
+   * state file (preserving tournament/club courts) and writes a fresh v3
+   * document with the supplied bracket. Pass `null` to clear. Used by
+   * BracketHandler (which owns the bracket) without coupling CourtManager to
+   * the bracket domain.
+   *
+   * MVP note: bracket and court saves both do an atomic tmp+rename on the same
+   * file. The single-owner Raspberry Pi target makes a torn write between the
+   * two writers extremely unlikely; a future revision can route both through
+   * one atomic writer.
+   */
+  setBracket(bracket: TournamentBracket | null): void {
+    try {
+      const existing = this.load() ?? {
+        version: PERSISTENCE_VERSION,
+        savedAt: Date.now(),
+        tournamentCourts: [] as PersistedCourt[],
+        clubCourts: [] as PersistedClubCourt[],
+      };
+      this.save(existing.tournamentCourts, existing.clubCourts, bracket);
+    } catch (err) {
+      logger.error({ err }, 'StateStore: setBracket failed');
+    }
+  }
+
+  /**
+   * Read ONLY the bracket field from disk (best-effort), without running the
+   * full migration pipeline. Used by `save()` to carry the bracket forward
+   * when CourtManager persists courts without a bracket argument.
+   */
+  private readBracketFromDisk(): TournamentBracket | null {
+    try {
+      if (!this.fs.existsSync(this.filePath)) return null;
+      const raw = this.fs.readFileSync(this.filePath, 'utf-8');
+      if (!raw || raw.trim().length === 0) return null;
+      const parsed = JSON.parse(raw) as { bracket?: TournamentBracket | null };
+      return parsed?.bracket ?? null;
+    } catch {
+      return null;
+    }
   }
 
   /** Delete the state file. No-op if the file does not exist. */

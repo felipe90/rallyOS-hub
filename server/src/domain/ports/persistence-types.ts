@@ -11,7 +11,7 @@
  */
 
 import { ScoreChange, TournamentStatus } from '../../../../shared/types';
-import type { MatchConfig, SessionMode } from '../../../../shared/types';
+import type { MatchConfig, SessionMode, TournamentBracket } from '../../../../shared/types';
 
 /**
  * Serializable match state for persistence.
@@ -119,6 +119,13 @@ export interface PersistedStateV3 {
   savedAt: number;
   tournamentCourts: PersistedCourt[];
   clubCourts: PersistedClubCourt[];
+  /**
+   * Tournament bracket snapshot (spec: bracket-tournament-mvp R10).
+   * OPTIONAL so legacy v3 files written before this field existed still
+   * parse cleanly. `null` represents an explicitly-cleared bracket. Absent
+   * (undefined) on legacy files and is treated as `null` on load.
+   */
+  bracket?: TournamentBracket | null;
 }
 
 /**

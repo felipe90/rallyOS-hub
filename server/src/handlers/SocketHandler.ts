@@ -36,10 +36,12 @@ import {
   ClubCourtHandler,
   ClubPlayerHandler,
   ClubSessionHistoryHandler,
+  BracketHandler,
 } from './index';
 import { SessionHistoryStore } from '../services/store/SessionHistoryStore';
 import { PhoneRevealAuditStore } from '../services/store/PhoneRevealAuditStore';
 import { ClubConfigStore } from '../services/store/ClubConfigStore';
+import { StateStore } from '../services/store/StateStore';
 
 export class SocketHandler {
   private io: Server;
@@ -59,6 +61,7 @@ export class SocketHandler {
   private clubCourtHandler: ClubCourtHandler;
   private clubPlayerHandler: ClubPlayerHandler;
   private clubHistoryHandler?: ClubSessionHistoryHandler;
+  private bracketHandler?: BracketHandler;
   private phoneRevealAuditStore: PhoneRevealAuditStore;
 
   /** Current kiosk display mode — broadcast to all clients on connect and on change */
@@ -72,6 +75,7 @@ export class SocketHandler {
     clubConfigStore?: IClubConfigRepository,
     sessionHistoryStore?: SessionHistoryStore,
     phoneRevealAuditStore?: PhoneRevealAuditStore,
+    stateStore?: StateStore,
   ) {
     this.io = io;
     this.tableManager = tableManager;
@@ -118,6 +122,12 @@ export class SocketHandler {
     // occupied court.
     this.clubCourtHandler = new ClubCourtHandler(io, tableManager, ownerPin, clubConfigStore);
     this.clubPlayerHandler = new ClubPlayerHandler(io, tableManager, ownerPin, clubConfigStore!, sessionHistoryStore);
+    // BracketHandler (Tier 2): constructed only when a StateStore is injected
+    // so the bracket persists across restarts (R10). Omitting the store
+    // keeps older test wiring working without a bracket handler.
+    if (stateStore) {
+      this.bracketHandler = new BracketHandler(io, tableManager, ownerPin, stateStore);
+    }
 
     // Default kiosk mode — tournament unless club is configured
     const existingConfig = this.clubConfigStore?.load() ?? null
@@ -271,6 +281,7 @@ export class SocketHandler {
       this.clubCourtHandler.registerHandlers(socket);
       this.clubPlayerHandler.registerHandlers(socket);
       this.clubHistoryHandler?.registerHandlers(socket);
+      this.bracketHandler?.registerHandlers(socket);
 
       // Signal club admin that their session was restored from JWT on reload
       // (REQ-11). The io.use() middleware already set isClubAdmin; this

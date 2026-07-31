@@ -148,4 +148,10 @@ cd /root/rallyOS-hub && git pull origin main && bash scripts/start-orange-pi.sh
 
 # Orange Pi diag
 ./scripts/diagnose.sh
-```1
+```
+# Docker logs 
+docker logs rallyo-hub --tail 50 -f
+```
+
+
+

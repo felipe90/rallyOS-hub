@@ -43,13 +43,15 @@ export class AdminHandler extends SocketHandlerBase {
         return this.emitError(socket, 'TABLE_NOT_FOUND', 'Cancha no encontrada');
       }
 
-      // Verify the requester is authorized: must provide a valid PIN
-      if (!data.pin) {
-        return this.emitError(socket, 'UNAUTHORIZED', 'PIN requerido');
-      }
-
-      const isOwnerAuthorizing = this.comparePin(data.pin, this.ownerPin);
-      if (!isOwnerAuthorizing && !this.comparePin(data.pin, court.pin)) {
+      // Verify the requester is authorized: an authenticated owner socket or
+      // a valid PIN (owner PIN or the court's own PIN, e.g. old referee).
+      // Unlike SEND_NOTIFICATION this allows the authenticated owner from the
+      // dashboard so "Limpiar Cancha" works in tournament mode (the client
+      // does not hold the owner PIN by design).
+      const isOwnerSocket = (socket.data as { isOwner?: unknown } | undefined)?.isOwner === true;
+      const isOwnerAuthorizing = data.pin && this.comparePin(data.pin, this.ownerPin);
+      const isCourtPinAuthorizing = data.pin && this.comparePin(data.pin, court.pin);
+      if (!isOwnerSocket && !isOwnerAuthorizing && !isCourtPinAuthorizing) {
         return this.emitError(socket, 'UNAUTHORIZED', 'No autorizado');
       }
 

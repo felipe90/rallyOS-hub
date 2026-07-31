@@ -14,6 +14,7 @@ import { useOrientation } from '@/hooks/useOrientation'
 import { useWakeLock } from '@/hooks/useWakeLock'
 import { useScoreboardEvents } from './useScoreboardEvents'
 import { useMatchState, useRefAuth, useRefRevoked } from './'
+import { useRefereeSession } from '@/hooks/useRefereeSession'
 import { ScoreboardMain } from '@/components/organisms/ScoreboardMain'
 import { MatchConfigModal } from '@/components/molecules/MatchConfigModal'
 import { RallyTapConnectButton } from '@/components/molecules/RallyTapConnectButton'
@@ -74,7 +75,23 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
     useScoreboardEvents({ emit, tableId: tableId ?? '', canEdit, connected })
 
   useMatchState(emit, tableId, connected)
-  useRefAuth(emit, tableId, connected, canEdit, courtPin)
+
+  // Referee session restore: a direct reload of /scoreboard/:id/referee loses
+  // the AuthContext courtPin (never restored from storage by design), leaving
+  // the referee silently unauthenticated — START_MATCH would fail with no UI
+  // error. useRefAuth only emits SET_REF when a PIN is present, so restore the
+  // PIN from the localStorage referee session before it runs.
+  const { getSession } = useRefereeSession()
+  const [restoredPin, setRestoredPin] = useState<string | null>(null)
+  useEffect(() => {
+    if (canEdit && !courtPin && tableId && restoredPin === null) {
+      const session = getSession(tableId)
+      if (session) setRestoredPin(session.pin)
+    }
+  }, [canEdit, courtPin, tableId, restoredPin, getSession])
+
+  const effectivePin = courtPin ?? restoredPin
+  useRefAuth(emit, tableId, connected, canEdit, effectivePin)
   const refRevoked = useRefRevoked({ socket, tableId: tableId ?? '', navigate })
   const rallyTap = useRallyTapBridge(
     canEdit && currentMatch?.status === 'LIVE' ? socket : null,
@@ -107,9 +124,17 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
   }, [showWinnerDialog, addToast, i18nText, currentMatch?.winner, currentMatch?.playerNames]);
 
   // Detect when match finishes to show winner dialog
-  // Uses sessionStorage to avoid re-showing on page reload/re-entry
+  // Uses sessionStorage to avoid re-showing on page reload/re-entry.
+  // The tableId guard prevents a stale FINISHED match from a previous court
+  // (SocketContext keeps the last match while the new court is still
+  // WAITING) from re-opening the dialog on a different court.
   useEffect(() => {
     const key = `winner-shown-${tableId}`
+    if (currentMatch?.courtId && currentMatch.courtId !== tableId) {
+      // Match snapshot belongs to a different court — never show its dialog.
+      setShowWinnerDialog(false)
+      return
+    }
     if (currentMatch?.status === 'FINISHED' && currentMatch?.winner) {
       if (sessionStorage.getItem(key) !== 'true') {
         setShowWinnerDialog(true)
@@ -117,7 +142,7 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
     } else {
       sessionStorage.removeItem(key)
     }
-  }, [currentMatch?.status, currentMatch?.winner, tableId])
+  }, [currentMatch?.status, currentMatch?.winner, currentMatch?.courtId, tableId])
 
   // Scoreboard page defaults to Spanish unless user explicitly chose a language
   useEffect(() => {

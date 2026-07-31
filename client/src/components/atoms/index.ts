@@ -15,6 +15,9 @@ export type { TypographyProps, TypographyVariant, TypographyWeight } from './Typ
 
 export { Input } from './Input'
 
+export { Modal } from './Modal'
+export type { ModalProps } from './Modal'
+
 export { ConnectionStatus } from './ConnectionStatus'
 export type { ConnectionStatusProps } from './ConnectionStatus'
 

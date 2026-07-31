@@ -11,6 +11,7 @@ import { CourtManager } from './domain/courtManager';
 import { ClubConfigStore } from './services/store/ClubConfigStore';
 import { SessionHistoryStore } from './services/store/SessionHistoryStore';
 import { PhoneRevealAuditStore } from './services/store/PhoneRevealAuditStore';
+import { StateStore } from './services/store/StateStore';
 import { HubConfig } from './domain/types';
 import { logger } from './utils/logger';
 
@@ -22,6 +23,7 @@ export function createSocketServer(
   clubConfigStore?: ClubConfigStore,
   sessionHistoryStore?: SessionHistoryStore,
   phoneRevealAuditStore?: PhoneRevealAuditStore,
+  stateStore?: StateStore,
 ): SocketHandler {
   const socketHandler = new SocketHandler(
     io,
@@ -31,6 +33,7 @@ export function createSocketServer(
     clubConfigStore,
     sessionHistoryStore,
     phoneRevealAuditStore,
+    stateStore,
   );
 
   logger.info('Socket.IO initialized');

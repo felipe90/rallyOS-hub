@@ -15,6 +15,7 @@ import { PIN_RULES } from '../../../shared/validation';
 import { SocketHandlerBase } from './SocketHandlerBase';
 import { SessionTokenService } from '../services/security/SessionTokenService';
 import type { SocketData } from '../domain/types';
+import { COURT_MODE } from '../../../shared/types';
 
 export class AuthHandler extends SocketHandlerBase {
   private sessionTokenService: SessionTokenService;
@@ -82,7 +83,10 @@ export class AuthHandler extends SocketHandlerBase {
 
         const courtInfo = this.tableManager.getAllCourts().find(c => c.id === data.courtId);
         if (courtInfo) {
-          this.io.emit(SocketEvents.SERVER.COURT_UPDATE, this.toPublicCourtInfo(courtInfo));
+          // Do not broadcast COURT_UPDATE for club courts — they use CLUB_KIOSK_DATA.
+          if (courtInfo.mode !== COURT_MODE.CLUB) {
+            this.io.emit(SocketEvents.SERVER.COURT_UPDATE, this.toPublicCourtInfo(courtInfo));
+          }
         }
       } else {
         const court = this.tableManager.getCourt(data.courtId);

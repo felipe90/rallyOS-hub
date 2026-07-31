@@ -18,6 +18,10 @@ vi.mock('@/pages/ClubKioskPage', () => ({
   ClubKioskPage: vi.fn(() => <div data-testid="club-kiosk">Club Kiosk</div>),
 }))
 
+vi.mock('@/pages/KioskBracketPage', () => ({
+  KioskBracketPage: vi.fn(() => <div data-testid="bracket-kiosk">Bracket Kiosk</div>),
+}))
+
 const mockUseSocketContext = useSocketContext as ReturnType<typeof vi.fn>
 
 describe('KioskPage', () => {
@@ -74,6 +78,26 @@ describe('KioskPage', () => {
     expect(screen.queryByTestId('club-kiosk')).not.toBeInTheDocument()
   })
 
+  it('renders KioskBracketPage when KIOSK_MODE is bracket', () => {
+    let handler: (...args: unknown[]) => void = () => {}
+    const mockOn = vi.fn((_event: string, h: (...args: unknown[]) => void) => {
+      handler = h
+    })
+    mockUseSocketContext.mockReturnValue({
+      socket: { on: mockOn, emit: vi.fn(), off: vi.fn() },
+    })
+
+    render(<MemoryRouter><KioskPage /></MemoryRouter>)
+
+    act(() => {
+      handler({ mode: 'bracket' })
+    })
+
+    expect(screen.getByTestId('bracket-kiosk')).toBeInTheDocument()
+    expect(screen.queryByTestId('tournament-kiosk')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('club-kiosk')).not.toBeInTheDocument()
+  })
+
   it('switches mode when KIOSK_MODE changes', () => {
     let handler: (...args: unknown[]) => void = () => {}
     const mockOn = vi.fn((_event: string, h: (...args: unknown[]) => void) => {
@@ -91,6 +115,10 @@ describe('KioskPage', () => {
     act(() => { handler({ mode: 'tournament' }) })
     expect(screen.getByTestId('tournament-kiosk')).toBeInTheDocument()
     expect(screen.queryByTestId('club-kiosk')).not.toBeInTheDocument()
+
+    act(() => { handler({ mode: 'bracket' }) })
+    expect(screen.getByTestId('bracket-kiosk')).toBeInTheDocument()
+    expect(screen.queryByTestId('tournament-kiosk')).not.toBeInTheDocument()
   })
 
   it('cleans up KIOSK_MODE listener on unmount', () => {

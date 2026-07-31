@@ -30,6 +30,9 @@ export type { MatchContextProps, SetScoreProps } from './MatchContext'
 export { ConfirmDialog } from './ConfirmDialog'
 export type { ConfirmDialogProps, ConfirmDialogSeverity } from './ConfirmDialog'
 
+export { BracketMatchCard } from './BracketMatchCard'
+export type { BracketMatchCardProps } from './BracketMatchCard'
+
 export { ClubSessionHistoryPanel } from './ClubSessionHistoryPanel'
 export type { ClubSessionHistoryPanelProps, ExportOutcome } from './ClubSessionHistoryPanel'
 

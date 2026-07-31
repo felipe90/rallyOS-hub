@@ -38,3 +38,7 @@ export { useClubCourtManagement } from './useClubCourtManagement'
 export { useClubSessionHistory } from './useClubSessionHistory'
 export type { UseClubSessionHistoryReturn } from './useClubSessionHistory'
 
+// Tournament Bracket hook
+export { useBracket } from './useBracket'
+export type { UseBracketReturn, BracketError, BracketNumSlots } from './useBracket'
+

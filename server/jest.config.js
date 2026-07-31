@@ -13,6 +13,7 @@ module.exports = {
     '!**/tests/**/security.spec.ts',
     '!**/tests/**/match-logic.spec.ts',
     '!**/tests/**/multi-court.spec.ts',
+    '!**/tests/**/bracketCourtFlow.spec.ts',
   ],
   rootDir: '.',
 };

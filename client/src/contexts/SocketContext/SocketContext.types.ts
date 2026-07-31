@@ -1,4 +1,4 @@
-import type { CourtInfo, MatchStateExtended, AllHistoryEntry, KioskNotificationData } from '@shared/types'
+import type { CourtInfo, MatchStateExtended, AllHistoryEntry, KioskNotificationData, TournamentBracket } from '@shared/types'
 import type { Socket } from 'socket.io-client'
 import type { HubConfigData } from '../../hooks/useSocketState'
 
@@ -22,6 +22,7 @@ export interface SocketContextType {
   allHistories: AllHistoryEntry[] | null
   hubConfig: HubConfigData | null
   kioskNotification: KioskNotificationData | null
+  bracket: TournamentBracket | null
   connect: () => void
   disconnect: () => void
   emit: (event: string, data?: unknown) => void

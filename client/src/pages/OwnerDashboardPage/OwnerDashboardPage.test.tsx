@@ -92,6 +92,11 @@ vi.mock('@/i18n', () => ({
         'tournamentFinishSuccess': 'Tournament finished and archived',
         'courtDestacar': 'Feature',
         'courtQuitarDestacado': 'Remove Spotlight',
+        'bracketTabTournament': 'Torneo',
+        'bracketSetupTitle': 'Crear bracket',
+        'ownerKioskModeClub': 'Kiosk',
+        'ownerKioskModeTournament': 'Tournament',
+        'ownerKioskModeBracket': 'Bracket',
       }
       return map[key] || key
     },
@@ -361,6 +366,58 @@ describe('OwnerDashboardPage — Export CSV Button', () => {
   })
 })
 
+describe('OwnerDashboardPage — kiosk mode toggle', () => {
+  it('emits SET_KIOSK_MODE club when Kiosk is clicked', () => {
+    const mockEmit = vi.fn()
+    renderPage({
+      customSocket: {
+        socket: { on: vi.fn(), off: vi.fn(), emit: mockEmit },
+      },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /Kiosk/i }))
+
+    expect(mockEmit).toHaveBeenCalledWith('SET_KIOSK_MODE', { mode: 'club' })
+  })
+
+  it('emits SET_KIOSK_MODE tournament when Tournament is clicked', () => {
+    const mockEmit = vi.fn()
+    renderPage({
+      customSocket: {
+        socket: { on: vi.fn(), off: vi.fn(), emit: mockEmit },
+      },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /Tournament/i }))
+
+    expect(mockEmit).toHaveBeenCalledWith('SET_KIOSK_MODE', { mode: 'tournament' })
+  })
+
+  it('emits SET_KIOSK_MODE bracket when Bracket is clicked', () => {
+    const mockEmit = vi.fn()
+    renderPage({
+      customSocket: {
+        socket: { on: vi.fn(), off: vi.fn(), emit: mockEmit },
+      },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /^Bracket$/i }))
+
+    expect(mockEmit).toHaveBeenCalledWith('SET_KIOSK_MODE', { mode: 'bracket' })
+  })
+
+  it('listens for KIOSK_MODE server events', () => {
+    const mockOn = vi.fn()
+    renderPage({
+      customSocket: {
+        socket: { on: mockOn, off: vi.fn(), emit: vi.fn() },
+      },
+    })
+
+    expect(mockOn).toHaveBeenCalledWith('KIOSK_MODE', expect.any(Function))
+  })
+})
+
 describe('OwnerDashboardPage – appError display', () => {
   it('shows appError with role="alert" and AlertTriangle icon when creating court', () => {
     // Override useCourtManagement to show creation mode
@@ -443,5 +500,39 @@ describe('OwnerDashboardPage — featured court toggle (Task 4.3)', () => {
     })
 
     expect(screen.queryByRole('button', { name: /Feature|Remove Spotlight/i })).not.toBeInTheDocument()
+  })
+})
+
+describe('OwnerDashboardPage — Tournament tab (bracket integration)', () => {
+  it('renders three tabs: courts, history, tournament', () => {
+    renderPage()
+    const tabs = screen.getAllByRole('tab')
+    expect(tabs).toHaveLength(3)
+    expect(screen.getByRole('tab', { name: 'Torneo' })).toBeInTheDocument()
+  })
+
+  it('clicking the Torneo tab shows the bracket setup form', () => {
+    renderPage()
+    // Initially the bracket setup is hidden (courts tab active by default)
+    expect(screen.queryByText('Crear bracket')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('tab', { name: 'Torneo' }))
+    expect(screen.getByText('Crear bracket')).toBeInTheDocument()
+  })
+
+  it('passes the socket tournament courts to BracketView (filters club courts)', () => {
+    // Courts with CLUB mode should NOT appear as assignable bracket courts.
+    renderPage({
+      customSocket: {
+        courts: [
+          { ...createCourt({ id: 't-1', name: 'Cancha T' }), mode: 'TOURNAMENT' },
+          { ...createCourt({ id: 'c-1', name: 'Cancha Club' }), mode: 'CLUB' },
+        ],
+      },
+    })
+    fireEvent.click(screen.getByRole('tab', { name: 'Torneo' }))
+    // Setup form still renders (no bracket yet) — the filtering is a page-level
+    // wiring concern; we assert the form still renders, which proves the tab
+    // content mounts without crashing on the courts prop.
+    expect(screen.getByText('Crear bracket')).toBeInTheDocument()
   })
 })

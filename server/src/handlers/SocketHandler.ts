@@ -25,7 +25,8 @@ import type { SocketData } from '../domain/types';
 import { logger } from '../utils/logger';
 import { RateLimiter } from '../services/security/RateLimiter';
 import { SocketEvents } from '../../../shared/events';
-import { COURT_MODE } from '../../../shared/types';
+import { COURT_MODE, KIOSK_MODE } from '../../../shared/types';
+import type { KioskMode } from '../../../shared/types';
 import {
   CourtEventHandler,
   MatchEventHandler,
@@ -36,10 +37,12 @@ import {
   ClubCourtHandler,
   ClubPlayerHandler,
   ClubSessionHistoryHandler,
+  BracketHandler,
 } from './index';
 import { SessionHistoryStore } from '../services/store/SessionHistoryStore';
 import { PhoneRevealAuditStore } from '../services/store/PhoneRevealAuditStore';
 import { ClubConfigStore } from '../services/store/ClubConfigStore';
+import { StateStore } from '../services/store/StateStore';
 
 export class SocketHandler {
   private io: Server;
@@ -59,10 +62,11 @@ export class SocketHandler {
   private clubCourtHandler: ClubCourtHandler;
   private clubPlayerHandler: ClubPlayerHandler;
   private clubHistoryHandler?: ClubSessionHistoryHandler;
+  private bracketHandler?: BracketHandler;
   private phoneRevealAuditStore: PhoneRevealAuditStore;
 
   /** Current kiosk display mode — broadcast to all clients on connect and on change */
-  private kioskMode: 'club' | 'tournament' = 'tournament';
+  private kioskMode: KioskMode = KIOSK_MODE.TOURNAMENT;
 
   constructor(
     io: Server,
@@ -72,6 +76,7 @@ export class SocketHandler {
     clubConfigStore?: IClubConfigRepository,
     sessionHistoryStore?: SessionHistoryStore,
     phoneRevealAuditStore?: PhoneRevealAuditStore,
+    stateStore?: StateStore,
   ) {
     this.io = io;
     this.tableManager = tableManager;
@@ -118,10 +123,16 @@ export class SocketHandler {
     // occupied court.
     this.clubCourtHandler = new ClubCourtHandler(io, tableManager, ownerPin, clubConfigStore);
     this.clubPlayerHandler = new ClubPlayerHandler(io, tableManager, ownerPin, clubConfigStore!, sessionHistoryStore);
+    // BracketHandler (Tier 2): constructed only when a StateStore is injected
+    // so the bracket persists across restarts (R10). Omitting the store
+    // keeps older test wiring working without a bracket handler.
+    if (stateStore) {
+      this.bracketHandler = new BracketHandler(io, tableManager, ownerPin, stateStore);
+    }
 
     // Default kiosk mode — tournament unless club is configured
     const existingConfig = this.clubConfigStore?.load() ?? null
-    this.kioskMode = existingConfig?.configured ? 'club' : 'tournament'
+    this.kioskMode = existingConfig?.configured ? KIOSK_MODE.CLUB : KIOSK_MODE.TOURNAMENT
     
     // Set up global court update listener once
     // COURT_UPDATE always goes to the court's room; COURT_LIST / CLUB_KIOSK_DATA
@@ -184,6 +195,13 @@ export class SocketHandler {
             message: `¡Ganador: ${winner}!`,
             timestamp: Date.now(),
           });
+
+          // Option 2 — bracket↔court integration: when this tournament court
+          // is bound to a bracket match, auto-set the bracket winner (and, for
+          // a semifinal, feed the loser into the third-place match). No-op for
+          // unbound courts; any bracket edge case falls back to the owner's
+          // manual flow without breaking the match-event chain.
+          this.bracketHandler?.handleCourtMatchWon(courtId, winner);
         }
       } else if (event.type === 'GAME_WON') {
         this.io.to(courtId).emit(SocketEvents.SERVER.GAME_WON, { courtId: courtId, ...event });
@@ -253,13 +271,27 @@ export class SocketHandler {
       // Send current kiosk mode — TV display uses this to switch views
       socket.emit(SocketEvents.SERVER.KIOSK_MODE, { mode: this.kioskMode });
 
+      // Push the current bracket state so a freshly connected kiosk (or owner)
+      // learns it immediately without emitting any client event. Mirrors the
+      // KIOSK_MODE connect push: bracket mutations are broadcast separately by
+      // BracketHandler, but a kiosk that connects mid-tournament needs the
+      // current snapshot now. No-op when no BracketHandler is wired.
+      this.bracketHandler?.sendStateToSocket(socket);
+
       // Handle kiosk mode switch from admin/owner dashboard
-      socket.on(SocketEvents.CLIENT.SET_KIOSK_MODE, (data: { mode: 'club' | 'tournament' }) => {
-        if (data.mode !== 'club' && data.mode !== 'tournament') return
-        this.kioskMode = data.mode
-        this.io.emit(SocketEvents.SERVER.KIOSK_MODE, { mode: this.kioskMode })
-        logger.info({ mode: this.kioskMode }, 'Kiosk mode updated')
-      })
+      socket.on(SocketEvents.CLIENT.SET_KIOSK_MODE, (data: { mode: string }) => {
+        const mode = data?.mode;
+        if (
+          mode !== KIOSK_MODE.CLUB &&
+          mode !== KIOSK_MODE.TOURNAMENT &&
+          mode !== KIOSK_MODE.BRACKET
+        ) {
+          return;
+        }
+        this.kioskMode = mode as KioskMode;
+        this.io.emit(SocketEvents.SERVER.KIOSK_MODE, { mode: this.kioskMode });
+        logger.info({ mode: this.kioskMode }, 'Kiosk mode updated');
+      });
 
       // Register all handler events
       this.courtHandler.registerHandlers(socket);
@@ -271,6 +303,7 @@ export class SocketHandler {
       this.clubCourtHandler.registerHandlers(socket);
       this.clubPlayerHandler.registerHandlers(socket);
       this.clubHistoryHandler?.registerHandlers(socket);
+      this.bracketHandler?.registerHandlers(socket);
 
       // Signal club admin that their session was restored from JWT on reload
       // (REQ-11). The io.use() middleware already set isClubAdmin; this

@@ -1,4 +1,4 @@
-import { SPORT } from '../../../../shared/types';
+import { SPORT, TournamentBracket, BRACKET_STATUS, BRACKET_MATCH_STATUS } from '../../../../shared/types';
 import { StateStore } from './StateStore';
 import { FileSystem, PersistedCourt, PersistedClubCourt, PersistedStateV3 } from './types';
 
@@ -431,6 +431,111 @@ describe('StateStore', () => {
       expect(loaded!.tournamentCourts[0].id).toBe('t1');
       expect(loaded!.clubCourts).toHaveLength(1);
       expect(loaded!.clubCourts[0].id).toBe('c1');
+    });
+  });
+
+  // ── Tournament Bracket persistence (`bracket` field on PersistedStateV3) ──
+  //
+  // Spec: bracket-tournament-mvp R10 — the bracket survives a server restart.
+  // The `bracket` field is OPTIONAL so legacy v3 files (no bracket key) still
+  // parse. Court saves MUST NOT wipe a previously-persisted bracket.
+
+  function makeBracket(overrides: Partial<TournamentBracket> = {}): TournamentBracket {
+    return {
+      name: 'Torneo',
+      numSlots: 4,
+      includeThirdPlace: false,
+      matches: [
+        {
+          id: 'R1-M1', round: 1, position: 0,
+          playerA: 'Juan', playerB: null, winner: null,
+          status: BRACKET_MATCH_STATUS.READY, courtId: null,
+        },
+        {
+          id: 'R1-M2', round: 1, position: 1,
+          playerA: null, playerB: null, winner: null,
+          status: BRACKET_MATCH_STATUS.PENDING, courtId: null,
+        },
+        {
+          id: 'R2-M1', round: 2, position: 0,
+          playerA: null, playerB: null, winner: null,
+          status: BRACKET_MATCH_STATUS.PENDING, courtId: null,
+        },
+      ],
+      thirdPlaceMatch: null,
+      status: BRACKET_STATUS.SETUP,
+      createdAt: 1700000000000,
+      ...overrides,
+    };
+  }
+
+  // Bracket methods live on StateStore but are bracket-specific. We access
+  // them via a typed view and ALWAYS call as methods (`view.setBracket(...)`)
+  // — destructuring a method then invoking it standalone loses `this` and
+  // would silently no-op inside setBracket's try/catch (caught the regression).
+  interface BracketStoreView {
+    setBracket(bracket: TournamentBracket | null): void;
+    getBracket(): TournamentBracket | null;
+  }
+  function asBracketStore(s: StateStore): BracketStoreView {
+    return s as unknown as BracketStoreView;
+  }
+
+  describe('bracket persistence (R10)', () => {
+    it('setBracket persists the bracket and getBracket round-trips it', () => {
+      const fs = makeFs();
+      const store = asBracketStore(new StateStore(fs, 'state.json'));
+      const bracket = makeBracket();
+
+      store.setBracket(bracket);
+      const got = store.getBracket();
+
+      expect(got).not.toBeNull();
+      expect(got!.name).toBe('Torneo');
+      expect(got!.numSlots).toBe(4);
+      expect(got!.matches).toHaveLength(3);
+    });
+
+    it('setBracket(null) clears the bracket but preserves persisted courts', () => {
+      const fs = makeFs();
+      const raw = new StateStore(fs, 'state.json');
+      raw.save([makeTournamentCourt({ id: 't1', status: 'LIVE' })], []);
+      const view = asBracketStore(raw);
+
+      view.setBracket(makeBracket());
+      view.setBracket(null);
+
+      const loaded = raw.load();
+      expect(loaded!.bracket).toBeNull();
+      expect(loaded!.tournamentCourts).toHaveLength(1);
+      expect(loaded!.tournamentCourts[0].id).toBe('t1');
+    });
+
+    it('court save (no bracket arg) preserves a previously-persisted bracket', () => {
+      const fs = makeFs();
+      const raw = new StateStore(fs, 'state.json');
+      const view = asBracketStore(raw);
+      view.setBracket(makeBracket({ name: 'Torneo Copa' }));
+
+      // Simulate CourtManager.persistState — saves courts with no bracket arg.
+      raw.save([makeTournamentCourt({ id: 't9', status: 'LIVE' })], []);
+
+      const loaded = raw.load();
+      expect(loaded!.bracket).not.toBeNull();
+      expect(loaded!.bracket!.name).toBe('Torneo Copa');
+    });
+
+    it('legacy v3 file without a bracket key loads with bracket undefined/null', () => {
+      const fs = makeFs();
+      fs._files.set(
+        'state.json',
+        JSON.stringify({ version: 3, savedAt: 1, tournamentCourts: [], clubCourts: [] }),
+      );
+      const raw = new StateStore(fs, 'state.json');
+
+      const loaded = raw.load();
+      expect(loaded!.tournamentCourts).toEqual([]);
+      expect(loaded!.bracket ?? null).toBeNull();
     });
   });
 });

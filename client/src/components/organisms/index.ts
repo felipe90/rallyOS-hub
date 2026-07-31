@@ -9,3 +9,6 @@ export type { HistoryDrawerProps } from './HistoryDrawer'
 
 export { KioskCourtCard } from './KioskCourtCard'
 export type { KioskCourtCardProps } from './KioskCourtCard'
+
+export { BracketView } from './BracketView'
+export type { BracketViewProps, BracketViewHandlers } from './BracketView'

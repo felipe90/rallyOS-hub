@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useSocketContext } from '@/contexts/SocketContext'
 import { SocketEvents } from '@shared/events'
-import type { ClubConfig } from '@shared/types'
+import type { ClubConfig, KioskMode } from '@shared/types'
 import { KioskAllCourtsPage } from '@/pages/KioskAllCourtsPage'
 import { ClubKioskPage } from '@/pages/ClubKioskPage'
+import { KioskBracketPage } from '@/pages/KioskBracketPage'
 
-type Mode = 'loading' | 'club' | 'tournament'
+type Mode = 'loading' | 'club' | 'tournament' | 'bracket'
 
 /**
  * KioskPage — auto-detect wrapper with URL override and remote kiosk mode switching.
@@ -16,6 +17,9 @@ type Mode = 'loading' | 'club' | 'tournament'
  * - /kiosk/tournament → always tournament kiosk
  * - /kiosk            → uses KIOSK_MODE from server (switchable via SET_KIOSK_MODE from dashboards)
  *                       falls back to auto-detect (club if configured, else tournament)
+ *
+ * The 'bracket' mode has no URL override — it is only reachable via the remote
+ * KIOSK_MODE push (owner dashboard toggles the kiosk to the live bracket view).
  */
 export function KioskPage() {
   const { socket } = useSocketContext()
@@ -39,7 +43,7 @@ export function KioskPage() {
     if (!socket) return
 
     // Listen for remote kiosk mode from server (set by admin/owner dashboard)
-    const handleKioskMode = (data: { mode: 'club' | 'tournament' }) => {
+    const handleKioskMode = (data: { mode: KioskMode }) => {
       setMode(data.mode)
       hasResolved.current = true
     }
@@ -64,6 +68,10 @@ export function KioskPage() {
 
   if (mode === 'club') {
     return <ClubKioskPage />
+  }
+
+  if (mode === 'bracket') {
+    return <KioskBracketPage />
   }
 
   return <KioskAllCourtsPage />

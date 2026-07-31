@@ -31,6 +31,7 @@ const KNOWN_CAMEL = new Set<string>([
   'invalidParams',
   'nameTooLong',
   'courtNotFound',
+  'courtAlreadyAssigned',
   'invalidSize',
   'invalidWinner',
   'matchNotReady',

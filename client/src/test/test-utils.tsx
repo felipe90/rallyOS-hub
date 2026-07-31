@@ -42,6 +42,7 @@ const defaultMockSocketContext: SocketContextType = {
   regeneratePin: vi.fn(),
   kioskNotification: null,
   hubConfig: null,
+  bracket: null,
 }
 
 interface WrapperProps {

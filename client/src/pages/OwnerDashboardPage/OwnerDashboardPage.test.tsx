@@ -94,6 +94,9 @@ vi.mock('@/i18n', () => ({
         'courtQuitarDestacado': 'Remove Spotlight',
         'bracketTabTournament': 'Torneo',
         'bracketSetupTitle': 'Crear bracket',
+        'ownerKioskModeClub': 'Kiosk',
+        'ownerKioskModeTournament': 'Tournament',
+        'ownerKioskModeBracket': 'Bracket',
       }
       return map[key] || key
     },
@@ -360,6 +363,58 @@ describe('OwnerDashboardPage — Export CSV Button', () => {
     expect(fetchSpy).toHaveBeenCalledWith('/api/export/matches.csv', {
       headers: { Authorization: 'Bearer test-token-uuid' },
     })
+  })
+})
+
+describe('OwnerDashboardPage — kiosk mode toggle', () => {
+  it('emits SET_KIOSK_MODE club when Kiosk is clicked', () => {
+    const mockEmit = vi.fn()
+    renderPage({
+      customSocket: {
+        socket: { on: vi.fn(), off: vi.fn(), emit: mockEmit },
+      },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /Kiosk/i }))
+
+    expect(mockEmit).toHaveBeenCalledWith('SET_KIOSK_MODE', { mode: 'club' })
+  })
+
+  it('emits SET_KIOSK_MODE tournament when Tournament is clicked', () => {
+    const mockEmit = vi.fn()
+    renderPage({
+      customSocket: {
+        socket: { on: vi.fn(), off: vi.fn(), emit: mockEmit },
+      },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /Tournament/i }))
+
+    expect(mockEmit).toHaveBeenCalledWith('SET_KIOSK_MODE', { mode: 'tournament' })
+  })
+
+  it('emits SET_KIOSK_MODE bracket when Bracket is clicked', () => {
+    const mockEmit = vi.fn()
+    renderPage({
+      customSocket: {
+        socket: { on: vi.fn(), off: vi.fn(), emit: mockEmit },
+      },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /^Bracket$/i }))
+
+    expect(mockEmit).toHaveBeenCalledWith('SET_KIOSK_MODE', { mode: 'bracket' })
+  })
+
+  it('listens for KIOSK_MODE server events', () => {
+    const mockOn = vi.fn()
+    renderPage({
+      customSocket: {
+        socket: { on: mockOn, off: vi.fn(), emit: vi.fn() },
+      },
+    })
+
+    expect(mockOn).toHaveBeenCalledWith('KIOSK_MODE', expect.any(Function))
   })
 })
 

@@ -16,7 +16,7 @@ import { X, RotateCcw } from 'lucide-react'
 import { useI18n } from '@/i18n'
 import { bracketErrorTranslationKey } from '@/i18n/bracketError'
 import { Button } from '@/components/atoms/Button'
-import { Title, Headline, Body } from '@/components/atoms/Typography'
+import { Title, Body } from '@/components/atoms/Typography'
 import { Input } from '@/components/atoms/Input'
 import { Modal } from '@/components/atoms/Modal'
 import { ConfirmDialog } from '@/components/molecules/ConfirmDialog'
@@ -158,7 +158,7 @@ export function BracketView({
       )}
 
       <div className="flex items-center justify-between gap-2">
-        <Headline className="text-lg font-semibold truncate">{bracket.name}</Headline>
+        <Body className="font-bold truncate">{bracket.name}</Body>
         <Button
           variant="secondary"
           size="sm"
@@ -176,7 +176,7 @@ export function BracketView({
       <div className="flex flex-col gap-6">
         {rounds.map((round) => (
           <section key={round.round} aria-label={round.name}>
-            <Headline className="mb-3 text-lg">{i18nText(round.name)}</Headline>
+            <Body className="mb-3 font-semibold text-center">{i18nText(round.name)}</Body>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
               {round.matches.map((match) => {
                 const ctx = resolveCourtContext(match, courts, bracket.matches)
@@ -207,7 +207,7 @@ export function BracketView({
 
       {bracket.thirdPlaceMatch && (
         <section aria-label="3rd place">
-          <Headline className="mb-3 text-lg">{i18nText('bracketRoundThirdPlace')}</Headline>
+          <Body className="mb-3 font-semibold text-center">{i18nText('bracketRoundThirdPlace')}</Body>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             <BracketMatchCard
               match={bracket.thirdPlaceMatch}
@@ -233,7 +233,6 @@ export function BracketView({
         isOpen={slotTarget != null}
         onClose={() => setSlotTarget(null)}
         title={i18nText('bracketAssignSlotTitle')}
-        fullscreen
       >
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
@@ -271,7 +270,6 @@ export function BracketView({
         isOpen={courtTargetMatchId != null}
         onClose={() => setCourtTargetMatchId(null)}
         title={i18nText('bracketAssignCourtTitle')}
-        fullscreen
       >
         <div className="flex flex-col gap-2">
           {courts.length === 0 && (

@@ -4,12 +4,29 @@ import { Body, Title, Label } from '../../atoms/Typography'
 import { useFocusTrap } from '../../../hooks/useFocusTrap'
 import { AlertTriangle } from 'lucide-react'
 import { SPORT } from '@shared/types'
-import type { Sport } from '@shared/types'
+import type { Sport, TournamentBracket, BracketMatch } from '@shared/types'
 import { SportDisplayRegistry } from '../../../adapters/SportDisplayRegistry'
 import type { ConfigField } from '../../../adapters/SportDisplayAdapter'
 import { useI18n } from '../../../i18n'
 
 const registry = new SportDisplayRegistry()
+
+/**
+ * Find the bracket match bound to a court (Option 2 prefill). Searches the
+ * main matches and the third-place match. Returns null when the court is not
+ * bound to any bracket match (or no bracket exists). Pure + exported so the
+ * prefill logic is unit-testable without rendering.
+ */
+export function findBracketMatchForCourt(
+  bracket: TournamentBracket | null | undefined,
+  courtId: string | undefined,
+): BracketMatch | null {
+  if (!bracket || !courtId) return null
+  const main = bracket.matches.find((m) => m.courtId === courtId)
+  if (main) return main
+  if (bracket.thirdPlaceMatch?.courtId === courtId) return bracket.thirdPlaceMatch
+  return null
+}
 
 export interface MatchSubmitPayload {
   bestOf: number
@@ -25,7 +42,7 @@ export interface MatchSubmitPayload {
 
 export interface MatchConfigModalProps {
   isOpen: boolean
-  courtId: string
+  courtId?: string
   courtName: string
   initialBestOf?: 1 | 3 | 5
   initialHandicapA?: number
@@ -47,10 +64,13 @@ export interface MatchConfigModalProps {
   cancelLabel?: string
   submitLabel?: string
   submitLoadingLabel?: string
+  /** Option 2 — live bracket snapshot used to prefill player names when the court is bound to a bracket match. Optional so the modal stays presentational. */
+  bracket?: TournamentBracket | null
 }
 
 export function MatchConfigModal({
   isOpen,
+  courtId,
   courtName,
   initialBestOf = 3,
   initialHandicapA = 0,
@@ -72,6 +92,7 @@ export function MatchConfigModal({
   cancelLabel = 'Cancelar',
   submitLabel = 'Iniciar Partido',
   submitLoadingLabel = 'Iniciando...',
+  bracket = null,
 }: MatchConfigModalProps) {
   const [playerNameA, setPlayerNameA] = useState('')
   const [playerNameB, setPlayerNameB] = useState('')
@@ -84,6 +105,7 @@ export function MatchConfigModal({
   const [sportConfig, setSportConfig] = useState<Record<string, unknown>>({})
 
   const modalRef = useRef<HTMLDivElement>(null)
+  const wasOpen = useRef(false)
   useFocusTrap(modalRef, isOpen, onClose)
   const { i18nText } = useI18n()
 
@@ -92,11 +114,17 @@ export function MatchConfigModal({
   const configFields = useMemo(() => adapter.getConfigFields(), [adapter])
   const showHandicap = adapter.needsHandicap()
 
-  // Reset state when modal opens
+  // Reset state when the modal OPENS. Option 2 prefill: when the court is
+  // bound to a bracket match, seed the player-name inputs with the bracket's
+  // playerA/playerB so the referee just confirms — and can still edit them.
+  // The `wasOpen` guard ensures a live BRACKET_STATE update while the modal
+  // is open NEVER overwrites names the referee has already typed; prefill
+  // only applies on the open transition (fields were just reset to defaults).
   useEffect(() => {
-    if (isOpen) {
-      setPlayerNameA('')
-      setPlayerNameB('')
+    if (isOpen && !wasOpen.current) {
+      const boundMatch = findBracketMatchForCourt(bracket, courtId)
+      setPlayerNameA(boundMatch?.playerA ?? '')
+      setPlayerNameB(boundMatch?.playerB ?? '')
       setBestOf(initialBestOf)
       setHandicapA(initialHandicapA)
       setHandicapB(initialHandicapB)
@@ -111,7 +139,8 @@ export function MatchConfigModal({
       }
       setSportConfig(initial)
     }
-  }, [isOpen, initialBestOf, initialHandicapA, initialHandicapB, initialSport])
+    wasOpen.current = isOpen
+  }, [isOpen, bracket, courtId, initialBestOf, initialHandicapA, initialHandicapB, initialSport, adapter, configFields])
 
   const handleSubmit = () => {
     const payload: MatchSubmitPayload = {

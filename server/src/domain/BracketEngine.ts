@@ -181,6 +181,55 @@ export class BracketEngine {
     return b;
   }
 
+  // ── setThirdPlaceLoser (Option 2 bracket↔court integration) ─────────────
+
+  /**
+   * Feed a semifinal LOSER into the third-place match. Option 2 integration:
+   * when a semifinal finishes on a bound court, the court flow calls
+   * `setWinner` (which advances the winner) and then this method to place
+   * the loser — semi position 0 → TP slot A, position 1 → TP slot B.
+   *
+   * The TP match is NOT completed by this: it only receives the loser's name
+   * and its status is recomputed (READY once both slots fill). The TP match
+   * finishes through its own court flow or a manual BRACKET_SET_WINNER.
+   *
+   * Guards (domain invariants, not orchestration concerns):
+   *  - The source match MUST be a completed semifinal (`round === totalRounds - 1`)
+   *    — the loser is unknowable otherwise.
+   *  - The `loser` slot must NOT be the declared winner (`INVALID_WINNER`).
+   *  - A bye semifinal (empty loser slot) feeds nothing — no-op.
+   *  - An already-decided TP match, or an occupied TP slot (owner manual
+   *    override), is NEVER overwritten.
+   * @throws {@link BracketError} `NO_BRACKET` | `MATCH_NOT_FOUND` |
+   *   `NO_THIRD_PLACE` | `NOT_SEMIFINAL` | `MATCH_NOT_READY` | `INVALID_WINNER`.
+   */
+  setThirdPlaceLoser(sourceMatchId: string, loser: Player): TournamentBracket {
+    const b = this.requireBracket();
+    const m = this.findMatch(b, sourceMatchId);
+    const tp = b.thirdPlaceMatch;
+    if (!tp) throw new BracketError('NO_THIRD_PLACE');
+    const totalRounds = Math.log2(b.numSlots);
+    if (m.round !== totalRounds - 1) throw new BracketError('NOT_SEMIFINAL');
+    if (m.status !== BRACKET_MATCH_STATUS.COMPLETED) {
+      throw new BracketError('MATCH_NOT_READY');
+    }
+    if (loser !== 'A' && loser !== 'B') throw new BracketError('INVALID_WINNER');
+    if (m.winner === loser) throw new BracketError('INVALID_WINNER');
+
+    const loserName = loser === 'A' ? m.playerA : m.playerB;
+    if (!loserName) return b; // bye semifinal — no loser to feed
+
+    const tpSlot: Player = m.position % 2 === 0 ? 'A' : 'B';
+    const occupied = tpSlot === 'A' ? tp.playerA : tp.playerB;
+    if (occupied || tp.status === BRACKET_MATCH_STATUS.COMPLETED) {
+      return b; // manual override / decided match — never overwrite
+    }
+    if (tpSlot === 'A') tp.playerA = loserName;
+    else tp.playerB = loserName;
+    tp.status = this.computeStatus(tp);
+    return b;
+  }
+
   // ── undoMatch cascade (R4) ──────────────────────────────────────────────
 
   /**
@@ -282,6 +331,11 @@ export class BracketEngine {
 
   /** Recursive undo cascade: revert `m`, clear its downstream slot, recurse. */
   private cascadeUndo(b: TournamentBracket, m: BracketMatch): void {
+    // Capture the loser slot BEFORE clearing the winner so a semifinal undo
+    // can clear the third-place slot it fed. Option 2: undoing a semifinal
+    // (directly or via a quarterfinal cascade) must also release the loser
+    // it wrote into TP — otherwise the TP match keeps a stale loser.
+    const loserSlot = m.winner ? (m.winner === 'A' ? 'B' : 'A') : null;
     m.winner = null;
     m.status = this.computeStatus(m);
 
@@ -294,7 +348,35 @@ export class BracketEngine {
     if (slot === 'A') next.playerA = null;
     else next.playerB = null;
     next.status = this.computeStatus(next);
+
+    this.clearThirdPlaceSlot(b, m, loserSlot);
     if (wasCompleted) this.cascadeUndo(b, next);
+  }
+
+  /**
+   * Clear the third-place slot fed by a semifinal's loser. Provenance-by-
+   * value: the TP slot is only cleared when it still holds this match's loser
+   * name, so an owner's manual TP edit survives the cascade. No-op for
+   * non-semifinals, un-completed matches, and byes (no loser to trace).
+   */
+  private clearThirdPlaceSlot(
+    b: TournamentBracket,
+    m: BracketMatch,
+    loserSlot: Player | null,
+  ): void {
+    const tp = b.thirdPlaceMatch;
+    if (!tp || loserSlot === null) return;
+    if (m.round !== Math.log2(b.numSlots) - 1) return; // only semis feed TP
+    const loserName = loserSlot === 'A' ? m.playerA : m.playerB;
+    if (!loserName) return;
+    const tpSlot: Player = m.position % 2 === 0 ? 'A' : 'B';
+    const current = tpSlot === 'A' ? tp.playerA : tp.playerB;
+    if (current !== loserName) return; // manual override — leave it
+    if (tpSlot === 'A') tp.playerA = null;
+    else tp.playerB = null;
+    if (tp.status !== BRACKET_MATCH_STATUS.COMPLETED) {
+      tp.status = this.computeStatus(tp);
+    }
   }
 
   /** The downstream match fed by `m` (next round, position floor(P/2)). */

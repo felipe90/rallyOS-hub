@@ -28,6 +28,7 @@ describe('bracketErrorTranslationKey', () => {
     expect(bracketErrorTranslationKey('NAME_TOO_LONG')).toBe('bracketError.nameTooLong')
     expect(bracketErrorTranslationKey('MATCH_NOT_READY')).toBe('bracketError.matchNotReady')
     expect(bracketErrorTranslationKey('COURT_NOT_FOUND')).toBe('bracketError.courtNotFound')
+    expect(bracketErrorTranslationKey('COURT_ALREADY_ASSIGNED')).toBe('bracketError.courtAlreadyAssigned')
   })
 
   it('maps RESET_EXPIRED to resetExpired', () => {

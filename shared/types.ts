@@ -373,6 +373,22 @@ export const COURT_MODE = {
 export type CourtMode = (typeof COURT_MODE)[keyof typeof COURT_MODE];
 
 /**
+ * Kiosk display mode const — use instead of magic strings. The kiosk screen
+ * can show one of three views: the club courts kiosk, the tournament courts
+ * kiosk, or the live tournament bracket kiosk. The owner dashboard switches
+ * between them via `SET_KIOSK_MODE`; the server broadcasts `KIOSK_MODE` to
+ * every client on connect and on change.
+ */
+export const KIOSK_MODE = {
+  CLUB: 'club',
+  TOURNAMENT: 'tournament',
+  BRACKET: 'bracket',
+} as const;
+
+/** Kiosk display mode — derived from KIOSK_MODE const */
+export type KioskMode = (typeof KIOSK_MODE)[keyof typeof KIOSK_MODE];
+
+/**
  * Session mode const — use instead of magic strings.
  * Only meaningful for club courts in OCCUPIED state.
  */

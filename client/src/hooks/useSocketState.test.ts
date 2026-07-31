@@ -2,8 +2,8 @@ import { describe, it, expect, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useSocketState } from './useSocketState'
 import { SocketEvents } from '@shared/events'
-import { COURT_MODE } from '@shared/types'
-import type { CourtInfo, KioskNotificationData } from '@shared/types'
+import { COURT_MODE, BRACKET_STATUS } from '@shared/types'
+import type { CourtInfo, KioskNotificationData, TournamentBracket } from '@shared/types'
 
 /**
  * Creates a mock Socket that stores event handlers so we can trigger them.
@@ -213,5 +213,58 @@ describe('useSocketState — kioskNotification', () => {
     const { result } = renderHook(() => useSocketState(null))
 
     expect(result.current.kioskNotification).toBeNull()
+  })
+})
+
+describe('useSocketState — bracket (kiosk bracket mode)', () => {
+  function makeBracket(overrides: Partial<TournamentBracket> = {}): TournamentBracket {
+    return {
+      name: 'Torneo',
+      numSlots: 4,
+      includeThirdPlace: false,
+      matches: [],
+      thirdPlaceMatch: null,
+      status: BRACKET_STATUS.SETUP,
+      createdAt: 1000,
+      ...overrides,
+    }
+  }
+
+  it('starts with bracket as null before any event', () => {
+    const { socket } = createMockSocket()
+    const { result } = renderHook(() => useSocketState(socket))
+    expect(result.current.bracket).toBeNull()
+  })
+
+  it('sets bracket when BRACKET_STATE event fires', () => {
+    const { socket, trigger } = createMockSocket()
+    const { result } = renderHook(() => useSocketState(socket))
+
+    trigger(SocketEvents.SERVER.BRACKET_STATE, makeBracket({ name: 'Cuadro' }))
+
+    expect(result.current.bracket).not.toBeNull()
+    expect(result.current.bracket?.name).toBe('Cuadro')
+  })
+
+  it('clears bracket when BRACKET_STATE fires with null', () => {
+    const { socket, trigger } = createMockSocket()
+    const { result } = renderHook(() => useSocketState(socket))
+
+    trigger(SocketEvents.SERVER.BRACKET_STATE, makeBracket())
+    expect(result.current.bracket).not.toBeNull()
+
+    trigger(SocketEvents.SERVER.BRACKET_STATE, null)
+    expect(result.current.bracket).toBeNull()
+  })
+
+  it('registers BRACKET_STATE listener on mount', () => {
+    const { socket, expectListenerRegistered } = createMockSocket()
+    renderHook(() => useSocketState(socket))
+    expectListenerRegistered(SocketEvents.SERVER.BRACKET_STATE)
+  })
+
+  it('returns null bracket when socket is null (no listener registered)', () => {
+    const { result } = renderHook(() => useSocketState(null))
+    expect(result.current.bracket).toBeNull()
   })
 })

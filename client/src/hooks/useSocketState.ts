@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react'
 import type { Socket } from 'socket.io-client'
 import { SocketEvents } from '@shared/events'
 import { COURT_MODE } from '@shared/types'
-import type { CourtInfo, CourtInfoWithPin, MatchStateExtended, ScoreChange, AllHistoryEntry, KioskNotificationData } from '@shared/types'
+import type { CourtInfo, CourtInfoWithPin, MatchStateExtended, ScoreChange, AllHistoryEntry, KioskNotificationData, TournamentBracket } from '@shared/types'
 
 export interface HubConfigData {
   ssid: string
@@ -26,6 +26,12 @@ export function useSocketState(socket: Socket | null) {
   const [allHistories, setAllHistories] = useState<AllHistoryEntry[] | null>(null)
   const [hubConfig, setHubConfig] = useState<HubConfigData | null>(null)
   const [kioskNotification, setKioskNotification] = useState<KioskNotificationData | null>(null)
+  // Bracket state is lifted into context (like `courts`) so the kiosk bracket
+  // page can read the current snapshot the moment it mounts — regardless of
+  // when the owner switched the kiosk to bracket mode. The server pushes
+  // BRACKET_STATE on connect and broadcasts on every mutation; this listener
+  // is registered at socket creation and persists across kiosk mode switches.
+  const [bracket, setBracket] = useState<TournamentBracket | null>(null)
 
   useEffect(() => {
     if (!socket) return
@@ -82,6 +88,10 @@ export function useSocketState(socket: Socket | null) {
       setKioskNotification(data)
     }
 
+    const handleBracketState = (data: TournamentBracket | null) => {
+      setBracket(data)
+    }
+
     socket.on(SocketEvents.SERVER.ERROR, handleError)
     socket.on(SocketEvents.SERVER.COURT_UPDATE, handleCourtUpdate)
     socket.on(SocketEvents.SERVER.COURT_LIST, handleCourtList)
@@ -92,6 +102,7 @@ export function useSocketState(socket: Socket | null) {
     socket.on(SocketEvents.SERVER.ALL_HISTORY, handleAllHistory)
     socket.on(SocketEvents.SERVER.HUB_CONFIG, handleHubConfig)
     socket.on(SocketEvents.SERVER.KIOSK_NOTIFICATION, handleKioskNotification)
+    socket.on(SocketEvents.SERVER.BRACKET_STATE, handleBracketState)
 
     return () => {
       socket.off(SocketEvents.SERVER.ERROR, handleError)
@@ -104,8 +115,9 @@ export function useSocketState(socket: Socket | null) {
       socket.off(SocketEvents.SERVER.ALL_HISTORY, handleAllHistory)
       socket.off(SocketEvents.SERVER.HUB_CONFIG, handleHubConfig)
       socket.off(SocketEvents.SERVER.KIOSK_NOTIFICATION, handleKioskNotification)
+      socket.off(SocketEvents.SERVER.BRACKET_STATE, handleBracketState)
     }
   }, [socket])
 
-  return { courts, currentMatch, currentCourt, appError, allHistories, hubConfig, kioskNotification }
+  return { courts, currentMatch, currentCourt, appError, allHistories, hubConfig, kioskNotification, bracket }
 }

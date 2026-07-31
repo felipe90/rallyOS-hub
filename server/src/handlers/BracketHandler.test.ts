@@ -59,6 +59,7 @@ interface MockSocket {
   data: { isOwner?: boolean; [k: string]: unknown };
   on: jest.Mock;
   emit: jest.Mock;
+  broadcast: { emit: jest.Mock };
   _listeners: Map<string, (...args: any[]) => void>;
   _trigger: (event: string, ...args: any[]) => void;
   _emitted: EmitRecord[];
@@ -76,6 +77,7 @@ function createMockSocket(id: string, isOwner = true): MockSocket {
     emit: jest.fn((event: string, data: unknown) => {
       emitted.push({ event, data });
     }),
+    broadcast: { emit: jest.fn() },
     _listeners: listeners,
     _trigger: (event: string, ...args: any[]) => {
       listeners.get(event)?.(...args);
@@ -90,6 +92,7 @@ function createMockIo() {
   const map = new Map<string, MockSocket>();
   return {
     sockets: { sockets: map },
+    emit: jest.fn(), // all-client broadcast (handleCourtMatchWon / broadcastStateToAll)
     _map: map,
   } as unknown as import('socket.io').Server;
 }
@@ -194,6 +197,25 @@ describe('BracketHandler', () => {
       socket._trigger(SocketEvents.CLIENT.BRACKET_CREATE, { name: 'T', numSlots: 4, includeThirdPlace: 'yes' });
 
       expect(lastError(socket)?.code).toBe('INVALID_PARAMS');
+    });
+
+    it('broadcasts BRACKET_STATE to other clients (kiosk) on create, actor gets it directly', () => {
+      const { handler } = makeHandler();
+      const owner = createMockSocket('o-broadcast');
+      handler.registerHandlers(owner as unknown as Socket);
+
+      owner._trigger(SocketEvents.CLIENT.BRACKET_CREATE, { name: 'T', numSlots: 8, includeThirdPlace: false });
+
+      // Actor received BRACKET_STATE directly (socket.emit)
+      const actorState = ownerBracketState(owner);
+      expect(actorState).not.toBeNull();
+      expect(actorState!.name).toBe('T');
+
+      // Broadcast path fired so kiosk clients (other sockets) get the update.
+      expect(owner.broadcast.emit).toHaveBeenCalledWith(
+        SocketEvents.SERVER.BRACKET_STATE,
+        expect.objectContaining({ name: 'T' }),
+      );
     });
   });
 
@@ -344,6 +366,235 @@ describe('BracketHandler', () => {
 
       const b = ownerBracketState(socket);
       expect(b!.matches.find((m) => m.id === 'R1-M1')!.courtId).toBeNull();
+    });
+  });
+
+  describe('Option 2 — court↔bracket registry (reverse index)', () => {
+    it('rejects binding a court already bound to ANOTHER match with COURT_ALREADY_ASSIGNED', () => {
+      const { handler } = makeHandler();
+      const socket = createMockSocket('o24');
+      handler.registerHandlers(socket as unknown as Socket);
+      socket._trigger(SocketEvents.CLIENT.BRACKET_CREATE, { name: 'T', numSlots: 4, includeThirdPlace: false });
+      socket._trigger(SocketEvents.CLIENT.BRACKET_ASSIGN_COURT, { matchId: 'R1-M1', courtId: 'c1' });
+
+      socket._trigger(SocketEvents.CLIENT.BRACKET_ASSIGN_COURT, { matchId: 'R1-M2', courtId: 'c1' });
+
+      expect(lastError(socket)?.code).toBe('COURT_ALREADY_ASSIGNED');
+      const b = ownerBracketState(socket);
+      expect(b!.matches.find((m) => m.id === 'R1-M1')!.courtId).toBe('c1'); // unchanged
+      expect(b!.matches.find((m) => m.id === 'R1-M2')!.courtId).toBeNull(); // not bound
+    });
+
+    it('allows re-assigning the same court to the same match (idempotent)', () => {
+      const { handler } = makeHandler();
+      const socket = createMockSocket('o25');
+      handler.registerHandlers(socket as unknown as Socket);
+      socket._trigger(SocketEvents.CLIENT.BRACKET_CREATE, { name: 'T', numSlots: 4, includeThirdPlace: false });
+      socket._trigger(SocketEvents.CLIENT.BRACKET_ASSIGN_COURT, { matchId: 'R1-M1', courtId: 'c1' });
+
+      socket._trigger(SocketEvents.CLIENT.BRACKET_ASSIGN_COURT, { matchId: 'R1-M1', courtId: 'c1' });
+
+      expect(lastError(socket)?.code).toBeUndefined();
+      expect(ownerBracketState(socket)!.matches.find((m) => m.id === 'R1-M1')!.courtId).toBe('c1');
+    });
+
+    it('nullifying a binding frees the court for another match', () => {
+      const { handler } = makeHandler();
+      const socket = createMockSocket('o26');
+      handler.registerHandlers(socket as unknown as Socket);
+      socket._trigger(SocketEvents.CLIENT.BRACKET_CREATE, { name: 'T', numSlots: 4, includeThirdPlace: false });
+      socket._trigger(SocketEvents.CLIENT.BRACKET_ASSIGN_COURT, { matchId: 'R1-M1', courtId: 'c1' });
+      socket._trigger(SocketEvents.CLIENT.BRACKET_ASSIGN_COURT, { matchId: 'R1-M1', courtId: null });
+
+      socket._trigger(SocketEvents.CLIENT.BRACKET_ASSIGN_COURT, { matchId: 'R1-M2', courtId: 'c1' });
+
+      expect(lastError(socket)?.code).toBeUndefined();
+      expect(ownerBracketState(socket)!.matches.find((m) => m.id === 'R1-M2')!.courtId).toBe('c1');
+    });
+
+    it('keeps the existing COURT_NOT_FOUND validation', () => {
+      const { handler } = makeHandler();
+      const socket = createMockSocket('o27');
+      handler.registerHandlers(socket as unknown as Socket);
+      socket._trigger(SocketEvents.CLIENT.BRACKET_CREATE, { name: 'T', numSlots: 4, includeThirdPlace: false });
+
+      socket._trigger(SocketEvents.CLIENT.BRACKET_ASSIGN_COURT, { matchId: 'R1-M1', courtId: 'nope' });
+
+      expect(lastError(socket)?.code).toBe('COURT_NOT_FOUND');
+    });
+
+    it('resolveBracketMatchForCourt returns the bound match, null for unbound/no bracket', () => {
+      const { handler } = makeHandler();
+      // no bracket yet
+      expect(handler.resolveBracketMatchForCourt('c1')).toBeNull();
+
+      const socket = createMockSocket('o28');
+      handler.registerHandlers(socket as unknown as Socket);
+      socket._trigger(SocketEvents.CLIENT.BRACKET_CREATE, { name: 'T', numSlots: 4, includeThirdPlace: false });
+      socket._trigger(SocketEvents.CLIENT.BRACKET_ASSIGN_COURT, { matchId: 'R1-M1', courtId: 'c1' });
+
+      expect(handler.resolveBracketMatchForCourt('c1')?.id).toBe('R1-M1');
+      expect(handler.resolveBracketMatchForCourt('c2')).toBeNull(); // unbound court
+    });
+
+    it('resolveBracketMatchForCourt includes the third-place match', () => {
+      const { handler } = makeHandler();
+      const socket = createMockSocket('o29');
+      handler.registerHandlers(socket as unknown as Socket);
+      socket._trigger(SocketEvents.CLIENT.BRACKET_CREATE, { name: 'T', numSlots: 4, includeThirdPlace: true });
+      socket._trigger(SocketEvents.CLIENT.BRACKET_ASSIGN_COURT, { matchId: 'TP-M1', courtId: 'c2' });
+
+      expect(handler.resolveBracketMatchForCourt('c2')?.id).toBe('TP-M1');
+    });
+
+    it('resolveBracketMatchForCourt returns null after reset', () => {
+      const { handler } = makeHandler();
+      const socket = createMockSocket('o30');
+      handler.registerHandlers(socket as unknown as Socket);
+      socket._trigger(SocketEvents.CLIENT.BRACKET_CREATE, { name: 'T', numSlots: 4, includeThirdPlace: false });
+      socket._trigger(SocketEvents.CLIENT.BRACKET_ASSIGN_COURT, { matchId: 'R1-M1', courtId: 'c1' });
+      socket._trigger(SocketEvents.CLIENT.BRACKET_RESET, {});
+      const token = (socket._emitted.find((e) => e.event === SocketEvents.SERVER.BRACKET_RESET_CONFIRM)!.data as { token: string }).token;
+      socket._trigger(SocketEvents.CLIENT.BRACKET_RESET, { confirmToken: token });
+
+      expect(handler.resolveBracketMatchForCourt('c1')).toBeNull();
+    });
+  });
+
+  describe('Option 2 — handleCourtMatchWon (auto-advance)', () => {
+    /** Build a bracket + court bindings via socket events, then exercise the server-internal path. */
+    function buildBoundBracket(handler: BracketHandler, socket: MockSocket, opts: { thirdPlace?: boolean; matchId?: string; courtId?: string } = {}) {
+      const { thirdPlace = false, matchId = 'R1-M1', courtId = 'c1' } = opts;
+      socket._trigger(SocketEvents.CLIENT.BRACKET_CREATE, { name: 'T', numSlots: 4, includeThirdPlace: thirdPlace });
+      socket._trigger(SocketEvents.CLIENT.BRACKET_ASSIGN_PLAYER, { matchId: 'R1-M1', slot: 'A', name: 'Juan' });
+      socket._trigger(SocketEvents.CLIENT.BRACKET_ASSIGN_PLAYER, { matchId: 'R1-M1', slot: 'B', name: 'Maria' });
+      socket._trigger(SocketEvents.CLIENT.BRACKET_ASSIGN_COURT, { matchId, courtId });
+    }
+
+    it('auto-sets the winner by name and advances to the next round', () => {
+      const { handler } = makeHandler();
+      const socket = createMockSocket('o31');
+      handler.registerHandlers(socket as unknown as Socket);
+      buildBoundBracket(handler, socket);
+
+      const advanced = handler.handleCourtMatchWon('c1', 'Juan');
+
+      expect(advanced).toBe(true);
+      const b = handler['engine'].bracket as TournamentBracket;
+      expect(b.matches.find((m) => m.id === 'R1-M1')!.winner).toBe('A');
+      expect(b.matches.find((m) => m.id === 'R1-M1')!.status).toBe('COMPLETED');
+      expect(b.matches.find((m) => m.id === 'R2-M1')!.playerA).toBe('Juan');
+    });
+
+    it('maps the winning name to the correct slot (winner B)', () => {
+      const { handler } = makeHandler();
+      const socket = createMockSocket('o32');
+      handler.registerHandlers(socket as unknown as Socket);
+      buildBoundBracket(handler, socket);
+
+      const advanced = handler.handleCourtMatchWon('c1', 'Maria');
+
+      expect(advanced).toBe(true);
+      const b = handler['engine'].bracket as TournamentBracket;
+      expect(b.matches.find((m) => m.id === 'R1-M1')!.winner).toBe('B');
+      expect(b.matches.find((m) => m.id === 'R2-M1')!.playerA).toBe('Maria');
+    });
+
+    it('broadcasts BRACKET_STATE to ALL clients after advancing', () => {
+      const { handler, io } = makeHandler();
+      const socket = createMockSocket('o33');
+      handler.registerHandlers(socket as unknown as Socket);
+      buildBoundBracket(handler, socket);
+
+      handler.handleCourtMatchWon('c1', 'Juan');
+
+      expect((io.emit as jest.Mock)).toHaveBeenCalledWith(
+        SocketEvents.SERVER.BRACKET_STATE,
+        expect.objectContaining({ name: 'T' }),
+      );
+    });
+
+    it('feeds the semifinal loser into the third-place match', () => {
+      const { handler } = makeHandler();
+      const socket = createMockSocket('o34');
+      handler.registerHandlers(socket as unknown as Socket);
+      buildBoundBracket(handler, socket, { thirdPlace: true });
+
+      const advanced = handler.handleCourtMatchWon('c1', 'Juan');
+
+      expect(advanced).toBe(true);
+      const b = handler['engine'].bracket as TournamentBracket;
+      expect(b.thirdPlaceMatch!.playerA).toBe('Maria'); // SF1 (pos 0) loser → TP A
+      expect(b.thirdPlaceMatch!.status).toBe('READY'); // single slot → ready, not completed
+    });
+
+    it('is a no-op for a court not bound to any bracket match', () => {
+      const { handler } = makeHandler();
+      const socket = createMockSocket('o35');
+      handler.registerHandlers(socket as unknown as Socket);
+      buildBoundBracket(handler, socket);
+      // c2 exists as a tournament court but is not bound.
+      expect(handler.handleCourtMatchWon('c2', 'Juan')).toBe(false);
+      const b = handler['engine'].bracket as TournamentBracket;
+      expect(b.matches.find((m) => m.id === 'R1-M1')!.winner).toBeNull();
+    });
+
+    it('is a no-op when there is no bracket', () => {
+      const { handler } = makeHandler();
+      expect(handler.handleCourtMatchWon('c1', 'Juan')).toBe(false);
+    });
+
+    it('never overwrites an already-COMPLETED bracket match (replay / manual win)', () => {
+      const { handler } = makeHandler();
+      const socket = createMockSocket('o36');
+      handler.registerHandlers(socket as unknown as Socket);
+      buildBoundBracket(handler, socket);
+      // Owner manually declares the winner first (manual path stays).
+      socket._trigger(SocketEvents.CLIENT.BRACKET_SET_WINNER, { matchId: 'R1-M1', winner: 'A' });
+      const b = handler['engine'].bracket as TournamentBracket;
+      expect(b.matches.find((m) => m.id === 'R1-M1')!.winner).toBe('A');
+
+      // Court match replays with the other player winning — must NOT overwrite.
+      expect(handler.handleCourtMatchWon('c1', 'Maria')).toBe(false);
+      expect(b.matches.find((m) => m.id === 'R1-M1')!.winner).toBe('A');
+    });
+
+    it('is a no-op when the bracket match is not READY (empty slots)', () => {
+      const { handler } = makeHandler();
+      const socket = createMockSocket('o37');
+      handler.registerHandlers(socket as unknown as Socket);
+      socket._trigger(SocketEvents.CLIENT.BRACKET_CREATE, { name: 'T', numSlots: 4, includeThirdPlace: false });
+      socket._trigger(SocketEvents.CLIENT.BRACKET_ASSIGN_COURT, { matchId: 'R1-M1', courtId: 'c1' });
+      // R1-M1 has NO players → PENDING.
+
+      expect(handler.handleCourtMatchWon('c1', 'Juan')).toBe(false);
+      const b = handler['engine'].bracket as TournamentBracket;
+      expect(b.matches.find((m) => m.id === 'R1-M1')!.winner).toBeNull();
+    });
+
+    it('is a no-op when the winning name matches neither slot (referee edited names)', () => {
+      const { handler } = makeHandler();
+      const socket = createMockSocket('o38');
+      handler.registerHandlers(socket as unknown as Socket);
+      buildBoundBracket(handler, socket);
+
+      expect(handler.handleCourtMatchWon('c1', 'Edited Name')).toBe(false);
+      const b = handler['engine'].bracket as TournamentBracket;
+      expect(b.matches.find((m) => m.id === 'R1-M1')!.winner).toBeNull();
+    });
+
+    it('does not crash when the engine rejects (e.g. bye winner slot invalid)', () => {
+      const { handler } = makeHandler();
+      const socket = createMockSocket('o39');
+      handler.registerHandlers(socket as unknown as Socket);
+      socket._trigger(SocketEvents.CLIENT.BRACKET_CREATE, { name: 'T', numSlots: 4, includeThirdPlace: false });
+      socket._trigger(SocketEvents.CLIENT.BRACKET_ASSIGN_PLAYER, { matchId: 'R1-M1', slot: 'A', name: 'Juan' }); // bye
+      socket._trigger(SocketEvents.CLIENT.BRACKET_ASSIGN_COURT, { matchId: 'R1-M1', courtId: 'c1' });
+
+      // R1-M1 is READY (bye). Court names say 'Juan' won → maps to slot A, valid.
+      expect(handler.handleCourtMatchWon('c1', 'Juan')).toBe(true);
+      const b = handler['engine'].bracket as TournamentBracket;
+      expect(b.matches.find((m) => m.id === 'R1-M1')!.winner).toBe('A');
     });
   });
 

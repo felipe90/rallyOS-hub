@@ -394,6 +394,207 @@ describe('third place (R9)', () => {
   });
 });
 
+// ── setThirdPlaceLoser (Option 2 bracket↔court integration) ─────────────
+
+describe('setThirdPlaceLoser (Option 2)', () => {
+  /** 4-slot bracket: R1-M1 (SF1, pos 0) and R1-M2 (SF2, pos 1) are the semis. */
+  function semiWinner(e: BracketEngine, id: string, winner: 'A' | 'B'): void {
+    e.assignPlayer(id, 'A', `A-${id}`);
+    e.assignPlayer(id, 'B', `B-${id}`);
+    e.setWinner(id, winner);
+  }
+
+  test('semifinal position 0 loser feeds TP slot A', () => {
+    const e = new BracketEngine();
+    e.create('T', 4, true);
+    e.assignPlayer('R1-M1', 'A', 'Juan');
+    e.assignPlayer('R1-M1', 'B', 'Maria');
+    e.setWinner('R1-M1', 'A'); // winner Juan, loser Maria
+    const b = e.setThirdPlaceLoser('R1-M1', 'B');
+    expect(b.thirdPlaceMatch!.playerA).toBe('Maria');
+    expect(b.thirdPlaceMatch!.playerB).toBeNull();
+    expect(b.thirdPlaceMatch!.status).toBe(BRACKET_MATCH_STATUS.READY);
+  });
+
+  test('semifinal position 1 loser feeds TP slot B', () => {
+    const e = new BracketEngine();
+    e.create('T', 4, true);
+    e.assignPlayer('R1-M2', 'A', 'Ana');
+    e.assignPlayer('R1-M2', 'B', 'Luis');
+    e.setWinner('R1-M2', 'B'); // winner Luis, loser Ana
+    const b = e.setThirdPlaceLoser('R1-M2', 'A');
+    expect(b.thirdPlaceMatch!.playerB).toBe('Ana');
+    expect(b.thirdPlaceMatch!.playerA).toBeNull();
+  });
+
+  test('TP becomes READY when both losers feed it, but is NOT COMPLETED', () => {
+    const e = new BracketEngine();
+    e.create('T', 4, true);
+    e.assignPlayer('R1-M1', 'A', 'Juan');
+    e.assignPlayer('R1-M1', 'B', 'Maria');
+    e.setWinner('R1-M1', 'A');
+    e.setThirdPlaceLoser('R1-M1', 'B');
+    e.assignPlayer('R1-M2', 'A', 'Ana');
+    e.assignPlayer('R1-M2', 'B', 'Luis');
+    e.setWinner('R1-M2', 'A');
+    const b = e.setThirdPlaceLoser('R1-M2', 'B');
+    expect(b.thirdPlaceMatch!.playerA).toBe('Maria');
+    expect(b.thirdPlaceMatch!.playerB).toBe('Luis');
+    expect(b.thirdPlaceMatch!.status).toBe(BRACKET_MATCH_STATUS.READY);
+    expect(b.thirdPlaceMatch!.winner).toBeNull();
+  });
+
+  test('throws NO_THIRD_PLACE when third place is not enabled', () => {
+    const e = new BracketEngine();
+    e.create('T', 4, false);
+    e.assignPlayer('R1-M1', 'A', 'Juan');
+    e.assignPlayer('R1-M1', 'B', 'Maria');
+    e.setWinner('R1-M1', 'A');
+    expect(() => e.setThirdPlaceLoser('R1-M1', 'B')).toThrow(/NO_THIRD_PLACE/);
+  });
+
+  test('throws NOT_SEMIFINAL for a non-semifinal source match', () => {
+    const e = new BracketEngine();
+    e.create('T', 8, true); // semis are round 2; R1 is a quarterfinal
+    e.assignPlayer('R1-M1', 'A', 'P0');
+    e.assignPlayer('R1-M1', 'B', 'P1');
+    e.setWinner('R1-M1', 'A');
+    expect(() => e.setThirdPlaceLoser('R1-M1', 'B')).toThrow(/NOT_SEMIFINAL/);
+  });
+
+  test('throws MATCH_NOT_READY when the source semifinal is not completed', () => {
+    const e = new BracketEngine();
+    e.create('T', 4, true);
+    e.assignPlayer('R1-M1', 'A', 'Juan');
+    e.assignPlayer('R1-M1', 'B', 'Maria');
+    expect(() => e.setThirdPlaceLoser('R1-M1', 'B')).toThrow(/MATCH_NOT_READY/);
+  });
+
+  test('throws INVALID_WINNER when the loser slot is the declared winner slot', () => {
+    const e = new BracketEngine();
+    e.create('T', 4, true);
+    e.assignPlayer('R1-M1', 'A', 'Juan');
+    e.assignPlayer('R1-M1', 'B', 'Maria');
+    e.setWinner('R1-M1', 'A');
+    expect(() => e.setThirdPlaceLoser('R1-M1', 'A')).toThrow(/INVALID_WINNER/);
+  });
+
+  test('bye semifinal (empty loser slot) feeds nothing — no-op', () => {
+    const e = new BracketEngine();
+    e.create('T', 4, true);
+    e.assignPlayer('R1-M1', 'A', 'Juan'); // B empty → bye
+    e.setWinner('R1-M1', 'A');
+    const b = e.setThirdPlaceLoser('R1-M1', 'B');
+    expect(b.thirdPlaceMatch!.playerA).toBeNull();
+    expect(b.thirdPlaceMatch!.status).toBe(BRACKET_MATCH_STATUS.PENDING);
+  });
+
+  test('never overwrites an occupied TP slot (owner manual override survives)', () => {
+    const e = new BracketEngine();
+    e.create('T', 4, true);
+    e.assignPlayer('TP-M1', 'A', 'Manual Player'); // owner pre-assigned
+    e.assignPlayer('R1-M1', 'A', 'Juan');
+    e.assignPlayer('R1-M1', 'B', 'Maria');
+    e.setWinner('R1-M1', 'A');
+    const b = e.setThirdPlaceLoser('R1-M1', 'B');
+    expect(b.thirdPlaceMatch!.playerA).toBe('Manual Player');
+  });
+
+  test('never feeds a TP match that is already COMPLETED', () => {
+    const e = new BracketEngine();
+    e.create('T', 4, true);
+    e.assignPlayer('TP-M1', 'A', 'Loser1');
+    e.assignPlayer('TP-M1', 'B', 'Loser2');
+    e.setWinner('TP-M1', 'A'); // TP decided on its own court
+    e.assignPlayer('R1-M1', 'A', 'Juan');
+    e.assignPlayer('R1-M1', 'B', 'Maria');
+    e.setWinner('R1-M1', 'A');
+    const b = e.setThirdPlaceLoser('R1-M1', 'B');
+    expect(b.thirdPlaceMatch!.winner).toBe('A');
+    expect(b.thirdPlaceMatch!.playerA).toBe('Loser1');
+    expect(b.thirdPlaceMatch!.status).toBe(BRACKET_MATCH_STATUS.COMPLETED);
+  });
+});
+
+// ── Undo cascade + third place (Option 2) ───────────────────────────────
+
+describe('undoMatch cascade with third place (Option 2)', () => {
+  /** 4-slot bracket with third place; R1-M1 (SF1) and R1-M2 (SF2) completed. */
+  function completedSemisWithTp(e: BracketEngine): void {
+    e.assignPlayer('R1-M1', 'A', 'Juan');
+    e.assignPlayer('R1-M1', 'B', 'Maria');
+    e.setWinner('R1-M1', 'A'); // loser Maria → TP A
+    e.setThirdPlaceLoser('R1-M1', 'B');
+    e.assignPlayer('R1-M2', 'A', 'Ana');
+    e.assignPlayer('R1-M2', 'B', 'Luis');
+    e.setWinner('R1-M2', 'B'); // loser Ana → TP B
+    e.setThirdPlaceLoser('R1-M2', 'A');
+  }
+
+  test('undoing a semifinal clears its own TP slot and keeps the other semi TP slot', () => {
+    const e = new BracketEngine();
+    e.create('T', 4, true);
+    completedSemisWithTp(e);
+    expect(e.bracket!.thirdPlaceMatch!.playerA).toBe('Maria');
+    expect(e.bracket!.thirdPlaceMatch!.playerB).toBe('Ana');
+
+    e.undoMatch('R1-M1');
+    const b = e.bracket!;
+    expect(b.thirdPlaceMatch!.playerA).toBeNull(); // SF1's slot cleared
+    expect(b.thirdPlaceMatch!.playerB).toBe('Ana'); // SF2's slot untouched
+    expect(b.thirdPlaceMatch!.status).toBe(BRACKET_MATCH_STATUS.READY);
+  });
+
+  test('undoing a quarterfinal cascades and clears the TP slot fed by its semi', () => {
+    const e = new BracketEngine();
+    e.create('T', 8, true); // R1 = QF, R2 = semis, R3 = final
+    const qfs = ['R1-M1', 'R1-M2'];
+    qfs.forEach((id, i) => {
+      e.assignPlayer(id, 'A', `QF${i}A`);
+      e.assignPlayer(id, 'B', `QF${i}B`);
+      e.setWinner(id, 'A');
+    });
+    // SF1 (R2-M1) is fed by QF1/QF2; complete it and feed TP.
+    e.assignPlayer('R2-M1', 'A', 'SF1A');
+    e.assignPlayer('R2-M1', 'B', 'SF1B');
+    e.setWinner('R2-M1', 'A');
+    e.setThirdPlaceLoser('R2-M1', 'B');
+    expect(e.bracket!.thirdPlaceMatch!.playerA).toBe('SF1B');
+
+    // Undo QF1 → cascade clears SF1 (and its downstream final slot) → TP A too.
+    e.undoMatch('R1-M1');
+    expect(match(e.bracket!, 'R2-M1').winner).toBeNull();
+    expect(e.bracket!.thirdPlaceMatch!.playerA).toBeNull();
+  });
+
+  test('undoing a semifinal does NOT clear a manually-overridden TP slot', () => {
+    const e = new BracketEngine();
+    e.create('T', 4, true);
+    completedSemisWithTp(e);
+    // Owner manually edits TP slot A AFTER the auto-feed.
+    e.assignPlayer('TP-M1', 'A', 'Manual Sub');
+    expect(e.bracket!.thirdPlaceMatch!.playerA).toBe('Manual Sub');
+
+    e.undoMatch('R1-M1');
+    expect(e.bracket!.thirdPlaceMatch!.playerA).toBe('Manual Sub'); // survives
+    expect(e.bracket!.thirdPlaceMatch!.playerB).toBe('Ana');
+  });
+
+  test('re-feeding after undo restores the TP loser', () => {
+    const e = new BracketEngine();
+    e.create('T', 4, true);
+    completedSemisWithTp(e);
+    e.undoMatch('R1-M1');
+    expect(e.bracket!.thirdPlaceMatch!.playerA).toBeNull();
+
+    // Re-declare the winner and re-feed the loser.
+    e.setWinner('R1-M1', 'A');
+    const b = e.setThirdPlaceLoser('R1-M1', 'B');
+    expect(b.thirdPlaceMatch!.playerA).toBe('Maria');
+    expect(b.thirdPlaceMatch!.status).toBe(BRACKET_MATCH_STATUS.READY);
+  });
+});
+
 // ── reset & restore (R10) ──────────────────────────────────────────────
 
 describe('reset & restore (R10)', () => {

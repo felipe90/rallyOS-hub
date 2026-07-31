@@ -87,16 +87,28 @@ export function BracketMatchCard({
 
   const renderSlot = (slot: BracketSlot, name: string | null) => {
     const empty = name == null
+    const showWin = !completed && !empty
     return (
-      <Button
-        key={slot}
-        variant={empty ? 'outline' : 'ghost'}
-        size="md"
-        fullWidth
-        onClick={() => onAssignSlot(match.id, slot)}
-      >
-        {empty ? placeholder : name}
-      </Button>
+      <div key={slot} className="flex items-center gap-2">
+        <Button
+          variant={empty ? 'outline' : 'ghost'}
+          size="md"
+          className="flex-1 min-w-0"
+          onClick={() => onAssignSlot(match.id, slot)}
+        >
+          <span className="truncate">{empty ? placeholder : name}</span>
+        </Button>
+        {showWin && (
+          <Button
+            variant="primary"
+            size="sm"
+            aria-label={i18nText('bracketWinnerNamed', { name })}
+            onClick={() => setWinnerConfirm(slot)}
+          >
+            {i18nText('bracketWinnerShort')}
+          </Button>
+        )}
+      </div>
     )
   }
 
@@ -113,32 +125,6 @@ export function BracketMatchCard({
         <Caption className="text-center text-text-muted">{i18nText('commonVs')}</Caption>
         {renderSlot(SLOT.B, match.playerB)}
       </div>
-
-      {/* Winner buttons — only when playable */}
-      {!completed && !bothEmpty && (
-        <div className="flex gap-2">
-          <Button
-            variant="primary"
-            fullWidth
-            disabled={match.playerA == null}
-            onClick={() => setWinnerConfirm('A')}
-          >
-            {match.playerA != null
-              ? i18nText('bracketWinnerNamed', { name: match.playerA })
-              : i18nText('bracketWinnerA')}
-          </Button>
-          <Button
-            variant="primary"
-            fullWidth
-            disabled={match.playerB == null}
-            onClick={() => setWinnerConfirm('B')}
-          >
-            {match.playerB != null
-              ? i18nText('bracketWinnerNamed', { name: match.playerB })
-              : i18nText('bracketWinnerB')}
-          </Button>
-        </div>
-      )}
 
       {/* Court + undo row */}
       <div className="flex items-center gap-2">

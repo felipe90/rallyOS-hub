@@ -26,8 +26,8 @@ import { Button, FloatingActionButton } from '@/components/atoms'
 import { Body, Typography } from '@/components/atoms/Typography'
 import { SocketEvents } from '@shared/events'
 import { Routes, buildScoreboardRoute } from '@/routes'
-import { COURT_MODE, type CourtInfoWithPin, type KioskNotificationType, type CourtInfo } from '@shared/types'
-import { ArrowLeft, Table2, Swords, Users, Bell, Flag, Download, AlertTriangle, Plus, Clock, Trophy } from 'lucide-react'
+import { COURT_MODE, type CourtInfoWithPin, type KioskNotificationType, type CourtInfo, type KioskMode } from '@shared/types'
+import { ArrowLeft, Table2, Swords, Users, Bell, Flag, Download, AlertTriangle, Plus, Clock, Trophy, Monitor, ListTree } from 'lucide-react'
 
 
 export interface OwnerDashboardPageProps {
@@ -42,6 +42,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
   const [exportCsvChecked, setExportCsvChecked] = useState(true)
   const [selectedCourt, setSelectedCourt] = useState<CourtInfoWithPin | null>(null)
   const [activeTab, setActiveTab] = useState('courts')
+  const [kioskMode, setKioskModeState] = useState<KioskMode>('club')
   const navigate = useNavigate()
   const { i18nText } = useI18n()
   const { courts, connected, socket, requestCourtsWithPins, appError, allHistories } = useSocketContext()
@@ -179,6 +180,14 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
     }
   }, [activeTab, socket, connected])
 
+  // Listen for server kiosk mode changes
+  useEffect(() => {
+    if (!socket) return
+    const handler = (data: { mode: KioskMode }) => setKioskModeState(data.mode)
+    socket.on(SocketEvents.SERVER.KIOSK_MODE, handler)
+    return () => { socket.off(SocketEvents.SERVER.KIOSK_MODE, handler) }
+  }, [socket])
+
   /** ── Notification Modal ── */
   const handleNotificationSubmit = useCallback(({ type, message, duration }: { type: KioskNotificationType; message: string; duration: number }) => {
     if (!socket || !ownerPin) return
@@ -267,6 +276,36 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
   const dashboardActions = <div className="flex flex-wrap gap-1 items-center">
     {!courtMgmt.isCreating ? (
       <>
+        <div className="flex gap-1 p-0.5 rounded-lg bg-surface-low border border-border">
+          <button
+            onClick={() => socket?.emit(SocketEvents.CLIENT.SET_KIOSK_MODE, { mode: 'club' })}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold tracking-wide transition-all duration-150 ${
+              kioskMode === 'club' ? 'bg-surface text-text shadow-sm' : 'text-text-muted hover:text-text'
+            }`}
+          >
+            <Monitor size={14} />
+            {i18nText('ownerKioskModeClub')}
+          </button>
+          <button
+            onClick={() => socket?.emit(SocketEvents.CLIENT.SET_KIOSK_MODE, { mode: 'tournament' })}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold tracking-wide transition-all duration-150 ${
+              kioskMode === 'tournament' ? 'bg-surface text-text shadow-sm' : 'text-text-muted hover:text-text'
+            }`}
+          >
+            <Trophy size={14} />
+            {i18nText('ownerKioskModeTournament')}
+          </button>
+          <button
+            onClick={() => socket?.emit(SocketEvents.CLIENT.SET_KIOSK_MODE, { mode: 'bracket' })}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold tracking-wide transition-all duration-150 ${
+              kioskMode === 'bracket' ? 'bg-surface text-text shadow-sm' : 'text-text-muted hover:text-text'
+            }`}
+            aria-label={i18nText('ownerKioskModeBracket')}
+          >
+            <ListTree size={14} />
+            {i18nText('ownerKioskModeBracket')}
+          </button>
+        </div>
         <Button
           variant="secondary"
           size="xs"

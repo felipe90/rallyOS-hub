@@ -62,7 +62,7 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
   const { tableId } = useParams<{ tableId: string }>()
   const navigate = useNavigate()
   const { i18nText } = useI18n()
-  const { currentMatch, emit, connected, socket } = useSocketContext()
+  const { currentMatch, emit, connected, socket, bracket } = useSocketContext()
   const { isReferee, isOwner, courtPin } = useAuthContext()
   const { scoreboard: perms } = usePermissions()
   const { canEdit, canConfigure, canViewHistory } = perms
@@ -173,6 +173,7 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
         isOpen={canConfigure && currentMatch.status === 'WAITING'}
         courtId={tableId}
         courtName={currentMatch.courtName || ''}
+        bracket={bracket}
         initialBestOf={(currentMatch.config?.bestOf as 1 | 3 | 5) || 3}
         initialHandicapA={((currentMatch.config) as any)?.handicapA || 0}
         initialHandicapB={((currentMatch.config) as any)?.handicapB || 0}

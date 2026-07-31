@@ -652,6 +652,20 @@ describe('SocketHandler — BracketHandler wiring', () => {
     } as any;
   }
 
+  function makeKioskSocket() {
+    const on = jest.fn();
+    return {
+      id: 'kiosk-' + Math.random().toString(36).slice(2),
+      handshake: { address: '127.0.0.1', auth: {} },
+      data: {},
+      on,
+      emit: jest.fn(),
+      join: jest.fn(),
+      leave: jest.fn(),
+      rooms: new Set(),
+    } as any;
+  }
+
   it('pushes BRACKET_STATE to a connected owner socket (bracket handler registered)', () => {
     const { connectionCall } = buildWithStateStore(null);
     const socket = makeOwnerSocket();
@@ -662,6 +676,19 @@ describe('SocketHandler — BracketHandler wiring', () => {
     );
     expect(stateEmit).toBeDefined();
     // no persisted bracket → state is null (restore push still fires)
+    expect(stateEmit![1]).toBeNull();
+  });
+
+  it('pushes BRACKET_STATE to a non-owner (kiosk) socket on connect so kiosks learn the current bracket', () => {
+    const { connectionCall } = buildWithStateStore(null);
+    const socket = makeKioskSocket();
+    (connectionCall![1] as (s: any) => void)(socket);
+
+    const stateEmit = (socket.emit as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.SERVER.BRACKET_STATE,
+    );
+    expect(stateEmit).toBeDefined();
+    // No persisted bracket → the kiosk receives null (waiting state on the client).
     expect(stateEmit![1]).toBeNull();
   });
 
@@ -677,5 +704,75 @@ describe('SocketHandler — BracketHandler wiring', () => {
     expect(stateEmit).toBeDefined();
     expect(stateEmit![1]).not.toBeNull();
     expect((stateEmit![1] as { name: string }).name).toBe('Torneo R10');
+  });
+
+  it('SET_KIOSK_MODE accepts bracket and broadcasts KIOSK_MODE to all clients', () => {
+    const { io, connectionCall } = buildWithStateStore(null);
+    const socket = makeOwnerSocket();
+    (connectionCall![1] as (s: any) => void)(socket);
+
+    // Find the SET_KIOSK_MODE listener registered on the socket.
+    const onMock = socket.on as jest.Mock;
+    const setModeCall = onMock.mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.SET_KIOSK_MODE,
+    );
+    expect(setModeCall).toBeDefined();
+    (setModeCall![1] as (d: { mode: string }) => void)({ mode: 'bracket' });
+
+    expect(io.emit).toHaveBeenCalledWith(SocketEvents.SERVER.KIOSK_MODE, { mode: 'bracket' });
+  });
+
+  it('SET_KIOSK_MODE rejects an unknown mode value and does not broadcast', () => {
+    const { io, connectionCall } = buildWithStateStore(null);
+    const socket = makeOwnerSocket();
+    (connectionCall![1] as (s: any) => void)(socket);
+    const broadcastsBefore = (io.emit as jest.Mock).mock.calls.filter(
+      ([event]: [string]) => event === SocketEvents.SERVER.KIOSK_MODE,
+    ).length;
+
+    const onMock = socket.on as jest.Mock;
+    const setModeCall = onMock.mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.SET_KIOSK_MODE,
+    );
+    (setModeCall![1] as (d: { mode: string }) => void)({ mode: 'no-such-mode' });
+
+    const broadcastsAfter = (io.emit as jest.Mock).mock.calls.filter(
+      ([event]: [string]) => event === SocketEvents.SERVER.KIOSK_MODE,
+    ).length;
+    expect(broadcastsAfter).toBe(broadcastsBefore);
+  });
+
+  it('Option 2 — a tournament MATCH_WON on an UNBOUND court leaves the bracket untouched and keeps the match-event chain intact', () => {
+    const { io, connectionCall, courtManager } = buildWithStateStore(null);
+    const socket = makeOwnerSocket();
+    (connectionCall![1] as (s: any) => void)(socket);
+
+    // A LIVE tournament court with a running match (no bracket binding).
+    const court = courtManager.createCourt('Tournament Court');
+    const matchState = courtManager.startMatch(court.id, {
+      playerNameA: 'Alice',
+      playerNameB: 'Bob',
+      bestOf: 1,
+    });
+    expect(matchState).not.toBeNull();
+
+    // Play 11 points so the TennisTable match finishes and MATCH_WON fires
+    // through the SocketHandler's wired onMatchEvent → bracket branch.
+    for (let i = 0; i < 11; i++) {
+      courtManager.recordPoint(court.id, 'A');
+    }
+
+    // Kiosk notification still fires (the match-event chain is unbroken).
+    expect(io.emit).toHaveBeenCalledWith(
+      SocketEvents.SERVER.KIOSK_NOTIFICATION,
+      expect.objectContaining({ type: 'important' }),
+    );
+
+    // No BRACKET_STATE broadcast — the unbound court is a strict no-op for
+    // the bracket and must not emit state changes.
+    const bracketBroadcasts = (io.emit as jest.Mock).mock.calls.filter(
+      ([event]: [string]) => event === SocketEvents.SERVER.BRACKET_STATE,
+    );
+    expect(bracketBroadcasts).toHaveLength(0);
   });
 });

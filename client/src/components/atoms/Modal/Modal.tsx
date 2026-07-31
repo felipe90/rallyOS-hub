@@ -43,7 +43,7 @@ export function Modal({
   }, [isOpen, onClose])
 
   const widthClass = fullscreen
-    ? 'w-full h-full max-h-dvh m-0 rounded-none p-4 md:w-auto md:max-w-md md:max-h-[90vh] md:rounded-lg md:p-6'
+    ? 'w-full h-full max-h-dvh m-0 rounded-none p-4 md:h-auto md:w-auto md:max-w-md md:max-h-[90vh] md:rounded-lg md:p-6'
     : 'w-full max-w-md'
 
   return (
@@ -61,7 +61,7 @@ export function Modal({
           <motion.div
             role="dialog"
             aria-modal="true"
-            className={`card-light relative rounded-lg shadow-xl ${widthClass}`}
+            className={`card-light relative rounded-lg shadow-xl ${widthClass} p-4`}
             initial={shouldReduceMotion ? false : { scale: 0.97, opacity: 0 }}
             animate={shouldReduceMotion ? undefined : { scale: 1, opacity: 1 }}
             exit={shouldReduceMotion ? undefined : { scale: 0.97, opacity: 0 }}

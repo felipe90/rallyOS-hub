@@ -1,14 +1,35 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { MatchConfigModal } from './MatchConfigModal'
+import { MatchConfigModal, findBracketMatchForCourt } from './MatchConfigModal'
 import { SPORT } from '@shared/types'
+import type { TournamentBracket } from '@shared/types'
 
 const defaultProps = {
   isOpen: true,
-  tableId: 'table-1',
+  courtId: 'table-1',
   courtName: 'Mesa 1',
   onSubmit: vi.fn(),
   onClose: vi.fn(),
+}
+
+function makeBracket(overrides: Partial<TournamentBracket> = {}): TournamentBracket {
+  return {
+    id: 'b1',
+    name: 'T',
+    numSlots: 4,
+    status: 'IN_PROGRESS',
+    rounds: 2,
+    currentRound: 0,
+    includeThirdPlace: false,
+    createdAt: new Date().toISOString(),
+    matches: [
+      { id: 'R1-M1', round: 0, position: 0, playerA: 'Juan', playerB: 'Maria', winner: null, status: 'READY', courtId: 'table-1' },
+      { id: 'R1-M2', round: 0, position: 1, playerA: 'Ana', playerB: 'Luis', winner: null, status: 'READY', courtId: null },
+      { id: 'R2-M1', round: 1, position: 0, playerA: null, playerB: null, winner: null, status: 'PENDING', courtId: null },
+    ],
+    thirdPlaceMatch: null,
+    ...overrides,
+  }
 }
 
 describe('MatchConfigModal', () => {
@@ -183,5 +204,79 @@ describe('MatchConfigModal', () => {
         goldenPoint: false,
       })
     )
+  })
+
+  describe('Option 2 — bracket prefill', () => {
+    it('prefills player names from the bound bracket match on open', () => {
+      render(<MatchConfigModal {...defaultProps} bracket={makeBracket()} />)
+      const inputs = screen.getAllByRole('textbox')
+      expect(inputs[0]).toHaveValue('Juan')
+      expect(inputs[1]).toHaveValue('Maria')
+    })
+
+    it('submits the prefilled names unchanged', () => {
+      const onSubmit = vi.fn()
+      render(<MatchConfigModal {...defaultProps} bracket={makeBracket()} onSubmit={onSubmit} />)
+      fireEvent.click(screen.getByText('Iniciar Partido'))
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({ playerNameA: 'Juan', playerNameB: 'Maria' })
+      )
+    })
+
+    it('does not prefill when bracket is null', () => {
+      render(<MatchConfigModal {...defaultProps} bracket={null} />)
+      const inputs = screen.getAllByRole('textbox')
+      expect(inputs[0]).toHaveValue('')
+      expect(inputs[1]).toHaveValue('')
+    })
+
+    it('does not prefill when the court is not bound to any bracket match', () => {
+      render(<MatchConfigModal {...defaultProps} bracket={makeBracket()} courtId="other-court" />)
+      const inputs = screen.getAllByRole('textbox')
+      expect(inputs[0]).toHaveValue('')
+      expect(inputs[1]).toHaveValue('')
+    })
+
+    it('referee edits survive a live bracket change while the modal is open', () => {
+      const { rerender } = render(<MatchConfigModal {...defaultProps} bracket={makeBracket()} />)
+      const inputs = screen.getAllByRole('textbox')
+      fireEvent.change(inputs[0], { target: { value: 'Edited' } })
+
+      // Live BRACKET_STATE update arrives while the modal stays open.
+      rerender(<MatchConfigModal {...defaultProps} bracket={makeBracket()} />)
+
+      expect(screen.getAllByRole('textbox')[0]).toHaveValue('Edited')
+    })
+
+    it('re-prefills when reopened after a close', () => {
+      const { rerender } = render(<MatchConfigModal {...defaultProps} isOpen={false} />)
+      rerender(<MatchConfigModal {...defaultProps} isOpen={true} bracket={makeBracket()} />)
+      const inputs = screen.getAllByRole('textbox')
+      expect(inputs[0]).toHaveValue('Juan')
+      expect(inputs[1]).toHaveValue('Maria')
+    })
+  })
+
+  describe('findBracketMatchForCourt', () => {
+    it('returns the main match bound to the court', () => {
+      expect(findBracketMatchForCourt(makeBracket(), 'table-1')?.id).toBe('R1-M1')
+    })
+
+    it('returns the third-place match when it is the one bound', () => {
+      const b = makeBracket({
+        thirdPlaceMatch: { id: 'TP-M1', round: 0, position: 0, playerA: null, playerB: null, winner: null, status: 'PENDING', courtId: 'tp-court' },
+      })
+      expect(findBracketMatchForCourt(b, 'tp-court')?.id).toBe('TP-M1')
+    })
+
+    it('returns null for unbound courts', () => {
+      expect(findBracketMatchForCourt(makeBracket(), 'unknown-court')).toBeNull()
+    })
+
+    it('returns null for a null/undefined bracket or courtId', () => {
+      expect(findBracketMatchForCourt(null, 'table-1')).toBeNull()
+      expect(findBracketMatchForCourt(undefined, 'table-1')).toBeNull()
+      expect(findBracketMatchForCourt(makeBracket(), undefined)).toBeNull()
+    })
   })
 })

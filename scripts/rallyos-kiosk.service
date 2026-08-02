@@ -1,8 +1,8 @@
 [Unit]
 Description=RallyOS Hub — Chromium Kiosk Display
 Documentation=https://github.com/rallyOS-hub
-After=docker.service network.target
-Wants=docker.service
+After=docker.service rallyos-hub.service network.target
+Wants=docker.service rallyos-hub.service
 
 [Service]
 Type=simple

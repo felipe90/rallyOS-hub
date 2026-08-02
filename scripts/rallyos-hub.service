@@ -1,0 +1,20 @@
+[Unit]
+Description=RallyOS Hub — Docker Hub container (ensure running at boot)
+Documentation=https://github.com/rallyOS-hub
+After=docker.service network.target
+Wants=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=root
+ExecStart=/bin/bash __REPO_PATH__/scripts/start-hub.sh
+StandardOutput=journal
+StandardError=journal
+
+# Retry if the daemon or compose is briefly unavailable at boot
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

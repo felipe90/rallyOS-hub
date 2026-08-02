@@ -371,6 +371,13 @@ systemctl daemon-reload || true
 systemctl enable rallyos-diagnose 2>/dev/null || true
 echo "  ✅ rallyos-diagnose will run on every boot"
 
+echo "  Installing hub bootstrap service (ensures hub container is Up at boot)..."
+sed "s|__REPO_PATH__|${REPO_PATH}|g" "${REPO_PATH}/scripts/rallyos-hub.service" \
+    > /etc/systemd/system/rallyos-hub.service || true
+systemctl daemon-reload || true
+systemctl enable rallyos-hub 2>/dev/null || true
+echo "  ✅ rallyos-hub will ensure docker compose up on every boot"
+
 _step_ok
 
 # ==== Step 8: Final Check ========================================
@@ -390,6 +397,7 @@ echo ""
 systemctl is-active docker --quiet 2>/dev/null       && echo "  ✓ docker          RUNNING" || echo "  ✗ docker          FAILED"
 systemctl is-active hostapd --quiet 2>/dev/null      && echo "  ✓ hostapd         RUNNING" || echo "  ✗ hostapd         NOT ACTIVE"
 systemctl is-active dnsmasq --quiet 2>/dev/null      && echo "  ✓ dnsmasq         RUNNING" || echo "  ✗ dnsmasq         NOT ACTIVE"
+systemctl is-active rallyos-hub --quiet 2>/dev/null  && echo "  ✓ rallyos-hub     RUNNING" || echo "  ✗ rallyos-hub     FAILED  → journalctl -u rallyos-hub"
 systemctl is-active rallyos-kiosk --quiet 2>/dev/null && echo "  ✓ rallyos-kiosk   RUNNING" || echo "  ✗ rallyos-kiosk   FAILED  → journalctl -u rallyos-kiosk"
 
 echo ""

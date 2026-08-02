@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>RallyOS</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: radial-gradient(1200px 600px at 50% -10%, #0b1a2e 0%, #060b14 60%, #04070d 100%);
+    color: #f8fafc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    user-select: none;
+  }
+  .wrap {
+    text-align: center;
+    max-width: 680px;
+    padding: 2rem;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+  .logo-dot {
+    width: 18px; height: 18px; border-radius: 9999px;
+    background: linear-gradient(135deg, #34d399, #10b981);
+    box-shadow: 0 0 24px rgba(52, 211, 153, 0.55);
+  }
+  .brand h1 {
+    font-size: 2rem; font-weight: 700; letter-spacing: 0.04em;
+    color: #fff;
+  }
+  .glass {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 1.25rem;
+    padding: 2.5rem 2rem;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  }
+  .spinner {
+    width: 44px; height: 44px; margin: 0 auto 1.25rem;
+    border: 4px solid rgba(52, 211, 153, 0.2);
+    border-top-color: #34d399;
+    border-radius: 9999px;
+    animation: spin 0.9s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .state-msg {
+    font-size: 1.4rem; font-weight: 600; margin-bottom: 0.5rem;
+  }
+  .state-sub {
+    font-size: 1rem; color: rgba(248, 250, 252, 0.6);
+    line-height: 1.5;
+  }
+  .error-icon {
+    width: 44px; height: 44px; margin: 0 auto 1.25rem;
+    border-radius: 9999px;
+    background: rgba(251, 191, 36, 0.12);
+    border: 2px solid rgba(251, 191, 36, 0.6);
+    color: #fbbf24;
+    font-size: 1.6rem; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .steps {
+    margin-top: 1.25rem; text-align: left;
+    display: inline-block;
+    font-size: 0.95rem; color: rgba(248, 250, 252, 0.75);
+  }
+  .steps li { margin: 0.35rem 0; }
+  .retry {
+    margin-top: 1.5rem;
+    font-size: 0.9rem; color: rgba(52, 211, 153, 0.8);
+  }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand">
+      <span class="logo-dot"></span>
+      <h1>RallyOS</h1>
+    </div>
+
+    <div class="glass">
+      <!-- Starting state -->
+      <div id="state-starting">
+        <div class="spinner"></div>
+        <div class="state-msg" data-lang="starting">Iniciando sistema…</div>
+        <div class="state-sub" data-lang="startingSub">Conectando con el servidor.</div>
+      </div>
+
+      <!-- Error state -->
+      <div id="state-error" class="hidden">
+        <div class="error-icon">!</div>
+        <div class="state-msg" data-lang="error">El sistema no está disponible</div>
+        <div class="state-sub" data-lang="errorSub">No se pudo conectar con el servidor de RallyOS.</div>
+        <ul class="steps">
+          <li data-lang="step1">Verificar que el equipo esté encendido y conectado a la corriente.</li>
+          <li data-lang="step2">Confirmar que el cable HDMI esté bien conectado a la pantalla.</li>
+          <li data-lang="step3">Si nada funciona, apagar y encender el equipo.</li>
+        </ul>
+        <div class="retry" data-lang="retry">Reintentando automáticamente…</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function () {
+  // Read target from query param (?target=https://localhost:3000/kiosk)
+  var params = new URLSearchParams(window.location.search);
+  var TARGET = params.get('target') || 'https://localhost:3000/kiosk';
+  var HEALTH = params.get('health') || 'https://localhost:3000/health';
+
+  // Language: browser default (es → Spanish, anything else → English)
+  var lang = (navigator.language || 'es').toLowerCase().indexOf('es') === 0 ? 'es' : 'en';
+  var TEXTS = {
+    es: {
+      starting: 'Iniciando sistema…',
+      startingSub: 'Conectando con el servidor.',
+      error: 'El sistema no está disponible',
+      errorSub: 'No se pudo conectar con el servidor de RallyOS.',
+      step1: 'Verificar que el equipo esté encendido y conectado a la corriente.',
+      step2: 'Confirmar que el cable HDMI esté bien conectado a la pantalla.',
+      step3: 'Si nada funciona, apagar y encender el equipo.',
+      retry: 'Reintentando automáticamente…',
+    },
+    en: {
+      starting: 'Starting system…',
+      startingSub: 'Connecting to the server.',
+      error: 'The system is not available',
+      errorSub: 'Could not connect to the RallyOS server.',
+      step1: 'Make sure the device is powered on and plugged in.',
+      step2: 'Check that the HDMI cable is firmly connected to the screen.',
+      step3: 'If nothing works, power the device off and on again.',
+      retry: 'Retrying automatically…',
+    },
+  };
+  var t = TEXTS[lang] || TEXTS.en;
+  document.querySelectorAll('[data-lang]').forEach(function (el) {
+    var key = el.getAttribute('data-lang');
+    if (t[key]) el.textContent = t[key];
+  });
+  document.documentElement.lang = lang;
+
+  var startingEl = document.getElementById('state-starting');
+  var errorEl = document.getElementById('state-error');
+
+  var START_GRACE_MS = 90 * 1000; // show error only after ~90s of failure
+  var startedAt = Date.now();
+  var shownError = false;
+
+  function probe() {
+    // no-cors: resolves (opaque) if the server responds at all, rejects on network failure.
+    return fetch(HEALTH, { mode: 'no-cors', cache: 'no-store' })
+      .then(function () { return true; })
+      .catch(function () { return false; });
+  }
+
+  function showError() {
+    startingEl.classList.add('hidden');
+    errorEl.classList.remove('hidden');
+    shownError = true;
+  }
+
+  function showStarting() {
+    errorEl.classList.add('hidden');
+    startingEl.classList.remove('hidden');
+    shownError = false;
+  }
+
+  function tick() {
+    probe().then(function (up) {
+      if (up) {
+        // Server is alive → go to the app
+        window.location.replace(TARGET);
+        return;
+      }
+      if (!shownError && Date.now() - startedAt > START_GRACE_MS) {
+        showError();
+      }
+      setTimeout(tick, 3000);
+    }).catch(function () {
+      if (!shownError && Date.now() - startedAt > START_GRACE_MS) {
+        showError();
+      }
+      setTimeout(tick, 3000);
+    });
+  }
+
+  tick();
+})();
+</script>
+</body>
+</html>

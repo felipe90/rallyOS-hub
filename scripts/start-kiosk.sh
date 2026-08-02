@@ -8,6 +8,20 @@ set -e
 KIOSK_URL="${1:-https://localhost:3000/kiosk}"
 DISPLAY="${DISPLAY:-:0}"
 
+# Auto-detect Chromium binary (chromium on Armbian ARM64, chromium-browser on Debian x86)
+CHROMIUM_BIN=""
+for bin in chromium chromium-browser; do
+    if command -v "$bin" >/dev/null 2>&1; then
+        CHROMIUM_BIN="$bin"
+        break
+    fi
+done
+
+if [ -z "$CHROMIUM_BIN" ]; then
+    echo "[kiosk] FATAL: Chromium not found. Install with: sudo apt install chromium"
+    exit 1
+fi
+
 # Wait for Docker containers to be healthy
 MAX_RETRIES=30
 RETRY=0
@@ -22,7 +36,29 @@ while [ $RETRY -lt $MAX_RETRIES ]; do
 done
 
 if [ $RETRY -ge $MAX_RETRIES ]; then
-    echo "[kiosk] WARNING: Hub health check timed out. Launching anyway..."
+    echo "[kiosk] WARNING: Hub health check timed out. Launching status page instead..."
+    # Launch the local status page: it shows a friendly "starting" message, keeps
+    # polling /health, auto-redirects to the app when the hub recovers, and shows
+    # an actionable error on the TV if the hub stays down.
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    STATUS_URL="file://${SCRIPT_DIR}/kiosk-status.html?target=${KIOSK_URL}"
+    echo "[kiosk] Status page: ${STATUS_URL}"
+    exec "${CHROMIUM_BIN}" \
+        --kiosk \
+        --autoplay-policy=no-user-gesture-required \
+        --start-fullscreen \
+        --no-sandbox \
+        --ignore-certificate-errors \
+        --no-first-run \
+        --noerrdialogs \
+        --disable-session-crashed-bubble \
+        --disable-restore-session-state \
+        --disable-translate \
+        --disable-infobars \
+        --disable-features=TranslateUI \
+        --disk-cache-dir=/tmp/chromium-cache \
+        --user-data-dir=/tmp/chromium-kiosk \
+        "${STATUS_URL}" 2>&1
 fi
 
 # Suppress default xinitrc (no desktop, no window manager, no error popup)
@@ -42,20 +78,6 @@ fi
 xset -dpms 2>/dev/null || true
 xset s off 2>/dev/null || true
 xset s noblank 2>/dev/null || true
-
-# Auto-detect Chromium binary (chromium on Armbian ARM64, chromium-browser on Debian x86)
-CHROMIUM_BIN=""
-for bin in chromium chromium-browser; do
-    if command -v "$bin" >/dev/null 2>&1; then
-        CHROMIUM_BIN="$bin"
-        break
-    fi
-done
-
-if [ -z "$CHROMIUM_BIN" ]; then
-    echo "[kiosk] FATAL: Chromium not found. Install with: sudo apt install chromium"
-    exit 1
-fi
 
 # Auto-detect display resolution from DRM (EDID preferred mode)
 RESOLUTION=$(cat /sys/class/drm/card*-*/modes 2>/dev/null | head -1 || echo "1920x1080")

@@ -276,4 +276,63 @@ describe('CsvExporter', () => {
       expect(columns[7]).toBe('Solo Player'); // winner
     });
   });
+
+  // ── CSV / formula injection escaping (S1) ─────────────────────────────
+
+  describe('CSV injection escaping', () => {
+    it('neutralizes a formula-prefix player name starting with =', () => {
+      const table = makeFinishedTable({
+        playerNames: { a: '=1+1', b: 'Bob' },
+      });
+
+      const lines = exporter.export([table]).trim().split('\n');
+      const columns = lines[1].split(',');
+      // Leading `=` is prefixed with `'` inside wrapping quotes.
+      expect(columns[2]).toBe('"\'=1+1"');
+      // The winner column is derived from player_a and must also be escaped.
+      expect(columns[7]).toBe('"\'=1+1"');
+    });
+
+    it('neutralizes all four formula-trigger prefixes (=, +, -, @)', () => {
+      const table = makeFinishedTable({
+        playerNames: { a: '+1', b: '@SUM' },
+        matchState: {
+          ...makeFinishedTable().matchState,
+          setHistory: [
+            { a: 11, b: 0 },
+            { a: 11, b: 0 },
+            { a: 11, b: 0 },
+          ],
+          score: { sets: { a: 3, b: 0 }, currentSet: { a: 11, b: 0 }, serving: 'A' },
+        },
+      });
+
+      const lines = exporter.export([table]).trim().split('\n');
+      const columns = lines[1].split(',');
+      expect(columns[2]).toBe('"\'+1"');
+      expect(columns[3]).toBe('"\'@SUM"');
+    });
+
+    it('quotes a cell with an embedded double quote and doubles the quote', () => {
+      const table = makeFinishedTable({
+        playerNames: { a: 'Jo"hn', b: 'Bob' },
+      });
+
+      const lines = exporter.export([table]).trim().split('\n');
+      const columns = lines[1].split(',');
+      expect(columns[2]).toBe('"Jo""hn"');
+    });
+
+    it('escapes a dangerous-leading table name and a name with a minus-prefix', () => {
+      const table = makeFinishedTable({
+        name: '=HYPERLINK("x")',
+        playerNames: { a: '-1+1', b: 'Bob' },
+      });
+
+      const lines = exporter.export([table]).trim().split('\n');
+      const columns = lines[1].split(',');
+      expect(columns[1]).toBe('"\'=HYPERLINK(""x"")"');
+      expect(columns[2]).toBe('"\'-1+1"');
+    });
+  });
 });

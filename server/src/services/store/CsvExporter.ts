@@ -1,5 +1,38 @@
 import { MatchExporter, PersistedCourt } from './types';
 
+// Characters that, when leading a spreadsheet cell, trigger formula
+// evaluation in Excel/LibreOffice/Sheets. Prefixing with a single quote
+// forces text rendering. Mirrors the escaping contract documented in
+// routes/clubSessionsExport.ts.
+const DANGEROUS_LEADING_CHARS = new Set(['=', '+', '-', '@']);
+
+/**
+ * CSV-escape a single cell value (CSV injection / formula injection guard).
+ *
+ * - A leading `=`, `+`, `-`, or `@` is prefixed with a single quote `'`
+ *   (inside the wrapping quotes) so spreadsheet software renders the cell
+ *   as text instead of evaluating it as a formula.
+ * - Cells containing a double quote, CR, or LF are wrapped in double quotes
+ *   (embedded quotes doubled per RFC-4180) so the value stays one cell.
+ * - Safe plain values are returned as-is (no unnecessary quoting), keeping
+ *   the export readable.
+ *
+ * Pure — no I/O.
+ */
+function csvEscape(value: string | number): string {
+  const str = typeof value === 'number' ? String(value) : (value ?? '');
+
+  if (str.length > 0 && DANGEROUS_LEADING_CHARS.has(str[0])) {
+    return `"'${str.replace(/"/g, '""')}"`;
+  }
+
+  if (/["\r\n]/.test(str)) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+
+  return str;
+}
+
 /**
  * CSV exporter for finished tournament matches.
  *
@@ -56,14 +89,14 @@ export class CsvExporter implements MatchExporter {
         : '';
 
     const columns = [
-      String(table.number),
-      table.name,
-      table.playerNames.a,
-      table.playerNames.b,
-      String(setsWonA),
-      String(setsWonB),
-      setScores,
-      winner,
+      csvEscape(table.number),
+      csvEscape(table.name),
+      csvEscape(table.playerNames.a),
+      csvEscape(table.playerNames.b),
+      csvEscape(setsWonA),
+      csvEscape(setsWonB),
+      csvEscape(setScores),
+      csvEscape(winner),
     ];
 
     return columns.join(',');

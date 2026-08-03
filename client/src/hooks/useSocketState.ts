@@ -18,6 +18,12 @@ export interface HubConfigData {
   domain: string
 }
 
+// Lightweight structural signature used to detect no-op `COURT_UPDATE` events.
+// The courts DTO is small and fully serializable, so JSON is a cheap,
+// future-proof comparison key (falls back to updating whenever an unknown field
+// appears in the payload, since a new key yields a different signature).
+const courtSignature = (court: CourtInfo): string => JSON.stringify(court)
+
 export function useSocketState(socket: Socket | null) {
   const [courts, setCourts] = useState<CourtInfo[]>([])
   const [currentMatch, setCurrentMatch] = useState<MatchStateExtended | null>(null)
@@ -39,12 +45,29 @@ export function useSocketState(socket: Socket | null) {
     const handleCourtUpdate = (court: CourtInfo) => {
       // Reject club courts — OwnerDashboard only shows tournament courts.
       if (court.mode === COURT_MODE.CLUB) return
-      setCourts(prev =>
-        prev.find(t => t.id === court.id)
-          ? prev.map(t => (t.id === court.id ? { ...t, ...court } : t))
-          : [...prev, court],
-      )
-      setCurrentCourt(court)
+      // Only update the courts array when the affected court actually changed;
+      // returning the previous reference lets React bail out of the re-render
+      // for irrelevant / no-op `COURT_UPDATE` broadcasts (e.g. a point scored
+      // on a court whose snapshot this client already holds).
+      setCourts(prev => {
+        const idx = prev.findIndex(t => t.id === court.id)
+        if (idx === -1) return [...prev, court]
+        const merged = { ...prev[idx], ...court }
+        if (courtSignature(prev[idx]) === courtSignature(merged)) return prev
+        const next = [...prev]
+        next[idx] = merged
+        return next
+      })
+      // Only promote the update to the currently-selected court (or the first
+      // court to update after mount), and bail out when the merged data is
+      // identical — so a point on a different court never re-renders the
+      // current-court view.
+      setCurrentCourt(prev => {
+        if (prev && prev.id !== court.id) return prev
+        const merged = prev ? { ...prev, ...court } : court
+        if (prev && courtSignature(prev) === courtSignature(merged)) return prev
+        return merged
+      })
     }
 
     const handleCourtList = (list: CourtInfo[]) => setCourts(list)

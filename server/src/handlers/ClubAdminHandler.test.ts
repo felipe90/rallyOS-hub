@@ -603,4 +603,84 @@ describe('ClubAdminHandler — CLUB_ADMIN_VERIFIED JWT (REQ-10)', () => {
       expect(Buffer.from(savedConfigs[0].encryptionKey, 'base64').length).toBe(32);
     });
   });
+
+  describe('ClubAdminHandler — CLUB_SETUP first-run + re-setup protection (S4)', () => {
+    it('accepts CLUB_SETUP on an unconfigured club (first-run bootstrap)', () => {
+      const savedConfigs: any[] = [];
+      const trackedStore: IClubConfigRepository = {
+        load: jest.fn().mockReturnValue(null), // not configured yet
+        save: jest.fn((cfg) => { savedConfigs.push(cfg); }),
+        checkExists: jest.fn().mockReturnValue(false),
+        clear: jest.fn(),
+      } as unknown as IClubConfigRepository;
+
+      const handler = new ClubAdminHandler(
+        mockIo,
+        createTestCourtManager() as any,
+        '12345678',
+        trackedStore,
+        adminPinService as any,
+        sessionTokenService,
+      );
+      const socket = makeMockSocket();
+      handler.registerHandlers(socket as unknown as Socket);
+
+      socket._trigger(SocketEvents.CLIENT.CLUB_SETUP, {
+        clubName: 'New Club',
+        sport: 'tableTennis',
+        pin: '424242',
+        courtCount: 0,
+      });
+
+      expect(savedConfigs).toHaveLength(1);
+      const setupComplete = (socket._emitted as any[]).find(
+        (e) => e.event === SocketEvents.SERVER.CLUB_SETUP_COMPLETE,
+      );
+      expect(setupComplete).toBeDefined();
+    });
+
+    it('rejects re-setup of an already-configured club with ALREADY_CONFIGURED, even unauthenticated (S4)', () => {
+      const savedConfigs: any[] = [];
+      const trackedStore: IClubConfigRepository = {
+        // Club already claimed by a prior setup.
+        load: jest.fn().mockReturnValue({
+          configured: true,
+          clubName: 'Existing Club',
+          sport: 'padel',
+          adminPinHash: 'existing-hash',
+          createdAt: Date.now(),
+          encryptionKey: 'existing-key',
+        }),
+        save: jest.fn((cfg) => { savedConfigs.push(cfg); }),
+        checkExists: jest.fn().mockReturnValue(true),
+        clear: jest.fn(),
+      } as unknown as IClubConfigRepository;
+
+      const handler = new ClubAdminHandler(
+        mockIo,
+        createTestCourtManager() as any,
+        '12345678',
+        trackedStore,
+        adminPinService as any,
+        sessionTokenService,
+      );
+      // An unauthenticated socket — no owner/admin flags — attempts to
+      // overwrite the existing club credentials.
+      const socket = makeMockSocket();
+      handler.registerHandlers(socket as unknown as Socket);
+
+      socket._trigger(SocketEvents.CLIENT.CLUB_SETUP, {
+        clubName: 'Attacker Club',
+        sport: 'tableTennis',
+        pin: '111111',
+        courtCount: 0,
+      });
+
+      const error = (socket._emitted as any[]).find((e) => e.event === 'ERROR');
+      expect(error).toBeDefined();
+      expect(error.data.code).toBe('ALREADY_CONFIGURED');
+      // Credentials must NOT be replaced.
+      expect(savedConfigs).toHaveLength(0);
+    });
+  });
 });

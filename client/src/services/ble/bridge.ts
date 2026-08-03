@@ -21,6 +21,49 @@ const MAX_RECONNECT_ATTEMPTS = 5
 const RECONNECT_INTERVAL_MS = 2000
 const SCAN_TIMEOUT_MS = 30000
 
+// ── User-facing error messages ─────────────────────────────────
+//
+// RallyTap only works over Web Bluetooth, which is restricted to
+// Chromium browsers (Chrome/Edge/Opera/Samsung Internet). Brave
+// ships the API but blocks it by default, and Firefox/Safari/iOS
+// do not implement it at all. These messages are shown verbatim
+// under the connect button, so they must tell the referee what to
+// do instead of just stating that something failed.
+
+export const BLE_ERROR_MESSAGES = {
+  UNSUPPORTED_BROWSER:
+    'Este navegador no soporta Bluetooth. Abrí la cancha en Chrome para conectar el RallyTap.',
+  BRAVE_BLOCKED:
+    'Brave bloquea Bluetooth. Abrí la cancha en Chrome para conectar el RallyTap.',
+  SCAN_TIMEOUT:
+    'No se encontró el RallyTap. Verificá que esté encendido y cerca.',
+  USER_CANCELLED: 'Conexión cancelada.',
+  SCAN_PERMISSION:
+    'No se pudo iniciar la búsqueda. Verificá el permiso de Bluetooth del navegador.',
+  CONNECTION_FAILED:
+    'No se pudo conectar con el RallyTap. Reintentá.',
+  CONNECTION_LOST:
+    'Se perdió la conexión con el RallyTap. Reintentá.',
+} as const
+
+/**
+ * Detect Brave without async probing: Brave is the only browser that
+ * exposes `navigator.brave.isBrave`. Presence of the method is enough
+ * to identify it synchronously before any BLE call.
+ */
+function isBraveBrowser(): boolean {
+  const nav = navigator as unknown as { brave?: { isBrave?: unknown } }
+  return typeof nav.brave?.isBrave === 'function'
+}
+
+/** Extract a DOMException-style `name` from any rejected value. */
+function errorName(err: unknown): string {
+  if (err && typeof err === 'object' && 'name' in err) {
+    return String((err as { name?: unknown }).name ?? '')
+  }
+  return ''
+}
+
 // ── Public Types ───────────────────────────────────────────────
 
 /** Possible BLE connection states exposed to the UI layer. */
@@ -117,7 +160,16 @@ export class BLEBridge {
    */
   async connect(): Promise<void> {
     if (!navigator.bluetooth) {
-      this.emitError('Browser not supported')
+      this.emitError(BLE_ERROR_MESSAGES.UNSUPPORTED_BROWSER)
+      return
+    }
+
+    // Brave ships the Web Bluetooth API but blocks it at the renderer
+    // level — `requestDevice` rejects without ever showing the device
+    // chooser, and Shields-off does not restore it. Fail fast with a
+    // message that tells the referee what to do.
+    if (isBraveBrowser()) {
+      this.emitError(BLE_ERROR_MESSAGES.BRAVE_BLOCKED)
       return
     }
 
@@ -137,11 +189,20 @@ export class BLEBridge {
         ),
       ])
     } catch (err: unknown) {
-      const message =
-        err instanceof Error && err.message === 'SCAN_TIMEOUT'
-          ? 'Timed out'
-          : 'Cancelled'
-      this.emitError(message)
+      if (err instanceof Error && err.message === 'SCAN_TIMEOUT') {
+        this.emitError(BLE_ERROR_MESSAGES.SCAN_TIMEOUT)
+        return
+      }
+      // requestDevice rejects with NotFoundError when the user closes
+      // the chooser, and with SecurityError/NotAllowedError when the
+      // site Bluetooth permission is denied. Keep those apart so the
+      // referee knows whether their tap mattered.
+      const name = errorName(err)
+      if (name === 'NotFoundError' || name === 'AbortError') {
+        this.emitError(BLE_ERROR_MESSAGES.USER_CANCELLED)
+      } else {
+        this.emitError(BLE_ERROR_MESSAGES.SCAN_PERMISSION)
+      }
       return
     }
 
@@ -175,7 +236,7 @@ export class BLEBridge {
       this._connected = true
       this.emitState('connected')
     } catch {
-      this.emitError('Connection failed')
+      this.emitError(BLE_ERROR_MESSAGES.CONNECTION_FAILED)
     }
   }
 
@@ -294,7 +355,7 @@ export class BLEBridge {
    */
   private async attemptReconnect(): Promise<void> {
     if (!this.device?.gatt) {
-      this.emitError('Connection lost')
+      this.emitError(BLE_ERROR_MESSAGES.CONNECTION_LOST)
       return
     }
 
@@ -338,7 +399,7 @@ export class BLEBridge {
 
     // All attempts exhausted
     if (!this._reconnectAbort) {
-      this.emitError('Connection lost')
+      this.emitError(BLE_ERROR_MESSAGES.CONNECTION_LOST)
     }
   }
 

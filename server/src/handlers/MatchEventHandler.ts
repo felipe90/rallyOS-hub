@@ -18,14 +18,30 @@ import { validateSocketPayload, sanitizeInput } from '../utils/validation';
 import { logger } from '../utils/logger';
 import { SocketEvents } from '../../../shared/events';
 import { SocketHandlerBase } from './SocketHandlerBase';
+import { RateLimiter } from '../services/security/RateLimiter';
 import { isClubCourt } from '../domain/types';
 
 import type { Player, MatchConfig } from '../domain/matchEngine';
 import { SPORT } from '../../../shared/types';
 
 export class MatchEventHandler extends SocketHandlerBase {
+  /**
+   * Dedicated limiter for scoring mutations (P3), aggregated PER COURT. The
+   * base-class limiter (5/min) is far too tight for live scoring bursts, so
+   * this handler owns its own. ~30 mutations/min/court is a generous ceiling
+   * for real play while still stopping scripted point floods.
+   */
+  private readonly scoringRateLimiter: RateLimiter;
+
   constructor(io: Server, tableManager: CourtManager, ownerPin: string) {
     super(io, tableManager, ownerPin);
+    this.scoringRateLimiter = new RateLimiter(60_000, 30);
+    this.scoringRateLimiter.startCleanup();
+  }
+
+  /** True when the court has exceeded its scoring mutation budget for the window. */
+  private isScoringRateLimited(courtId: string): boolean {
+    return this.scoringRateLimiter.isRateLimited(`SCORING:${courtId}`);
   }
 
   /**
@@ -98,11 +114,20 @@ export class MatchEventHandler extends SocketHandlerBase {
         }
       }
 
-      // Sanitize player names to prevent XSS and log injection
-      const sanitizedNames = data.playerNames ? {
-        a: sanitizeInput(data.playerNames.a, 50),
-        b: sanitizeInput(data.playerNames.b, 50),
-      } : undefined;
+      // Sanitize player names to prevent XSS and log injection. The nested
+      // playerNames object is only type-checked as a whole, so a/b may be
+      // non-strings at runtime (socket.io JSON can carry anything); guard
+      // before calling sanitizeInput to avoid a TypeError (S5).
+      let sanitizedNames;
+      if (data.playerNames) {
+        if (typeof data.playerNames.a !== 'string' || typeof data.playerNames.b !== 'string') {
+          return this.emitError(socket, 'VALIDATION_ERROR', 'playerNames.a and playerNames.b must be strings');
+        }
+        sanitizedNames = {
+          a: sanitizeInput(data.playerNames.a, 50),
+          b: sanitizeInput(data.playerNames.b, 50),
+        };
+      }
 
       this.tableManager.configureMatch(data.courtId, {
         playerNames: sanitizedNames,
@@ -135,7 +160,21 @@ export class MatchEventHandler extends SocketHandlerBase {
       playerNameA?: string;
       playerNameB?: string;
     }) => {
-      if (!validateSocketPayload(socket, data, { courtId: { required: true, type: 'string', maxLength: 36 } }, 'START_MATCH')) {
+      if (!validateSocketPayload(socket, data, {
+        courtId: { required: true, type: 'string', maxLength: 36 },
+        // S6: START_MATCH previously only validated courtId — the optional
+        // config fields were trusted as-is. Validate them with the same
+        // rules the codebase uses elsewhere (CONFIGURE_MATCH + shared
+        // validation.ts): non-empty sanitizable names and numeric bounds.
+        // Type-guarding the names here also prevents sanitizeInput from
+        // throwing on a non-string playerNameA/B (S5).
+        playerNameA: { required: false, type: 'string', maxLength: 50 },
+        playerNameB: { required: false, type: 'string', maxLength: 50 },
+        pointsPerSet: { required: false, type: 'number', min: 1, max: 99 },
+        bestOf: { required: false, type: 'number', min: 1, max: 9 },
+        handicapA: { required: false, type: 'number', min: 0 },
+        handicapB: { required: false, type: 'number', min: 0 },
+      }, 'START_MATCH')) {
         return;
       }
 
@@ -206,6 +245,11 @@ export class MatchEventHandler extends SocketHandlerBase {
 
       if (!this.validateReferee(socket, data.courtId)) return;
 
+      if (this.isScoringRateLimited(data.courtId)) {
+        this.logRateLimitBlocked('RECORD_POINT', data.courtId, socket.handshake.address);
+        return this.emitError(socket, 'RATE_LIMITED', 'Too many scoring actions. Please wait a minute before trying again.');
+      }
+
       const state = this.tableManager.recordPoint(data.courtId, data.player);
       if (state) {
         this.io.to(data.courtId).emit(SocketEvents.SERVER.MATCH_UPDATE, state);
@@ -227,6 +271,11 @@ export class MatchEventHandler extends SocketHandlerBase {
 
       if (!this.validateReferee(socket, data.courtId)) return;
 
+      if (this.isScoringRateLimited(data.courtId)) {
+        this.logRateLimitBlocked('SUBTRACT_POINT', data.courtId, socket.handshake.address);
+        return this.emitError(socket, 'RATE_LIMITED', 'Too many scoring actions. Please wait a minute before trying again.');
+      }
+
       const state = this.tableManager.subtractPoint(data.courtId, data.player);
       if (state) {
         this.io.to(data.courtId).emit(SocketEvents.SERVER.MATCH_UPDATE, state);
@@ -244,6 +293,11 @@ export class MatchEventHandler extends SocketHandlerBase {
       }
 
       if (!this.validateReferee(socket, data.courtId)) return;
+
+      if (this.isScoringRateLimited(data.courtId)) {
+        this.logRateLimitBlocked('UNDO_LAST', data.courtId, socket.handshake.address);
+        return this.emitError(socket, 'RATE_LIMITED', 'Too many scoring actions. Please wait a minute before trying again.');
+      }
 
       const state = this.tableManager.undoLast(data.courtId);
       if (state) {
@@ -266,6 +320,11 @@ export class MatchEventHandler extends SocketHandlerBase {
 
       if (!this.validateReferee(socket, data.courtId)) return;
 
+      if (this.isScoringRateLimited(data.courtId)) {
+        this.logRateLimitBlocked('SET_SERVER', data.courtId, socket.handshake.address);
+        return this.emitError(socket, 'RATE_LIMITED', 'Too many scoring actions. Please wait a minute before trying again.');
+      }
+
       const state = this.tableManager.setServer(data.courtId, data.player);
       if (state) {
         this.io.to(data.courtId).emit(SocketEvents.SERVER.MATCH_UPDATE, state);
@@ -283,6 +342,11 @@ export class MatchEventHandler extends SocketHandlerBase {
       }
 
       if (!this.validateReferee(socket, data.courtId)) return;
+
+      if (this.isScoringRateLimited(data.courtId)) {
+        this.logRateLimitBlocked('SWAP_SIDES', data.courtId, socket.handshake.address);
+        return this.emitError(socket, 'RATE_LIMITED', 'Too many scoring actions. Please wait a minute before trying again.');
+      }
 
       const state = this.tableManager.swapSides(data.courtId);
       if (state) {

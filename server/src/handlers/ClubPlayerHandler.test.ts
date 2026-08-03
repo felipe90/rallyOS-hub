@@ -458,6 +458,50 @@ describe('ClubPlayerHandler — CLUB_RECONNECT', () => {
     );
   });
 
+  it('should emit RATE_LIMITED after 5 failed PIN attempts from the same IP (S2)', () => {
+    const reconnectHandler = (socket.on as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_RECONNECT,
+    );
+    // The court is OCCUPIED, so wrong PINs reach the invalid-PIN branch and
+    // each recordAttempt()s. After 5 the 6th must be blocked by the
+    // added pre-check (previously this endpoint was brute-forceable).
+    for (let i = 0; i < 5; i++) {
+      reconnectHandler[1]({ courtId, pin: '0000' });
+    }
+
+    (socket.emit as jest.Mock).mockClear();
+    reconnectHandler[1]({ courtId, pin: '0000' });
+
+    expect(socket.emit).toHaveBeenCalledWith(
+      SocketEvents.SERVER.CLUB_RECONNECT_RESULT,
+      expect.objectContaining({ success: false, error: 'RATE_LIMITED', retryAfterSeconds: expect.any(Number) }),
+    );
+  });
+
+  it('should reset the pin rate limiter on a successful reconnect (S2)', () => {
+    const reconnectHandler = (socket.on as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_RECONNECT,
+    );
+    // 4 failed attempts, then a successful reconnect clears the counter.
+    for (let i = 0; i < 4; i++) {
+      reconnectHandler[1]({ courtId, pin: '0000' });
+    }
+    reconnectHandler[1]({ courtId, pin: courtPin });
+
+    (socket.emit as jest.Mock).mockClear();
+    for (let i = 0; i < 4; i++) {
+      reconnectHandler[1]({ courtId, pin: '0000' });
+    }
+    reconnectHandler[1]({ courtId, pin: '0000' });
+
+    // 5th wrong attempt after reset → INVALID_PIN, not RATE_LIMITED.
+    const emits = (socket.emit as jest.Mock).mock.calls.filter(
+      ([event]: [string]) => event === SocketEvents.SERVER.CLUB_RECONNECT_RESULT,
+    );
+    const lastEmit = emits[emits.length - 1];
+    expect(lastEmit[1].error).toBe('INVALID_PIN');
+  });
+
   it('should emit VALIDATION_ERROR for missing required fields', () => {
     const reconnectHandler = (socket.on as jest.Mock).mock.calls.find(
       ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_RECONNECT,
@@ -959,6 +1003,21 @@ describe('ClubPlayerHandler — CLUB_NEW_MATCH (spec scenario 2)', () => {
     const court = courtManager.getCourt(courtId) as any;
     expect(court.sessionMode).toBe('match');
     expect(court.playerNames).toEqual({ a: 'Alice', b: 'Bob' });
+  });
+
+  it('sanitizes HTML from match participant names before persisting (S7)', () => {
+    const handlerCall = (socket.on as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.CLUB_NEW_MATCH,
+    );
+    handlerCall[1]({
+      courtId,
+      playerNameA: '<b>Alice</b>',
+      playerNameB: '<script>x</script>Bob',
+    });
+
+    const court = courtManager.getCourt(courtId) as any;
+    // HTML tags stripped (inner text kept as inert content) — no tags remain.
+    expect(court.playerNames).toEqual({ a: 'Alice', b: 'xBob' });
   });
 
   it('should accept optional matchConfig passthrough (PR 1 risk #2)', () => {

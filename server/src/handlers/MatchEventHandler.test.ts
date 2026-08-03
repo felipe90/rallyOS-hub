@@ -764,6 +764,62 @@ describe('RECORD_POINT — tournament mode', () => {
     expect(stateAfter.score.currentSet.a).toBe(0);
   });
 
+  // ── Fase 2 P3: scoring mutation rate limiting (30/min per court) ──────
+
+  it('allows a single valid point (rate limiter not tripped)', () => {
+    const recordPointHandler = getHandler(SocketEvents.CLIENT.RECORD_POINT);
+
+    recordPointHandler({ courtId, player: 'A' });
+
+    expect(mockSocket.emit).not.toHaveBeenCalledWith('ERROR', expect.objectContaining({ code: 'RATE_LIMITED' }));
+    const stateAfter = courtManager.getMatchState(courtId) as any;
+    expect(stateAfter.score.currentSet.a).toBe(1);
+  });
+
+  it('emits RATE_LIMITED once a court exceeds its scoring budget (P3)', () => {
+    const recordPointHandler = getHandler(SocketEvents.CLIENT.RECORD_POINT);
+
+    // 30 allowed mutations within the 60s window.
+    for (let i = 0; i < 30; i++) {
+      recordPointHandler({ courtId, player: 'A' });
+    }
+    expect(mockSocket.emit).not.toHaveBeenCalledWith('ERROR', expect.objectContaining({ code: 'RATE_LIMITED' }));
+
+    // The 31st mutation is over the budget → throttled, no MATCH_UPDATE.
+    mockIo.captures.length = 0;
+    recordPointHandler({ courtId, player: 'A' });
+
+    expect(mockSocket.emit).toHaveBeenCalledWith(
+      'ERROR',
+      expect.objectContaining({ code: 'RATE_LIMITED' }),
+    );
+    expect(mockIo.captures).toHaveLength(0);
+  });
+
+  it('rate limits each court independently (P3)', () => {
+    const recordPointHandler = getHandler(SocketEvents.CLIENT.RECORD_POINT);
+
+    // Exhaust the budget on court A.
+    for (let i = 0; i < 31; i++) {
+      recordPointHandler({ courtId, player: 'A' });
+    }
+
+    // A different court is unaffected — still allowed.
+    const other = courtManager.createCourt('Other Court');
+    const otherId = other.id;
+    courtManager.startMatch(otherId, { playerNameA: 'A', playerNameB: 'B' });
+    const otherRefOk = courtManager.setReferee(otherId, mockSocket.id, other.pin);
+    expect(otherRefOk).toBe(true);
+
+    mockIo.captures.length = 0;
+    mockSocket.emit.mockClear();
+    recordPointHandler({ courtId: otherId, player: 'B' });
+
+    expect(mockSocket.emit).not.toHaveBeenCalledWith('ERROR', expect.objectContaining({ code: 'RATE_LIMITED' }));
+    const otherState = courtManager.getMatchState(otherId) as any;
+    expect(otherState.score.currentSet.b).toBe(1);
+  });
+
   // ═══════════════════════════════════════════════════════════════════════
   // Cross-mode comparison: Both modes produce identical MATCH_UPDATE structure
   // ═══════════════════════════════════════════════════════════════════════
@@ -823,5 +879,101 @@ describe('RECORD_POINT — tournament mode', () => {
         );
       }
     }
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// S5 — nested playerNames type guard crashes; S6 — START_MATCH field validation
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('MatchEventHandler — payload type guards (S5/S6)', () => {
+  let handler: MatchEventHandler;
+  let mockSocket: any;
+  let mockIo: any;
+  let tableManager: CourtManager;
+  let registeredHandlers: Map<string, (...args: any[]) => void>;
+
+  beforeEach(() => {
+    mockSocket = createMockSocket();
+    mockIo = createMockIo(mockSocket);
+    tableManager = createMockTableManager();
+    handler = new MatchEventHandler(mockIo, tableManager, '12345678');
+
+    registeredHandlers = new Map();
+    mockSocket.on.mockImplementation((event: string, fn: (...args: any[]) => void) => {
+      registeredHandlers.set(event, fn);
+    });
+
+    handler.registerHandlers(mockSocket);
+  });
+
+  function getHandler(event: string): (...args: any[]) => void {
+    const h = registeredHandlers.get(event);
+    if (!h) throw new Error(`Handler not registered for event: ${event}`);
+    return h;
+  }
+
+  it('rejects CONFIGURE_MATCH with non-string playerNames nested fields instead of throwing (S5)', () => {
+    const configureHandler = getHandler(SocketEvents.CLIENT.CONFIGURE_MATCH);
+
+    expect(() => configureHandler({
+      courtId: 'court-1',
+      playerNames: { a: 123, b: {} },
+    })).not.toThrow();
+
+    expect(mockSocket.emit).toHaveBeenCalledWith(
+      'ERROR',
+      expect.objectContaining({ code: 'VALIDATION_ERROR' }),
+    );
+    expect(tableManager.configureMatch).not.toHaveBeenCalled();
+  });
+
+  it('accepts CONFIGURE_MATCH with string playerNames (no false rejection)', () => {
+    const configureHandler = getHandler(SocketEvents.CLIENT.CONFIGURE_MATCH);
+
+    configureHandler({ courtId: 'court-1', playerNames: { a: 'Ana', b: 'Luis' } });
+
+    expect(mockSocket.emit).not.toHaveBeenCalledWith('ERROR', expect.anything());
+  });
+
+  it('rejects START_MATCH with a non-string playerNameA instead of throwing (S5)', () => {
+    const startHandler = getHandler(SocketEvents.CLIENT.START_MATCH);
+
+    expect(() => startHandler({ courtId: 'court-1', playerNameA: 123 })).not.toThrow();
+
+    expect(mockSocket.emit).toHaveBeenCalledWith(
+      'ERROR',
+      expect.objectContaining({ code: 'VALIDATION_ERROR' }),
+    );
+    expect(tableManager.startMatch).not.toHaveBeenCalled();
+  });
+
+  it('rejects START_MATCH with out-of-range pointsPerSet / bestOf (S6)', () => {
+    const startHandler = getHandler(SocketEvents.CLIENT.START_MATCH);
+
+    startHandler({ courtId: 'court-1', pointsPerSet: 0, bestOf: 20 });
+
+    expect(mockSocket.emit).toHaveBeenCalledWith(
+      'ERROR',
+      expect.objectContaining({ code: 'VALIDATION_ERROR' }),
+    );
+    expect(tableManager.startMatch).not.toHaveBeenCalled();
+  });
+
+  it('accepts START_MATCH with valid names and numeric bounds (S6)', () => {
+    const startHandler = getHandler(SocketEvents.CLIENT.START_MATCH);
+
+    startHandler({
+      courtId: 'court-1',
+      playerNameA: 'Ana',
+      playerNameB: 'Luis',
+      pointsPerSet: 11,
+      bestOf: 5,
+      handicapA: 0,
+      handicapB: 0,
+    });
+
+    expect(tableManager.startMatch).toHaveBeenCalled();
+    expect(mockSocket.emit).not.toHaveBeenCalledWith('ERROR', expect.anything());
   });
 });

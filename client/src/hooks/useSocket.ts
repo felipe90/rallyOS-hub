@@ -9,7 +9,7 @@
  * @deprecated Consider using the focused hooks directly for new code.
  */
 
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useSocketConnection } from './useSocketConnection'
 import { useSocketState } from './useSocketState'
 import { useSocketActions } from './useSocketActions'
@@ -45,22 +45,52 @@ export function useSocket(options: UseSocketOptions = {}) {
     }
   }, [autoConnect, connect, disconnect])
 
-  return {
-    socket: socketRef.current,
-    connected,
-    connecting,
-    error,
-    errorCode,
-    appError,
-    courts,
-    currentCourt,
-    currentMatch,
-    allHistories,
-    hubConfig,
-    kioskNotification,
-    bracket,
-    connect,
-    disconnect,
-    ...actions,
-  }
+  // Referentially stable unless an actual dependency changes. Without this,
+  // every provider/consumer render produces a fresh object, so a single
+  // `COURT_UPDATE` broadcast would re-render the whole tree below the provider.
+  return useMemo(
+    () => ({
+      socket: socketRef.current,
+      connected,
+      connecting,
+      error,
+      errorCode,
+      appError,
+      courts,
+      currentCourt,
+      currentMatch,
+      allHistories,
+      hubConfig,
+      kioskNotification,
+      bracket,
+      connect,
+      disconnect,
+      ...actions,
+    }),
+    [
+      socketRef.current,
+      connected,
+      connecting,
+      error,
+      errorCode,
+      appError,
+      courts,
+      currentCourt,
+      currentMatch,
+      allHistories,
+      hubConfig,
+      kioskNotification,
+      bracket,
+      connect,
+      disconnect,
+      actions.emit,
+      actions.createCourt,
+      actions.requestCourts,
+      actions.requestCourtsWithPins,
+      actions.scorePoint,
+      actions.undoLastPoint,
+      actions.startMatch,
+      actions.regeneratePin,
+    ],
+  )
 }

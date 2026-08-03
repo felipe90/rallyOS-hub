@@ -15,7 +15,7 @@ import type { IClubConfigRepository } from '../domain/ports/IClubConfigRepositor
 import { validateSocketPayload } from '../utils/validation';
 import { logger, maskIp } from '../utils/logger';
 import { SocketEvents } from '../../../shared/events';
-import { PIN_RULES } from '../../../shared/validation';
+import { PIN_RULES, sanitizePlayerName } from '../../../shared/validation';
 import { SPORT, CLUB_STATUS, SESSION_MODE } from '../../../shared/types';
 import type { MatchConfig, SessionRecord, SessionMode, ClubConfig } from '../../../shared/types';
 import { isClubCourt } from '../domain/types';
@@ -265,6 +265,24 @@ export class ClubPlayerHandler extends SocketHandlerBase {
         return;
       }
 
+      const clientIp = socket.handshake.address;
+
+      // 1. Rate limit check — 5 attempts / 60s per IP (mirrors CLUB_JOIN).
+      //    Without this the reconnect PIN would be brute-forceable: every
+      //    wrong guess below would only recordAttempt(), never block.
+      const rateCheck = this.pinRateLimiter.check(clientIp);
+      if (!rateCheck.allowed) {
+        this.logRateLimitBlocked('CLUB_RECONNECT', 'pin-entry', clientIp);
+        socket.emit(SocketEvents.SERVER.CLUB_RECONNECT_RESULT, {
+          success: false,
+          error: 'RATE_LIMITED',
+          ...(rateCheck.remainingBlockSeconds !== undefined && {
+            retryAfterSeconds: rateCheck.remainingBlockSeconds,
+          }),
+        });
+        return;
+      }
+
       const court = this.tableManager.getCourt(data.courtId);
       if (!court) {
         socket.emit(SocketEvents.SERVER.CLUB_RECONNECT_RESULT, {
@@ -292,15 +310,15 @@ export class ClubPlayerHandler extends SocketHandlerBase {
 
       // Validate PIN — timing-safe comparison (required, no bypass)
       if (!this.comparePin(data.pin, court.pin)) {
-        this.pinRateLimiter.recordAttempt(socket.handshake.address);
-        logger.warn({ courtId: court.id, ip: maskIp(socket.handshake.address) }, 'CLUB_RECONNECT: invalid PIN');
+        this.pinRateLimiter.recordAttempt(clientIp);
+        logger.warn({ courtId: court.id, ip: maskIp(clientIp) }, 'CLUB_RECONNECT: invalid PIN');
         socket.emit(SocketEvents.SERVER.CLUB_RECONNECT_RESULT, {
           success: false,
           error: 'INVALID_PIN',
         });
         return;
       }
-      this.pinRateLimiter.reset(socket.handshake.address);
+      this.pinRateLimiter.reset(clientIp);
 
       // Register socket as referee
       const displacedSocketId = this.tableManager.registerClubReferee(court.id, socket.id);
@@ -516,8 +534,8 @@ export class ClubPlayerHandler extends SocketHandlerBase {
       if (!this.validateReferee(socket, data.courtId)) return;
 
       const result = this.tableManager.newMatch(data.courtId, {
-        playerNameA: data.playerNameA,
-        playerNameB: data.playerNameB,
+        playerNameA: sanitizePlayerName(data.playerNameA),
+        playerNameB: sanitizePlayerName(data.playerNameB),
         matchConfig: data.matchConfig,
         playerName: data.playerName,
         phone: data.phone,

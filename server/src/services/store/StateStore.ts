@@ -13,6 +13,15 @@ export class StateStore implements ICourtPersistence {
   private readonly filePath: string;
 
   /**
+   * In-memory cache of the persisted bracket (P2). Avoids re-reading the
+   * entire state file on every `save()` just to carry the bracket forward.
+   * The disk is the source of truth on first load; afterwards the cache is
+   * authoritative for the process lifetime. Invalidated by clear()/archive().
+   */
+  private bracketCache: TournamentBracket | null = null;
+  private bracketCacheLoaded = false;
+
+  /**
    * @param fsImpl  Filesystem implementation (real `fs` in production; fake in tests).
    *                Defaults to the Node.js `fs` module.
    * @param filePath  Path to the state JSON file. Defaults to `data/rallyos-state.json`.
@@ -33,11 +42,17 @@ export class StateStore implements ICourtPersistence {
       savedAt: Date.now(),
       tournamentCourts,
       clubCourts,
-      // If the caller provides a bracket, use it; otherwise carry forward any
-      // bracket already on disk so CourtManager.persistState (which doesn't own
-      // the bracket) never wipes it. Spec R10: bracket survives court saves.
-      bracket: bracket !== undefined ? bracket : this.readBracketFromDisk(),
+      // If the caller provides a bracket, use it; otherwise carry forward the
+      // cached bracket (loaded once from disk) so CourtManager.persistState
+      // (which doesn't own the bracket) never wipes it. Spec R10: bracket
+      // survives court saves.
+      bracket: bracket !== undefined ? bracket : this.getCachedBracket(),
     };
+
+    if (bracket !== undefined) {
+      this.bracketCache = bracket;
+      this.bracketCacheLoaded = true;
+    }
 
     const dir = path.dirname(this.filePath);
     if (!this.fs.existsSync(dir)) {
@@ -153,8 +168,8 @@ export class StateStore implements ICourtPersistence {
 
   /**
    * Read ONLY the bracket field from disk (best-effort), without running the
-   * full migration pipeline. Used by `save()` to carry the bracket forward
-   * when CourtManager persists courts without a bracket argument.
+   * full migration pipeline. Used to seed the in-memory bracket cache on
+   * first access so `save()` never re-reads the whole file per point (P2).
    */
   private readBracketFromDisk(): TournamentBracket | null {
     try {
@@ -168,6 +183,19 @@ export class StateStore implements ICourtPersistence {
     }
   }
 
+  /**
+   * Return the current bracket without hitting the filesystem after the first
+   * load (P2). First call reads from disk; afterwards the in-memory cache is
+   * authoritative. `null` is a legitimate cached value (no bracket persisted).
+   */
+  private getCachedBracket(): TournamentBracket | null {
+    if (!this.bracketCacheLoaded) {
+      this.bracketCache = this.readBracketFromDisk();
+      this.bracketCacheLoaded = true;
+    }
+    return this.bracketCache;
+  }
+
   /** Delete the state file. No-op if the file does not exist. */
   clear(): void {
     try {
@@ -177,6 +205,8 @@ export class StateStore implements ICourtPersistence {
     } catch {
       // Silently ignore — file might already be gone or unwritable
     }
+    this.bracketCache = null;
+    this.bracketCacheLoaded = false;
   }
 
   /**
@@ -196,6 +226,10 @@ export class StateStore implements ICourtPersistence {
     if (this.fs.existsSync(this.filePath)) {
       this.fs.renameSync(this.filePath, archivePath);
     }
+
+    // File moved — the in-memory bracket cache no longer reflects disk.
+    this.bracketCache = null;
+    this.bracketCacheLoaded = false;
 
     return archivePath;
   }

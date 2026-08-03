@@ -7,25 +7,22 @@
 
 import express from 'express';
 import cors from 'cors';
+import compression from 'compression';
 import helmet from 'helmet';
 import path from 'path';
 import fs from 'fs';
 import { logger } from './utils/logger';
-import { getAllowedOrigins, getHubDomain } from './config/allowedOrigins';
+import { getAllowedOrigins } from './config/allowedOrigins';
+import { isAllowedHubHost } from './config/hostAllowlist';
 
 const app = express();
 
-// Host header validation — prevent host injection attacks
-const allowedHosts = getAllowedOrigins()
-  .map(o => {
-    try { return new URL(o).hostname; } catch { return null; }
-  })
-  .filter((h): h is string => h !== null);
-
+// Host header validation — prevent host injection attacks. Only localhost,
+// private RFC 1918 IPv4 ranges, and the hub's own configured domain are
+// accepted. See config/hostAllowlist.ts for the exact allowlist.
 app.use((req, res, next) => {
   const host = req.hostname;
-  const hubDomain = getHubDomain();
-  if (host && !allowedHosts.includes(host) && host !== hubDomain && !host.startsWith('192.168.') && host !== '10.0.0.1') {
+  if (host && !isAllowedHubHost(host)) {
     logger.warn({ host }, 'Blocked invalid Host header');
     res.status(400).json({ error: 'Invalid host' });
     return;
@@ -39,10 +36,12 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'], // Required for Tailwind + Google Fonts
+      styleSrc: ["'self'", "'unsafe-inline'"], // Required for Tailwind
       imgSrc: ["'self'", 'data:', 'blob:'],
-      connectSrc: ["'self'", 'ws:', 'wss:'], // Required for Socket.io
-      fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+      // Socket.io connects to the same HTTPS origin as the page, so 'self'
+      // covers both the polling transport and the ws:// upgrade on that host.
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"], // Fonts are self-hosted (/fonts/*.woff2)
       objectSrc: ["'none'"],
       frameSrc: ["'none'"],
       frameAncestors: ["'none'"],
@@ -55,6 +54,11 @@ app.use(helmet({
     includeSubDomains: true,
   },
 }));
+
+// Compress text responses (HTML/JS/CSS) before they are served. Registered
+// before the static middleware and routes so every response benefits, and the
+// middleware skips responses that already carry a Content-Encoding header.
+app.use(compression());
 
 export const effectiveAllowedOrigins = getAllowedOrigins();
 
@@ -73,7 +77,7 @@ const corsOriginValidator = (origin: string | undefined, callback: (err: Error |
   callback(null, false);
 };
 
-app.use(cors({ origin: corsOriginValidator, credentials: true }));
+app.use(cors({ origin: corsOriginValidator }));
 
 // Serve the React client (from dist, public, or client src)
 const rootDir = process.cwd();
@@ -108,7 +112,18 @@ if (fs.existsSync(dockerPublicPath)) {
   indexPath = path.join(__dirname, 'index.html');
 }
 
-app.use(express.static(clientPath));
+// Vite emits content-hashed filenames under /assets/ — safe to cache immutably.
+// Non-hashed files (index.html, favicon, fonts, icons) are left to normal
+// heuristics so updates are picked up.
+app.use(
+  express.static(clientPath, {
+    setHeaders: (res, filePath) => {
+      if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      }
+    },
+  }),
+);
 
 // Serve the Hub UI
 app.get('/', (req, res) => {
@@ -123,6 +138,22 @@ app.get('/', (req, res) => {
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: Date.now() });
 });
+
+// CSP violation reporting — browsers POST to /csp-report when a policy is
+// triggered. Minimal visibility hook: log the report via pino and respond
+// with 204. Mounted with its own small JSON body parser so the report body
+// is parsed without enabling body parsing app-wide.
+app.post(
+  '/csp-report',
+  express.json({
+    limit: '16kb',
+    type: ['application/json', 'application/csp-report', 'application/reports+json'],
+  }),
+  (req, res) => {
+    logger.warn({ report: req.body }, 'CSP violation reported');
+    res.status(204).end();
+  },
+);
 
 // Expose owner PIN for plug-and-play mode (random PIN generation)
 // Only returns the PIN when it was randomly generated (not from env var)

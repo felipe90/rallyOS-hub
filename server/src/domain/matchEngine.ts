@@ -47,6 +47,14 @@ export const INITIAL_CONFIG: TableTennisMatchConfig = {
 };
 
 /**
+ * Maximum number of point-level history entries kept per match (P4).
+ * Bounds both the in-memory history (drives undo) and the persisted state
+ * file. Older entries are dropped first — undo still covers the most recent
+ * 20 actions, which is more than enough for a single rally/game sequence.
+ */
+export const MAX_HISTORY_LENGTH = 20;
+
+/**
  * Internal match state — flat superset interface used for runtime state.
  * Conversion to the discriminated union MatchStateExtended happens in getState().
  */
@@ -239,7 +247,7 @@ export class MatchEngine {
       timestamp: Date.now(),
     });
     
-    if (this.state.history.length > 20) {
+    if (this.state.history.length > MAX_HISTORY_LENGTH) {
       this.state.history.shift();
     }
     this.state.undoAvailable = this.state.history.length > 0;

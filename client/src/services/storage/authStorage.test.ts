@@ -30,6 +30,22 @@ describe('authStorage', () => {
     expect(authStorage.getOwnerPin()).toBe('12345678')
   })
 
+  // ── Tournament Token (S8: sessionStorage, key tournamentToken) ──
+
+  it('stores and retrieves the tournament token in sessionStorage', () => {
+    authStorage.setTournamentToken('tt-token')
+    expect(sessionStorage.getItem('tournamentToken')).toBe('tt-token')
+    expect(localStorage.getItem('tournamentToken')).toBeNull()
+    expect(authStorage.getTournamentToken()).toBe('tt-token')
+  })
+
+  it('removes the tournament token when set to null', () => {
+    authStorage.setTournamentToken('tt-token')
+    authStorage.setTournamentToken(null)
+    expect(authStorage.getTournamentToken()).toBeNull()
+    expect(sessionStorage.getItem('tournamentToken')).toBeNull()
+  })
+
   it('clears all auth data', () => {
     authStorage.setRole('owner')
     authStorage.setCourtId('table-1')

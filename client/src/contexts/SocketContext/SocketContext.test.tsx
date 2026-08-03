@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { useState } from 'react'
 import { render, screen, act, waitFor } from '@testing-library/react'
 import { SocketProvider, useSocketContext, SocketContext } from './SocketContext'
 import { useSocket } from '../../hooks/useSocket'
@@ -329,5 +330,54 @@ describe('SocketContext', () => {
     )
 
     expect(screen.getByTestId('courts-count')).toHaveTextContent('2')
+  })
+
+  it('keeps the context value referentially stable across provider re-renders', () => {
+    const stableValue = {
+      connected: false,
+      connecting: false,
+      error: null,
+      courts: [],
+      currentCourt: null,
+      currentMatch: null,
+      socket: null,
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+      emit: vi.fn(),
+      createCourt: vi.fn(),
+      joinCourt: vi.fn(),
+      requestCourts: vi.fn(),
+      scorePoint: vi.fn(),
+      undoLastPoint: vi.fn(),
+      startMatch: vi.fn(),
+    }
+    mockUseSocket.mockReturnValue(stableValue)
+
+    const seen: unknown[] = []
+    const Probe = () => {
+      seen.push(useSocketContext())
+      const [, force] = useState(0)
+      return <button data-testid="probe" onClick={() => force(n => n + 1)} />
+    }
+
+    const { rerender } = render(
+      <SocketProvider>
+        <Probe />
+      </SocketProvider>
+    )
+
+    // Re-render the provider with a new children tree.
+    rerender(
+      <SocketProvider>
+        <Probe />
+      </SocketProvider>
+    )
+
+    // Force the consumer to re-read the context; it must observe the SAME
+    // value object that was provided before the provider re-rendered.
+    screen.getByTestId('probe').click()
+
+    expect(seen.length).toBeGreaterThanOrEqual(2)
+    expect(seen[0]).toBe(seen[seen.length - 1])
   })
 })

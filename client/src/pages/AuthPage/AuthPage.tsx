@@ -207,7 +207,7 @@ export function AuthPage() {
     >
       {/* Header — logo + tagline */}
       <div className="flex flex-col items-center gap-2">
-        <img src={logoBig} alt="RallyOS" className="w-16 h-auto mb-1 rounded-[--radius-md]" />
+        <img src={logoBig} alt="RallyOS" width={64} height={64} className="w-16 h-16 mb-1 rounded-[--radius-md]" />
         {mode === 'select' ? (
           <Typography variant="body" className="text-center text-muted-foreground">
             {i18nText('authTagline')}

@@ -173,7 +173,11 @@ let isShuttingDown = false;
 const shutdown = (signal: 'SIGTERM' | 'SIGINT') => {
   if (isShuttingDown) return; // Prevent multiple shutdown attempts
   isShuttingDown = true;
-  
+
+  // P1: flush any pending debounced persist before the event loop winds
+  // down — a rolling match must not lose its last points on a restart.
+  courtManager.flush();
+
   gracefulShutdown(
     httpsServer,
     io,

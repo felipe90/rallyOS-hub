@@ -11,6 +11,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
   BLEBridge,
+  BLE_ERROR_MESSAGES,
   SERVICE_UUID,
   BUTTON_PRESS_UUID,
   SCORE_DISPLAY_UUID,
@@ -213,7 +214,7 @@ describe('BLEBridge', () => {
     }
 
     expect(onReconnect).toHaveBeenCalledTimes(5)
-    expect(onError).toHaveBeenCalledWith('Connection lost')
+    expect(onError).toHaveBeenCalledWith(BLE_ERROR_MESSAGES.CONNECTION_LOST)
   })
 
   // ── 4. writeScore strips status/msg when ok ───────────────────
@@ -288,7 +289,7 @@ describe('BLEBridge', () => {
 
   // ── 7. Browser not supported ──────────────────────────────────
 
-  it('should emit Browser not supported error when navigator.bluetooth is missing', async () => {
+  it('should emit unsupported-browser error when navigator.bluetooth is missing', async () => {
     vi.stubGlobal('navigator', {})
 
     const bridge = new BLEBridge(COURT_ID)
@@ -297,6 +298,94 @@ describe('BLEBridge', () => {
 
     await bridge.connect()
 
-    expect(onError).toHaveBeenCalledWith('Browser not supported')
+    expect(onError).toHaveBeenCalledWith(BLE_ERROR_MESSAGES.UNSUPPORTED_BROWSER)
+  })
+
+  // ── 8. Brave blocked ──────────────────────────────────────────
+
+  it('should emit brave-blocked error when navigator.brave.isBrave exists', async () => {
+    vi.stubGlobal('navigator', {
+      bluetooth: mockBT.bluetooth,
+      brave: { isBrave: vi.fn() },
+    })
+
+    const bridge = new BLEBridge(COURT_ID)
+    const onError = vi.fn()
+    bridge.onError(onError)
+
+    await bridge.connect()
+
+    // Must fail fast WITHOUT calling requestDevice (no chooser shown)
+    expect(mockBT.bluetooth.requestDevice).not.toHaveBeenCalled()
+    expect(onError).toHaveBeenCalledWith(BLE_ERROR_MESSAGES.BRAVE_BLOCKED)
+  })
+
+  // ── 9. User cancelled the chooser ─────────────────────────────
+
+  it('should emit user-cancelled error when requestDevice rejects with NotFoundError', async () => {
+    const cancelError = new Error('User cancelled the request')
+    cancelError.name = 'NotFoundError'
+    mockBT.bluetooth.requestDevice.mockRejectedValue(cancelError)
+
+    const bridge = new BLEBridge(COURT_ID)
+    const onError = vi.fn()
+    bridge.onError(onError)
+
+    await bridge.connect()
+
+    expect(onError).toHaveBeenCalledWith(BLE_ERROR_MESSAGES.USER_CANCELLED)
+  })
+
+  // ── 10. Scan permission denied ────────────────────────────────
+
+  it('should emit permission error when requestDevice rejects with SecurityError', async () => {
+    const securityError = new Error('Permission denied')
+    securityError.name = 'SecurityError'
+    mockBT.bluetooth.requestDevice.mockRejectedValue(securityError)
+
+    const bridge = new BLEBridge(COURT_ID)
+    const onError = vi.fn()
+    bridge.onError(onError)
+
+    await bridge.connect()
+
+    expect(onError).toHaveBeenCalledWith(BLE_ERROR_MESSAGES.SCAN_PERMISSION)
+  })
+
+  // ── 11. Scan timeout ──────────────────────────────────────────
+
+  it('should emit scan-timeout error after the scan window elapses', async () => {
+    vi.useFakeTimers()
+
+    // requestDevice never resolves — the timeout promise wins the race
+    mockBT.bluetooth.requestDevice.mockImplementation(
+      () => new Promise(() => {}),
+    )
+
+    const bridge = new BLEBridge(COURT_ID)
+    const onError = vi.fn()
+    bridge.onError(onError)
+
+    const connectPromise = bridge.connect()
+    await vi.advanceTimersByTimeAsync(30000)
+    await connectPromise
+
+    expect(onError).toHaveBeenCalledWith(BLE_ERROR_MESSAGES.SCAN_TIMEOUT)
+  })
+
+  // ── 12. Connection failed ─────────────────────────────────────
+
+  it('should emit connection-failed error when GATT setup rejects', async () => {
+    mockBT.server.getPrimaryService.mockRejectedValue(
+      new Error('Service not found'),
+    )
+
+    const bridge = new BLEBridge(COURT_ID)
+    const onError = vi.fn()
+    bridge.onError(onError)
+
+    await bridge.connect()
+
+    expect(onError).toHaveBeenCalledWith(BLE_ERROR_MESSAGES.CONNECTION_FAILED)
   })
 })

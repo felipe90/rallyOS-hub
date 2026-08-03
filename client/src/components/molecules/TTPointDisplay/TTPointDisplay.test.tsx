@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { TTPointDisplay } from './TTPointDisplay';
+import { useReducedMotion } from 'framer-motion';
 import { SPORT } from '@shared/types';
 import type { TTPointDisplay as TTPointDisplayData } from '@shared/types';
 
@@ -12,7 +13,7 @@ vi.mock('framer-motion', () => ({
     button: ({ children, ...props }: any) => <button {...props}>{children}</button>,
   },
   AnimatePresence: ({ children }: any) => children,
-  useReducedMotion: () => false,
+  useReducedMotion: vi.fn(() => false),
   useAnimation: () => ({
     start: vi.fn(),
     stop: vi.fn(),
@@ -46,6 +47,30 @@ describe('TTPointDisplay', () => {
 
       expect(screen.getByText('5')).toBeInTheDocument();
       expect(screen.getByText('3')).toBeInTheDocument();
+    });
+
+    it('renders the current score immediately when prefers-reduced-motion is set', () => {
+      vi.mocked(useReducedMotion).mockReturnValue(true);
+
+      const data = createTTSportDisplay({ leftScore: 7, rightScore: 2 });
+      render(
+        <TTPointDisplay
+          sportDisplay={data}
+          leftPlayerName="Alice"
+          rightPlayerName="Bob"
+          totalSets={3}
+          leftServing={false}
+          rightServing={false}
+        />
+      );
+
+      // With reduced motion the animation is skipped and the final value is
+      // rendered directly (no AnimatePresence wrapper).
+      expect(screen.getByText('7')).toBeInTheDocument();
+      expect(screen.getByText('2')).toBeInTheDocument();
+      expect(document.querySelector('.inline-block')).toBeNull();
+
+      vi.mocked(useReducedMotion).mockReturnValue(false);
     });
 
     it('renders player names', () => {

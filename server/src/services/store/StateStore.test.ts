@@ -538,4 +538,59 @@ describe('StateStore', () => {
       expect(loaded!.bracket ?? null).toBeNull();
     });
   });
+
+  // ── Fase 2 P2: in-memory bracket cache (no per-save full-file re-read) ──
+
+  describe('bracket cache (P2)', () => {
+    it('does not re-read the state file on repeated save() calls once the cache is seeded', () => {
+      const fs = makeFs();
+      const store = new StateStore(fs, 'state.json');
+      const view = asBracketStore(store);
+
+      view.setBracket(makeBracket({ name: 'Torneo Copa' }));
+
+      // setBracket above already seeded the cache; from here on, court saves
+      // must use the in-memory cache instead of readFileSync.
+      const readSpy = jest.spyOn(fs, 'readFileSync');
+      store.save([makeTournamentCourt({ id: 't1', status: 'LIVE' })], []);
+      store.save([makeTournamentCourt({ id: 't1', status: 'LIVE' })], []);
+      store.save([makeTournamentCourt({ id: 't1', status: 'LIVE' })], []);
+
+      expect(readSpy).not.toHaveBeenCalled();
+
+      // The cached bracket was carried forward into each write.
+      const loaded = store.load();
+      expect(loaded!.bracket!.name).toBe('Torneo Copa');
+    });
+
+    it('seeds the cache from disk on first save, then never reads again, returning the cached value', () => {
+      const fs = makeFs();
+      fs._files.set(
+        'state.json',
+        JSON.stringify({
+          version: 3,
+          savedAt: 1,
+          tournamentCourts: [],
+          clubCourts: [],
+          bracket: makeBracket({ name: 'OnDisk' }),
+        }),
+      );
+      const store = new StateStore(fs, 'state.json');
+
+      const readSpy = jest.spyOn(fs, 'readFileSync');
+
+      // First save (no bracket arg) reads the disk once to seed the cache.
+      store.save([makeTournamentCourt({ id: 't1', status: 'LIVE' })], []);
+      expect(readSpy).toHaveBeenCalledTimes(1);
+
+      readSpy.mockClear();
+      store.save([makeTournamentCourt({ id: 't1', status: 'LIVE' })], []);
+      store.save([makeTournamentCourt({ id: 't1', status: 'LIVE' })], []);
+
+      expect(readSpy).not.toHaveBeenCalled();
+
+      // The cached value (from the initial disk read) is what gets carried.
+      expect(store.load()!.bracket!.name).toBe('OnDisk');
+    });
+  });
 });

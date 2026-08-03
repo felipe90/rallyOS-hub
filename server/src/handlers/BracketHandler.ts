@@ -23,6 +23,7 @@ import { SocketEvents } from '../../../shared/events';
 import type { Player, TournamentBracket, BracketMatch } from '../../../shared/types';
 import { BRACKET_MATCH_STATUS } from '../../../shared/types';
 import { BracketEngine, BracketError, VALID_BRACKET_SLOTS } from '../domain/BracketEngine';
+import { sanitizePlayerName } from '../../../shared/validation';
 import { logger } from '../utils/logger';
 
 /** Confirm-token window for the 2-step reset (spec R8). */
@@ -135,7 +136,9 @@ export class BracketHandler extends SocketHandlerBase {
     if (n.length > MAX_NAME_LEN) return this.emitError(socket, 'NAME_TOO_LONG', 'name must be at most 50 chars');
 
     try {
-      this.engine.assignPlayer(m, s as Player, n);
+      // Sanitize before persisting: names are rendered on the kiosk + owner
+      // dashboard, so strip HTML and truncate (shared sanitizePlayerName, S7).
+      this.engine.assignPlayer(m, s as Player, sanitizePlayerName(n));
     } catch (err) {
       return this.onEngineError(socket, err);
     }

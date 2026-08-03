@@ -70,15 +70,17 @@ export const authStorage = {
 
   getTournamentToken: (): string | null => {
     if (typeof window === 'undefined') return null
-    return localStorage.getItem(TOURNAMENT_TOKEN_KEY)
+    // Tournament scoring tokens are session-scoped like the session JWT — they
+    // should NOT persist across browser sessions (S8).
+    return sessionStorage.getItem(TOURNAMENT_TOKEN_KEY)
   },
 
   setTournamentToken: (token: string | null): void => {
     if (typeof window === 'undefined') return
     if (token) {
-      localStorage.setItem(TOURNAMENT_TOKEN_KEY, token)
+      sessionStorage.setItem(TOURNAMENT_TOKEN_KEY, token)
     } else {
-      localStorage.removeItem(TOURNAMENT_TOKEN_KEY)
+      sessionStorage.removeItem(TOURNAMENT_TOKEN_KEY)
     }
   },
 
@@ -105,7 +107,7 @@ export const authStorage = {
     localStorage.removeItem(COURT_ID_KEY)
     // courtPin is no longer persisted — no need to remove from localStorage
     sessionStorage.removeItem(OWNER_PIN_KEY)
-    localStorage.removeItem(TOURNAMENT_TOKEN_KEY)
+    sessionStorage.removeItem(TOURNAMENT_TOKEN_KEY)
     sessionStorage.removeItem(SESSION_TOKEN_KEY)
   },
 }

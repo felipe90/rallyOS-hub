@@ -61,11 +61,24 @@ export function createSecureServer(app: Express): {
         callback(null, false);
       },
       methods: ['GET', 'POST'],
-      credentials: true,
     },
     transports: ['websocket', 'polling'],
     // Connection limits for security
-    maxHttpBufferSize: 1e6, // 1MB max message size
+    // P5: 64KB cap on inbound socket.io payloads. No legit client event
+    // exceeds this (scoring, config, PINs, bracket slots are all small JSON),
+    // so a smaller cap shrinks the DoS surface vs the previous 1MB limit.
+    maxHttpBufferSize: 65536,
+    // P6: connection state recovery — a referee briefly walking between
+    // tables (or any brief transport drop) within 2min reconnects with their
+    // rooms + missed packets intact instead of a cold re-handshake.
+    // skipMiddlewares stays false (default): the JWT-session middleware in
+    // SocketHandler.setupListeners must re-run on recovery to re-establish
+    // owner/admin socket.data flags, and the connection rate limiter should
+    // still gate influx. Bypassing either would be unsafe.
+    connectionStateRecovery: {
+      maxDisconnectionDuration: 2 * 60 * 1000,
+      skipMiddlewares: false,
+    },
     pingTimeout: 60000,
     pingInterval: 25000,
   });

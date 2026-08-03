@@ -89,12 +89,13 @@ describe('SocketHandler — JWT reconnect middleware (REQ-07/11)', () => {
     return { io, handler };
   }
 
-  /** The JWT-reconnect middleware is the SECOND registered io.use. */
+  /** The JWT-reconnect middleware is the THIRD registered io.use. */
   function getReconnectMiddleware(io: any) {
     const useCalls = (io.use as jest.Mock).mock.calls;
-    // First call = rate limiter; second call = JWT restore.
-    expect(useCalls.length).toBeGreaterThanOrEqual(2);
-    return useCalls[1][0] as (
+    // First call = rate limiter; second call = P6 connection cap guard;
+    // third call = JWT restore.
+    expect(useCalls.length).toBeGreaterThanOrEqual(3);
+    return useCalls[2][0] as (
       socket: any,
       next: (err?: Error) => void,
     ) => void;
@@ -740,6 +741,40 @@ describe('SocketHandler — BracketHandler wiring', () => {
       ([event]: [string]) => event === SocketEvents.SERVER.KIOSK_MODE,
     ).length;
     expect(broadcastsAfter).toBe(broadcastsBefore);
+  });
+
+  it('SET_KIOSK_MODE rejects an unauthenticated (kiosk) socket with UNAUTHORIZED and does not broadcast (S3)', () => {
+    const { io, connectionCall } = buildWithStateStore(null);
+    const socket = makeKioskSocket();
+    (connectionCall![1] as (s: any) => void)(socket);
+
+    const onMock = socket.on as jest.Mock;
+    const setModeCall = onMock.mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.SET_KIOSK_MODE,
+    );
+    expect(setModeCall).toBeDefined();
+    (setModeCall![1] as (d: { mode: string }) => void)({ mode: 'club' });
+
+    expect(socket.emit).toHaveBeenCalledWith(
+      SocketEvents.SERVER.ERROR,
+      expect.objectContaining({ code: 'UNAUTHORIZED' }),
+    );
+    expect(io.emit).not.toHaveBeenCalledWith(SocketEvents.SERVER.KIOSK_MODE, { mode: 'club' });
+  });
+
+  it('SET_KIOSK_MODE accepts a verified club admin socket and broadcasts (S3)', () => {
+    const { io, connectionCall } = buildWithStateStore(null);
+    const socket = makeMockSocket({});
+    socket.data = { isClubAdmin: true };
+    (connectionCall![1] as (s: any) => void)(socket);
+
+    const onMock = socket.on as jest.Mock;
+    const setModeCall = onMock.mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.SET_KIOSK_MODE,
+    );
+    (setModeCall![1] as (d: { mode: string }) => void)({ mode: 'club' });
+
+    expect(io.emit).toHaveBeenCalledWith(SocketEvents.SERVER.KIOSK_MODE, { mode: 'club' });
   });
 
   it('Option 2 — a tournament MATCH_WON on an UNBOUND court leaves the bracket untouched and keeps the match-event chain intact', () => {

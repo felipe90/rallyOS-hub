@@ -1,4 +1,4 @@
-import React, { createContext, ReactNode, useEffect, useRef } from 'react'
+import React, { createContext, ReactNode, useEffect, useMemo, useRef } from 'react'
 import { useSocket as useSocketHook } from '../../hooks/useSocket'
 import { useAuthContext } from '../AuthContext'
 import { SocketEvents } from '@shared/events'
@@ -13,7 +13,7 @@ interface SocketProviderProps {
 }
 
 export function SocketProvider({ children }: SocketProviderProps) {
-  const socket = useSocketHook({ autoConnect: true })
+  const socketContext = useSocketHook({ autoConnect: true })
   const { logout, role, ownerPin } = useAuthContext()
   const prevConnected = useRef(false)
 
@@ -21,11 +21,11 @@ export function SocketProvider({ children }: SocketProviderProps) {
   // so PrivateRoute redirects to /auth (matching admin behavior where
   // useClubAdmin resets isAdmin on disconnect).
   useEffect(() => {
-    if (prevConnected.current && !socket.connected && role) {
+    if (prevConnected.current && !socketContext.connected && role) {
       logout()
     }
-    prevConnected.current = socket.connected
-  }, [socket.connected, role, logout])
+    prevConnected.current = socketContext.connected
+  }, [socketContext.connected, role, logout])
 
   // Re-verify the owner on reconnect: a fresh socket does not inherit the
   // server-side `isOwner` flag, so owner-gated events (BRACKET_*, REGENERATE_PIN)
@@ -38,13 +38,19 @@ export function SocketProvider({ children }: SocketProviderProps) {
     ownerPinRef.current = ownerPin
   }, [ownerPin])
   useEffect(() => {
-    if (socket.connected && role === UserRoles.OWNER && ownerPinRef.current) {
-      socket.emit(SocketEvents.CLIENT.VERIFY_OWNER, { pin: ownerPinRef.current })
+    if (socketContext.connected && role === UserRoles.OWNER && ownerPinRef.current) {
+      socketContext.emit(SocketEvents.CLIENT.VERIFY_OWNER, { pin: ownerPinRef.current })
     }
-  }, [socket, socket.connected, role])
+  }, [socketContext, socketContext.connected, role])
+
+  // The hook result is memoized (useSocket), so this wrapper only rebuilds if
+  // the hook value actually changes — keeping the context value referentially
+  // stable across unrelated provider re-renders and avoiding a global re-render
+  // of every consumer on each point broadcast.
+  const value = useMemo(() => socketContext, [socketContext])
 
   return (
-    <SocketContext.Provider value={socket}>
+    <SocketContext.Provider value={value}>
       {children}
     </SocketContext.Provider>
   )

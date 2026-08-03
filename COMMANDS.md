@@ -146,11 +146,20 @@ docker compose up -d --build
 # Orange Pi deploy
 cd /root/rallyOS-hub && git pull origin main && bash scripts/start-orange-pi.sh
 
-# Orange Pi diag
+# Orange Pi diagnose
 ./scripts/diagnose.sh
-```
+
+# Orange Pi Error 
+./scripts/diagnose.sh --errors-only
+
+# Docker container log
+docker ps -a --filter name=rallyo-hub
+
 # Docker logs 
 docker logs rallyo-hub --tail 50 -f
+
+# All test command
+systemctl is-active rallyos-hub && docker ps --filter name=rallyo-hub && curl -sk -o /dev/null -w "Health: HTTP %{http_code}\n" https://localhost:3000/health
 ```
 
 

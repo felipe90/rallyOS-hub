@@ -244,6 +244,23 @@ describe('BracketHandler', () => {
       expect(b!.matches.find((m) => m.id === 'R1-M1')!.playerA).toBeNull();
     });
 
+    it('sanitizes HTML from a player name before persisting (S7)', () => {
+      const { handler } = makeHandler();
+      const socket = createMockSocket('o7b');
+      handler.registerHandlers(socket as unknown as Socket);
+      socket._trigger(SocketEvents.CLIENT.BRACKET_CREATE, { name: 'T', numSlots: 4, includeThirdPlace: false });
+
+      socket._trigger(SocketEvents.CLIENT.BRACKET_ASSIGN_PLAYER, {
+        matchId: 'R1-M1',
+        slot: 'A',
+        name: '<script>alert(1)</script>Juan',
+      });
+
+      const b = ownerBracketState(socket);
+      // HTML tags stripped (script body kept as inert text) — no <script> remains.
+      expect(b!.matches.find((m) => m.id === 'R1-M1')!.playerA).toBe('alert(1)Juan');
+    });
+
     it('rejects a name longer than 50 chars with NAME_TOO_LONG', () => {
       const { handler } = makeHandler();
       const socket = createMockSocket('o7');

@@ -1,4 +1,4 @@
-import { MatchEngine } from './matchEngine';
+import { MatchEngine, MAX_HISTORY_LENGTH } from './matchEngine';
 import { MatchStateExtended, SPORT } from './types';
 import { ScoreChange } from './types';
 import type { SportRules } from './sports/types';
@@ -421,5 +421,32 @@ describe('MatchEngine.fromState', () => {
       expect(originalState.score.currentSet.b).toBe(0);
       expect(originalState.history).toHaveLength(1);
     });
+  });
+});
+
+// ── Fase 2 P4: bounded in-memory history ────────────────────────────────
+
+describe('history cap (P4)', () => {
+  it('caps history at MAX_HISTORY_LENGTH and keeps undo working on the most recent entry', () => {
+    const mockRules = createMockRules();
+    const engine = new MatchEngine({}, mockRules);
+    engine.startMatch();
+
+    for (let i = 0; i < 25; i++) {
+      engine.recordPoint('A');
+    }
+
+    const state = engine.getState() as any;
+    expect(state.history.length).toBe(MAX_HISTORY_LENGTH);
+
+    // The oldest entries were dropped; the most recent is retained.
+    const last = state.history[state.history.length - 1];
+    expect(last.action).toBe('POINT');
+    expect(last.pointsAfter.a).toBe(25);
+
+    // Undo still reverts the most recent action.
+    const undone = engine.undoLast() as any;
+    expect(undone.score.currentSet.a).toBe(24);
+    expect(undone.history.length).toBe(MAX_HISTORY_LENGTH - 1);
   });
 });

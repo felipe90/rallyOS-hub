@@ -11,7 +11,7 @@
  */
 
 import crypto from 'crypto';
-import { MatchEngine } from './matchEngine';
+import { MatchEngine, MAX_HISTORY_LENGTH } from './matchEngine';
 import { Court, TournamentCourt, ClubCourt, isClubCourt, isTournamentCourt, CourtInfo, CourtInfoWithPin, Player, MatchConfig, MatchStateExtended, QRData, Sport, SPORT, COURT_MODE, TournamentStatus, ClubStatus, CLUB_STATUS, SessionMode, SESSION_MODE } from './types';
 import { AllHistoryEntry, ClubKioskPayload, ClubKioskCourtInfo, ClubConfig } from '../../../shared/types';
 import { logger } from '../utils/logger';
@@ -42,6 +42,14 @@ export class CourtManager {
   private pinService: IPinService;
   private qrService: IQRService;
   private stateStore?: ICourtPersistence;
+
+  /**
+   * Trailing debounce for auto-persist (P1). Rapid point bursts coalesce into
+   * a single disk write instead of one writeFileSync per point. The write
+   * itself stays synchronous + atomic inside persistState().
+   */
+  private readonly persistDebounceMs = 600;
+  private persistTimer: NodeJS.Timeout | null = null;
 
   public onTableUpdate: (table: CourtInfo) => void = () => {};
   public onTournamentFinish: () => void = () => {};
@@ -114,9 +122,9 @@ export class CourtManager {
     const deleted = this.repository.delete(courtId);
     if (deleted) {
       logger.info({ courtId }, 'Court deleted');
-      if (this.stateStore) {
-        this.persistState();
-      }
+      // Immediate persist — a deleted court must not survive a restart, and
+      // any pending debounced save for the removed court must not fire later.
+      this.flush();
     }
     return deleted;
   }
@@ -988,9 +996,7 @@ export class CourtManager {
     // Only persistState — skip notifyUpdate (which broadcasts TABLE_LIST without PINs).
     // The client gets the new PIN via PIN_REGENERATED + TABLE_LIST_WITH_PINS,
     // avoiding a race where TABLE_LIST overwrites TABLE_LIST_WITH_PINS state.
-    if (this.stateStore) {
-      this.persistState();
-    }
+    this.flush();
 
     return court.pin;
   }
@@ -1023,7 +1029,41 @@ export class CourtManager {
       this.onTableUpdate(this.formatter.toPublicInfo(court));
     }
 
-    // Auto-save to state store (fire-and-forget — errors logged but don't crash)
+    // Auto-save to state store, trailing-debounced (P1). A point burst on any
+    // court coalesces into a single write; errors are logged, never crash.
+    if (this.stateStore) {
+      this.schedulePersist();
+    }
+  }
+
+  /**
+   * Schedule a trailing-debounced persist (P1), mirroring the bracket save
+   * debounce (BracketHandler.scheduleDebouncedSave): each mutation re-arms a
+   * single timer, so a sustained burst postpones the write until 600ms after
+   * the last point. Only ONE timer object ever exists — no unbounded queue.
+   * The timer is unref'd so it never keeps the process alive on its own.
+   */
+  private schedulePersist(): void {
+    if (this.persistTimer) clearTimeout(this.persistTimer);
+    this.persistTimer = setTimeout(() => {
+      this.persistTimer = null;
+      this.persistState();
+    }, this.persistDebounceMs);
+    if (typeof (this.persistTimer as NodeJS.Timeout).unref === 'function') {
+      (this.persistTimer as NodeJS.Timeout).unref();
+    }
+  }
+
+  /**
+   * Flush any pending debounced persist immediately (P1). Used on graceful
+   * shutdown so a rolling match never loses its last points, and for
+   * discrete lifecycle mutations (delete / PIN regen) that must persist now.
+   */
+  public flush(): void {
+    if (this.persistTimer) {
+      clearTimeout(this.persistTimer);
+      this.persistTimer = null;
+    }
     if (this.stateStore) {
       this.persistState();
     }
@@ -1083,7 +1123,7 @@ export class CourtManager {
         status: state.status,
         winner: state.winner,
         sport: state.sport || SPORT.TABLE_TENNIS,
-        history: (s.history || []).map((h: any) => ({
+        history: (s.history || []).slice(-MAX_HISTORY_LENGTH).map((h: any) => ({
           ...h,
           pointsBefore: { ...h.pointsBefore },
           pointsAfter: { ...h.pointsAfter },
@@ -1130,7 +1170,7 @@ export class CourtManager {
         status: state.status,
         winner: state.winner,
         sport: state.sport || SPORT.TABLE_TENNIS,
-        history: (s.history || []).map((h: any) => ({
+        history: (s.history || []).slice(-MAX_HISTORY_LENGTH).map((h: any) => ({
           ...h,
           pointsBefore: { ...h.pointsBefore },
           pointsAfter: { ...h.pointsAfter },

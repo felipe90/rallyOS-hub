@@ -227,6 +227,21 @@ export class SocketHandler {
       next();
     });
 
+    // P6: Global connection cap (engine.io 6.6 has no native maxConnections,
+    // so guard at the socket.io middleware layer). On the single-board hub a
+    // runaway flood of sockets must not exhaust memory; reject handshakes
+    // beyond the cap with a clear error. A client beyond the cap should see
+    // a "server full" style rejection and retry later.
+    const MAX_CONNECTIONS = parseInt(process.env.MAX_CONNECTIONS || '100', 10);
+    this.io.use((_socket, next) => {
+      const active = this.io.engine.clientsCount;
+      if (active >= MAX_CONNECTIONS) {
+        logger.warn({ active, cap: MAX_CONNECTIONS }, 'Connection cap reached');
+        return next(new Error(`MAX_CONNECTIONS: Too many clients (${active}). Please retry later.`));
+      }
+      next();
+    });
+
     // JWT session reconnect — restore socket.data auth flags from a signed
     // JWT in handshake.auth.sessionToken WITHOUT re-PIN (REQ-07/11).
     // Registered AFTER the rate limiter, BEFORE io.on('connection') so the
@@ -280,6 +295,20 @@ export class SocketHandler {
 
       // Handle kiosk mode switch from admin/owner dashboard
       socket.on(SocketEvents.CLIENT.SET_KIOSK_MODE, (data: { mode: string }) => {
+        // Auth gate (S3): only a verified tournament owner or club admin may
+        // switch the kiosk mode. Mirrors the owner/admin gates used by the
+        // other admin-only handlers (BracketHandler.guardOwner, ClubAdmin
+        // validateClubAdmin) — a raw, unauthenticated socket must not be
+        // able to flip the whole display mode.
+        const socketData = socket.data as SocketData;
+        if (socketData.isOwner !== true && socketData.isClubAdmin !== true) {
+          socket.emit(SocketEvents.SERVER.ERROR, {
+            code: 'UNAUTHORIZED',
+            message: 'Authentication required',
+          });
+          return;
+        }
+
         const mode = data?.mode;
         if (
           mode !== KIOSK_MODE.CLUB &&

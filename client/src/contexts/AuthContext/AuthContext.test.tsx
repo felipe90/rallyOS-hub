@@ -209,7 +209,7 @@ describe('AuthContext', () => {
     expect(localStorage.getItem('role')).toBeNull()
     expect(localStorage.getItem('tableId')).toBeNull()
 
-    expect(localStorage.getItem('tournamentToken')).toBeNull()
+    expect(sessionStorage.getItem('tournamentToken')).toBeNull()
   })
 
   // ── Tournament Token ───────────────────────────────────────────────
@@ -223,7 +223,7 @@ describe('AuthContext', () => {
     expect(screen.getByTestId('tournamentToken')).toHaveTextContent('null')
   })
 
-  it('setTournamentToken stores the token in React state and localStorage', () => {
+  it('setTournamentToken stores the token in React state and sessionStorage', () => {
     render(
       <AuthProvider>
         <TestConsumer />
@@ -235,10 +235,10 @@ describe('AuthContext', () => {
     })
 
     expect(screen.getByTestId('tournamentToken')).toHaveTextContent('test-uuid-token')
-    expect(localStorage.getItem('tournamentToken')).toBe('test-uuid-token')
+    expect(sessionStorage.getItem('tournamentToken')).toBe('test-uuid-token')
   })
 
-  it('logout clears tournamentToken from state and localStorage', () => {
+  it('logout clears tournamentToken from state and sessionStorage', () => {
     render(
       <AuthProvider>
         <TestConsumer />
@@ -249,14 +249,14 @@ describe('AuthContext', () => {
       screen.getByTestId('set-token').click()
     })
     expect(screen.getByTestId('tournamentToken')).toHaveTextContent('test-uuid-token')
-    expect(localStorage.getItem('tournamentToken')).toBe('test-uuid-token')
+    expect(sessionStorage.getItem('tournamentToken')).toBe('test-uuid-token')
 
     act(() => {
       screen.getByTestId('logout').click()
     })
 
     expect(screen.getByTestId('tournamentToken')).toHaveTextContent('null')
-    expect(localStorage.getItem('tournamentToken')).toBeNull()
+    expect(sessionStorage.getItem('tournamentToken')).toBeNull()
   })
 
   // ── Session JWT (REQ-12/14/15) ────────────────────────────────────

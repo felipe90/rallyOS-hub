@@ -4,7 +4,7 @@ import { createTestCourtManager } from './courtManager.test-factory';
 import { StateStore } from '../services/store/StateStore';
 import type { FileSystem, PersistedCourt, PersistedMatchState } from '../services/store/types';
 import type { ClubCourt, MatchStateExtended, MatchEvent } from './types';
-import { MatchEngine } from './matchEngine';
+import { MatchEngine, MAX_HISTORY_LENGTH } from './matchEngine';
 
 // ── Fake FileSystem for DI (same pattern as StateStore.test.ts) ──────────
 
@@ -151,8 +151,10 @@ describe('CourtManager with StateStore', () => {
       const manager = createTestCourtManager({ persistence: stateStore });
       const court = manager.createCourt('Mesa Test');
 
-      // createCourt triggers notifyUpdate which calls save.
+      // createCourt triggers notifyUpdate which schedules a save (debounced).
+      // Flush so the write is synchronous before reading the file.
       // The court is WAITING, so only an empty tournamentCourts array is saved.
+      manager.flush();
       const afterCreate = fs._files.get('data/rallyos-state.json');
       expect(afterCreate).toBeDefined();
       const afterCreateParsed = JSON.parse(afterCreate!);
@@ -160,6 +162,7 @@ describe('CourtManager with StateStore', () => {
 
       // Start the match → court becomes LIVE → should save with the court
       manager.startMatch(court.id, { playerNameA: 'Alice', playerNameB: 'Bob' });
+      manager.flush();
 
       const savedContent = fs._files.get('data/rallyos-state.json');
       expect(savedContent).toBeDefined();
@@ -183,6 +186,7 @@ describe('CourtManager with StateStore', () => {
 
       // Actually, let's test via the force-write path: create + start,
       // then verify the save contains LIVE courts
+      manager.flush();
       const saved = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(saved!);
       expect(parsed.version).toBe(3);
@@ -201,6 +205,7 @@ describe('CourtManager with StateStore', () => {
       manager.createCourt('Waiting Court');
 
       // Only LIVE court should be saved
+      manager.flush();
       const savedContent = fs._files.get('data/rallyos-state.json');
       expect(savedContent).toBeDefined();
       const parsed = JSON.parse(savedContent!);
@@ -219,6 +224,7 @@ describe('CourtManager with StateStore', () => {
       manager.recordPoint(court.id, 'A');
       manager.recordPoint(court.id, 'B');
 
+      manager.flush();
       const savedContent = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(savedContent!);
       expect(parsed.version).toBe(3);
@@ -241,6 +247,7 @@ describe('CourtManager with StateStore', () => {
       const t2 = manager.createCourt('Mesa 2');
       manager.startMatch(t2.id, { playerNameA: 'Carol', playerNameB: 'Dave' });
 
+      manager.flush();
       const savedContent = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(savedContent!);
       expect(parsed.version).toBe(3);
@@ -294,6 +301,7 @@ describe('CourtManager with StateStore', () => {
 
       manager.startMatch(court.id, { playerNameA: 'Alice', playerNameB: 'Bob' });
 
+      manager.flush();
       const savedContent = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(savedContent!);
       expect(parsed.version).toBe(3);
@@ -305,6 +313,7 @@ describe('CourtManager with StateStore', () => {
       const court = manager.createCourt('Mesa Test');
       manager.startMatch(court.id, { playerNameA: 'Champion', playerNameB: 'Runner-up' });
 
+      manager.flush();
       const savedContent = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(savedContent!);
       expect(parsed.version).toBe(3);
@@ -319,6 +328,7 @@ describe('CourtManager with StateStore', () => {
       const court = manager.createCourt('Mesa Test');
       manager.startMatch(court.id, { playerNameA: 'Alice', playerNameB: 'Bob' });
 
+      manager.flush();
       const savedContent = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(savedContent!);
       expect(parsed.version).toBe(3);
@@ -657,7 +667,8 @@ describe('CourtManager with StateStore', () => {
       manager.recordPoint(court.id, 'A');
       manager.recordPoint(court.id, 'B');
 
-      // Get the saved state
+      // Flush the debounced persist before reading the saved state.
+      manager.flush();
       const savedContent = fs._files.get('data/rallyos-state.json');
       expect(savedContent).toBeDefined();
 
@@ -1327,6 +1338,8 @@ describe('CourtManager with StateStore', () => {
       manager.activateCourt(court.id);
       manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
 
+      // Flush the debounced persist before reading the saved state.
+      manager.flush();
       // Get the persisted version
       const savedContent = fs._files.get('data/rallyos-state.json');
       expect(savedContent).toBeDefined();
@@ -1402,6 +1415,7 @@ describe('CourtManager with StateStore', () => {
       manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
       manager.startFreePlay(court.id);
 
+      manager.flush();
       const savedContent = fs._files.get('data/rallyos-state.json');
       expect(savedContent).toBeDefined();
       const parsed = JSON.parse(savedContent!);
@@ -1420,6 +1434,7 @@ describe('CourtManager with StateStore', () => {
       manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
       manager.newMatch(court.id, { playerNameA: 'A', playerNameB: 'B' });
 
+      manager.flush();
       const savedContent = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(savedContent!);
       const persisted = parsed.clubCourts.find((t: any) => t.id === court.id);
@@ -1716,6 +1731,7 @@ describe('CourtManager with StateStore', () => {
         manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
         manager.startFreePlay(court.id, { playerName: 'Ana', phone: 'enc:N:B:T' });
 
+        manager.flush();
         const savedContent = fs._files.get('data/rallyos-state.json');
         expect(savedContent).toBeDefined();
         const parsed = JSON.parse(savedContent!);
@@ -1890,5 +1906,112 @@ describe('CourtManager with StateStore', () => {
       // Player-occupied court had adminId=null → force-end without id leaves it null.
       expect((manager.getCourt(court.id) as ClubCourt).adminId).toBeNull();
     });
+  });
+});
+
+// ── Fase 2 P1: trailing-debounced persistence ───────────────────────────
+
+describe('debounced persistence (P1)', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('coalesces rapid point bursts into a single save() call', () => {
+    const fs = makeFs();
+    const store = new StateStore(fs, 'data/rallyos-state.json');
+    const manager = createTestCourtManager({ persistence: store });
+    const saveSpy = jest.spyOn(store, 'save');
+
+    const court = manager.createCourt('Mesa');
+    manager.startMatch(court.id, { playerNameA: 'Alice', playerNameB: 'Bob' });
+    saveSpy.mockClear();
+
+    // A rapid burst while a debounced save is already pending.
+    for (let i = 0; i < 5; i++) {
+      manager.recordPoint(court.id, 'A');
+    }
+
+    // Nothing written yet — the trailing debounce window is still open.
+    expect(saveSpy).not.toHaveBeenCalled();
+
+    // One debounce tick → exactly one coalesced write carrying the latest score.
+    jest.advanceTimersByTime(600);
+    expect(saveSpy).toHaveBeenCalledTimes(1);
+
+    const parsed = JSON.parse(fs._files.get('data/rallyos-state.json')!);
+    expect(parsed.tournamentCourts[0].matchState.score.currentSet.a).toBe(5);
+  });
+
+  it('coalesces mutations across the trailing window into a single save (no unbounded queue)', () => {
+    const fs = makeFs();
+    const store = new StateStore(fs, 'data/rallyos-state.json');
+    const manager = createTestCourtManager({ persistence: store });
+    const saveSpy = jest.spyOn(store, 'save');
+
+    const court = manager.createCourt('Mesa');
+    manager.startMatch(court.id, { playerNameA: 'Alice', playerNameB: 'Bob' });
+    saveSpy.mockClear();
+
+    manager.recordPoint(court.id, 'A');
+    jest.advanceTimersByTime(500); // still inside the trailing window
+    manager.recordPoint(court.id, 'A');
+    manager.recordPoint(court.id, 'B');
+
+    // The window was re-armed by the later points — still no write.
+    expect(saveSpy).not.toHaveBeenCalled();
+
+    jest.advanceTimersByTime(600); // window closed after the last mutation
+    expect(saveSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('flush() persists a pending dirty state immediately (crash-safety on shutdown)', () => {
+    const fs = makeFs();
+    const store = new StateStore(fs, 'data/rallyos-state.json');
+    const manager = createTestCourtManager({ persistence: store });
+
+    const court = manager.createCourt('Mesa');
+    manager.startMatch(court.id, { playerNameA: 'Alice', playerNameB: 'Bob' });
+    manager.recordPoint(court.id, 'A');
+
+    // Debounced — nothing on disk yet.
+    expect(fs._files.has('data/rallyos-state.json')).toBe(false);
+
+    manager.flush();
+
+    const parsed = JSON.parse(fs._files.get('data/rallyos-state.json')!);
+    expect(parsed.tournamentCourts[0].matchState.score.currentSet.a).toBe(1);
+  });
+
+  it('flush() is a no-op when no StateStore is configured', () => {
+    const manager = createTestCourtManager(); // no persistence
+
+    expect(() => manager.flush()).not.toThrow();
+  });
+});
+
+// ── Fase 2 P4: bounded persisted history ────────────────────────────────
+
+describe('bounded history (P4)', () => {
+  it('caps the persisted history at MAX_HISTORY_LENGTH', () => {
+    const fs = makeFs();
+    const store = new StateStore(fs, 'data/rallyos-state.json');
+    const manager = createTestCourtManager({ persistence: store });
+
+    const court = manager.createCourt('Mesa');
+    manager.startMatch(court.id, { playerNameA: 'Alice', playerNameB: 'Bob' });
+
+    // Alternate A/B so the match stays live far past MAX_HISTORY_LENGTH.
+    for (let i = 0; i < 25; i++) {
+      manager.recordPoint(court.id, i % 2 === 0 ? 'A' : 'B');
+    }
+
+    manager.flush();
+    const parsed = JSON.parse(fs._files.get('data/rallyos-state.json')!);
+    const persistedHistory = parsed.tournamentCourts[0].matchState.history;
+    expect(persistedHistory.length).toBeLessThanOrEqual(MAX_HISTORY_LENGTH);
   });
 });

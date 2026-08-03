@@ -20,24 +20,23 @@ test.describe('Club Free Mode', () => {
     // Wait for connection
     await page.locator('text=Conectado').or(page.locator('text=Connected')).waitFor({ timeout: 5000 }).catch(() => {})
 
-    // Enter admin PIN (use TOURNAMENT_OWNER_PIN=12345678 env var on server)
-    await page.locator('input[placeholder="••••••"]').fill('12345678')
-    await page.locator('text=Verificar').click()
-    await expect(page.locator('text=Nueva Cancha')).toBeVisible({ timeout: 8000 })
+    // Enter admin PIN (set deterministically to 12345678 via club-config.json)
+    await page.locator('input[placeholder="••••••••"]').fill('12345678')
+    await page.locator('text=Ingresar').click()
+    await expect(page.getByRole('button', { name: 'Cancha', exact: true })).toBeVisible({ timeout: 8000 })
 
     // Create court
-    await page.locator('button:has-text("Nueva Cancha")').click()
+    await page.getByRole('button', { name: 'Cancha', exact: true }).click()
     await page.waitForTimeout(500)
 
-    // Activate
-    await page.locator('button:has-text("Activar")').first().click()
+    // Activate the newest court (last card) and grab its PIN (last PIN badge in body)
+    await page.locator('div.card-light').last().locator('button:has-text("Activar")').click()
     await page.waitForTimeout(500)
 
-    // Extract PIN
     const bodyText = await page.textContent('body')
-    const pinMatch = bodyText!.match(/PIN:\s*(\d+)/)
-    expect(pinMatch).not.toBeNull()
-    courtPin = pinMatch![1]
+    const pinMatches = [...(bodyText || '').matchAll(/PIN\s*(\d+)/g)]
+    expect(pinMatches.length).toBeGreaterThan(0)
+    courtPin = pinMatches[pinMatches.length - 1][1]
   })
 
   test('player enters PIN and selects Modo Libre', async ({ page }) => {
@@ -60,8 +59,15 @@ test.describe('Club Free Mode', () => {
     // Should see mode selector (ClubSessionConfig)
     await expect(page.locator('[data-testid="club-session-config"]')).toBeVisible({ timeout: 5000 })
 
+    // Free mode requires name + phone before "Comenzar" is enabled
+    await page.locator('[data-testid="player-name-input"]').fill('Jugador Libre')
+    await page.locator('[data-testid="player-phone-input"]').fill('+5491123456789')
+
     // Select "Modo Libre" and click "Comenzar"
     await page.locator('[data-testid="mode-free"]').click()
+    // Dismiss the auto-update banner if present — it is a fixed bottom overlay
+    // that can intercept clicks on "Comenzar" in strict hit-testing browsers.
+    await page.locator('button:has-text("Después")').click({ timeout: 500 }).catch(() => {})
     await page.locator('button:has-text("Comenzar")').click()
     await page.waitForTimeout(1000)
 
@@ -83,7 +89,9 @@ test.describe('Club Free Mode', () => {
   test('timer increments while in free mode', async ({ page }) => {
     expect(courtPin).toBeDefined()
 
-    // Same setup: auth + free play selection
+    // The free session started by the previous test is still live — joining
+    // the same PIN restores it via the reconnect flow, landing directly on
+    // free play (no session-config screen).
     await page.goto('/auth')
     await page.locator('text=Quiero jugar').click()
     await page.locator('input[placeholder="••••"]').fill(courtPin)
@@ -91,15 +99,7 @@ test.describe('Club Free Mode', () => {
     await page.waitForTimeout(2000)
     await expect(page).toHaveURL(/\/club\/play\//, { timeout: 10000 })
 
-    await page.locator('body').click({ position: { x: 100, y: 200 } })
-    await page.waitForTimeout(500)
-
-    await expect(page.locator('[data-testid="club-session-config"]')).toBeVisible({ timeout: 5000 })
-    await page.locator('[data-testid="mode-free"]').click()
-    await page.locator('button:has-text("Comenzar")').click()
-    await page.waitForTimeout(1000)
-
-    await expect(page.locator('[data-testid="club-free-play"]')).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('[data-testid="club-free-play"]')).toBeVisible({ timeout: 10000 })
 
     // Read initial timer text
     const initialTime = await page.locator('[data-testid="club-free-play"] .font-mono').textContent()

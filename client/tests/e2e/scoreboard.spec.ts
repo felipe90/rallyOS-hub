@@ -9,11 +9,12 @@ test.describe('Scoreboard Flow', () => {
     await expect(page.locator('#root')).toBeVisible()
   })
 
-  test('shows match config panel', async ({ page }) => {
-    await page.goto('/')
-    
-    // The config panel should be visible for configuring matches
-    await expect(page.getByText('Configurar Partido')).toBeVisible({ timeout: 5000 }).catch(() => {})
+  test('redirects unauthenticated scoreboard access to auth', async ({ page }) => {
+    // Scoreboard routes are protected — an unauthenticated visitor is
+    // redirected to /auth instead of seeing match config UI (the config
+    // panel only opens on a real WAITING court with referee auth).
+    await page.goto('/scoreboard/abc-123/view')
+    await expect(page).toHaveURL(/.*\/auth/)
   })
 
   test('displays score numbers', async ({ page }) => {

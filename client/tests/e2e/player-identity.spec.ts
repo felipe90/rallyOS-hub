@@ -8,37 +8,61 @@
  *   8.4 Non-admin cannot reveal phone
  *
  * Prerequisites:
- *   Server running with a configured club (admin PIN: 1234567).
+ *   Server running with a configured club (admin PIN: 12345678).
  */
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 
 test.describe('Player Identity E2E', () => {
   test.describe.configure({ mode: 'serial' })
 
   let courtPin: string
 
+  /**
+   * After the player flow the admin session is usually restored from the
+   * stored JWT on reload, but the server emits CLUB_SESSION_RESTORED right
+   * after the socket handshake — before the client subscribes — so the
+   * restore can be lost and the PIN screen renders instead. When that
+   * happens, re-enter the admin PIN (the club admin PIN is deterministic:
+   * 12345678). Retries a couple of times because the socket may still be
+   * connecting on the first attempt (verify returns NO_CONNECTION).
+   */
+  async function ensureAdmin(page: Page) {
+    const pinInput = page.locator('input[placeholder="••••••••"]')
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (!(await pinInput.isVisible().catch(() => false))) return
+      await pinInput.fill('12345678')
+      await page.locator('text=Ingresar').click()
+      const verified = await page
+        .getByRole('button', { name: 'Cancha', exact: true })
+        .isVisible({ timeout: 5000 })
+        .catch(() => false)
+      if (verified) return
+      await page.waitForTimeout(2000)
+    }
+    await expect(page.getByRole('button', { name: 'Cancha', exact: true })).toBeVisible({ timeout: 8000 })
+  }
+
   test('8.1 Player flow — QR→PIN→name+phone→free mode→end→history has playerName', async ({ page }) => {
     // ── 1. Admin setup ────────────────────────────────────────────────
     await page.context().clearCookies()
     await page.goto('/club/admin')
     await page.locator('text=Conectado').or(page.locator('text=Connected')).waitFor({ timeout: 5000 }).catch(() => {})
-    await page.locator('input[placeholder="••••••"]').fill('1234567')
-    await page.locator('text=Verificar').click()
-    await expect(page.locator('text=Nueva Cancha')).toBeVisible({ timeout: 8000 })
+    await page.locator('input[placeholder="••••••••"]').fill('12345678')
+    await page.locator('text=Ingresar').click()
+    await expect(page.getByRole('button', { name: 'Cancha', exact: true })).toBeVisible({ timeout: 8000 })
 
     // Create court
-    await page.locator('button:has-text("Nueva Cancha")').click()
+    await page.getByRole('button', { name: 'Cancha', exact: true }).click()
     await page.waitForTimeout(500)
 
-    // Activate
-    await page.locator('button:has-text("Activar")').first().click()
+    // Activate the newest court (last card) and grab its PIN (last PIN badge in body)
+    await page.locator('div.card-light').last().locator('button:has-text("Activar")').click()
     await page.waitForTimeout(500)
 
-    // Extract PIN
     const bodyText = await page.textContent('body')
-    const pinMatch = bodyText!.match(/PIN:\s*(\d+)/)
-    expect(pinMatch).not.toBeNull()
-    courtPin = pinMatch![1]
+    const pinMatches = [...(bodyText || '').matchAll(/PIN\s*(\d+)/g)]
+    expect(pinMatches.length).toBeGreaterThan(0)
+    courtPin = pinMatches[pinMatches.length - 1][1]
 
     // ── 2. Player joins with name+phone ───────────────────────────────
     await page.goto('/auth')
@@ -54,6 +78,9 @@ test.describe('Player Identity E2E', () => {
 
     // Select free mode and start
     await page.locator('[data-testid="mode-free"]').click()
+    // Dismiss the auto-update banner if present — fixed bottom overlay that
+    // can intercept clicks on "Comenzar" in strict hit-testing browsers.
+    await page.locator('button:has-text("Después")').click({ timeout: 500 }).catch(() => {})
     await page.locator('button:has-text("Comenzar")').click()
     await page.waitForTimeout(1000)
 
@@ -69,13 +96,14 @@ test.describe('Player Identity E2E', () => {
     // ── 4. Admin checks history for playerName ────────────────────────
     await page.goto('/club/admin')
     await page.waitForTimeout(1000)
+    await ensureAdmin(page)
 
     // Switch to history tab
     await page.locator('button:has-text("Historial")').click()
     await page.waitForTimeout(1000)
 
     // Verify playerName appears in the history table
-    await expect(page.locator('text=Carlos Pérez')).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('text=Carlos Pérez').first()).toBeVisible({ timeout: 5000 })
   })
 
   test('8.2 Admin flow — activate → occupy → kiosk → end → history shows adminId', async ({ page }) => {
@@ -85,49 +113,46 @@ test.describe('Player Identity E2E', () => {
     await page.context().clearCookies()
     await page.goto('/club/admin')
     await page.locator('text=Conectado').or(page.locator('text=Connected')).waitFor({ timeout: 5000 }).catch(() => {})
-    await page.locator('input[placeholder="••••••"]').fill('1234567')
-    await page.locator('text=Verificar').click()
-    await expect(page.locator('text=Nueva Cancha')).toBeVisible({ timeout: 8000 })
+    await page.locator('input[placeholder="••••••••"]').fill('12345678')
+    await page.locator('text=Ingresar').click()
+    await expect(page.getByRole('button', { name: 'Cancha', exact: true })).toBeVisible({ timeout: 8000 })
 
-    await page.locator('button:has-text("Nueva Cancha")').click()
+    await page.getByRole('button', { name: 'Cancha', exact: true }).click()
     await page.waitForTimeout(500)
-    await page.locator('button:has-text("Activar")').first().click()
+    await page.locator('div.card-light').last().locator('button:has-text("Activar")').click()
     await page.waitForTimeout(500)
-
-    // Extract PIN
-    const bodyText = await page.textContent('body')
-    const pinMatch = bodyText!.match(/PIN:\s*(\d+)/)
-    expect(pinMatch).not.toBeNull()
-    const adminCourtPin = pinMatch![1]
 
     // ── 2. Admin starts session for player ────────────────────────────
-    await page.locator('button:has-text("Iniciar sesión")').first().click()
+    await page.locator('div.card-light').last().locator('button:has-text("Iniciar sesión")').click()
     await page.waitForTimeout(500)
 
     // Fill modal: name, phone, mode
     await page.locator('[data-testid="admin-occupy-name"]').fill('María García')
     await page.locator('[data-testid="admin-occupy-phone"]').fill('+5491112345678')
     await page.locator('[data-testid="mode-free"]').click()
-    await page.locator('button:has-text("Iniciar Sesión")').click()
+    await page.locator('[role="dialog"] button:has-text("Iniciar Sesión")').click()
     await page.waitForTimeout(1500)
 
     // ── 3. Check kiosk shows playerName ──────────────────────────────
-    await page.goto('/kiosk')
-    await page.waitForTimeout(1000)
-    await expect(page.locator('text=María García').first()).toBeVisible({ timeout: 5000 })
+    // /kiosk/club URL-forces club kiosk mode (plain /kiosk waits on a
+    // KIOSK_MODE push that can race the socket connect).
+    await page.goto('/kiosk/club')
+    await page.waitForTimeout(2000)
+    await expect(page.locator('text=María García').first()).toBeVisible({ timeout: 10000 })
 
     // ── 4. Admin force-ends session ──────────────────────────────────
     await page.goto('/club/admin')
     await page.waitForTimeout(1500)
-    await page.locator('button:has-text("Finalizar Sesión")').first().click()
+    await ensureAdmin(page)
+    await page.locator('div.card-light').last().locator('button:has-text("Finalizar Sesión")').click()
     await page.waitForTimeout(500)
-    await page.locator('button:has-text("Finalizar")').click()
+    await page.locator('[role="alertdialog"] button:has-text("Finalizar")').click()
     await page.waitForTimeout(2000)
 
     // ── 5. Check history has player name ─────────────────────────────
     await page.locator('button:has-text("Historial")').click()
     await page.waitForTimeout(1000)
-    await expect(page.locator('text=María García')).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('text=María García').first()).toBeVisible({ timeout: 5000 })
   })
 
   test('8.3 Phone reveal — end session → admin clicks "Ver teléfono" → modal shows phone', async ({ page }) => {
@@ -135,19 +160,19 @@ test.describe('Player Identity E2E', () => {
     await page.context().clearCookies()
     await page.goto('/club/admin')
     await page.locator('text=Conectado').or(page.locator('text=Connected')).waitFor({ timeout: 5000 }).catch(() => {})
-    await page.locator('input[placeholder="••••••"]').fill('1234567')
-    await page.locator('text=Verificar').click()
-    await expect(page.locator('text=Nueva Cancha')).toBeVisible({ timeout: 8000 })
+    await page.locator('input[placeholder="••••••••"]').fill('12345678')
+    await page.locator('text=Ingresar').click()
+    await expect(page.getByRole('button', { name: 'Cancha', exact: true })).toBeVisible({ timeout: 8000 })
 
-    await page.locator('button:has-text("Nueva Cancha")').click()
+    await page.getByRole('button', { name: 'Cancha', exact: true }).click()
     await page.waitForTimeout(500)
-    await page.locator('button:has-text("Activar")').first().click()
+    await page.locator('div.card-light').last().locator('button:has-text("Activar")').click()
     await page.waitForTimeout(500)
 
     const bodyText = await page.textContent('body')
-    const pinMatch = bodyText!.match(/PIN:\s*(\d+)/)
-    expect(pinMatch).not.toBeNull()
-    const revealPin = pinMatch![1]
+    const pinMatches = [...(bodyText || '').matchAll(/PIN\s*(\d+)/g)]
+    expect(pinMatches.length).toBeGreaterThan(0)
+    const revealPin = pinMatches[pinMatches.length - 1][1]
 
     // Player: enter PIN, fill name+phone, start free mode
     await page.goto('/auth')
@@ -160,6 +185,9 @@ test.describe('Player Identity E2E', () => {
     await page.locator('[data-testid="player-name-input"]').fill('Lucía Mendoza')
     await page.locator('[data-testid="player-phone-input"]').fill('+5491134567890')
     await page.locator('[data-testid="mode-free"]').click()
+    // Dismiss the auto-update banner if present — fixed bottom overlay that
+    // can intercept clicks on "Comenzar" in strict hit-testing browsers.
+    await page.locator('button:has-text("Después")').click({ timeout: 500 }).catch(() => {})
     await page.locator('button:has-text("Comenzar")').click()
     await page.waitForTimeout(1000)
     await expect(page.locator('[data-testid="club-free-play"]')).toBeVisible({ timeout: 5000 })
@@ -173,12 +201,13 @@ test.describe('Player Identity E2E', () => {
     // ── 2. Admin views history + reveals phone ───────────────────────
     await page.goto('/club/admin')
     await page.waitForTimeout(1500)
+    await ensureAdmin(page)
     await page.locator('button:has-text("Historial")').click()
     await page.waitForTimeout(1000)
 
     // Find the row with "Lucía Mendoza" and click "Ver teléfono"
-    await expect(page.locator('text=Lucía Mendoza')).toBeVisible({ timeout: 5000 })
-    await page.locator('tr').filter({ hasText: 'Lucía Mendoza' }).locator('button:has-text("Ver teléfono")').click()
+    await expect(page.locator('text=Lucía Mendoza').first()).toBeVisible({ timeout: 5000 })
+    await page.locator('tr').filter({ hasText: 'Lucía Mendoza' }).first().locator('button:has-text("Ver teléfono")').click()
     await page.waitForTimeout(1000)
 
     // ── 3. Verify phone modal appears ─────────────────────────────────

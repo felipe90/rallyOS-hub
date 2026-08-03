@@ -12,22 +12,23 @@ test.describe('Club Mode E2E', () => {
       // 1. Admin: authenticate, create court, activate, get PIN
       await page.goto('/club/admin')
       await page.locator('text=Conectado').or(page.locator('text=Connected')).waitFor({ timeout: 5000 }).catch(() => {})
-      await page.locator('input[placeholder="••••••"]').fill('1234567')
-      await page.locator('text=Verificar').click()
-      await expect(page.locator('text=Nueva Cancha')).toBeVisible({ timeout: 3000 })
+      await page.locator('input[placeholder="••••••••"]').fill('12345678')
+      await page.locator('text=Ingresar').click()
+      await expect(page.getByRole('button', { name: 'Cancha', exact: true })).toBeVisible({ timeout: 3000 })
 
-      await page.locator('button:has-text("Nueva Cancha")').click()
+      await page.getByRole('button', { name: 'Cancha', exact: true }).click()
       await page.waitForTimeout(500)
 
-      await page.locator('button:has-text("Activar")').first().click()
+      // Activate the newest court (last card) and grab its PIN (last PIN badge in body)
+      await page.locator('div.card-light').last().locator('button:has-text("Activar")').click()
       await page.waitForTimeout(500)
 
       const pinText = await page.textContent('body')
-      const pinMatch = pinText!.match(/PIN:\s*(\d+)/)
-      expect(pinMatch).not.toBeNull()
-      const courtPin = pinMatch![1]
+      const pinMatches = [...(pinText || '').matchAll(/PIN\s*(\d+)/g)]
+      expect(pinMatches.length).toBeGreaterThan(0)
+      const courtPin = pinMatches[pinMatches.length - 1][1]
 
-      // 2. Player: enter PIN on auth page
+      // 2. Player: enter PIN on auth page, fill name+phone, start a free session
       await page.goto('/auth')
       await page.locator('text=Quiero jugar').click()
       await page.locator('input[placeholder="••••"]').fill(courtPin)
@@ -35,17 +36,24 @@ test.describe('Club Mode E2E', () => {
       await page.waitForTimeout(2000)
 
       await expect(page).toHaveURL(/\/club\/play\//, { timeout: 10000 })
-      await page.locator('body').click({ position: { x: 100, y: 200 } })
-      await page.waitForTimeout(500)
+      await page.locator('[data-testid="player-name-input"]').fill('Jugador Reconnect')
+      await page.locator('[data-testid="player-phone-input"]').fill('+5491111111111')
+      await page.locator('[data-testid="mode-free"]').click()
+      // Dismiss the auto-update banner if present — fixed bottom overlay that
+      // can intercept clicks on "Comenzar" in strict hit-testing browsers.
+      await page.locator('button:has-text("Después")').click({ timeout: 500 }).catch(() => {})
+      await page.locator('button:has-text("Comenzar")').click()
+      await page.waitForTimeout(1000)
 
-      // 3. REFRESH — reconnection test
+      await expect(page.locator('[data-testid="club-free-play"]')).toBeVisible({ timeout: 5000 })
+
+      // 3. REFRESH — reconnection test: the live free session is restored
       const currentUrl = page.url()
       await page.goto(currentUrl)
       await page.waitForTimeout(2000)
 
       await expect(page).toHaveURL(/\/club\/play\//, { timeout: 10000 })
-      await page.locator('body').click({ position: { x: 100, y: 200 } })
-      await page.waitForTimeout(500)
+      await expect(page.locator('[data-testid="club-free-play"]')).toBeVisible({ timeout: 10000 })
     })
   })
 
@@ -53,19 +61,19 @@ test.describe('Club Mode E2E', () => {
     test.skip('CU-TIMER-01: match ends → auto-finish → shows elapsed time + cost', async ({ page }) => {
       await page.goto('/club/admin')
       await page.locator('text=Conectado').or(page.locator('text=Connected')).waitFor({ timeout: 5000 }).catch(() => {})
-      await page.locator('input[placeholder="••••••"]').fill('1234567')
-      await page.locator('text=Verificar').click()
-      await expect(page.locator('text=Nueva Cancha')).toBeVisible({ timeout: 3000 })
+      await page.locator('input[placeholder="••••••••"]').fill('12345678')
+      await page.locator('text=Ingresar').click()
+      await expect(page.getByRole('button', { name: 'Cancha', exact: true })).toBeVisible({ timeout: 3000 })
 
-      await page.locator('button:has-text("Nueva Cancha")').click()
+      await page.getByRole('button', { name: 'Cancha', exact: true }).click()
       await page.waitForTimeout(500)
-      await page.locator('button:has-text("Activar")').first().click()
+      await page.locator('div.card-light').last().locator('button:has-text("Activar")').click()
       await page.waitForTimeout(500)
 
       const pinText = await page.textContent('body')
-      const pinMatch = pinText!.match(/PIN:\s*(\d+)/)
-      expect(pinMatch).not.toBeNull()
-      const courtPin = pinMatch![1]
+      const pinMatches = [...(pinText || '').matchAll(/PIN\s*(\d+)/g)]
+      expect(pinMatches.length).toBeGreaterThan(0)
+      const courtPin = pinMatches[pinMatches.length - 1][1]
 
       await page.goto('/auth')
       await page.locator('text=Quiero jugar').click()
@@ -93,15 +101,15 @@ test.describe('Club Mode E2E', () => {
     test('admin can create, activate, deactivate, and reset a court', async ({ page }) => {
       await page.goto('/club/admin')
       await page.locator('text=Conectado').or(page.locator('text=Connected')).waitFor({ timeout: 5000 }).catch(() => {})
-      await page.locator('input[placeholder="••••••"]').fill('1234567')
-      await page.locator('text=Verificar').click()
-      await expect(page.locator('text=Nueva Cancha')).toBeVisible({ timeout: 3000 })
+      await page.locator('input[placeholder="••••••••"]').fill('12345678')
+      await page.locator('text=Ingresar').click()
+      await expect(page.getByRole('button', { name: 'Cancha', exact: true })).toBeVisible({ timeout: 3000 })
 
-      await page.locator('button:has-text("Nueva Cancha")').click()
+      await page.getByRole('button', { name: 'Cancha', exact: true }).click()
       await page.waitForTimeout(500)
       await expect(page.locator('text=Disponible').first()).toBeVisible({ timeout: 3000 })
 
-      await page.locator('button:has-text("Activar")').first().click()
+      await page.locator('div.card-light').last().locator('button:has-text("Activar")').click()
       await page.waitForTimeout(500)
       await expect(page.locator('text=Reservada').first()).toBeVisible({ timeout: 3000 })
       await expect(page.locator('text=Desactivar').first()).toBeVisible({ timeout: 3000 })

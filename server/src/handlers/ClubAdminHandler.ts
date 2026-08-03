@@ -160,6 +160,19 @@ export class ClubAdminHandler extends SocketHandlerBase {
         const kioskPayload = this.tableManager.getClubKioskPayload(config);
         socket.emit(SocketEvents.SERVER.CLUB_KIOSK_DATA, kioskPayload);
       }
+
+      // Re-signal admin session restore on explicit request. The
+      // connection-time CLUB_SESSION_RESTORED (SocketHandler io.on
+      // 'connection') can beat the client's listener registration, so a
+      // freshly loaded /club/admin would land on the PIN screen despite a
+      // valid JWT. Emitting again here lets a client that subscribes first
+      // and then asks (CLUB_GET_CONFIG) deterministically recover the
+      // dashboard without re-entering the PIN. Same race applies to the
+      // connection-time CLUB_SESSION_HISTORY push, so re-send that too.
+      if ((socket.data as SocketData).isClubAdmin) {
+        socket.emit(SocketEvents.SERVER.CLUB_SESSION_RESTORED);
+        this.historyHandler?.sendHistoryToSocket(socket);
+      }
     });
 
     // CLUB_SETUP: First-run club configuration

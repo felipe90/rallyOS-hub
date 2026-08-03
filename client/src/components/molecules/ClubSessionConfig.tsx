@@ -85,6 +85,7 @@ export function ClubSessionConfig({
           onChange={(e) => setName(e.target.value)}
           disabled={loading}
           autoFocus
+          data-testid="player-name-input"
         />
         <Input
           type="tel"
@@ -92,6 +93,7 @@ export function ClubSessionConfig({
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           disabled={loading}
+          data-testid="player-phone-input"
         />
       </div>
 

@@ -5,7 +5,7 @@
  * Delegates socket I/O — no business logic.
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import type { Socket } from 'socket.io-client'
 import { SocketEvents } from '@shared/events'
 
@@ -178,6 +178,16 @@ export function useClubAdmin(
       socket.off(SocketEvents.SERVER.CLUB_SESSION_RESTORED, handleSessionRestored)
     }
   }, [socket])
+
+  // Ask for club config once connected. The server re-emits
+  // CLUB_SESSION_RESTORED when this socket is an admin (see ClubAdminHandler
+  // CLUB_GET_CONFIG), closing the race where the connection-time emit arrives
+  // before this hook's listener above is registered — a reload with a valid
+  // JWT would otherwise land back on the PIN screen.
+  useEffect(() => {
+    if (!socket || !connected) return
+    socket.emit(SocketEvents.CLIENT.CLUB_GET_CONFIG)
+  }, [socket, connected])
 
   const clearVerifyError = useCallback(() => setVerifyError(null), [])
   const clearSetupError = useCallback(() => setSetupError(null), [])

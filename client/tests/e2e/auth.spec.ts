@@ -26,7 +26,7 @@ test.describe('Auth Flow', () => {
 
   test('organizador goes to PIN entry', async ({ page }) => {
     await page.click('button:has-text("Organizador")')
-    await expect(page.locator('text=Ingresa tu PIN de organizador')).toBeVisible()
+    await expect(page.locator('text=Ingresá el PIN de Organizador del torneo')).toBeVisible()
   })
 })
 

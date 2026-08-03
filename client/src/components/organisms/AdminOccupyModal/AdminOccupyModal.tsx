@@ -102,6 +102,7 @@ export function AdminOccupyModal({
             className="pl-10"
             disabled={submitting}
             autoFocus
+            data-testid="admin-occupy-name"
           />
         </div>
 
@@ -117,6 +118,7 @@ export function AdminOccupyModal({
             placeholder={i18nText('clubAdminOccupyPhonePlaceholder')}
             className="pl-10"
             disabled={submitting}
+            data-testid="admin-occupy-phone"
           />
         </div>
 
@@ -132,6 +134,7 @@ export function AdminOccupyModal({
               fullWidth
               onClick={() => setMode('free')}
               disabled={submitting}
+              data-testid="mode-free"
             >
               {i18nText('clubAdminOccupyModeFree')}
             </Button>
@@ -141,6 +144,7 @@ export function AdminOccupyModal({
               fullWidth
               onClick={() => setMode('match')}
               disabled={submitting}
+              data-testid="mode-match"
             >
               {i18nText('clubAdminOccupyModeMatch')}
             </Button>

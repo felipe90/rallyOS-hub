@@ -208,15 +208,15 @@ describe('BracketView — court assignment modal', () => {
         onAssignCourt={onAssignCourt}
       />,
     )
-    fireEvent.click(screen.getAllByRole('button', { name: /Sin cancha/i })[0])
-    expect(screen.getByText(/Asignar cancha/i)).toBeInTheDocument()
+    fireEvent.click(screen.getAllByRole('button', { name: /Sin mesa/i })[0])
+    expect(screen.getByText(/Asignar mesa/i)).toBeInTheDocument()
     expect(screen.getByText('Cancha 1')).toBeInTheDocument()
     expect(screen.getByText('Cancha 2')).toBeInTheDocument()
     fireEvent.click(screen.getByText('Cancha 2'))
     expect(onAssignCourt).toHaveBeenCalledWith('R1-M1', 'c-2')
   })
 
-  it('"Sin cancha" clears the court', () => {
+  it('"Sin mesa" clears the court', () => {
     const onAssignCourt = vi.fn()
     const b = makeBracket({
       matches: [makeMatch({ id: 'R1-M1', status: 'READY', playerA: 'A', playerB: 'B', courtId: 'c-1' })],
@@ -231,16 +231,16 @@ describe('BracketView — court assignment modal', () => {
       />,
     )
     fireEvent.click(screen.getByText('Cancha 1'))
-    fireEvent.click(screen.getByRole('button', { name: /^Sin cancha$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^Sin mesa$/i }))
     expect(onAssignCourt).toHaveBeenCalledWith('R1-M1', null)
   })
 
-  it('shows "Cancha eliminada" when the assigned court is missing from the list', () => {
+  it('shows "Mesa eliminada" when the assigned court is missing from the list', () => {
     const b = makeBracket({
       matches: [makeMatch({ id: 'R1-M1', status: 'READY', playerA: 'A', playerB: 'B', courtId: 'ghost' })],
     })
     renderWithI18n(<BracketView bracket={b} courts={[]} resetToken={null} {...handlers} />)
-    expect(screen.getByText(/Cancha eliminada/i)).toBeInTheDocument()
+    expect(screen.getByText(/Mesa eliminada/i)).toBeInTheDocument()
   })
 })
 

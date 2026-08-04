@@ -125,13 +125,12 @@ describe('ST-3 — sportTerm locale parity', () => {
   })
 })
 
-// The coverage assertions below are the "known-failing parity assertions":
-// TERM_KEYS is the FULL contract (court/table + chip + team/pair) but PR-1
-// only ships the court/table locale structure. They are RED until PR-2 task
-// 2.1 adds the remaining sportTerm.{term}.{sport} keys (82 flat keys). They
-// ship SKIPPED so the focused PR-1 test command stays green while still
-// pinning the contract; PR-2 unskips them after the key additions land.
-describe.skip('ST-3 — sportTerm contract coverage (RED until PR-2 task 2.1)', () => {
+// The coverage assertions below pin the FULL TERM_KEYS contract (court/table
+// + chip + team/pair) against both locale files: every term must exist for
+// both sports in both locales (spec ST-3 "Complete coverage"). PR-2 task 2.1
+// added the remaining sportTerm.{term}.{sport} keys, so this suite is now
+// GREEN and runs with the rest of the file.
+describe('ST-3 — sportTerm contract coverage', () => {
   it('every TERM_KEYS term exists for both sports in es.json', () => {
     const esRecord = es as Record<string, unknown>
     for (const term of Object.keys(TERM_KEYS)) {

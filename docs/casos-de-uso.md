@@ -19,8 +19,8 @@
 | **CU-AUTH-01** | Choose role. Selection screen: "Quiero jugar" CTA, "Torneo" divider, "Organizador" / "Árbitro" / "Espectador" buttons, "Administrar" footer + connection status | — | — |
 | **CU-AUTH-02** | Referee login: click "Árbitro" → `login('referee')` | `/dashboard/referee` | — |
 | **CU-AUTH-03** | Spectator login: click "Espectador" → `login('viewer')` | `/dashboard/spectator` | — |
-| **CU-AUTH-04** | Owner login: click "Organizador" → 8-digit PIN → verification. No tournament → sport selector; tournament exists → resume modal | `/dashboard/owner` | C `VERIFY_OWNER` · S `OWNER_VERIFIED` |
-| **CU-AUTH-05** | Post-owner sport selection: "Tenis de Mesa" or "Pádel" | `/dashboard/owner` | — |
+| **CU-AUTH-04** | Owner login: click "Organizador" → 8-digit PIN → verification. No tournament → navigate straight to owner dashboard; tournament exists → resume modal | `/dashboard/owner` | C `VERIFY_OWNER` · S `OWNER_VERIFIED` |
+| **CU-AUTH-05** | ~~Post-owner sport selection: "Tenis de Mesa" or "Pádel"~~ **[removed]** — sport selector deleted (sport-aware terminology change); club config (`ClubConfigStore.sport`) is the single source of truth, a bare tournament defaults to `tableTennis` (see `docs/technical-debt.md`) | `/dashboard/owner` | — |
 | **CU-AUTH-06** | Club player: click "Quiero jugar" → court PIN (4 digits) → `CLUB_JOIN` | `/club/play/:courtId` | C `CLUB_JOIN` · S `CLUB_JOIN_RESULT` |
 | **CU-AUTH-07** | "Administrar" link (club admin) | `/club/admin` | — |
 
@@ -32,7 +32,6 @@
 - Footer: **"Administrar"** (`authAdminClub`) · Status: **"Conectado" / "Desconectado"**
 - Owner PIN: title **"Organizador"**, description **"Ingresá el PIN de Organizador del torneo"** (`authOwnerPinEnterPin`), 8-digit input placeholder `••••••••`, button **"Ingresar"**
 - Club PIN: heading **"Jugar"**, description **"Ingresá el PIN de tu cancha"**, 4-digit input placeholder `••••`, button **"Ingresar"**
-- Sport select: heading **"Deporte"**, options **"Tenis de Mesa" / "Pádel"**
 
 > ⚠️ `authEnterOwnerPin` = "Ingresa tu PIN de Organizador" (es.json:11) is **dead code** — the title ternary already covers all modes (AuthPage.tsx:217-221). It never renders.
 

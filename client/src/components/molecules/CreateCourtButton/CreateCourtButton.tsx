@@ -1,4 +1,4 @@
-import { useI18n } from '@/i18n'
+import { useSportTerms } from '@/hooks/useSportTerms'
 import { Button } from '@/components/atoms/Button'
 import { Plus } from 'lucide-react'
 
@@ -17,14 +17,14 @@ export function CreateCourtButton({
   loading,
   label,
 }: CreateCourtButtonProps) {
-  const { i18nText } = useI18n()
+  const { terms, i18nText, sport } = useSportTerms()
 
   const handleClick = () => {
     let next = existingNames.length + 1
-    let name = i18nText('clubAdminDefaultCourtName', { number: String(next) })
+    let name = i18nText(`sportTerm.clubAdminDefaultCourtName.${sport}`, { number: String(next) })
     while (existingNames.includes(name)) {
       next++
-      name = i18nText('clubAdminDefaultCourtName', { number: String(next) })
+      name = i18nText(`sportTerm.clubAdminDefaultCourtName.${sport}`, { number: String(next) })
     }
     onCreate(name)
   }
@@ -39,7 +39,7 @@ export function CreateCourtButton({
         loading={loading}
       >
         <Plus size={18} className="mr-2" />
-        {label || i18nText('clubAdminCreateCourt')}
+        {label || terms.clubAdminCreateCourt}
       </Button>
     </div>
   )

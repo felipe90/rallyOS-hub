@@ -18,10 +18,15 @@ import { ClubSessionHistoryPanel } from './ClubSessionHistoryPanel'
 import type { UseClubSessionHistoryReturn } from '@/hooks/useClubSessionHistory'
 import type { SessionRecord } from '@shared/types'
 
+vi.mock('@/contexts/SportContext', () => ({
+  useSport: () => ({ sport: 'tableTennis', sportLoaded: true }),
+}))
+
 vi.mock('@/i18n', () => ({
   useI18n: () => ({
     i18nText: (key: string, opts?: Record<string, unknown>) => {
       const map: Record<string, string> = {
+        'sportTerm.historyColCourt.tableTennis': 'Mesa',
         clubAdminTabCourts: 'Canchas',
         clubAdminTabHistory: 'Historial',
         historyColCourt: 'Cancha',
@@ -127,7 +132,7 @@ describe('ClubSessionHistoryPanel — table rendering', () => {
     )
     const table = screen.getByRole('table')
     expect(table).toBeInTheDocument()
-    expect(screen.getByRole('columnheader', { name: 'Cancha' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Mesa' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Duración' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Costo' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Fecha' })).toBeInTheDocument()
@@ -292,7 +297,7 @@ describe('ClubSessionHistoryPanel — player column (Phase 7 / U4)', () => {
     vi.useRealTimers()
   })
 
-  it('renders a "Jugador" column header between "Cancha" and "Duración"', () => {
+  it('renders a "Jugador" column header between "Mesa" and "Duración"', () => {
     render(
       <ClubSessionHistoryPanel
         history={makeHistoryStub({ sessions: [record()] })}
@@ -300,7 +305,7 @@ describe('ClubSessionHistoryPanel — player column (Phase 7 / U4)', () => {
       />,
     )
     const headers = screen.getAllByRole('columnheader')
-    const courtIdx = headers.findIndex((h) => h.textContent === 'Cancha')
+    const courtIdx = headers.findIndex((h) => h.textContent === 'Mesa')
     const playerIdx = headers.findIndex((h) => h.textContent === 'Jugador')
     const durIdx = headers.findIndex((h) => h.textContent === 'Duración')
     expect(courtIdx).toBeGreaterThanOrEqual(0)
@@ -330,7 +335,7 @@ describe('ClubSessionHistoryPanel — player column (Phase 7 / U4)', () => {
       />,
     )
     const cells = screen.getAllByRole('cell')
-    // The second cell after Cancha is the player column; should be empty
+    // The second cell after Mesa is the player column; should be empty
     const canchaCell = cells[0]
     const playerCell = cells[1]
     expect(canchaCell.textContent).toBe('Cancha 1')

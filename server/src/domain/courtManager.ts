@@ -32,6 +32,16 @@ export interface CourtManagerDeps {
   pinService: IPinService;
   qrService: IQRService;
   persistence?: ICourtPersistence;
+  /**
+   * MP-1 — resolves the club's configured sport so NEW courts get
+   * sport-aware default names ("Mesa N" for table tennis, "Cancha N" for
+   * padel). Optional: defaults to table tennis so callers that pass no
+   * resolver (e.g. tests with explicit names) are unaffected. Tournament
+   * CREATE_COURT (CourtEventHandler.ts:61) carries no sport, so both the
+   * tournament and club creation flows read the club config through this
+   * resolver. Stored/persisted names render as-is — no migration (MP-2).
+   */
+  resolveCourtSport?: () => Sport;
 }
 
 export class CourtManager {
@@ -42,6 +52,7 @@ export class CourtManager {
   private pinService: IPinService;
   private qrService: IQRService;
   private stateStore?: ICourtPersistence;
+  private resolveCourtSport: () => Sport;
 
   /**
    * Trailing debounce for auto-persist (P1). Rapid point bursts coalesce into
@@ -64,12 +75,13 @@ export class CourtManager {
     this.formatter = deps.formatter;
     this.qrService = deps.qrService;
     this.stateStore = deps.persistence;
+    this.resolveCourtSport = deps.resolveCourtSport ?? (() => SPORT.TABLE_TENNIS);
   }
 
   // Table CRUD
   createCourt(name?: string): TournamentCourt {
     const courtNumber = this.repository.getNextTableNumber();
-    const courtName = name ? sanitizeInput(name, 256) : `Cancha ${courtNumber}`;
+    const courtName = name ? sanitizeInput(name, 256) : this.defaultCourtName(courtNumber);
     const pin = this.pinService.generatePin();
     const id = crypto.randomUUID();
 
@@ -137,7 +149,7 @@ export class CourtManager {
    */
   createClubCourt(name?: string): ClubCourt {
     const courtNumber = this.repository.getNextTableNumber();
-    const courtName = name ? sanitizeInput(name, 256) : `Cancha ${courtNumber}`;
+    const courtName = name ? sanitizeInput(name, 256) : this.defaultCourtName(courtNumber);
     const id = crypto.randomUUID();
 
     const court: ClubCourt = {
@@ -1024,6 +1036,15 @@ export class CourtManager {
   }
 
   // Private
+  /**
+   * MP-1 — default name for a NEW court based on the resolved club sport:
+   * "Mesa {n}" for table tennis, "Cancha {n}" for padel. Only applies to
+   * freshly created courts; persisted names are rendered as-is (MP-2).
+   */
+  private defaultCourtName(n: number): string {
+    return this.resolveCourtSport() === SPORT.PADEL ? `Cancha ${n}` : `Mesa ${n}`;
+  }
+
   private notifyUpdate(court: Court): void {
     if (this.onTableUpdate) {
       this.onTableUpdate(this.formatter.toPublicInfo(court));

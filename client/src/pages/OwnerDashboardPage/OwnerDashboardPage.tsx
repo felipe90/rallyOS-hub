@@ -6,7 +6,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSportTerms } from '@/hooks/useSportTerms'
-import { useI18n } from '@/i18n'
 import { DashboardGrid, DashboardHeader } from '@/components/organisms/DashboardGrid'
 import { PageHeader } from '@/components/molecules/PageHeader'
 import { PinModal } from '@/components/molecules/PinModal'

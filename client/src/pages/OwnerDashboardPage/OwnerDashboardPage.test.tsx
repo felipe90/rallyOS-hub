@@ -11,6 +11,11 @@ vi.mock('@/contexts/SocketContext', () => ({
   useSocketContext: vi.fn(),
 }))
 
+// Mock SportContext — page + TableStatusChip resolve terms via useSportTerms
+vi.mock('@/contexts/SportContext', () => ({
+  useSport: () => ({ sport: 'tableTennis', sportLoaded: true }),
+}))
+
 // Mock AuthContext
 vi.mock('@/contexts/AuthContext', () => ({
   useAuthContext: vi.fn(),

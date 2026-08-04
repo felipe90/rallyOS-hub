@@ -43,6 +43,8 @@ const Probe = () => {
   )
 }
 
+const renderProvider = () => render(<SportProvider><Probe /></SportProvider>)
+
 describe('SportContext', () => {
   let socket: FakeSocket
 
@@ -57,11 +59,7 @@ describe('SportContext', () => {
   })
 
   it('emits CLUB_GET_CONFIG on connect and registers the CLUB_CONFIG listener', () => {
-    render(
-      <SportProvider>
-        <Probe />
-      </SportProvider>
-    )
+    renderProvider()
 
     expect(socket.on).toHaveBeenCalledWith(
       SocketEvents.SERVER.CLUB_CONFIG,
@@ -71,22 +69,14 @@ describe('SportContext', () => {
   })
 
   it('defaults to tableTennis with sportLoaded=false before config arrives (ST-1 flash)', () => {
-    render(
-      <SportProvider>
-        <Probe />
-      </SportProvider>
-    )
+    renderProvider()
 
     expect(screen.getByTestId('sport')).toHaveTextContent('tableTennis')
     expect(screen.getByTestId('loaded')).toHaveTextContent('false')
   })
 
   it('resolves padel from CLUB_CONFIG and flips sportLoaded (ST-1 padel club)', () => {
-    render(
-      <SportProvider>
-        <Probe />
-      </SportProvider>
-    )
+    renderProvider()
 
     act(() => {
       socket.fire(SocketEvents.SERVER.CLUB_CONFIG, { sport: 'padel' })
@@ -96,82 +86,38 @@ describe('SportContext', () => {
     expect(screen.getByTestId('loaded')).toHaveTextContent('true')
   })
 
-  it('resolves tableTennis from CLUB_CONFIG (configured TT club)', () => {
-    render(
-      <SportProvider>
-        <Probe />
-      </SportProvider>
-    )
+  // Normalization mirrors ClubPlayerHandler.ts:207 — unknown → TT; null keeps
+  // the fallback (no-club tournament) with sportLoaded=false.
+  it.each([
+    ['tableTennis', 'tableTennis', 'true'],
+    ['pickleball', 'tableTennis', 'true'],
+    [null, 'tableTennis', 'false'],
+  ])('normalizes CLUB_CONFIG sport %s → %s (loaded %s)', (payload, expectedSport, loaded) => {
+    renderProvider()
 
     act(() => {
-      socket.fire(SocketEvents.SERVER.CLUB_CONFIG, { sport: 'tableTennis' })
+      socket.fire(SocketEvents.SERVER.CLUB_CONFIG, { sport: payload })
     })
 
-    expect(screen.getByTestId('sport')).toHaveTextContent('tableTennis')
-    expect(screen.getByTestId('loaded')).toHaveTextContent('true')
-  })
-
-  it('normalizes an unknown sport value to tableTennis (mirror ClubPlayerHandler.ts:207)', () => {
-    render(
-      <SportProvider>
-        <Probe />
-      </SportProvider>
-    )
-
-    act(() => {
-      socket.fire(SocketEvents.SERVER.CLUB_CONFIG, { sport: 'pickleball' })
-    })
-
-    expect(screen.getByTestId('sport')).toHaveTextContent('tableTennis')
-    expect(screen.getByTestId('loaded')).toHaveTextContent('true')
-  })
-
-  it('keeps the TT fallback when CLUB_CONFIG carries no sport (no-club tournament)', () => {
-    render(
-      <SportProvider>
-        <Probe />
-      </SportProvider>
-    )
-
-    act(() => {
-      socket.fire(SocketEvents.SERVER.CLUB_CONFIG, { sport: null })
-    })
-
-    expect(screen.getByTestId('sport')).toHaveTextContent('tableTennis')
-    expect(screen.getByTestId('loaded')).toHaveTextContent('false')
+    expect(screen.getByTestId('sport')).toHaveTextContent(expectedSport)
+    expect(screen.getByTestId('loaded')).toHaveTextContent(loaded)
   })
 
   it('re-emits CLUB_GET_CONFIG on reconnect (D1)', () => {
-    const { rerender } = render(
-      <SportProvider>
-        <Probe />
-      </SportProvider>
-    )
+    const { rerender } = renderProvider()
     expect(socket.emit).toHaveBeenCalledTimes(1)
 
     mockUseSocketContext.mockReturnValue({ socket, connected: false })
-    rerender(
-      <SportProvider>
-        <Probe />
-      </SportProvider>
-    )
+    rerender(<SportProvider><Probe /></SportProvider>)
 
     mockUseSocketContext.mockReturnValue({ socket, connected: true })
-    rerender(
-      <SportProvider>
-        <Probe />
-      </SportProvider>
-    )
+    rerender(<SportProvider><Probe /></SportProvider>)
 
     expect(socket.emit).toHaveBeenCalledTimes(2)
   })
 
   it('cleans up the CLUB_CONFIG listener on unmount', () => {
-    const { unmount } = render(
-      <SportProvider>
-        <Probe />
-      </SportProvider>
-    )
+    const { unmount } = renderProvider()
 
     unmount()
 
@@ -189,17 +135,8 @@ describe('SportContext', () => {
       return <button data-testid="force" onClick={() => force((n) => n + 1)} />
     }
 
-    const { rerender } = render(
-      <SportProvider>
-        <StabilityProbe />
-      </SportProvider>
-    )
-
-    rerender(
-      <SportProvider>
-        <StabilityProbe />
-      </SportProvider>
-    )
+    const { rerender } = render(<SportProvider><StabilityProbe /></SportProvider>)
+    rerender(<SportProvider><StabilityProbe /></SportProvider>)
 
     // Force the consumer to re-read the context; it must observe the SAME
     // value object the provider built before the unrelated re-render.

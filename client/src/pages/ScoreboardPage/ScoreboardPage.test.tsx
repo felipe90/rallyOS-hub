@@ -4,6 +4,7 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { ScoreboardPage } from './ScoreboardPage'
 import { useAuthContext } from '@/contexts/AuthContext'
 import { useSocketContext } from '@/contexts/SocketContext'
+import { useSport } from '@/contexts/SportContext'
 import { usePermissions } from '@/hooks/usePermissions'
 
 // Mock useI18n to return translated strings
@@ -48,6 +49,7 @@ vi.mock('@/i18n', () => ({
 
 const mockUseAuthContext = useAuthContext as ReturnType<typeof vi.fn>
 const mockUseSocketContext = useSocketContext as ReturnType<typeof vi.fn>
+const mockUseSport = useSport as ReturnType<typeof vi.fn>
 const mockUsePermissions = usePermissions as ReturnType<typeof vi.fn>
 
 // Define role constants for tests
@@ -67,6 +69,12 @@ vi.mock('@/contexts/AuthContext', () => ({
 
 vi.mock('@/contexts/SocketContext', () => ({
   useSocketContext: vi.fn(),
+}))
+
+// SportContext — ScoreboardPage reads the session sport via useSport() for the
+// MatchConfigModal initialSport fallback (FSA-2); default TT, per-test override.
+vi.mock('@/contexts/SportContext', () => ({
+  useSport: vi.fn(),
 }))
 
 vi.mock('@/hooks/usePermissions', () => ({
@@ -167,6 +175,8 @@ describe('ScoreboardPage', () => {
         showQrColumn: false,
       },
     })
+
+    mockUseSport.mockReturnValue({ sport: 'tableTennis', sportLoaded: true })
   })
 
   afterEach(() => {
@@ -334,5 +344,58 @@ describe('ScoreboardPage', () => {
     renderWithRouter(<ScoreboardPage />)
 
     expect(mockEmit).not.toHaveBeenCalled()
+  })
+
+  describe('FSA-2 — MatchConfigModal initial sport source', () => {
+    const waitingMatch = () =>
+      createMockMatch({
+        status: 'WAITING' as const,
+        // config intentionally carries NO sport → ScoreboardPage falls back to
+        // the SportContext sport.
+        config: { pointsPerSet: 11, bestOf: 3, minDifference: 2 },
+      })
+
+    it('uses the SportContext sport (padel) with empty localStorage', () => {
+      localStorage.clear()
+      mockUseSocketContext.mockReturnValue({
+        currentMatch: waitingMatch(),
+        tables: [],
+        connected: true,
+        emit: mockEmit,
+        hubConfig: null,
+        createTable: vi.fn(),
+        joinTable: vi.fn(),
+        leaveTable: vi.fn(),
+        disconnect: vi.fn(),
+      })
+      mockUseSport.mockReturnValue({ sport: 'padel', sportLoaded: true })
+
+      renderWithRouter(<ScoreboardPage />)
+
+      // Modal opened (WAITING + canConfigure) with initialSport=padel → padel
+      // config fields render, TT-only handicap section does not.
+      expect(screen.getByText('Games por set')).toBeInTheDocument()
+      expect(screen.queryByText('Handicap')).not.toBeInTheDocument()
+    })
+
+    it('uses the SportContext sport (tableTennis) with empty localStorage', () => {
+      localStorage.clear()
+      mockUseSocketContext.mockReturnValue({
+        currentMatch: waitingMatch(),
+        tables: [],
+        connected: true,
+        emit: mockEmit,
+        hubConfig: null,
+        createTable: vi.fn(),
+        joinTable: vi.fn(),
+        leaveTable: vi.fn(),
+        disconnect: vi.fn(),
+      })
+      // mockUseSport default (tableTennis) from beforeEach
+      renderWithRouter(<ScoreboardPage />)
+
+      expect(screen.getByText('Handicap')).toBeInTheDocument()
+      expect(screen.queryByText('Games por set')).not.toBeInTheDocument()
+    })
   })
 })

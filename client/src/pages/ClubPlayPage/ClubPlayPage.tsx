@@ -41,6 +41,7 @@ import { RallyTapConnectButton } from '@/components/molecules'
 import { Button } from '@/components/atoms/Button'
 import { Typography } from '@/components/atoms/Typography'
 import { ConnectionStatus } from '@/components/atoms'
+import { useSportTerms } from '@/hooks/useSportTerms'
 import { useI18n } from '@/i18n'
 import { Routes } from '@/routes'
 import type { MatchStateExtended, MatchConfig } from '@shared/types'
@@ -179,7 +180,7 @@ export function ClubPlayPage() {
   const { courtId } = useParams<{ courtId: string }>()
   const navigate = useNavigate()
   const { socket, connected } = useSocketContext()
-  const { i18nText } = useI18n()
+  const { terms, i18nText } = useSportTerms()
   const { isLandscape, toggle: toggleOrientation } = useOrientation()
   const {
     matchState, loading, error, reconnecting, refereeReplaced,
@@ -232,7 +233,7 @@ export function ClubPlayPage() {
     if (!courtId) {
       return (
         <div className="flex items-center justify-center min-h-dvh bg-background">
-          <Typography variant="body">{i18nText('scoreboardInvalidCourtId')}</Typography>
+          <Typography variant="body">{terms.scoreboardInvalidCourtId}</Typography>
         </div>
       )
     }

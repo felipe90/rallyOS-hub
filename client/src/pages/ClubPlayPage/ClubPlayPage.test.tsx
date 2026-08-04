@@ -24,6 +24,7 @@ vi.mock('@/i18n', () => ({
   useI18n: () => ({
     i18nText: (key: string, params?: Record<string, unknown>) => {
       const map: Record<string, string> = {
+        'sportTerm.scoreboardInvalidCourtId.tableTennis': 'ID de mesa inválido',
         clubPlayLoading: 'Conectando...',
         clubPlayReconnecting: 'Reconectando...',
         clubPlayFinished: 'Sesión finalizada',
@@ -70,6 +71,11 @@ vi.mock('@/i18n', () => ({
 const mockSocket = { on: vi.fn(), off: vi.fn(), emit: vi.fn(), connected: true, onAny: vi.fn(), offAny: vi.fn() }
 vi.mock('@/contexts/SocketContext', () => ({
   useSocketContext: vi.fn(() => ({ socket: mockSocket, connected: true })),
+}))
+
+// ─── sport context mock (useSportTerms) ──────────────────────────────
+vi.mock('@/contexts/SportContext', () => ({
+  useSport: () => ({ sport: 'tableTennis', sportLoaded: true }),
 }))
 
 // ─── useClubPlay hook mock ────────────────────────────────────────────
@@ -237,7 +243,7 @@ describe('ClubPlayPage — PR 4 refactored flow', () => {
         </Routes>
       </MemoryRouter>,
     )
-    expect(screen.getByText('ID de cancha inválido')).toBeInTheDocument()
+    expect(screen.getByText('ID de mesa inválido')).toBeInTheDocument()
   })
 
   it('renders error view on connection error', () => {

@@ -12,13 +12,27 @@
 
 import crypto from 'crypto';
 import { MatchEngine, MAX_HISTORY_LENGTH } from './matchEngine';
-import { Court, TournamentCourt, ClubCourt, isClubCourt, isTournamentCourt, CourtInfo, CourtInfoWithPin, Player, MatchConfig, MatchStateExtended, QRData, Sport, SPORT, COURT_MODE, TournamentStatus, ClubStatus, CLUB_STATUS, SessionMode, SESSION_MODE } from './types';
-import { AllHistoryEntry, ClubKioskPayload, ClubKioskCourtInfo, ClubConfig } from '../../../shared/types';
+import { Court, TournamentCourt, ClubCourt, isClubCourt, isTournamentCourt, CourtInfo, CourtInfoWithPin, Player, MatchConfig, MatchStateExtended, QRData, Sport, SPORT, COURT_MODE, TournamentStatus, ClubStatus, CLUB_STATUS, SessionMode, SESSION_MODE, FlowModeKey, FlowSlot } from './types';
+import { AllHistoryEntry, ClubKioskPayload, ClubKioskCourtInfo, ClubConfig, INVENTORY_STATUS, AVAILABILITY } from '../../../shared/types';
+import type { Availability, CourtRecord, BracketMatch } from '../../../shared/types';
 import { logger } from '../utils/logger';
 import { sanitizeInput } from '../utils/validation';
 import type { PersistedCourt, PersistedClubCourt } from './ports/persistence-types';
 import type { ICourtRepository, IPlayerService, IMatchOrchestrator, ICourtPersistence, ICourtFormatter, IPinService, IQRService } from './ports';
 import { CourtNumberCounter } from './inventory/CourtNumberCounter';
+import type { InventoryManager } from './inventory/InventoryManager';
+import { availabilityOf as deriveAvailability } from './flows/FlowModeContract';
+import type { FlowModeContract, FlowContext } from './flows/FlowModeContract';
+import { FlowModeRegistry } from './flows/FlowModeRegistry';
+import { registerDefaultFlows } from './flows';
+
+/**
+ * Minimal catalog view CourtManager needs for the persist/restore axis split
+ * (INV-4): ghost-drop restore consults the admin inventory — a persisted flow
+ * whose courtId has NO catalog record is dropped (no ghost sessions).
+ * Satisfied structurally by InventoryManager.get().
+ */
+export type CourtCatalog = Pick<InventoryManager, 'get'>;
 
 /**
  * Dependency container for CourtManager.
@@ -33,6 +47,27 @@ export interface CourtManagerDeps {
   pinService: IPinService;
   qrService: IQRService;
   persistence?: ICourtPersistence;
+  /**
+   * FMR-1 — the flow rule engine. Each flow mode (club/tournament, future
+   * 'clase') registers one contract; CourtManager delegates end/forceEnd/
+   * start to `registry.get(flow.mode)` and NEVER branches on sessionMode
+   * inline. Defaults to the built-in club + tournament contracts
+   * (registerDefaultFlows).
+   */
+  registry?: FlowModeRegistry;
+  /**
+   * INV-4 — catalog view for the persist/restore axis split. When present,
+   * restoreState() drops any persisted flow whose courtId has no catalog
+   * record (no ghost sessions). Optional so pre-slice-2 consumers (tests,
+   * boot without inventory) keep the legacy restore behavior.
+   */
+  inventory?: CourtCatalog;
+  /**
+   * FMR-3/AFE-3 — resolves the club's cost config so the club flow contract
+   * SETTLES the real cost (ceil(elapsedMinutes × costPerMinute)). Defaults to
+   * null (cost 0) when absent.
+   */
+  resolveClubConfig?: () => { costPerMinute?: number; currency?: string } | null;
   /**
    * MP-1 — resolves the club's configured sport so NEW courts get
    * sport-aware default names ("Mesa N" for table tennis, "Cancha N" for
@@ -59,6 +94,9 @@ export class CourtManager {
   private pinService: IPinService;
   private qrService: IQRService;
   private stateStore?: ICourtPersistence;
+  private registry: FlowModeRegistry;
+  private inventory?: CourtCatalog;
+  private resolveClubConfig: () => { costPerMinute?: number; currency?: string } | null;
   private resolveCourtSport: () => Sport;
   private counter: CourtNumberCounter;
 
@@ -83,6 +121,9 @@ export class CourtManager {
     this.formatter = deps.formatter;
     this.qrService = deps.qrService;
     this.stateStore = deps.persistence;
+    this.registry = deps.registry ?? registerDefaultFlows();
+    this.inventory = deps.inventory;
+    this.resolveClubConfig = deps.resolveClubConfig ?? (() => null);
     this.resolveCourtSport = deps.resolveCourtSport ?? (() => SPORT.TABLE_TENNIS);
     this.counter = deps.counter ?? new CourtNumberCounter(this.repository.getAll());
   }
@@ -540,59 +581,105 @@ export class CourtManager {
   }
 
   /**
-   * End a club court session: validates OCCUPIED state, transitions to FINISHED,
-   * clears PIN, computes elapsed minutes, fires onClubSessionEnd callback.
+   * End a club court session: delegates to the club flow contract
+   * (FMR-1/FMR-3) — the contract validates OCCUPIED, settles the cost
+   * (ceil(elapsedMinutes × costPerMinute)), transitions OCCUPIED → FINISHED
+   * and clears the PIN. CourtManager fires onClubSessionEnd.
    *
    * @returns { elapsedMinutes } on success, null on failure.
    */
   endSession(courtId: string, reason: string): { elapsedMinutes: number; elapsedSeconds: number } | null {
     const court = this.repository.get(courtId);
     if (!court || !isClubCourt(court)) return null;
-    if (court.clubStatus !== CLUB_STATUS.OCCUPIED) return null;
 
-    const now = Date.now();
-    const elapsedMs = court.occupiedAt ? now - court.occupiedAt : 0;
-    const elapsedMinutes = Math.max(1, Math.ceil(elapsedMs / 60000));
-    const elapsedSeconds = Math.max(0, Math.floor(elapsedMs / 1000));
+    const result = this.registry.get('club').end(court, this.flowContext());
+    if (!result) return null;
 
-    court.clubStatus = CLUB_STATUS.FINISHED;
-    court.pin = '';
-
-    logger.info({ courtId, courtName: court.name, reason, elapsedMinutes, elapsedSeconds }, 'Club court session ended');
+    logger.info({ courtId, courtName: court.name, reason, elapsedMinutes: result.elapsedMinutes, elapsedSeconds: result.elapsedSeconds }, 'Club court session ended');
     this.notifyUpdate(court);
-    this.onClubSessionEnd(courtId, elapsedMinutes, elapsedSeconds, reason);
+    this.onClubSessionEnd(courtId, result.elapsedMinutes, result.elapsedSeconds, reason);
 
-    return { elapsedMinutes, elapsedSeconds };
+    return { elapsedMinutes: result.elapsedMinutes, elapsedSeconds: result.elapsedSeconds };
   }
 
   /**
-   * Force-end a club court session: delegates to endSession('force').
-   * Keeps backward-compatible return (Court | null) by looking up the court.
+   * Force-end a court session — delegates to the mode contract (FMR-1):
+   * club → finalizes cost + adminId-stamps then releases (AFE-3);
+   * tournament → clears the flow and unbinds the bracket match with NO
+   * setWinner/advance (AFE-2, D9). The bracket unbind capability (ctx
+   * resolveMatchForCourt/unbindMatch) is supplied by the caller (the
+   * INVENTORY_FORCE_END handler, slice 3/4) — until then a tournament
+   * force-end clears the court flow only.
+   *
+   * Keeps backward-compatible return (Court | null): null when the session
+   * could not be force-ended (e.g. club court not OCCUPIED).
    *
    * player-identity (Phase 3 / U2 task 3.6) — admin traceability:
    *   When `adminId` is supplied (a non-empty string sourced from
    *   `socket.data.adminId` by the CLUB_FORCE_END handler), it is stamped
-   *   onto the court BEFORE endSession fires `onClubSessionEnd`. The
-   *   callback (in ClubPlayerHandler) reads `clubCourt.adminId` to build
-   *   the SessionRecord, so the stamp there carries the admin who ENDED
-   *   the session — not whoever started it. Without this, a player-
-   *   occupied court (adminId=null) force-ended by an admin would produce
-   *   a record with `endedBy='admin'` but `adminId=null` (unattributed).
-   *
-   *   Omitting `adminId` (legacy callers, internal force-end without an
-   *   admin id) preserves the court's existing adminId untouched —
-   *   backward compatible with every existing caller + test.
+   *   onto the court BEFORE the session end fires `onClubSessionEnd` (the
+   *   club contract stamps it; the callback reads court.adminId). Omitting
+   *   `adminId` (legacy callers) preserves the court's existing adminId.
    */
-  forceEndSession(courtId: string, adminId?: string): Court | null {
-    if (typeof adminId === 'string' && adminId.length > 0) {
-      const court = this.repository.get(courtId);
-      if (court && isClubCourt(court)) {
-        court.adminId = adminId;
-      }
-    }
-    const result = this.endSession(courtId, 'force');
+  forceEndSession(courtId: string, adminId?: string, ctx: FlowContext = {}): Court | null {
+    const court = this.repository.get(courtId);
+    if (!court) return null;
+
+    const mode: FlowModeKey = isClubCourt(court) ? 'club' : 'tournament';
+    const result = this.registry.get(mode).forceEnd(court, adminId ?? '', { ...this.flowContext(), ...ctx });
     if (!result) return null;
-    return this.repository.get(courtId) ?? null;
+
+    logger.info({ courtId, courtName: court.name, mode, adminId: adminId ?? null }, 'Court session force-ended');
+    this.notifyUpdate(court);
+    if (mode === 'club') {
+      this.onClubSessionEnd(courtId, result.elapsedMinutes ?? 0, result.elapsedSeconds ?? 0, 'force');
+    }
+    return court;
+  }
+
+  /**
+   * availabilityOf — the DERIVED availability axis (INV-4/E12), pure over
+   * (inventoryStatus, active flow, bracket binding) → IDLE | BUSY.
+   * usable = ACTIVE && IDLE. Never persisted — consistent by construction.
+   * Delegates to the flows-module pure function (same rule, one definition).
+   */
+  availabilityOf(record: CourtRecord, flow: FlowSlot, binding: BracketMatch | null): Availability {
+    return deriveAvailability(record, flow, binding);
+  }
+
+  /**
+   * Bridge adapter — derive the availability of a LEGACY runtime court via
+   * its mode contract (availabilityOf(state)): club OCCUPIED / tournament
+   * LIVE → BUSY, else IDLE. Unknown court → IDLE. Feeds the slice-3/4
+   * consumers that still read the legacy union (bridge).
+   */
+  getCourtAvailability(courtId: string): Availability {
+    const court = this.repository.get(courtId);
+    if (!court) return AVAILABILITY.IDLE;
+    const mode: FlowModeKey = isClubCourt(court) ? 'club' : 'tournament';
+    const state = isClubCourt(court) ? court.clubStatus : court.status;
+    return this.registry.get(mode).availabilityOf(state);
+  }
+
+  /**
+   * Archive guard via the mode contract (INV-5/R7): false while the court is
+   * BUSY (live flow) — the admin must force-end first, then archive.
+   * Unknown court → true (no runtime flow to block the archive).
+   */
+  canArchiveCourt(courtId: string): boolean {
+    const court = this.repository.get(courtId);
+    if (!court) return true;
+    const mode: FlowModeKey = isClubCourt(court) ? 'club' : 'tournament';
+    return this.registry.get(mode).canArchive(court);
+  }
+
+  /** Flow context for contract calls — club cost config (FMR-3/AFE-3). */
+  private flowContext(): FlowContext {
+    const config = this.resolveClubConfig();
+    return {
+      costPerMinute: config?.costPerMinute,
+      currency: config?.currency,
+    };
   }
 
   finishTournament(): void {
@@ -719,21 +806,17 @@ export class CourtManager {
   // ── Club Session Lifecycle ──────────────────────────────────────────
 
   /**
-   * Switch a club court to "free" session mode.
-   *
-   * Validates that the court exists, is a club-mode court, and is
-   * currently OCCUPIED. On success, sets `court.sessionMode = 'free'`,
-   * leaves the court in OCCUPIED state with the timer running, and
-   * returns the new session mode.
+   * Switch a club court to "free" session mode — delegates the flow-state
+   * transition (sessionMode + player identity) to the club contract
+   * (FMR-1). Validates that the court exists and is a club-mode court; the
+   * contract validates OCCUPIED. Leaves the court in OCCUPIED state with the
+   * timer running and returns the new session mode.
    *
    * player-identity (Phase 2 task 2.2) — optionally accepts the player's
    * own name + phone (the player flow submits these alongside the mode
    * choice, encrypted client-side via AES-256-GCM). When provided, the
-   * values are stored on the court so that the subsequent
-   * `onClubSessionEnd` callback (in ClubPlayerHandler) can build a
-   * fully-populated SessionRecord. When omitted, any previously set
-   * values are PRESERVED — this supports idempotent re-entry (e.g. the
-   * client resending CLUB_START_FREE without re-sending identity).
+   * contract stores them on the court; when omitted, previously set values
+   * are PRESERVED (idempotent re-entry).
    *
    * @returns `{ sessionMode: 'free' }` on success, null on failure.
    */
@@ -743,19 +826,13 @@ export class CourtManager {
   ): { sessionMode: SessionMode } | null {
     const court = this.repository.get(courtId);
     if (!court || !isClubCourt(court)) return null;
-    if (court.clubStatus !== CLUB_STATUS.OCCUPIED) return null;
 
-    court.sessionMode = SESSION_MODE.FREE;
-
-    // player-identity — populate when provided, preserve otherwise. The
-    // admin flow (adminOccupyCourt, Phase 3 / U2) sets adminId; here the
-    // player own identified → adminId stays null.
-    if (player && typeof player.playerName === 'string') {
-      court.playerName = player.playerName;
-    }
-    if (player && typeof player.phone === 'string') {
-      court.phone = player.phone;
-    }
+    const started = this.registry.get('club').start!(court, {
+      sessionMode: SESSION_MODE.FREE,
+      playerName: player?.playerName,
+      phone: player?.phone,
+    });
+    if (!started) return null;
 
     logger.info({ courtId, courtName: court.name }, 'Club court entered free mode');
     this.notifyUpdate(court);
@@ -851,21 +928,19 @@ export class CourtManager {
   ): { matchState: MatchStateExtended } | null {
     const court = this.repository.get(courtId);
     if (!court || !isClubCourt(court)) return null;
-    if (court.clubStatus !== CLUB_STATUS.OCCUPIED) return null;
+
+    // Delegate the flow-state transition (sessionMode='match' + player
+    // identity, populate-or-preserve) to the club contract (FMR-1); the
+    // contract validates OCCUPIED. The match orchestration below stays here.
+    const started = this.registry.get('club').start!(court, {
+      sessionMode: SESSION_MODE.MATCH,
+      playerName: params.playerName,
+      phone: params.phone,
+    });
+    if (!started) return null;
 
     // Update player names on the court
     court.playerNames = { a: params.playerNameA, b: params.playerNameB };
-    court.sessionMode = SESSION_MODE.MATCH;
-
-    // player-identity — populate when provided, preserve otherwise.
-    // The admin flow (adminOccupyCourt, Phase 3 / U2) sets adminId; here
-    // the player owns the session → adminId stays null.
-    if (typeof params.playerName === 'string') {
-      court.playerName = params.playerName;
-    }
-    if (typeof params.phone === 'string') {
-      court.phone = params.phone;
-    }
 
     // Reuse the existing config when one exists; otherwise default to
     // table-tennis bestOf=1. PR 2 risk fix #2 — the optional matchConfig
@@ -1045,6 +1120,15 @@ export class CourtManager {
   }
 
   // Private
+  /**
+   * INV-4 — whether a court id exists in the admin inventory catalog.
+   * When no inventory manager is injected (pre-slice-2 consumers), every
+   * flow is considered catalog-backed (legacy restore behavior — bridge).
+   */
+  private hasCatalogRecord(courtId: string): boolean {
+    return !this.inventory || this.inventory.get(courtId) !== undefined;
+  }
+
   /**
    * MP-1 — default name for a NEW court based on the resolved club sport:
    * "Mesa {n}" for table tennis, "Cancha {n}" for padel. Only applies to
@@ -1268,6 +1352,12 @@ export class CourtManager {
       if (pt.status !== 'LIVE' && pt.status !== 'FINISHED') {
         continue;
       }
+      // Axis split (INV-4): a flow whose courtId has no inventory catalog
+      // record is DROPPED — no ghost sessions (design D1 restore).
+      if (!this.hasCatalogRecord(pt.id)) {
+        logger.info({ courtId: pt.id }, 'restoreState: dropped tournament flow — no inventory catalog record');
+        continue;
+      }
 
       try {
         const engine = MatchEngine.fromState({
@@ -1319,6 +1409,12 @@ export class CourtManager {
     // Restore club courts
     for (const pt of persisted.clubCourts) {
       if (pt.clubStatus !== 'OCCUPIED' && pt.clubStatus !== 'FINISHED') {
+        continue;
+      }
+      // Axis split (INV-4): drop flows without an inventory catalog record
+      // (no ghost sessions, design D1 restore).
+      if (!this.hasCatalogRecord(pt.id)) {
+        logger.info({ courtId: pt.id }, 'restoreState: dropped club flow — no inventory catalog record');
         continue;
       }
 

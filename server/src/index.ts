@@ -20,6 +20,9 @@ import { QRService } from './services/qr/QRService';
 import { SportRegistry } from './domain/sports/sport.registry';
 import { DefaultMatchEngineFactory } from './domain/ports';
 import { StateStore } from './services/store/StateStore';
+import { CourtInventoryStore } from './services/store/CourtInventoryStore';
+import { InventoryManager } from './domain/inventory/InventoryManager';
+import { registerDefaultFlows } from './domain/flows';
 import { ClubConfigStore } from './services/store/ClubConfigStore';
 import { SessionHistoryStore } from './services/store/SessionHistoryStore';
 import { createTournamentRouter } from './routes/tournament';
@@ -63,6 +66,18 @@ const hubConfig = {
 // Create stores
 const stateStore = new StateStore();
 const clubConfigStore = new ClubConfigStore();
+// Admin inventory catalog (PERS-2/PERS-3): durable CourtRecord store with
+// synchronous immediate writes; InventoryManager is the ONLY existence
+// authority. Injected into CourtManager for the persist/restore axis split
+// (INV-4): restoreState drops any persisted flow whose courtId has no
+// catalog record (no ghost sessions — see admin-court-inventory design D1).
+const courtInventoryStore = new CourtInventoryStore();
+const inventoryManager = new InventoryManager(courtInventoryStore, {
+  resolveCourtSport: () => {
+    const config = clubConfigStore.load();
+    return config?.sport === SPORT.PADEL ? SPORT.PADEL : SPORT.TABLE_TENNIS;
+  },
+});
 // SessionHistoryStore — append-only JSON log of completed club sessions.
 // Spec: club-session-history / "SessionHistoryStore" requirement. Injected
 // into both the socket layer (ClubPlayerHandler.append on session end +
@@ -89,6 +104,18 @@ const courtManager = new CourtManager({
   formatter,
   qrService,
   persistence: stateStore,
+  // FMR-1 — the flow rule engine (club + tournament contracts).
+  registry: registerDefaultFlows(),
+  // INV-4 — catalog view for the persist/restore axis split (ghost-drop).
+  inventory: inventoryManager,
+  // FMR-3/AFE-3 — resolve the club cost config so the club flow contract
+  // SETTLES the real session cost (ceil(elapsedMinutes × costPerMinute)).
+  resolveClubConfig: () => {
+    const config = clubConfigStore.load();
+    return config
+      ? { costPerMinute: config.costPerMinute, currency: config.currency }
+      : null;
+  },
   // MP-1 — sport-aware default court names: NEW courts are named after the
   // club's configured sport ("Mesa N" for table tennis, "Cancha N" for
   // padel). Normalized exactly like ClubPlayerHandler.ts:207 so an unknown

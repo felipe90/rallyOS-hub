@@ -1,10 +1,14 @@
-import { SPORT, CLUB_STATUS, SESSION_MODE } from '../../../shared/types';
-import { CourtManager } from './courtManager';
+import { SPORT, CLUB_STATUS, SESSION_MODE, AVAILABILITY, INVENTORY_STATUS } from '../../../shared/types';
+import type { CourtRecord } from '../../../shared/types';
+import { CourtManager, type CourtCatalog } from './courtManager';
 import { createTestCourtManager } from './courtManager.test-factory';
 import { StateStore } from '../services/store/StateStore';
-import type { FileSystem, PersistedCourt, PersistedMatchState } from '../services/store/types';
-import type { ClubCourt, MatchStateExtended, MatchEvent } from './types';
+import type { FileSystem, PersistedCourt, PersistedClubCourt, PersistedMatchState } from '../services/store/types';
+import type { ClubCourt, MatchStateExtended, MatchEvent, FlowSlot, FlowModeKey, Court } from './types';
 import { MatchEngine, MAX_HISTORY_LENGTH } from './matchEngine';
+import { FlowModeRegistry } from './flows/FlowModeRegistry';
+import type { FlowModeContract, FlowContext } from './flows/FlowModeContract';
+import type { ICourtPersistence } from './ports';
 
 // ── Fake FileSystem for DI (same pattern as StateStore.test.ts) ──────────
 
@@ -2061,5 +2065,298 @@ describe('MP-1 sport-aware default court names', () => {
 
     expect(explicit.name).toBe('Mesa Permanente');
     expect(legacyStored.name).toBe('Cancha 2');
+  });
+});
+
+// ── Slice 2: FlowModeRegistry delegation (FMR-1) ─────────────────────────
+
+function stubFlowContract(key: FlowModeKey, overrides: Partial<FlowModeContract> = {}): FlowModeContract {
+  return {
+    key,
+    states: [],
+    allowedTransitions: {},
+    availabilityOf: () => AVAILABILITY.IDLE,
+    end: () => null,
+    forceEnd: () => null,
+    serialize: () => null,
+    canArchive: () => true,
+    release: () => {},
+    ...overrides,
+  };
+}
+
+function catalogWith(ids: string[]): CourtCatalog {
+  return {
+    get: (courtId: string) =>
+      ids.includes(courtId)
+        ? { courtId, number: 1, name: 'Mesa', inventoryStatus: INVENTORY_STATUS.ACTIVE }
+        : undefined,
+  };
+}
+
+function persistedTournamentCourt(id: string, status: 'LIVE' | 'FINISHED' = 'LIVE'): PersistedCourt {
+  const engine = new MatchEngine({ pointsPerSet: 11, bestOf: 1, minDifference: 2 });
+  engine.startMatch();
+  const s = engine.getState() as any;
+  return {
+    id,
+    number: 1,
+    name: 'Cancha 1',
+    status,
+    pin: '1234',
+    playerNames: { a: 'A', b: 'B' },
+    createdAt: Date.now(),
+    matchState: {
+      config: s.config,
+      score: { sets: { a: 0, b: 0 }, currentSet: { a: 0, b: 0 }, serving: 'A' },
+      swappedSides: false,
+      midSetSwapped: false,
+      setHistory: [],
+      status,
+      winner: null,
+      sport: SPORT.TABLE_TENNIS,
+      history: [],
+    },
+  };
+}
+
+function persistedClubCourt(id: string): PersistedClubCourt {
+  const engine = new MatchEngine({ pointsPerSet: 11, bestOf: 1, minDifference: 2 });
+  engine.startMatch();
+  const s = engine.getState() as any;
+  return {
+    id,
+    number: 1,
+    name: 'Mesa 1',
+    kind: 'club',
+    clubStatus: CLUB_STATUS.OCCUPIED,
+    occupiedAt: Date.now(),
+    pin: '1234',
+    playerNames: { a: 'A', b: 'B' },
+    createdAt: Date.now(),
+    matchState: {
+      config: s.config,
+      score: { sets: { a: 0, b: 0 }, currentSet: { a: 0, b: 0 }, serving: 'A' },
+      swappedSides: false,
+      midSetSwapped: false,
+      setHistory: [],
+      status: 'LIVE',
+      winner: null,
+      sport: SPORT.TABLE_TENNIS,
+      history: [],
+    },
+    config: null,
+    history: [],
+    sessionMode: SESSION_MODE.MATCH,
+    playerName: 'Ana',
+    phone: 'enc:1',
+    adminId: 'admin-1',
+  };
+}
+
+describe('courtManager — FlowModeRegistry delegation (FMR-1)', () => {
+  it('endSession delegates to the club contract and returns its settled elapsed', () => {
+    const endSpy = jest.fn((_court: Court, _ctx?: FlowContext) => ({ elapsedMinutes: 3, elapsedSeconds: 180, cost: 150, currency: 'ARS' }));
+    const registry = new FlowModeRegistry().register('club', () => stubFlowContract('club', { end: endSpy }));
+    const manager = createTestCourtManager({ registry });
+
+    const court = manager.createClubCourt('Deleg End');
+    manager.activateCourt(court.id);
+    manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+
+    const result = manager.endSession(court.id, 'player');
+    expect(endSpy).toHaveBeenCalledTimes(1);
+    const arg = endSpy.mock.calls[0][0] as ClubCourt;
+    expect(arg.id).toBe(court.id);
+    expect(arg.clubStatus).toBe(CLUB_STATUS.OCCUPIED); // contract receives the pre-transition court
+    expect(result).toEqual({ elapsedMinutes: 3, elapsedSeconds: 180 });
+  });
+
+  it('forceEndSession delegates to the club contract for club courts', () => {
+    const forceEndSpy = jest.fn((_court: Court, _adminId: string, _ctx?: FlowContext) => ({ releasedCourtId: 'x', elapsedMinutes: 2, elapsedSeconds: 120, cost: 100, currency: 'ARS' }));
+    const registry = new FlowModeRegistry().register('club', () => stubFlowContract('club', { forceEnd: forceEndSpy }));
+    const manager = createTestCourtManager({ registry });
+
+    const court = manager.createClubCourt('Deleg Force');
+    manager.activateCourt(court.id);
+    manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+
+    const ended = manager.forceEndSession(court.id, 'admin-1');
+    expect(forceEndSpy).toHaveBeenCalledTimes(1);
+    expect(forceEndSpy.mock.calls[0][1]).toBe('admin-1');
+    expect(ended?.id).toBe(court.id);
+  });
+
+  it('forceEndSession delegates to the tournament contract for tournament courts', () => {
+    const forceEndSpy = jest.fn((_court: Court, _adminId: string, _ctx?: FlowContext) => ({ releasedCourtId: 'x', unboundMatchId: 'R1-M1' }));
+    const registry = new FlowModeRegistry().register('tournament', () => stubFlowContract('tournament', { forceEnd: forceEndSpy }));
+    const manager = createTestCourtManager({ registry });
+
+    const court = manager.createCourt('Deleg Tourney');
+    manager.startMatch(court.id, { playerNameA: 'A', playerNameB: 'B' }); // status → LIVE
+
+    const ended = manager.forceEndSession(court.id, 'admin-1');
+    expect(forceEndSpy).toHaveBeenCalledTimes(1);
+    expect(ended?.id).toBe(court.id);
+  });
+
+  it('startFreePlay delegates to the club contract start with sessionMode free', () => {
+    const startSpy = jest.fn((_court: Court, _ctx?: FlowContext) => true);
+    const registry = new FlowModeRegistry().register('club', () => stubFlowContract('club', { start: startSpy }));
+    const manager = createTestCourtManager({ registry });
+
+    const court = manager.createClubCourt('Deleg Free');
+    manager.activateCourt(court.id);
+    manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+
+    const result = manager.startFreePlay(court.id, { playerName: 'Ana' });
+    expect(startSpy).toHaveBeenCalledTimes(1);
+    expect(startSpy.mock.calls[0][1]).toMatchObject({ sessionMode: SESSION_MODE.FREE, playerName: 'Ana' });
+    expect(result).toEqual({ sessionMode: SESSION_MODE.FREE });
+  });
+
+  it('newMatch delegates to the club contract start with sessionMode match', () => {
+    const startSpy = jest.fn((_court: Court, _ctx?: FlowContext) => true);
+    const registry = new FlowModeRegistry().register('club', () => stubFlowContract('club', { start: startSpy }));
+    const manager = createTestCourtManager({ registry });
+
+    const court = manager.createClubCourt('Deleg Match');
+    manager.activateCourt(court.id);
+    manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+
+    const result = manager.newMatch(court.id, { playerNameA: 'Ana', playerNameB: 'Bob' });
+    expect(startSpy).toHaveBeenCalledTimes(1);
+    expect(startSpy.mock.calls[0][1]).toMatchObject({ sessionMode: SESSION_MODE.MATCH });
+    expect(result).not.toBeNull();
+    expect(result!.matchState).not.toBeNull();
+  });
+
+  it('works out of the box with the default registry when none is injected', () => {
+    const manager = createTestCourtManager();
+    const court = manager.createClubCourt('Default Reg');
+    manager.activateCourt(court.id);
+    manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+    const ended = manager.endSession(court.id, 'player');
+    expect(ended).not.toBeNull();
+    expect((manager.getCourt(court.id) as ClubCourt).clubStatus).toBe(CLUB_STATUS.FINISHED);
+  });
+});
+
+describe('courtManager — derived availability + canArchive (INV-4/INV-5)', () => {
+  it('exposes the pure availabilityOf(record, flow, binding) function (usable = ACTIVE && IDLE)', () => {
+    const manager = createTestCourtManager();
+    const rec: CourtRecord = { courtId: 'c1', number: 1, name: 'Mesa', inventoryStatus: INVENTORY_STATUS.ACTIVE };
+    const flow: FlowSlot = {
+      mode: 'club', state: 'OCCUPIED', sessionMode: null, occupiedAt: Date.now(),
+      playerName: null, phone: null, adminId: null,
+    };
+    expect(manager.availabilityOf(rec, null, null)).toBe(AVAILABILITY.IDLE);
+    expect(manager.availabilityOf(rec, flow, null)).toBe(AVAILABILITY.BUSY);
+  });
+
+  it('getCourtAvailability derives BUSY for an OCCUPIED club court and IDLE after end', () => {
+    const manager = createTestCourtManager();
+    const court = manager.createClubCourt('Avail Club');
+    manager.activateCourt(court.id);
+    manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+    expect(manager.getCourtAvailability(court.id)).toBe(AVAILABILITY.BUSY);
+    manager.endSession(court.id, 'player');
+    expect(manager.getCourtAvailability(court.id)).toBe(AVAILABILITY.IDLE);
+  });
+
+  it('getCourtAvailability derives BUSY for a LIVE tournament court and IDLE after force-end', () => {
+    const manager = createTestCourtManager();
+    const court = manager.createCourt('Avail Tourney');
+    manager.startMatch(court.id, { playerNameA: 'A', playerNameB: 'B' });
+    expect((manager.getCourt(court.id) as any).status).toBe('LIVE');
+    expect(manager.getCourtAvailability(court.id)).toBe(AVAILABILITY.BUSY);
+    manager.forceEndSession(court.id, 'admin-1');
+    expect(manager.getCourtAvailability(court.id)).toBe(AVAILABILITY.IDLE);
+  });
+
+  it('getCourtAvailability returns IDLE for an unknown court', () => {
+    const manager = createTestCourtManager();
+    expect(manager.getCourtAvailability('nope')).toBe(AVAILABILITY.IDLE);
+  });
+
+  it('canArchiveCourt consults the mode contract — false while BUSY, true after release', () => {
+    const manager = createTestCourtManager();
+    const club = manager.createClubCourt('Arc Club');
+    manager.activateCourt(club.id);
+    manager.occupyClubCourt(club.id, SPORT.TABLE_TENNIS);
+    expect(manager.canArchiveCourt(club.id)).toBe(false);
+    manager.endSession(club.id, 'player');
+    expect(manager.canArchiveCourt(club.id)).toBe(true);
+
+    const tourney = manager.createCourt('Arc Tourney');
+    manager.startMatch(tourney.id, { playerNameA: 'A', playerNameB: 'B' });
+    expect(manager.canArchiveCourt(tourney.id)).toBe(false);
+    manager.forceEndSession(tourney.id);
+    expect(manager.canArchiveCourt(tourney.id)).toBe(true);
+  });
+});
+
+describe('courtManager — persist/restore axis split (ghost-drop, no ghost sessions)', () => {
+  it('restores flows backed by a catalog record and DROPS flows without one', () => {
+    const persisted = {
+      version: 4,
+      savedAt: Date.now(),
+      tournamentCourts: [persistedTournamentCourt('live-1', 'LIVE'), persistedTournamentCourt('ghost-1', 'LIVE')],
+      clubCourts: [persistedClubCourt('club-1')],
+    };
+    const fakePersistence: ICourtPersistence = {
+      save: jest.fn(),
+      load: () => persisted,
+      checkExists: () => true,
+      clear: jest.fn(),
+    };
+    const manager = createTestCourtManager({
+      persistence: fakePersistence,
+      inventory: catalogWith(['live-1', 'club-1']),
+    });
+
+    const restored = manager.restoreState();
+    expect(restored).toBe(true);
+    expect(manager.getCourt('live-1')).toBeDefined();
+    expect(manager.getCourt('club-1')).toBeDefined();
+    expect(manager.getCourt('ghost-1')).toBeUndefined(); // no ghost sessions
+  });
+
+  it('drops every flow when the catalog is empty (fresh inventory, wipe semantics)', () => {
+    const persisted = {
+      version: 4,
+      savedAt: Date.now(),
+      tournamentCourts: [persistedTournamentCourt('live-1', 'LIVE')],
+      clubCourts: [persistedClubCourt('club-1')],
+    };
+    const fakePersistence: ICourtPersistence = {
+      save: jest.fn(),
+      load: () => persisted,
+      checkExists: () => true,
+      clear: jest.fn(),
+    };
+    const manager = createTestCourtManager({ persistence: fakePersistence, inventory: catalogWith([]) });
+
+    expect(manager.restoreState()).toBe(false);
+    expect(manager.getCourt('live-1')).toBeUndefined();
+    expect(manager.getCourt('club-1')).toBeUndefined();
+  });
+
+  it('keeps legacy restore behavior when no inventory manager is injected (bridge)', () => {
+    const persisted = {
+      version: 4,
+      savedAt: Date.now(),
+      tournamentCourts: [persistedTournamentCourt('live-1', 'LIVE')],
+      clubCourts: [],
+    };
+    const fakePersistence: ICourtPersistence = {
+      save: jest.fn(),
+      load: () => persisted,
+      checkExists: () => true,
+      clear: jest.fn(),
+    };
+    const manager = createTestCourtManager({ persistence: fakePersistence });
+    expect(manager.restoreState()).toBe(true);
+    expect(manager.getCourt('live-1')).toBeDefined();
   });
 });

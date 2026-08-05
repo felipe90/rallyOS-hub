@@ -14,6 +14,7 @@ vi.mock('@/i18n', () => ({
   useI18n: () => ({
     i18nText: (key: string) => {
       const map: Record<string, string> = {
+        'sportTerm.clubKioskNoCourts.tableTennis': 'No hay mesas',
         clubKioskNoCourts: 'No hay canchas',
         commonVs: 'vs',
       }
@@ -21,6 +22,11 @@ vi.mock('@/i18n', () => ({
     },
   }),
   changeLanguage: vi.fn(),
+}))
+
+// Mock SportContext — page resolves terms via useSportTerms
+vi.mock('@/contexts/SportContext', () => ({
+  useSport: () => ({ sport: 'tableTennis', sportLoaded: true }),
 }))
 
 // Mock ClubKioskCard to simplify testing
@@ -77,7 +83,7 @@ describe('ClubKioskPage', () => {
     render(<ClubKioskPage />)
 
     // Should show empty state
-    expect(screen.getByText('No hay canchas')).toBeInTheDocument()
+    expect(screen.getByText('No hay mesas')).toBeInTheDocument()
   })
 
   it('renders club name and courts from CLUB_KIOSK_DATA', () => {

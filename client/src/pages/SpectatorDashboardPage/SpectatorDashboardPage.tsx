@@ -4,7 +4,7 @@
  */
 
 import { useNavigate } from 'react-router-dom'
-import { useI18n } from '@/i18n'
+import { useSportTerms } from '@/hooks/useSportTerms'
 import { useSocketContext } from '@/contexts/SocketContext'
 import { useAuthContext } from '@/contexts/AuthContext'
 import { PageHeader } from '@/components/molecules/PageHeader'
@@ -18,7 +18,7 @@ export interface SpectatorDashboardPageProps {}
 
 export function SpectatorDashboardPage(_props: SpectatorDashboardPageProps) {
   const navigate = useNavigate()
-  const { i18nText } = useI18n()
+  const { terms, i18nText } = useSportTerms()
   const { courts, emit } = useSocketContext()
   const { login } = useAuthContext()
 
@@ -39,7 +39,7 @@ export function SpectatorDashboardPage(_props: SpectatorDashboardPageProps) {
   return (
     <div className="flex flex-col h-dvh bg-background">
       <PageHeader
-        title={i18nText('spectatorTitle')}
+        title={terms.spectatorTitle}
         connectionLabels={{
           connected: i18nText('connectionConnected'),
           connecting: i18nText('connectionConnecting'),
@@ -62,7 +62,7 @@ export function SpectatorDashboardPage(_props: SpectatorDashboardPageProps) {
       <main id="main-content" className="flex-1 overflow-auto p-4 bg-primary/10">
         {availableCourts.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full">
-            <Typography variant="title">{i18nText('spectatorNoCourts')}</Typography>
+            <Typography variant="title">{terms.spectatorNoCourts}</Typography>
             <Typography variant="body" className="text-text-muted">
               {i18nText('spectatorTryLater')}
             </Typography>

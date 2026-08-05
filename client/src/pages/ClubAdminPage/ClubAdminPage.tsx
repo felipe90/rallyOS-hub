@@ -28,7 +28,7 @@ import { useClubAdmin } from '@/hooks/useClubAdmin'
 import { useClubCourtManagement } from '@/hooks/useClubCourtManagement'
 import { useClubSessionHistory } from '@/hooks/useClubSessionHistory'
 import type { ClubOperationEvent } from '@/hooks/useClubCourtManagement'
-import { useI18n } from '@/i18n'
+import { useSportTerms } from '@/hooks/useSportTerms'
 import { Routes } from '@/routes'
 import logoBig from '@/assets/logo-big.png'
 import {
@@ -103,7 +103,7 @@ function statusBorderClass(status: ClubCourtInfo['status']): string {
 export function ClubAdminPage() {
   const { socket, connected } = useSocketContext()
   const navigate = useNavigate()
-  const { i18nText } = useI18n()
+  const { terms, i18nText, sport } = useSportTerms()
   const { setSessionToken } = useAuthContext()
   const { isAdmin, verifyAdminPin, verifyLoading, verifyError, clearVerifyError } =
     useClubAdmin(socket, connected, { setSessionToken })
@@ -132,10 +132,10 @@ export function ClubAdminPage() {
     const ev: ClubOperationEvent = courtMgmt.lastEvent
     switch (ev.type) {
       case 'court-created':
-        addToast('success', i18nText('toastClubCourtCreated'))
+        addToast('success', terms.toastClubCourtCreated)
         break
       case 'court-activated':
-        addToast('success', i18nText('toastClubCourtActivated'))
+        addToast('success', terms.toastClubCourtActivated)
         break
       case 'court-occupied':
         addToast('success', i18nText('toastClubCourtOccupied'))
@@ -144,13 +144,13 @@ export function ClubAdminPage() {
         addToast('success', i18nText('toastClubSessionEnded'))
         break
       case 'court-deleted':
-        addToast('success', i18nText('toastClubCourtDeleted'))
+        addToast('success', terms.toastClubCourtDeleted)
         break
       case 'court-deactivated':
-        addToast('success', i18nText('toastClubCourtDeactivated'))
+        addToast('success', terms.toastClubCourtDeactivated)
         break
       case 'court-resetted':
-        addToast('success', i18nText('toastClubCourtResetted'))
+        addToast('success', terms.toastClubCourtResetted)
         break
       case 'error':
         if (ev.code === 'ACTIVATION_FAILED') {
@@ -158,11 +158,11 @@ export function ClubAdminPage() {
         } else if (ev.code === 'FORCE_END_FAILED') {
           addToast('error', i18nText('toastClubForceEndFailed'))
         } else if (ev.code === 'DELETE_FAILED') {
-          addToast('error', i18nText('toastClubDeleteFailed'))
+          addToast('error', terms.toastClubDeleteFailed)
         } else if (ev.code === 'DEACTIVATE_FAILED') {
           addToast('error', i18nText('toastClubDeactivateFailed'))
         } else if (ev.code === 'RESET_FAILED') {
-          addToast('error', i18nText('toastClubResetFailed'))
+          addToast('error', terms.toastClubResetFailed)
         }
         break
     }
@@ -346,7 +346,7 @@ export function ClubAdminPage() {
           <div role="tablist" className="flex border-b border-surface-high px-4">
             <Tab
               id="courts"
-              label={i18nText('clubAdminTabCourts')}
+              label={terms.clubAdminTabCourts}
               icon={<Table2 size={16} />}
               active={activeTab === 'courts'}
               onClick={() => setActiveTab('courts')}
@@ -372,7 +372,7 @@ export function ClubAdminPage() {
                   className="flex flex-col items-center justify-center py-12 gap-2"
                 >
                   <Building2 size={40} className="text-text/30" />
-                  <Body className="text-text/50 text-center">{i18nText('clubAdminNoCourts')}</Body>
+                  <Body className="text-text/50 text-center">{terms.clubAdminNoCourts}</Body>
                 </motion.div>
               ) : (
                 <motion.div layout className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
@@ -476,14 +476,14 @@ export function ClubAdminPage() {
       <div className="fixed bottom-6 right-6 z-50">
         <FloatingActionButton
           icon={<Plus size={20} />}
-          label={i18nText('clubAdminCreateCourt')}
+          label={terms.clubAdminCreateCourt}
           onClick={() => handleCreateCourt(
             (() => {
               let next = courtMgmt.courts.length + 1
-              let name = i18nText('clubAdminDefaultCourtName', { number: String(next) })
+              let name = i18nText(`sportTerm.clubAdminDefaultCourtName.${sport}`, { number: String(next) })
               while (courtMgmt.courts.some(c => c.name === name)) {
                 next++
-                name = i18nText('clubAdminDefaultCourtName', { number: String(next) })
+                name = i18nText(`sportTerm.clubAdminDefaultCourtName.${sport}`, { number: String(next) })
               }
               return name
             })()
@@ -519,7 +519,7 @@ export function ClubAdminPage() {
       <ConfirmDialog
         isOpen={deleteCourtTarget !== null}
         title={i18nText('clubAdminDelete')}
-        message={i18nText('clubAdminDeleteConfirm')}
+        message={terms.clubAdminDeleteConfirm}
         severity="error"
         confirmLabel={i18nText('clubAdminDelete')}
         cancelLabel={i18nText('commonCancel')}

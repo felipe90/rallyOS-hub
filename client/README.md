@@ -34,7 +34,7 @@ components/
 
 ### Key Architecture Decisions
 
-- **Auth state machine**: `useAuthFlow` hook manages a multi-step auth flow (role select → PIN entry → verification → redirect). Modes: `select`, `owner-pin`, `sport-select`, `club-pin`.
+- **Auth state machine**: `useAuthFlow` hook manages a multi-step auth flow (role select → PIN entry → verification → redirect). Modes: `select`, `owner-pin`, `club-pin`. The club sport is resolved from the hub's club config (single source of truth), not from a client-side selector.
 - **Socket context**: `useSocketContext` provides a singleton Socket.IO connection. All real-time data flows through this single connection.
 - **Sport display adapters**: Strategy pattern via `SportDisplayRegistry` maps sport types to display components — currently Table Tennis (points/sets) and Padel (15-30-40-AD format).
 

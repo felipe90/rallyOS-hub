@@ -5,6 +5,7 @@ import i18n from 'i18next'
 import { initReactI18next, I18nextProvider } from 'react-i18next'
 import { SocketContext, SocketContextType } from '@/contexts/SocketContext'
 import { AuthProvider } from '@/contexts'
+import { SportProvider } from '@/contexts/SportContext'
 import es from '@/i18n/locales/es.json'
 
 // Pre-configured test i18n instance — isolated from production i18n
@@ -56,7 +57,9 @@ function TestWrapper({ children, mockSocketContext }: WrapperProps) {
   return (
     <AuthProvider>
       <SocketContext.Provider value={socketValue}>
-        {children}
+        <SportProvider>
+          {children}
+        </SportProvider>
       </SocketContext.Provider>
     </AuthProvider>
   )

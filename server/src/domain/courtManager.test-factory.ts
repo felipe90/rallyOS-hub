@@ -52,6 +52,7 @@ export function createTestCourtManager(
     formatter: overrides?.formatter ?? new CourtFormatter(),
     qrService: overrides?.qrService ?? new QRService(hubConfig),
     persistence: overrides?.persistence,
+    resolveCourtSport: overrides?.resolveCourtSport,
   };
 
   return new CourtManager(deps);

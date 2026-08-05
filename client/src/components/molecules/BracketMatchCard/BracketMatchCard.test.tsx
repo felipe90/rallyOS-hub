@@ -54,7 +54,7 @@ describe('BracketMatchCard — pending (both slots empty)', () => {
     expect(onAssignSlot).toHaveBeenCalledTimes(1)
   })
 
-  it('court button shows "Sin cancha" and clicking calls onAssignCourt', () => {
+  it('court button shows "Sin mesa" and clicking calls onAssignCourt', () => {
     const onAssignCourt = vi.fn()
     renderWithI18n(
       <BracketMatchCard
@@ -65,7 +65,7 @@ describe('BracketMatchCard — pending (both slots empty)', () => {
         onUndo={noop}
       />,
     )
-    const court = screen.getByRole('button', { name: /Sin cancha/i })
+    const court = screen.getByRole('button', { name: /Sin mesa/i })
     fireEvent.click(court)
     expect(onAssignCourt).toHaveBeenCalledWith('R1-M1')
   })
@@ -193,12 +193,12 @@ describe('BracketMatchCard — court states', () => {
     expect(screen.getByText('Cancha 3')).toBeInTheDocument()
   })
 
-  it('renders "Cancha eliminada" when court is orphan (courtId set but removed)', () => {
+  it('renders "Mesa eliminada" when court is orphan (courtId set but removed)', () => {
     const match = makeMatch({ status: 'READY', playerA: 'A', playerB: 'B', courtId: 'court-gone' })
     renderWithI18n(
       <BracketMatchCard match={match} courtOrphan onAssignSlot={noop} onSetWinner={noop} onAssignCourt={noop} onUndo={noop} />,
     )
-    expect(screen.getByText(/Cancha eliminada/i)).toBeInTheDocument()
+    expect(screen.getByText(/Mesa eliminada/i)).toBeInTheDocument()
   })
 
   it('shows a non-blocking warning when the court is occupied by another match', () => {

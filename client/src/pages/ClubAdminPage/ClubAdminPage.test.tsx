@@ -15,6 +15,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 
+vi.mock('@/contexts/SportContext', () => ({
+  useSport: () => ({ sport: 'tableTennis', sportLoaded: true }),
+}))
+
 const useClubAdminMock = vi.fn()
 const useClubCourtManagementMock = vi.fn()
 const useClubSessionHistoryMock = vi.fn()
@@ -69,6 +73,18 @@ vi.mock('@/i18n', () => ({
   useI18n: () => ({
     i18nText: (key: string, opts?: Record<string, unknown>) => {
       const map: Record<string, string> = {
+        'sportTerm.toastClubCourtCreated.tableTennis': 'Mesa creada',
+        'sportTerm.toastClubCourtActivated.tableTennis': 'Mesa activada',
+        'sportTerm.toastClubCourtDeleted.tableTennis': 'Mesa eliminada',
+        'sportTerm.toastClubCourtDeactivated.tableTennis': 'Mesa desactivada',
+        'sportTerm.toastClubCourtResetted.tableTennis': 'Mesa restablecida',
+        'sportTerm.toastClubDeleteFailed.tableTennis': 'No se pudo eliminar la mesa',
+        'sportTerm.toastClubResetFailed.tableTennis': 'No se pudo restablecer la mesa',
+        'sportTerm.clubAdminTabCourts.tableTennis': 'Mesas',
+        'sportTerm.clubAdminNoCourts.tableTennis': 'Sin mesas aún',
+        'sportTerm.clubAdminCreateCourt.tableTennis': 'Nueva Mesa',
+        'sportTerm.clubAdminDefaultCourtName.tableTennis': 'Mesa {{number}}',
+        'sportTerm.clubAdminDeleteConfirm.tableTennis': '¿Eliminar esta mesa?',
         clubAdminTabCourts: 'Canchas',
         clubAdminTabHistory: 'Historial',
         clubAdminTitle: 'Admin del Club',
@@ -178,22 +194,22 @@ describe('ClubAdminPage — tabbed layout', () => {
     })
   })
 
-  it('renders both tab triggers ("Canchas" and "Historial") once admin is verified', () => {
+  it('renders both tab triggers ("Mesas" and "Historial") once admin is verified', () => {
     adminPage()
-    expect(screen.getByRole('tab', { name: 'Canchas' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Mesas' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Historial' })).toBeInTheDocument()
   })
 
-  it('defaults to the "Canchas" tab as active', () => {
+  it('defaults to the "Mesas" tab as active', () => {
     adminPage()
-    expect(screen.getByRole('tab', { name: 'Canchas' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tab', { name: 'Mesas' })).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByRole('tab', { name: 'Historial' })).toHaveAttribute('aria-selected', 'false')
   })
 
-  it('renders the court-management UI inside the "Canchas" tab by default', () => {
+  it('renders the court-management UI inside the "Mesas" tab by default', () => {
     adminPage()
-    // The "Nueva Cancha" creation button is the canonical affordance of the courts tab
-    expect(screen.getByRole('button', { name: /Nueva Cancha/ })).toBeInTheDocument()
+    // The "Nueva Mesa" creation button is the canonical affordance of the courts tab
+    expect(screen.getByRole('button', { name: /Nueva Mesa/ })).toBeInTheDocument()
   })
 
   it('switches to the "Historial" tab when its trigger is clicked and shows the history panel', () => {
@@ -209,7 +225,7 @@ describe('ClubAdminPage — tabbed layout', () => {
     expect(screen.getByText('historyClearBtn')).toBeInTheDocument()
   })
 
-  it('does not render the history panel while on the "Canchas" tab', () => {
+  it('does not render the history panel while on the "Mesas" tab', () => {
     adminPage()
     expect(screen.queryByText('historyExportBtn')).not.toBeInTheDocument()
   })

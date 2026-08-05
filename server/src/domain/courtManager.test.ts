@@ -2015,3 +2015,49 @@ describe('bounded history (P4)', () => {
     expect(persistedHistory.length).toBeLessThanOrEqual(MAX_HISTORY_LENGTH);
   });
 });
+
+// ── MP-1: sport-aware default court names ──────────────────────────────
+
+describe('MP-1 sport-aware default court names', () => {
+  it('names new tournament courts "Mesa N" when the resolver returns tableTennis (default)', () => {
+    const manager = createTestCourtManager(); // no resolver → TT default
+    const court = manager.createCourt();
+    expect(court.name).toBe('Mesa 1');
+  });
+
+  it('names new club courts "Mesa N" when the resolver returns tableTennis', () => {
+    const manager = createTestCourtManager({ resolveCourtSport: () => SPORT.TABLE_TENNIS });
+    const court = manager.createClubCourt();
+    expect(court.name).toBe('Mesa 1');
+  });
+
+  it('names new courts "Cancha N" when the resolver returns padel (MP-1)', () => {
+    const manager = createTestCourtManager({ resolveCourtSport: () => SPORT.PADEL });
+    const tournament = manager.createCourt();
+    const club = manager.createClubCourt();
+    expect(tournament.name).toBe('Cancha 1');
+    expect(club.name).toBe('Cancha 2');
+  });
+
+  it('respects the club-config change TT → padel for the NEXT created court', () => {
+    let sport: typeof SPORT.TABLE_TENNIS | typeof SPORT.PADEL = SPORT.TABLE_TENNIS;
+    const manager = createTestCourtManager({ resolveCourtSport: () => sport });
+
+    const first = manager.createClubCourt();
+    sport = SPORT.PADEL;
+    const second = manager.createClubCourt();
+
+    expect(first.name).toBe('Mesa 1');
+    expect(second.name).toBe('Cancha 2');
+  });
+
+  it('keeps explicit names and stored names as-is (MP-2)', () => {
+    const manager = createTestCourtManager({ resolveCourtSport: () => SPORT.PADEL });
+
+    const explicit = manager.createCourt('Mesa Permanente');
+    const legacyStored = manager.createClubCourt('Cancha 2');
+
+    expect(explicit.name).toBe('Mesa Permanente');
+    expect(legacyStored.name).toBe('Cancha 2');
+  });
+});

@@ -20,7 +20,7 @@ import type { SessionRecord } from '@shared/types'
 import { Button } from '@/components/atoms/Button'
 import { Body } from '@/components/atoms/Typography'
 import { ConfirmDialog } from '@/components/molecules/ConfirmDialog'
-import { useI18n } from '@/i18n'
+import { useSportTerms } from '@/hooks/useSportTerms'
 import type { UseClubSessionHistoryReturn } from '@/hooks/useClubSessionHistory'
 
 export type ExportOutcome =
@@ -47,7 +47,7 @@ export function ClubSessionHistoryPanel({
   clubConfigured,
   onExportCSV,
 }: ClubSessionHistoryPanelProps) {
-  const { i18nText } = useI18n()
+  const { terms, i18nText } = useSportTerms()
   const [exportError, setExportError] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
 
@@ -131,7 +131,7 @@ export function ClubSessionHistoryPanel({
             <thead>
               <tr>
                 <th role="columnheader" scope="col" className="px-2 py-1 text-left font-medium">
-                  {i18nText('historyColCourt')}
+                  {terms.historyColCourt}
                 </th>
                 <th role="columnheader" scope="col" className="px-2 py-1 text-left font-medium">
                   {i18nText('historyColPlayer')}

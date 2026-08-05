@@ -114,9 +114,10 @@ describe('handleExport', () => {
 
     // Seed state with 1 FINISHED table
     const persisted = {
-      version: 1,
+      version: 4,
       savedAt: 1700000000000,
-      tables: [makeFinishedTable()],
+      tournamentCourts: [makeFinishedTable()],
+      clubCourts: [],
     };
     fs._files.set('data/rallyos-state.json', JSON.stringify(persisted));
 
@@ -141,15 +142,16 @@ describe('handleExport', () => {
 
     // State exists but only LIVE tables
     const persisted = {
-      version: 1,
+      version: 4,
       savedAt: 1700000000000,
-      tables: [
+      tournamentCourts: [
         {
           ...makeFinishedTable(),
           status: 'LIVE' as const,
           matchState: { ...makeFinishedTable().matchState, status: 'LIVE' as const, winner: null },
         },
       ],
+      clubCourts: [],
     };
     fs._files.set('data/rallyos-state.json', JSON.stringify(persisted));
 
@@ -199,7 +201,7 @@ describe('handleExport', () => {
     };
     const finished2 = makeFinishedTable({ id: 't3', number: 3, name: 'Mesa 3' });
 
-    const persisted = { version: 1, savedAt: 1700000000000, tables: [finished1, live, finished2] };
+    const persisted = { version: 4, savedAt: 1700000000000, tournamentCourts: [finished1, live, finished2], clubCourts: [] };
     fs._files.set('data/rallyos-state.json', JSON.stringify(persisted));
 
     const req = mockReq();

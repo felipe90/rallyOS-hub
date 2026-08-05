@@ -5,8 +5,8 @@
  * enforce Dependency Inversion. This file re-exports those types for
  * backward compatibility so existing imports continue to work.
  *
- * Store-specific types (PersistedState, PersistedStateV3, PERSISTENCE_VERSION)
- * remain here as they belong to the storage layer.
+ * Store-specific types (PersistedStateV3, PERSISTENCE_VERSION) remain here
+ * as they belong to the storage layer.
  */
 
 import type {
@@ -28,16 +28,13 @@ export type {
  * - Version 1: Pre-multi-sport (no sport field in matchState).
  * - Version 2: Multi-sport support (sport field in matchState).
  * - Version 3: Split tournamentCourts[] and clubCourts[] arrays.
+ * - Version 4 (admin-court-inventory, PERS-1): persistence WIPE. `load()`
+ *   discards any file whose version !== 4 (no v3→v4 data migration — one-way
+ *   door, never ship after commercial launch). The v1→v2→v3 migration chain
+ *   is removed.
+ *
+ * Slice-1 bridge (documented): the v4 file still carries the legacy
+ * tournamentCourts[]/clubCourts[] arrays — the runtime stack (CourtManager)
+ * is not converted to the liveSessions shape until the slice-2 delegation.
  */
-export const PERSISTENCE_VERSION = 3;
-
-/**
- * Top-level persistence wrapper written to disk.
- */
-export interface PersistedState {
-  version: number;
-  savedAt: number;
-  tables: DomainPersistedCourt[];
-}
-
-// PersistedStateV3 re-exported from domain/ports/persistence-types.ts
+export const PERSISTENCE_VERSION = 4;

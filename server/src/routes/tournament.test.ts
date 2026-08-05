@@ -124,11 +124,12 @@ describe('Tournament route handlers', () => {
       const fs = makeFs();
       const stateStore = new StateStore(fs, 'data/rallyos-state.json');
 
-      // Seed state with 2 tables
+      // Seed state with 2 tables (v4 format — PERS-1 wipe accepts only v4)
       const persisted = {
-        version: 1,
+        version: 4,
         savedAt: 1700000000000,
-        tables: [makeTable({ id: 't1' }), makeTable({ id: 't2' })],
+        tournamentCourts: [makeTable({ id: 't1' }), makeTable({ id: 't2' })],
+        clubCourts: [],
       };
       fs._files.set('data/rallyos-state.json', JSON.stringify(persisted));
 

@@ -1,7 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { FileSystem, PersistedCourt, PersistedClubCourt, PersistedState, PersistedStateV3, PERSISTENCE_VERSION } from './types';
-import { migrateV1toV2, migrateV2toV3 } from './migration';
+import { FileSystem, PersistedCourt, PersistedClubCourt, PersistedStateV3, PERSISTENCE_VERSION } from './types';
 import { logger } from '../../utils/logger';
 import type { ICourtPersistence } from '../../domain/ports/ICourtPersistence';
 import type { TournamentBracket } from '../../../../shared/types';
@@ -33,7 +32,7 @@ export class StateStore implements ICourtPersistence {
 
   /**
    * Persist courts to disk atomically (tmp + rename).
-   * Always writes version 3 format with separate tournament and club arrays.
+   * Writes PERSISTENCE_VERSION (4) with separate tournament and club arrays.
    * Only the caller is responsible for filtering to LIVE/FINISHED/OCCUPIED courts.
    */
   save(tournamentCourts: PersistedCourt[], clubCourts: PersistedClubCourt[], bracket?: TournamentBracket | null): void {
@@ -67,9 +66,12 @@ export class StateStore implements ICourtPersistence {
   }
 
   /**
-   * Load persisted state from disk.
-   * Auto-migrates v1→v2→v3 in-memory (disk file is not rewritten).
-   * Returns `null` if the file is missing, empty, or contains invalid JSON.
+   * Load persisted state from disk (PERS-1 WIPE).
+   *
+   * v4 is the ONLY accepted format: any file whose `version !== 4` (v1/v2/v3)
+   * is DISCARDED — no v3→v4 data migration, no v1→v2 chain (one-way door).
+   * The catalog starts fresh and the admin rebuilds it. Returns `null` when
+   * the file is missing, empty, invalid, or from a wiped version.
    */
   load(): PersistedStateV3 | null {
     try {
@@ -95,31 +97,22 @@ export class StateStore implements ICourtPersistence {
         return null;
       }
 
-      // Chain migration: v1 → v2 → v3
-      let state: PersistedStateV3;
-
-      if (parsed.version >= 3) {
-        // v3 — validate structure and return as-is
-        if (!Array.isArray(parsed.tournamentCourts) || !Array.isArray(parsed.clubCourts)) {
-          logger.warn('StateStore: invalid v3 format, returning null');
-          return null;
-        }
-        state = parsed as PersistedStateV3;
-      } else {
-        // v1 or v2 — must have tables array
-        if (!Array.isArray(parsed.tables)) {
-          logger.warn('StateStore: invalid state format (no tables array), returning null');
-          return null;
-        }
-
-        // v1 → v2
-        const v2 = migrateV1toV2(parsed as PersistedState);
-
-        // v2 → v3
-        state = migrateV2toV3(v2);
+      // PERS-1 WIPE — any version other than 4 is discarded (no migration).
+      if (parsed.version !== PERSISTENCE_VERSION) {
+        logger.warn(
+          { version: parsed.version, current: PERSISTENCE_VERSION },
+          'StateStore: persistence wiped (version mismatch) — returning null',
+        );
+        return null;
       }
 
-      return state;
+      // v4 — validate structure and return as-is.
+      if (!Array.isArray(parsed.tournamentCourts) || !Array.isArray(parsed.clubCourts)) {
+        logger.warn('StateStore: invalid v4 format, returning null');
+        return null;
+      }
+
+      return parsed as PersistedStateV3;
     } catch (err) {
       logger.warn({ err }, 'StateStore: failed to load state, returning null');
       return null;
@@ -133,7 +126,7 @@ export class StateStore implements ICourtPersistence {
 
   /**
    * Read the persisted bracket (R10). Returns `null` when the file is absent,
-   * has no `bracket` key (legacy v3 files), or the bracket was explicitly
+   * has no `bracket` key (legacy v4 files), or the bracket was explicitly
    * cleared (`bracket: null`).
    */
   getBracket(): TournamentBracket | null {
@@ -142,7 +135,7 @@ export class StateStore implements ICourtPersistence {
 
   /**
    * Persist the bracket independently of the court arrays. Reads the current
-   * state file (preserving tournament/club courts) and writes a fresh v3
+   * state file (preserving tournament/club courts) and writes a fresh v4
    * document with the supplied bracket. Pass `null` to clear. Used by
    * BracketHandler (which owns the bracket) without coupling CourtManager to
    * the bracket domain.

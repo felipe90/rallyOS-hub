@@ -109,7 +109,7 @@ describe('StateStore', () => {
   });
 
   describe('save', () => {
-    it('should write v3 JSON with tournamentCourts and clubCourts', () => {
+    it('should write v4 JSON with tournamentCourts and clubCourts', () => {
       store.save([makeTournamentCourt()], [makeClubCourt()]);
 
       // After atomic write, content is at the final path (rename moved it from .tmp)
@@ -117,9 +117,10 @@ describe('StateStore', () => {
       expect(savedContent).toBeDefined();
 
       const parsed = JSON.parse(savedContent!);
-      expect(parsed.version).toBe(3);
+      expect(parsed.version).toBe(4);
       expect(typeof parsed.savedAt).toBe('number');
-      // v3 uses separate arrays
+      // v4 uses separate arrays (slice-1 bridge — liveSessions shape lands
+      // with the slice-2 runtime conversion)
       expect(parsed.tournamentCourts).toHaveLength(1);
       expect(parsed.clubCourts).toHaveLength(1);
       expect(parsed.tournamentCourts[0].id).toBe('table-1');
@@ -160,7 +161,7 @@ describe('StateStore', () => {
       const finalContent = fs._files.get('data/rallyos-state.json');
       expect(finalContent).toBeDefined();
       const parsed = JSON.parse(finalContent!);
-      expect(parsed.version).toBe(3);
+      expect(parsed.version).toBe(4);
     });
 
     it('should save multiple tournament courts', () => {
@@ -189,7 +190,29 @@ describe('StateStore', () => {
   });
 
   describe('load', () => {
-    it('should return v3 state when valid v3 JSON file exists', () => {
+    it('should return v4 state when valid v4 JSON file exists', () => {
+      const state: PersistedStateV3 = {
+        version: 4,
+        savedAt: 1700000000000,
+        tournamentCourts: [makeTournamentCourt()],
+        clubCourts: [makeClubCourt()],
+      };
+      fs._files.set('data/rallyos-state.json', JSON.stringify(state));
+
+      const result = store.load();
+
+      expect(result).not.toBeNull();
+      expect(result!.version).toBe(4);
+      expect(result!.savedAt).toBe(1700000000000);
+      expect(result!.tournamentCourts).toHaveLength(1);
+      expect(result!.clubCourts).toHaveLength(1);
+      expect(result!.tournamentCourts[0].id).toBe('table-1');
+      expect(result!.clubCourts[0].id).toBe('club-1');
+    });
+
+    // ── PERS-1 WIPE: any version !== 4 is discarded (no migration chain) ──
+
+    it('should WIPE a v3 file — discarded, not migrated (PERS-1)', () => {
       const state: PersistedStateV3 = {
         version: 3,
         savedAt: 1700000000000,
@@ -200,51 +223,32 @@ describe('StateStore', () => {
 
       const result = store.load();
 
-      expect(result).not.toBeNull();
-      expect(result!.version).toBe(3);
-      expect(result!.savedAt).toBe(1700000000000);
-      expect(result!.tournamentCourts).toHaveLength(1);
-      expect(result!.clubCourts).toHaveLength(1);
-      expect(result!.tournamentCourts[0].id).toBe('table-1');
-      expect(result!.clubCourts[0].id).toBe('club-1');
+      expect(result).toBeNull();
     });
 
-    it('should migrate v1 state to v3 on load', () => {
+    it('should WIPE a v1 file — discarded, not migrated (PERS-1)', () => {
       const tables = [makeTournamentCourt({ status: 'LIVE' })];
-      // Remove matchState.sport to simulate v1
-      delete (tables[0].matchState as any).sport;
-      const stored = { version: 1, savedAt: 1700000000000, tables };
-      fs._files.set('data/rallyos-state.json', JSON.stringify(stored));
+      delete (tables[0].matchState as any).sport; // v1: no sport field
+      fs._files.set(
+        'data/rallyos-state.json',
+        JSON.stringify({ version: 1, savedAt: 1700000000000, tables }),
+      );
 
       const result = store.load();
 
-      expect(result).not.toBeNull();
-      expect(result!.version).toBe(3);
-      // sport field added by v1→v2 migration
-      expect(result!.tournamentCourts[0].matchState.sport).toBe(SPORT.TABLE_TENNIS);
+      expect(result).toBeNull();
     });
 
-    it('should migrate v2 state to v3 on load', () => {
-      const tables = [
-        makeTournamentCourt({ id: 't1', status: 'LIVE' }),
-        {
-          ...makeTournamentCourt({ id: 'c1', status: 'WAITING' }),
-          mode: 'club' as any,
-          clubStatus: 'OCCUPIED',
-        },
-      ];
-      const stored = { version: 2, savedAt: 1700000000000, tables };
-      fs._files.set('data/rallyos-state.json', JSON.stringify(stored));
+    it('should WIPE a v2 file — discarded, not migrated (PERS-1)', () => {
+      const tables = [makeTournamentCourt({ id: 't1', status: 'LIVE' })];
+      fs._files.set(
+        'data/rallyos-state.json',
+        JSON.stringify({ version: 2, savedAt: 1700000000000, tables }),
+      );
 
       const result = store.load();
 
-      expect(result).not.toBeNull();
-      expect(result!.version).toBe(3);
-      expect(result!.tournamentCourts).toHaveLength(1);
-      expect(result!.tournamentCourts[0].id).toBe('t1');
-      expect(result!.clubCourts).toHaveLength(1);
-      expect(result!.clubCourts[0].id).toBe('c1');
-      expect(result!.clubCourts[0].clubStatus).toBe('OCCUPIED');
+      expect(result).toBeNull();
     });
 
     it('should return null when file does not exist', () => {
@@ -277,7 +281,7 @@ describe('StateStore', () => {
       expect(result).toBeNull();
     });
 
-    it('should return null when JSON is v1/v2 but tables is not an array', () => {
+    it('should return null when JSON is an old version — wiped before structure check (PERS-1)', () => {
       fs._files.set('data/rallyos-state.json', JSON.stringify({ version: 1, tables: 'not-array' }));
 
       const result = store.load();
@@ -285,16 +289,16 @@ describe('StateStore', () => {
       expect(result).toBeNull();
     });
 
-    it('should return null when JSON is v3 but tournamentCourts is not an array', () => {
-      fs._files.set('data/rallyos-state.json', JSON.stringify({ version: 3, tournamentCourts: 'bad', clubCourts: [] }));
+    it('should return null when JSON is v4 but tournamentCourts is not an array', () => {
+      fs._files.set('data/rallyos-state.json', JSON.stringify({ version: 4, tournamentCourts: 'bad', clubCourts: [] }));
 
       const result = store.load();
 
       expect(result).toBeNull();
     });
 
-    it('should return null when JSON is v3 but clubCourts is not an array', () => {
-      fs._files.set('data/rallyos-state.json', JSON.stringify({ version: 3, tournamentCourts: [], clubCourts: 'bad' }));
+    it('should return null when JSON is v4 but clubCourts is not an array', () => {
+      fs._files.set('data/rallyos-state.json', JSON.stringify({ version: 4, tournamentCourts: [], clubCourts: 'bad' }));
 
       const result = store.load();
 
@@ -330,7 +334,7 @@ describe('StateStore', () => {
 
   describe('archive', () => {
     it('should rename file to archive path and return the path', () => {
-      fs._files.set('data/rallyos-state.json', JSON.stringify({ version: 3, savedAt: 0, tournamentCourts: [], clubCourts: [] }));
+      fs._files.set('data/rallyos-state.json', JSON.stringify({ version: 4, savedAt: 0, tournamentCourts: [], clubCourts: [] }));
 
       const result = store.archive();
 
@@ -342,7 +346,7 @@ describe('StateStore', () => {
     });
 
     it('should preserve content in archive', () => {
-      const stored = JSON.stringify({ version: 3, savedAt: 1700000000000, tournamentCourts: [makeTournamentCourt()], clubCourts: [] });
+      const stored = JSON.stringify({ version: 4, savedAt: 1700000000000, tournamentCourts: [makeTournamentCourt()], clubCourts: [] });
       fs._files.set('data/rallyos-state.json', stored);
 
       const result = store.archive();
@@ -437,7 +441,7 @@ describe('StateStore', () => {
   // ── Tournament Bracket persistence (`bracket` field on PersistedStateV3) ──
   //
   // Spec: bracket-tournament-mvp R10 — the bracket survives a server restart.
-  // The `bracket` field is OPTIONAL so legacy v3 files (no bracket key) still
+  // The `bracket` field is OPTIONAL so legacy v4 files (no bracket key) still
   // parse. Court saves MUST NOT wipe a previously-persisted bracket.
 
   function makeBracket(overrides: Partial<TournamentBracket> = {}): TournamentBracket {
@@ -525,11 +529,11 @@ describe('StateStore', () => {
       expect(loaded!.bracket!.name).toBe('Torneo Copa');
     });
 
-    it('legacy v3 file without a bracket key loads with bracket undefined/null', () => {
+    it('legacy v4 file without a bracket key loads with bracket undefined/null', () => {
       const fs = makeFs();
       fs._files.set(
         'state.json',
-        JSON.stringify({ version: 3, savedAt: 1, tournamentCourts: [], clubCourts: [] }),
+        JSON.stringify({ version: 4, savedAt: 1, tournamentCourts: [], clubCourts: [] }),
       );
       const raw = new StateStore(fs, 'state.json');
 
@@ -568,7 +572,7 @@ describe('StateStore', () => {
       fs._files.set(
         'state.json',
         JSON.stringify({
-          version: 3,
+          version: 4,
           savedAt: 1,
           tournamentCourts: [],
           clubCourts: [],

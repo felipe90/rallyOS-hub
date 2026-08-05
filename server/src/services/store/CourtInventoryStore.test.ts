@@ -1,5 +1,6 @@
 import { CourtRecord, INVENTORY_STATUS } from '../../../../shared/types';
 import { CourtInventoryStore } from './CourtInventoryStore';
+import { StateStore } from './StateStore';
 import type { FileSystem } from '../../domain/ports/persistence-types';
 
 function makeFs(): FileSystem & { files: Map<string, string> } {
@@ -54,5 +55,30 @@ describe('CourtInventoryStore', () => {
     fs.files.set('data/court-inventory.json', JSON.stringify({ version: 3, courts: [] }));
     const store = new CourtInventoryStore(fs, 'data/court-inventory.json');
     expect(store.load()).toBeNull();
+  });
+
+  it('a point burst of session-state saves leaves court-inventory.json untouched (PERS-2)', () => {
+    const fs = makeFs();
+    const inventoryStore = new CourtInventoryStore(fs, 'data/court-inventory.json');
+    const stateStore = new StateStore(fs, 'data/rallyos-state.json');
+
+    // Admin mutation writes the catalog once.
+    inventoryStore.save([record('c1', 1)]);
+    const before = fs.files.get('data/court-inventory.json');
+    expect(before).toBeDefined();
+
+    // Point burst: many session-state saves (debounced session writes).
+    stateStore.save(
+      [{ id: 't1', number: 1, name: 'Mesa 1', status: 'LIVE', pin: '1111', playerNames: { a: 'A', b: 'B' }, createdAt: 1, matchState: null as never }],
+      [],
+    );
+    stateStore.save(
+      [{ id: 't1', number: 1, name: 'Mesa 1', status: 'LIVE', pin: '1111', playerNames: { a: 'A', b: 'B' }, createdAt: 1, matchState: null as never }],
+      [],
+    );
+
+    // The catalog file is byte-identical — sessions never rewrite it.
+    expect(fs.files.get('data/court-inventory.json')).toBe(before);
+    expect(fs.files.has('data/rallyos-state.json')).toBe(true);
   });
 });

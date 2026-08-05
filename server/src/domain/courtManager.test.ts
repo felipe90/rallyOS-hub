@@ -104,15 +104,17 @@ function makePersistedTable(overrides: Partial<PersistedCourt> = {}): PersistedC
 
 /**
  * Seed the fake FS with a saved state file containing the given tables.
+ * v4 format (PERS-1) — tournament courts in the tournamentCourts array.
  */
 function seedStateFile(
   fs: ReturnType<typeof makeFs>,
   tables: PersistedCourt[],
 ): void {
   const persisted = {
-    version: 1,
+    version: 4,
     savedAt: Date.now(),
-    tables,
+    tournamentCourts: tables,
+    clubCourts: [] as unknown[],
   };
   fs._files.set('data/rallyos-state.json', JSON.stringify(persisted));
 }
@@ -167,7 +169,7 @@ describe('CourtManager with StateStore', () => {
       const savedContent = fs._files.get('data/rallyos-state.json');
       expect(savedContent).toBeDefined();
       const parsed = JSON.parse(savedContent!);
-      expect(parsed.version).toBe(3);
+      expect(parsed.version).toBe(4);
       expect(parsed.tournamentCourts).toHaveLength(1);
       expect(parsed.tournamentCourts[0].id).toBe(court.id);
       expect(parsed.tournamentCourts[0].pin).toBe(court.pin);
@@ -189,7 +191,7 @@ describe('CourtManager with StateStore', () => {
       manager.flush();
       const saved = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(saved!);
-      expect(parsed.version).toBe(3);
+      expect(parsed.version).toBe(4);
       expect(parsed.tournamentCourts[0].status).toBe('LIVE');
       expect(parsed.tournamentCourts[0].pin).toBe(court.pin);
     });
@@ -209,7 +211,7 @@ describe('CourtManager with StateStore', () => {
       const savedContent = fs._files.get('data/rallyos-state.json');
       expect(savedContent).toBeDefined();
       const parsed = JSON.parse(savedContent!);
-      expect(parsed.version).toBe(3);
+      expect(parsed.version).toBe(4);
       expect(parsed.tournamentCourts).toHaveLength(1);
       expect(parsed.tournamentCourts[0].name).toBe('Live Court');
     });
@@ -227,7 +229,7 @@ describe('CourtManager with StateStore', () => {
       manager.flush();
       const savedContent = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(savedContent!);
-      expect(parsed.version).toBe(3);
+      expect(parsed.version).toBe(4);
       expect(parsed.tournamentCourts).toHaveLength(1);
 
       const matchState = parsed.tournamentCourts[0].matchState;
@@ -250,7 +252,7 @@ describe('CourtManager with StateStore', () => {
       manager.flush();
       const savedContent = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(savedContent!);
-      expect(parsed.version).toBe(3);
+      expect(parsed.version).toBe(4);
       expect(parsed.tournamentCourts).toHaveLength(2);
       const names = parsed.tournamentCourts.map((t: PersistedCourt) => t.name).sort();
       expect(names).toEqual(['Mesa 1', 'Mesa 2']);
@@ -304,7 +306,7 @@ describe('CourtManager with StateStore', () => {
       manager.flush();
       const savedContent = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(savedContent!);
-      expect(parsed.version).toBe(3);
+      expect(parsed.version).toBe(4);
       expect(parsed.tournamentCourts[0].pin).toBe(originalPin);
     });
 
@@ -316,7 +318,7 @@ describe('CourtManager with StateStore', () => {
       manager.flush();
       const savedContent = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(savedContent!);
-      expect(parsed.version).toBe(3);
+      expect(parsed.version).toBe(4);
       expect(parsed.tournamentCourts[0].playerNames).toEqual({
         a: 'Champion',
         b: 'Runner-up',
@@ -331,7 +333,7 @@ describe('CourtManager with StateStore', () => {
       manager.flush();
       const savedContent = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(savedContent!);
-      expect(parsed.version).toBe(3);
+      expect(parsed.version).toBe(4);
       const savedTable = parsed.tournamentCourts[0];
 
       expect(savedTable.sportRules).toBeUndefined();
@@ -1443,11 +1445,11 @@ describe('CourtManager with StateStore', () => {
 
     it('should restore sessionMode from persisted state on restoreState', () => {
       const fs = makeFs();
-      // Seed a v3 state file with an OCCUPIED club court and sessionMode=free
+      // Seed a v4 state file with an OCCUPIED club court and sessionMode=free
       fs._files.set(
         'data/rallyos-state.json',
         JSON.stringify({
-          version: 3,
+          version: 4,
           savedAt: Date.now(),
           tournamentCourts: [],
           clubCourts: [
@@ -1480,12 +1482,12 @@ describe('CourtManager with StateStore', () => {
       expect(restored.sessionMode).toBe('free');
     });
 
-    it('should default sessionMode to null when a legacy v3 file omits it', () => {
+    it('should default sessionMode to null when a legacy v4 file omits it', () => {
       const fs = makeFs();
       fs._files.set(
         'data/rallyos-state.json',
         JSON.stringify({
-          version: 3,
+          version: 4,
           savedAt: Date.now(),
           tournamentCourts: [],
           clubCourts: [
@@ -1502,7 +1504,7 @@ describe('CourtManager with StateStore', () => {
               matchState: null,
               config: null,
               history: [],
-              // NOTE: no sessionMode field (mimics a pre-PR-2 v3 file)
+              // NOTE: no sessionMode field (mimics a pre-PR-2 v4 file)
             },
           ],
         }),
@@ -1744,11 +1746,11 @@ describe('CourtManager with StateStore', () => {
 
       it('restores playerName + phone from persisted state on restoreState', () => {
         const fs = makeFs();
-        // Seed a v3 state file with an OCCUPIED club court + player info.
+        // Seed a v4 state file with an OCCUPIED club court + player info.
         fs._files.set(
           'data/rallyos-state.json',
           JSON.stringify({
-            version: 3,
+            version: 4,
             savedAt: Date.now(),
             tournamentCourts: [],
             clubCourts: [
@@ -1786,12 +1788,12 @@ describe('CourtManager with StateStore', () => {
         expect(restored.adminId).toBeNull();
       });
 
-      it('defaults playerName/phone/adminId to null when a legacy v3 file omits them', () => {
+      it('defaults playerName/phone/adminId to null when a legacy v4 file omits them', () => {
         const fs = makeFs();
         fs._files.set(
           'data/rallyos-state.json',
           JSON.stringify({
-            version: 3,
+            version: 4,
             savedAt: Date.now(),
             tournamentCourts: [],
             clubCourts: [
@@ -1809,7 +1811,7 @@ describe('CourtManager with StateStore', () => {
                 config: null,
                 history: [],
                 sessionMode: 'free',
-                // No playerName / phone / adminId — pre-change v3 file.
+                // No playerName / phone / adminId — pre-change v4 file.
               },
             ],
           }),

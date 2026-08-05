@@ -2,6 +2,7 @@ import { useRef, useEffect, useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Undo2 } from 'lucide-react';
 import type { PadelPointDisplay as PadelPointDisplayData } from '@shared/types';
+import { useI18n } from '@/i18n';
 
 export interface PadelPointDisplayProps {
   sportDisplay: PadelPointDisplayData;
@@ -42,6 +43,7 @@ function PadelPlayerSide({
   onSubtractPoint?: (side: 'A' | 'B') => void;
 }) {
   const shouldReduceMotion = useReducedMotion();
+  const { i18nText } = useI18n();
   const [displayPoint, setDisplayPoint] = useState(point);
   const prevPointRef = useRef(point);
 
@@ -74,7 +76,7 @@ function PadelPlayerSide({
       <section
         className={`absolute inset-0 flex flex-col overflow-hidden ${tapBgColor} cursor-pointer select-none`}
         onClick={handleTap}
-        aria-label={`Área de ${playerName}`}
+        aria-label={i18nText('scoreboardPlayerAreaAria', { player: playerName })}
       >
         {/* Serving Indicator */}
         {isServing && (
@@ -83,7 +85,7 @@ function PadelPlayerSide({
             style={{ [isLeft ? 'left' : 'right']: '1.5rem' }}
           >
             <div className="w-3 h-3 bg-amber rounded-full animate-pulse" />
-            <span className="text-amber text-sm font-bold uppercase tracking-wider">Saque</span>
+            <span className="text-amber text-sm font-bold uppercase tracking-wider">{i18nText('serveIndicator')}</span>
           </div>
         )}
 
@@ -117,7 +119,7 @@ function PadelPlayerSide({
 
           {/* Games Indicator */}
           <div className="mt-2 text-2xl text-white/60 font-heading font-bold">
-            Games: {games}
+            {i18nText('gamesLabel')} {games}
           </div>
 
           {/* Sets Won Indicators */}
@@ -138,7 +140,7 @@ function PadelPlayerSide({
           <button
             onClick={handleUndo}
             className="size-20 rounded-full flex items-center justify-center bg-white/5 hover:bg-white/10 text-white/40 hover:text-white transition-colors duration-200 p-4"
-            aria-label={`Undo point for Player ${side}`}
+            aria-label={i18nText('scoreboardUndoPointAria', { side })}
           >
             <Undo2 size={32} />
           </button>

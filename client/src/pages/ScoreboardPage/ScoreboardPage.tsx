@@ -7,7 +7,8 @@
 
 import { useNavigate, useParams } from 'react-router-dom'
 import { useI18n, changeLanguage } from '@/i18n'
-import { useSocketContext, useAuthContext } from '@/contexts'
+import { useSocketContext, useAuthContext, useSport } from '@/contexts'
+import { useSportTerms } from '@/hooks/useSportTerms'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useScoreboardUrl } from '@/hooks/useScoreboardUrl'
 import { useOrientation } from '@/hooks/useOrientation'
@@ -19,8 +20,6 @@ import { ScoreboardMain } from '@/components/organisms/ScoreboardMain'
 import { MatchConfigModal } from '@/components/molecules/MatchConfigModal'
 import { RallyTapConnectButton } from '@/components/molecules/RallyTapConnectButton'
 import { useRallyTapBridge } from '@/hooks/useRallyTapBridge'
-import { SPORT } from '@shared/types'
-import type { Sport } from '@shared/types'
 import { HistoryDrawer } from '@/components/organisms/HistoryDrawer'
 import { PageHeader } from '@/components/molecules/PageHeader'
 import { ConfirmDialog } from '@/components/molecules/ConfirmDialog'
@@ -65,6 +64,8 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
   const { i18nText } = useI18n()
   const { currentMatch, emit, connected, socket, bracket } = useSocketContext()
   const { isReferee, isOwner, courtPin } = useAuthContext()
+  const { sport } = useSport()
+  const { terms } = useSportTerms()
   const { scoreboard: perms } = usePermissions()
   const { canEdit, canConfigure, canViewHistory } = perms
   const { isLandscape, toggle: toggleOrientation } = useOrientation()
@@ -157,7 +158,7 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
     return () => { document.body.classList.remove('scoreboard-page') }
   }, [])
 
-  if (!tableId) return <div>{i18nText('scoreboardInvalidCourtId')}</div>
+  if (!tableId) return <div>{terms.scoreboardInvalidCourtId}</div>
   if (refRevoked) return <RefRevokedView />
   if (!currentMatch) return <LoadingView />
 
@@ -202,18 +203,18 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
         initialBestOf={(currentMatch.config?.bestOf as 1 | 3 | 5) || 3}
         initialHandicapA={((currentMatch.config) as any)?.handicapA || 0}
         initialHandicapB={((currentMatch.config) as any)?.handicapB || 0}
-        initialSport={(localStorage.getItem('rallyos-sport') as Sport) || SPORT.TABLE_TENNIS}
+        initialSport={currentMatch.config?.sport ?? sport}
         onSubmit={(config) => handleStartMatch({ ...config, pointsPerSet: 11 })}
         onClose={handleCancelMatch}
         title={i18nText('matchConfigTitle')}
-        forTableLabel={i18nText('matchConfigForCourt', { courtName: currentMatch.courtName || '' })}
+        forTableLabel={i18nText(`sportTerm.matchConfigForCourt.${sport}`, { courtName: currentMatch.courtName || '' })}
         playersLabel={i18nText('matchConfigPlayers')}
         playerAPlaceholder={i18nText('matchConfigPlayerAPlaceholder')}
         playerBPlaceholder={i18nText('matchConfigPlayerBPlaceholder')}
         bestOfLabel={i18nText('matchConfigBestOf')}
         handicapLabel={i18nText('matchConfigHandicap')}
-        teamALabel={i18nText('matchConfigTeamA')}
-        teamBLabel={i18nText('matchConfigTeamB')}
+        teamALabel={terms.matchConfigTeamA}
+        teamBLabel={terms.matchConfigTeamB}
         cancelLabel={i18nText('commonCancel')}
         submitLabel={i18nText('matchConfigStart')}
         submitLoadingLabel={i18nText('matchConfigStarting')}

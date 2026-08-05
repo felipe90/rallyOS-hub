@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useSocketContext } from '@/contexts/SocketContext'
+import { useSportTerms } from '@/hooks/useSportTerms'
 import { useI18n } from '@/i18n'
 import { Typography } from '@/components/atoms'
 import { ClubKioskCard } from '@/components/organisms/ClubKioskCard'
@@ -31,7 +32,7 @@ const ROTATION_INTERVAL_MS = 10_000
  */
 export function ClubKioskPage() {
   const { socket, hubConfig, kioskNotification } = useSocketContext()
-  const { i18nText } = useI18n()
+  const { terms, i18nText } = useSportTerms()
   const [courts, setCourts] = useState<ClubKioskPayload['courts']>([])
   const [clubName, setClubName] = useState('Club')
   const [page, setPage] = useState(0)
@@ -209,7 +210,7 @@ export function ClubKioskPage() {
       {courts.length === 0 ? (
         <div className="flex-1 flex items-center justify-center">
           <Typography variant="title" className="text-xl text-text-muted text-center px-4">
-            {i18nText('clubKioskNoCourts')}
+            {terms.clubKioskNoCourts}
           </Typography>
         </div>
       ) : (

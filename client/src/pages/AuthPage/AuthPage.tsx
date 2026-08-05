@@ -11,9 +11,6 @@ import { Typography } from '@/components/atoms/Typography'
 
 import { LanguageSwitcher } from '@/components/atoms/LanguageSwitcher'
 import { TournamentResumeModal } from '@/components/molecules/TournamentResumeModal'
-import { SportDisplayRegistry } from '@/adapters/SportDisplayRegistry'
-import { SPORT } from '@shared/types'
-import type { Sport } from '@shared/types'
 import { SocketEvents } from '@shared/events'
 import logoBig from '@/assets/logo-big.png'
 import { Routes } from '@/routes'
@@ -21,10 +18,7 @@ import { CirclePlay, Trophy, Settings, ArrowLeft } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 
-export type AuthMode = 'select' | 'owner-pin' | 'sport-select' | 'club-pin'
-
-const registry = new SportDisplayRegistry()
-const SPORT_STORAGE_KEY = 'rallyos-sport'
+export type AuthMode = 'select' | 'owner-pin' | 'club-pin'
 
 export function AuthPage() {
   const [pin, setPin] = useState('')
@@ -48,7 +42,7 @@ export function AuthPage() {
     login,
     setTournamentToken,
     setSessionToken,
-    onOwnerResolved: () => setMode('sport-select'),
+    onOwnerResolved: () => navigate(Routes.DASHBOARD_OWNER),
   })
 
   const { addToast } = useToast()
@@ -193,11 +187,6 @@ export function AuthPage() {
     clearError()
   }
 
-  const handleSelectSport = (sport: Sport) => {
-    localStorage.setItem(SPORT_STORAGE_KEY, sport)
-    navigate(Routes.DASHBOARD_OWNER)
-  }
-
   return (
     <motion.div
       className="flex flex-col items-center justify-center min-h-dvh bg-primary/10 gap-6 p-4"
@@ -215,8 +204,7 @@ export function AuthPage() {
         ) : (
           <>
             <Typography variant="title">
-              {mode === 'sport-select' ? i18nText('configSportLabel')
-               : mode === 'club-pin' ? i18nText('authClubPlayTitle')
+              {mode === 'club-pin' ? i18nText('authClubPlayTitle')
                : mode === 'owner-pin' ? i18nText('authRoleOwner')
                : i18nText('authEnterOwnerPin')}
             </Typography>
@@ -355,34 +343,6 @@ export function AuthPage() {
             >
               {i18nText('authPinBack')}
             </Button>
-          </motion.div>
-        ) : mode === 'sport-select' ? (
-          <motion.div
-            key="sport-select"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.2 }}
-            className="flex flex-col gap-4 w-full max-w-sm items-center"
-          >
-            <Typography variant="body" className="text-center text-muted-foreground">
-              {i18nText('authSelectSportDescription')}
-            </Typography>
-            <div className="flex gap-3 w-full">
-              {registry.getAvailableSports().map(s => (
-                <Button
-                  key={s}
-                  variant="primary"
-                  size="lg"
-                  fullWidth
-                  icon={registry.resolve(s).icon}
-                  onClick={() => handleSelectSport(s)}
-                  animate
-                >
-                  {i18nText(registry.resolve(s).displayKey)}
-                </Button>
-              ))}
-            </div>
           </motion.div>
         ) : (
           <motion.div

@@ -23,10 +23,10 @@ test.describe('Club Free Mode', () => {
     // Enter admin PIN (set deterministically to 12345678 via club-config.json)
     await page.locator('input[placeholder="••••••••"]').fill('12345678')
     await page.locator('text=Ingresar').click()
-    await expect(page.getByRole('button', { name: 'Cancha', exact: true })).toBeVisible({ timeout: 8000 })
+    await expect(page.getByRole('button', { name: /^(Mesa|Cancha)$/ })).toBeVisible({ timeout: 8000 })
 
     // Create court
-    await page.getByRole('button', { name: 'Cancha', exact: true }).click()
+    await page.getByRole('button', { name: /^(Mesa|Cancha)$/ }).click()
     await page.waitForTimeout(500)
 
     // Activate the newest court (last card) and grab its PIN (last PIN badge in body)

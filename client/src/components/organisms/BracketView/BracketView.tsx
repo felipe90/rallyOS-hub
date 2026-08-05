@@ -13,7 +13,7 @@
 
 import { useMemo, useState, useEffect } from 'react'
 import { X, RotateCcw } from 'lucide-react'
-import { useI18n } from '@/i18n'
+import { useSportTerms } from '@/hooks/useSportTerms'
 import { bracketErrorTranslationKey } from '@/i18n/bracketError'
 import { Button } from '@/components/atoms/Button'
 import { Title, Body } from '@/components/atoms/Typography'
@@ -55,6 +55,24 @@ interface SlotTarget {
   currentName: string
 }
 
+/**
+ * Resolve a BRACKET_ERROR to display text. Court-related errors (the court
+ * was removed, or is already assigned to another match) are sport-aware and
+ * resolve through the sportTerm family; every other code keeps its regular
+ * i18n key (with optional server message interpolation).
+ */
+function resolveBracketErrorText(
+  code: string,
+  message: string,
+  terms: Record<string, string>,
+  i18nText: (key: string, opts?: Record<string, unknown>) => string,
+): string {
+  const key = bracketErrorTranslationKey(code)
+  if (key === 'bracketError.courtNotFound') return terms.bracketErrorCourtNotFound
+  if (key === 'bracketError.courtAlreadyAssigned') return terms.bracketErrorCourtAlreadyAssigned
+  return i18nText(key, { message })
+}
+
 export function BracketView({
   bracket,
   courts,
@@ -69,7 +87,7 @@ export function BracketView({
   onResetConfirm,
   onClearError,
 }: BracketViewProps) {
-  const { i18nText } = useI18n()
+  const { terms, i18nText } = useSportTerms()
   const [name, setName] = useState('')
   const [size, setSize] = useState<4 | 8 | 16 | 32>(4)
   const [includeThird, setIncludeThird] = useState(false)
@@ -149,7 +167,7 @@ export function BracketView({
       {error && (
         <div role="alert" className="flex items-center justify-between bg-red-50 border-l-4 border-red-500 px-4 py-2 rounded">
           <span className="text-red-700 text-sm">
-            {i18nText(bracketErrorTranslationKey(error.code), { message: error.message })}
+            {resolveBracketErrorText(error.code, error.message, terms, i18nText)}
           </span>
           <button aria-label={i18nText('commonClose')} onClick={onClearError} className="text-red-700 hover:text-red-900">
             <X size={16} />
@@ -269,7 +287,7 @@ export function BracketView({
       <Modal
         isOpen={courtTargetMatchId != null}
         onClose={() => setCourtTargetMatchId(null)}
-        title={i18nText('bracketAssignCourtTitle')}
+        title={terms.bracketAssignCourtTitle}
       >
         <div className="flex flex-col gap-2">
           {courts.length === 0 && (
@@ -296,7 +314,7 @@ export function BracketView({
               setCourtTargetMatchId(null)
             }}
           >
-            {i18nText('bracketAssignCourtNone')}
+            {terms.bracketAssignCourtNone}
           </Button>
           <Button
             variant="outline"

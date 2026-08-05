@@ -4,6 +4,7 @@ import i18n from './i18n'
 import { Routes as ReactRoutes, Route, Navigate, useLocation } from 'react-router-dom'
 import './index.css'
 import { SocketProvider } from './contexts/SocketContext'
+import { SportProvider } from './contexts/SportContext'
 import { AuthProvider } from './contexts/AuthContext'
 import { PrivateRoute } from './components/utilities/PrivateRoute'
 import { ErrorBoundary } from './components/utilities/ErrorBoundary/ErrorBoundary'
@@ -91,11 +92,13 @@ function App() {
     <I18nextProvider i18n={i18n}>
       <AuthProvider>
         <SocketProvider>
-          <AppRoutes />
-          {Banner}
-          {location.pathname === '/auth' && (
-            <LanguageSwitcher language={language} onChangeLanguage={changeLanguage} />
-          )}
+          <SportProvider>
+            <AppRoutes />
+            {Banner}
+            {location.pathname === '/auth' && (
+              <LanguageSwitcher language={language} onChangeLanguage={changeLanguage} />
+            )}
+          </SportProvider>
         </SocketProvider>
       </AuthProvider>
     </I18nextProvider>

@@ -10,6 +10,7 @@ import { app, spaFallback } from './app';
 import { createSecureServer, gracefulShutdown } from './server';
 import { createSocketServer } from './socket';
 import { CourtManager } from './domain/courtManager';
+import { SPORT } from '../../shared/types';
 import { CourtRepository } from './services/table/CourtRepository';
 import { PlayerService } from './services/table/PlayerService';
 import { MatchOrchestrator } from './services/table/MatchOrchestrator';
@@ -88,6 +89,16 @@ const courtManager = new CourtManager({
   formatter,
   qrService,
   persistence: stateStore,
+  // MP-1 — sport-aware default court names: NEW courts are named after the
+  // club's configured sport ("Mesa N" for table tennis, "Cancha N" for
+  // padel). Normalized exactly like ClubPlayerHandler.ts:207 so an unknown
+  // config value falls back to table tennis. Tournament CREATE_COURT has no
+  // sport of its own, so this resolver serves both the tournament and club
+  // creation flows.
+  resolveCourtSport: () => {
+    const config = clubConfigStore.load();
+    return config?.sport === SPORT.PADEL ? SPORT.PADEL : SPORT.TABLE_TENNIS;
+  },
 });
 
 // Session token service — shared by SocketHandler (JWT reconnect) and

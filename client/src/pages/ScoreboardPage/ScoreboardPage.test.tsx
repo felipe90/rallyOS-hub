@@ -374,7 +374,7 @@ describe('ScoreboardPage', () => {
 
       // Modal opened (WAITING + canConfigure) with initialSport=padel → padel
       // config fields render, TT-only handicap section does not.
-      expect(screen.getByText('Games por set')).toBeInTheDocument()
+      expect(screen.getByText('padelGamesPerSet')).toBeInTheDocument()
       expect(screen.queryByText('Handicap')).not.toBeInTheDocument()
     })
 
@@ -395,7 +395,7 @@ describe('ScoreboardPage', () => {
       renderWithRouter(<ScoreboardPage />)
 
       expect(screen.getByText('Handicap')).toBeInTheDocument()
-      expect(screen.queryByText('Games por set')).not.toBeInTheDocument()
+      expect(screen.queryByText('padelGamesPerSet')).not.toBeInTheDocument()
     })
   })
 })

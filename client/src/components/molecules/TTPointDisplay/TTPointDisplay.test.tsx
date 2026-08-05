@@ -5,6 +5,31 @@ import { useReducedMotion } from 'framer-motion';
 import { SPORT } from '@shared/types';
 import type { TTPointDisplay as TTPointDisplayData } from '@shared/types';
 
+vi.mock('@/i18n', () => ({
+  useI18n: () => ({
+    i18nText: (key: string, params?: Record<string, unknown>) => {
+      const map: Record<string, string> = {
+        serveIndicator: 'Serve',
+        scoreboardPlayerAreaAria: 'Area of {{player}}',
+        scoreboardSwapSidesAria: 'Swap sides',
+        scoreboardUndoPointAria: 'Undo point for Player {{side}}',
+      };
+      let out = map[key] || key;
+      if (params) {
+        for (const [k, v] of Object.entries(params)) {
+          out = out.replace(`{{${k}}}`, String(v));
+        }
+      }
+      return out;
+    },
+    language: 'en-US',
+    changeLanguage: vi.fn(),
+  }),
+  i18nText: (key: string) => key,
+  changeLanguage: vi.fn(),
+  default: { language: 'en-US' },
+}))
+
 vi.mock('framer-motion', () => ({
   motion: {
     div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
@@ -124,8 +149,8 @@ describe('TTPointDisplay', () => {
         />
       );
 
-      // Serving indicator is rendered with "Saque" text
-      const saqueElements = screen.getAllByText('Saque');
+      // Serving indicator is rendered with "Serve" text (ST-4: en "Serve")
+      const saqueElements = screen.getAllByText('Serve');
       expect(saqueElements.length).toBeGreaterThanOrEqual(1);
     });
 
@@ -143,7 +168,7 @@ describe('TTPointDisplay', () => {
         />
       );
 
-      const saqueElements = screen.getAllByText('Saque');
+      const saqueElements = screen.getAllByText('Serve');
       expect(saqueElements.length).toBeGreaterThanOrEqual(1);
     });
 
@@ -161,7 +186,7 @@ describe('TTPointDisplay', () => {
         />
       );
 
-      expect(screen.queryByText('Saque')).not.toBeInTheDocument();
+      expect(screen.queryByText('Serve')).not.toBeInTheDocument();
     });
   });
 
@@ -318,7 +343,7 @@ describe('TTPointDisplay', () => {
         />
       );
 
-      const button = screen.getByLabelText('Intercambiar lados');
+      const button = screen.getByLabelText('Swap sides');
       expect(button).toBeInTheDocument();
     });
 
@@ -337,7 +362,7 @@ describe('TTPointDisplay', () => {
         />
       );
 
-      expect(screen.queryByLabelText('Intercambiar lados')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Swap sides')).not.toBeInTheDocument();
     });
 
     it('does not render swap sides button when not referee', () => {
@@ -357,7 +382,7 @@ describe('TTPointDisplay', () => {
         />
       );
 
-      expect(screen.queryByLabelText('Intercambiar lados')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Swap sides')).not.toBeInTheDocument();
     });
   });
 });

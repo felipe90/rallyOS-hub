@@ -23,9 +23,10 @@ describe('Locale parity (es ↔ en-US)', () => {
   })
 
   it('club-session-history keys are present in es', () => {
-    expect(es.clubAdminTabCourts).toBe('Canchas')
+    // clubAdminTabCourts / historyColCourt migrated to sportTerm.* (D8 cleanup)
+    expect(es['sportTerm.clubAdminTabCourts.tableTennis']).toBe('Mesas')
+    expect(es['sportTerm.historyColCourt.tableTennis']).toBe('Mesa')
     expect(es.clubAdminTabHistory).toBe('Historial')
-    expect(es.historyColCourt).toBe('Cancha')
     expect(es.historyColMode).toBe('Modalidad')
     expect(es.historyColDuration).toBe('Duración')
     expect(es.historyColCost).toBe('Costo')
@@ -37,7 +38,7 @@ describe('Locale parity (es ↔ en-US)', () => {
   })
 
   it('club-session-history keys are present in en-US', () => {
-    expect(enUS.clubAdminTabCourts).toBe('Courts')
+    expect(enUS['sportTerm.clubAdminTabCourts.tableTennis']).toBe('Tables')
     expect(enUS.clubAdminTabHistory).toBe('History')
     expect(enUS.historyEmpty).toBe('No session records')
     expect(enUS.historyDisabled).toBe('Club not configured')

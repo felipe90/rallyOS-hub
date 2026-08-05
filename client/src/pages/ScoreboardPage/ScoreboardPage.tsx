@@ -213,8 +213,8 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
         playerBPlaceholder={i18nText('matchConfigPlayerBPlaceholder')}
         bestOfLabel={i18nText('matchConfigBestOf')}
         handicapLabel={i18nText('matchConfigHandicap')}
-        teamALabel={i18nText('matchConfigTeamA')}
-        teamBLabel={i18nText('matchConfigTeamB')}
+        teamALabel={terms.matchConfigTeamA}
+        teamBLabel={terms.matchConfigTeamB}
         cancelLabel={i18nText('commonCancel')}
         submitLabel={i18nText('matchConfigStart')}
         submitLoadingLabel={i18nText('matchConfigStarting')}

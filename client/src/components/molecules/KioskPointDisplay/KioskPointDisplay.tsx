@@ -54,13 +54,14 @@ function getDisplayValues(
 }
 
 function ServingIndicator({ active }: { active: boolean }) {
+  const { i18nText } = useI18n();
   return (
     <div
       data-testid="serving-indicator"
       className={`flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber/10 border border-amber/20 ${active ? 'visible' : 'invisible'}`}
     >
       <div className="w-3 h-3 bg-amber rounded-full animate-pulse" />
-      <span className="text-amber text-sm font-bold uppercase tracking-wider">Saque</span>
+      <span className="text-amber text-sm font-bold uppercase tracking-wider">{i18nText('serveIndicator')}</span>
     </div>
   );
 }
@@ -155,7 +156,7 @@ export function KioskPointDisplay({
               data-testid="left-games"
               className="text-[clamp(1.5rem,3vw,4rem)] font-heading font-semibold text-white/70"
             >
-              Games: {displayValues.leftGames}
+              {i18nText('gamesLabel')} {displayValues.leftGames}
             </span>
           )}
         </div>
@@ -166,7 +167,7 @@ export function KioskPointDisplay({
             className="flex flex-col items-center justify-center min-w-[clamp(4rem,12vw,14rem)] p-[clamp(0.75rem,1.5vw,2rem)] rounded-2xl bg-[var(--color-primary)] border border-white/10 shadow-lg text-white/70"
           >
             <span className="text-[clamp(1.5rem,3vw,4rem)] font-heading font-semibold">
-              Sets
+              {i18nText('scoreboardSetsLabel')}
             </span>
             <span className="text-[clamp(5rem,14vw,18rem)] font-heading font-bold leading-none text-white">
               {leftSets}
@@ -177,7 +178,7 @@ export function KioskPointDisplay({
             className="flex flex-col items-center justify-center min-w-[clamp(4rem,12vw,14rem)] p-[clamp(0.75rem,1.5vw,2rem)] rounded-2xl bg-[var(--color-primary)] border border-white/10 shadow-lg text-white/70"
           >
             <span className="text-[clamp(1.5rem,3vw,4rem)] font-heading font-semibold">
-              Sets
+              {i18nText('scoreboardSetsLabel')}
             </span>
             <span className="text-[clamp(5rem,14vw,18rem)] font-heading font-bold leading-none text-white">
               {rightSets}
@@ -212,7 +213,7 @@ export function KioskPointDisplay({
               data-testid="right-games"
               className="text-[clamp(1.5rem,3vw,4rem)] font-heading font-semibold text-white/70"
             >
-              Games: {displayValues.rightGames}
+              {i18nText('gamesLabel')} {displayValues.rightGames}
             </span>
           )}
         </div>

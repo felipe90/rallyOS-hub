@@ -18,6 +18,7 @@ import { logger } from '../utils/logger';
 import { sanitizeInput } from '../utils/validation';
 import type { PersistedCourt, PersistedClubCourt } from './ports/persistence-types';
 import type { ICourtRepository, IPlayerService, IMatchOrchestrator, ICourtPersistence, ICourtFormatter, IPinService, IQRService } from './ports';
+import { CourtNumberCounter } from './inventory/CourtNumberCounter';
 
 /**
  * Dependency container for CourtManager.
@@ -42,6 +43,12 @@ export interface CourtManagerDeps {
    * resolver. Stored/persisted names render as-is — no migration (MP-2).
    */
   resolveCourtSport?: () => Sport;
+  /**
+   * INV-3 — monotonic court numbering. Replaces the removed
+   * `repository.getNextTableNumber()`. Defaults to a counter seeded from the
+   * repository's current courts so existing tests/consumers are unaffected.
+   */
+  counter?: CourtNumberCounter;
 }
 
 export class CourtManager {
@@ -53,6 +60,7 @@ export class CourtManager {
   private qrService: IQRService;
   private stateStore?: ICourtPersistence;
   private resolveCourtSport: () => Sport;
+  private counter: CourtNumberCounter;
 
   /**
    * Trailing debounce for auto-persist (P1). Rapid point bursts coalesce into
@@ -76,11 +84,12 @@ export class CourtManager {
     this.qrService = deps.qrService;
     this.stateStore = deps.persistence;
     this.resolveCourtSport = deps.resolveCourtSport ?? (() => SPORT.TABLE_TENNIS);
+    this.counter = deps.counter ?? new CourtNumberCounter(this.repository.getAll());
   }
 
   // Table CRUD
   createCourt(name?: string): TournamentCourt {
-    const courtNumber = this.repository.getNextTableNumber();
+    const courtNumber = this.counter.next();
     const courtName = name ? sanitizeInput(name, 256) : this.defaultCourtName(courtNumber);
     const pin = this.pinService.generatePin();
     const id = crypto.randomUUID();
@@ -148,7 +157,7 @@ export class CourtManager {
    * Club courts don't need a match PIN — they use session PINs on activation.
    */
   createClubCourt(name?: string): ClubCourt {
-    const courtNumber = this.repository.getNextTableNumber();
+    const courtNumber = this.counter.next();
     const courtName = name ? sanitizeInput(name, 256) : this.defaultCourtName(courtNumber);
     const id = crypto.randomUUID();
 

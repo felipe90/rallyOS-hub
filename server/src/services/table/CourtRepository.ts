@@ -1,113 +1,62 @@
 /**
- * CourtRepository - Table CRUD operations
+ * CourtRepository - Runtime court store (single map)
  *
- * Responsibility: Store and retrieve tables.
- * Two separate maps: tournamentCourts and clubCourts.
- * clear() only wipes tournament courts (fixes finishTournament bug).
- * clearAll() wipes both.
+ * Task 1.6 (SDD admin-court-inventory): the two parallel maps
+ * (tournamentCourts/clubCourts) are merged into ONE map — one physical court
+ * is one entity regardless of which flow runs on it (E11/D1). Kind is no
+ * longer a storage discriminator: create/get/getAll/delete are unified, and
+ * numbering moved out to CourtNumberCounter (INV-3, replaces getNextTableNumber).
+ *
+ * clear() = tournament-flow release (design 1.6): removes tournament-mode
+ * runtime entries only — club courts survive (finishTournament contract).
+ * Slice-1 bridge: the stored objects are still the legacy Court union; the
+ * RuntimeCourt migration lands with the slice-2 CourtManager delegation.
  */
 
-import { Court, TournamentCourt, ClubCourt } from '../../domain/types';
+import { Court } from '../../domain/types';
 import type { ICourtRepository } from '../../domain/ports';
 
 export class CourtRepository implements ICourtRepository {
-  private tournamentCourts: Map<string, TournamentCourt> = new Map();
-  private clubCourts: Map<string, ClubCourt> = new Map();
+  private courts: Map<string, Court> = new Map();
 
-  // ── Unified create (dispatches by kind) ─────────────────────────────
-
+  /** Store a court (unified — no kind dispatch). Returns the stored court. */
   create(court: Court): Court {
-    if (court.kind === 'tournament') {
-      this.tournamentCourts.set(court.id, court);
-    } else {
-      this.clubCourts.set(court.id, court);
-    }
+    this.courts.set(court.id, court);
     return court;
   }
 
-  // ── Tournament methods ──────────────────────────────────────────────
-
-  addTournament(court: TournamentCourt): TournamentCourt {
-    this.tournamentCourts.set(court.id, court);
-    return court;
-  }
-
-  getTournament(id: string): TournamentCourt | undefined {
-    return this.tournamentCourts.get(id);
-  }
-
-  getAllTournament(): TournamentCourt[] {
-    return Array.from(this.tournamentCourts.values());
-  }
-
-  removeTournament(id: string): boolean {
-    return this.tournamentCourts.delete(id);
-  }
-
-  // ── Club methods ────────────────────────────────────────────────────
-
-  addClub(court: ClubCourt): ClubCourt {
-    this.clubCourts.set(court.id, court);
-    return court;
-  }
-
-  getClub(id: string): ClubCourt | undefined {
-    return this.clubCourts.get(id);
-  }
-
-  getAllClub(): ClubCourt[] {
-    return Array.from(this.clubCourts.values());
-  }
-
-  removeClub(id: string): boolean {
-    return this.clubCourts.delete(id);
-  }
-
-  // ── Unified ─────────────────────────────────────────────────────────
-
-  /** Look up by ID across both maps — tournament first, then club */
+  /** Look up a court by ID. */
   get(id: string): Court | undefined {
-    return this.getTournament(id) ?? this.getClub(id);
+    return this.courts.get(id);
   }
 
-  /** All courts across both maps */
+  /** All runtime courts (tournament + club, one catalog). */
   getAll(): Court[] {
-    return [...this.getAllTournament(), ...this.getAllClub()];
+    return Array.from(this.courts.values());
   }
 
-  /** Delete from whichever map contains the ID */
+  /** Delete a court by ID. Returns true if a court was actually removed. */
   delete(id: string): boolean {
-    return this.removeTournament(id) || this.removeClub(id);
-  }
-
-  getNextTableNumber(): number {
-    const usedNumbers = new Set<number>();
-    for (const court of this.tournamentCourts.values()) {
-      usedNumbers.add(court.number);
-    }
-    for (const court of this.clubCourts.values()) {
-      usedNumbers.add(court.number);
-    }
-
-    let nextNumber = 1;
-    while (usedNumbers.has(nextNumber)) {
-      nextNumber++;
-    }
-    return nextNumber;
+    return this.courts.delete(id);
   }
 
   /**
-   * Clear tournament courts ONLY (used by finishTournament).
-   * Club courts survive — this is the critical bug fix.
+   * Tournament-flow release (design 1.6): removes tournament-mode runtime
+   * entries ONLY — club courts survive (finishTournament bug fix preserved).
+   * Slice-1 bridge: the kind filter lives here until slice-2 releaseAll()
+   * releases tournament flows against the inventory model.
    */
   clear(): void {
-    this.tournamentCourts.clear();
+    for (const [id, court] of this.courts) {
+      if (court.kind === 'tournament') {
+        this.courts.delete(id);
+      }
+    }
   }
 
-  /** Clear everything — tournament AND club courts */
+  /** Clear everything — tournament AND club runtime entries. */
   clearAll(): void {
-    this.tournamentCourts.clear();
-    this.clubCourts.clear();
+    this.courts.clear();
   }
 }
 /** @deprecated Use CourtRepository instead */

@@ -1,5 +1,3 @@
-import type { CourtRecord } from '../../../../shared/types';
-
 /**
  * CourtNumberCounter — monotonic court numbering (INV-3).
  *
@@ -11,7 +9,12 @@ import type { CourtRecord } from '../../../../shared/types';
 export class CourtNumberCounter {
   private nextNumber: number;
 
-  constructor(courts: CourtRecord[] = []) {
+  /**
+   * @param courts  Existing courts to seed from (only `number` is read).
+   *                Accepts CourtRecord[] (inventory) or any shape carrying a
+   *                `number` (slice-1 bridge: runtime courts).
+   */
+  constructor(courts: ReadonlyArray<{ number: number }> = []) {
     this.nextNumber = Math.max(0, ...courts.map((c) => c.number)) + 1;
   }
 

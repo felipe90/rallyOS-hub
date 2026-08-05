@@ -519,11 +519,6 @@ describe('Phase 2 port interfaces', () => {
     function createCourtRepository(): ICourtRepository {
       const courts = new Map<string, Court>();
       return {
-        getNextTableNumber(): number {
-          let max = 0;
-          for (const c of courts.values()) { max = Math.max(max, c.number); }
-          return max + 1;
-        },
         create(court: Court): Court {
           courts.set(court.id, court);
           return court;
@@ -560,13 +555,6 @@ describe('Phase 2 port interfaces', () => {
       expect(repo.get('non-existent')).toBeUndefined();
     });
 
-    it('should get next table number incrementally', () => {
-      const repo = createCourtRepository();
-      expect(repo.getNextTableNumber()).toBe(1);
-      repo.create(mockCourt);
-      expect(repo.getNextTableNumber()).toBe(2);
-    });
-
     it('should delete a court', () => {
       const repo = createCourtRepository();
       repo.create(mockCourt);
@@ -579,7 +567,7 @@ describe('Phase 2 port interfaces', () => {
       expect(repo.delete('non-existent')).toBe(false);
     });
 
-    it('should clear tournament courts only', () => {
+    it('should clear tournament courts only (flow release, club survives)', () => {
       const repo = createCourtRepository();
       repo.create(mockCourt);
       repo.create({ ...mockCourt, id: 'club-1', kind: 'club', clubStatus: 'AVAILABLE', occupiedAt: null } as any);

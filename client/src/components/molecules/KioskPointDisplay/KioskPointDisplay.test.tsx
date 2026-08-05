@@ -60,6 +60,9 @@ vi.mock('@/i18n', () => ({
       const map: Record<string, string> = {
         commonPlayerA: 'Player A',
         commonPlayerB: 'Player B',
+        serveIndicator: 'Serve',
+        gamesLabel: 'Games:',
+        scoreboardSetsLabel: 'Sets',
       };
       return map[key] || key;
     },
@@ -372,7 +375,7 @@ describe('KioskPointDisplay', () => {
       const leftArea = screen.getByTestId('left-player-area');
       const indicator = within(leftArea).getByTestId('serving-indicator');
       expect(indicator).toBeInTheDocument();
-      expect(indicator).toHaveTextContent('Saque');
+      expect(indicator).toHaveTextContent('Serve');
       expect(indicator.querySelector('.bg-amber')).toBeInTheDocument();
     });
 
@@ -381,7 +384,7 @@ describe('KioskPointDisplay', () => {
       const rightArea = screen.getByTestId('right-player-area');
       const indicator = within(rightArea).getByTestId('serving-indicator');
       expect(indicator).toBeInTheDocument();
-      expect(indicator).toHaveTextContent('Saque');
+      expect(indicator).toHaveTextContent('Serve');
       expect(indicator.querySelector('.bg-amber')).toBeInTheDocument();
     });
 

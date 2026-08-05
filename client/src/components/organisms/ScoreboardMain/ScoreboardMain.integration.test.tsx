@@ -59,8 +59,8 @@ describe('ScoreboardMain — Integration (real TTPointDisplay)', () => {
       />,
     );
 
-    // Sin swap: la izquierda muestra "Área de Alice" (Player A)
-    const leftArea = screen.getByLabelText('Área de Alice');
+    // Sin swap: la izquierda muestra "Area of Alice" (Player A) — aria via i18n (en-US)
+    const leftArea = screen.getByLabelText('Area of Alice');
     fireEvent.click(leftArea);
 
     expect(onScorePoint).toHaveBeenCalledWith('A');
@@ -76,8 +76,8 @@ describe('ScoreboardMain — Integration (real TTPointDisplay)', () => {
       />,
     );
 
-    // Sin swap: la derecha muestra "Área de Bob" (Player B)
-    const rightArea = screen.getByLabelText('Área de Bob');
+    // Sin swap: la derecha muestra "Area of Bob" (Player B)
+    const rightArea = screen.getByLabelText('Area of Bob');
     fireEvent.click(rightArea);
 
     expect(onScorePoint).toHaveBeenCalledWith('B');
@@ -93,8 +93,8 @@ describe('ScoreboardMain — Integration (real TTPointDisplay)', () => {
       />,
     );
 
-    // Con swap: la izquierda muestra "Área de Bob" (Player B visualmente)
-    const leftArea = screen.getByLabelText('Área de Bob');
+    // Con swap: la izquierda muestra "Area of Bob" (Player B visualmente)
+    const leftArea = screen.getByLabelText('Area of Bob');
     fireEvent.click(leftArea);
 
     // PlayerSide.side="A" (hardcodeado) → handleScorePoint("A")
@@ -113,8 +113,8 @@ describe('ScoreboardMain — Integration (real TTPointDisplay)', () => {
       />,
     );
 
-    // Con swap: la derecha muestra "Área de Alice" (Player A visualmente)
-    const rightArea = screen.getByLabelText('Área de Alice');
+    // Con swap: la derecha muestra "Area of Alice" (Player A visualmente)
+    const rightArea = screen.getByLabelText('Area of Alice');
     fireEvent.click(rightArea);
 
     // PlayerSide.side="B" (hardcodeado) → handleScorePoint("B")
@@ -134,7 +134,7 @@ describe('ScoreboardMain — Integration (real TTPointDisplay)', () => {
     );
 
     // Sin referee mode: los clicks no deberían llamar onScorePoint
-    const leftArea = screen.queryByLabelText('Área de Bob');
+    const leftArea = screen.queryByLabelText('Area of Bob');
     if (leftArea) {
       fireEvent.click(leftArea);
       expect(onScorePoint).not.toHaveBeenCalled();

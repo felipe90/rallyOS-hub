@@ -16,6 +16,7 @@ import { PadelPointDisplay } from '../components/molecules/PadelPointDisplay/Pad
 import React from 'react'
 import { PadelIcon } from './icons/PadelIcon'
 import { calculateSetsWon } from '../services/match'
+import { i18nText } from '../i18n'
 import type { SportDisplayAdapter, ConfigField, FormattedSet } from './SportDisplayAdapter'
 
 export class PadelDisplayAdapter implements SportDisplayAdapter {
@@ -87,12 +88,12 @@ export class PadelDisplayAdapter implements SportDisplayAdapter {
 
   getConfigFields(): ConfigField[] {
     return [
-      { name: 'gamesPerSet', type: 'number', label: 'Games por set', min: 1 },
-      { name: 'tiebreakPoints', type: 'select', label: 'Tiebreak', options: [
-        { value: 7, label: '7 puntos' },
-        { value: 10, label: '10 puntos' },
+      { name: 'gamesPerSet', type: 'number', label: i18nText('padelGamesPerSet'), min: 1 },
+      { name: 'tiebreakPoints', type: 'select', label: i18nText('padelTiebreak'), options: [
+        { value: 7, label: i18nText('padelPoints7') },
+        { value: 10, label: i18nText('padelPoints10') },
       ]},
-      { name: 'goldenPoint', type: 'boolean', label: 'Punto de Oro' },
+      { name: 'goldenPoint', type: 'boolean', label: i18nText('padelGoldenPoint') },
     ]
   }
 

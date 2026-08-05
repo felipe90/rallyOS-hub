@@ -4,7 +4,16 @@ import { PadelDisplayAdapter } from './PadelDisplayAdapter'
 import type { MatchStateExtended, Score } from '@shared/types'
 
 vi.mock('../i18n', () => ({
-  i18nText: (key: string) => key,
+  i18nText: (key: string) => {
+    const map: Record<string, string> = {
+      padelGamesPerSet: 'Games per set',
+      padelTiebreak: 'Tie-break',
+      padelPoints7: '7 points',
+      padelPoints10: '10 points',
+      padelGoldenPoint: 'Golden Point',
+    }
+    return map[key] ?? key
+  },
 }))
 
 function createPadelState(overrides: Partial<MatchStateExtended> = {}): MatchStateExtended {
@@ -199,9 +208,15 @@ describe('PadelDisplayAdapter', () => {
       const field = adapter.getConfigFields().find(f => f.name === 'tiebreakPoints')!
       expect(field.type).toBe('select')
       expect(field.options).toEqual([
-        { value: 7, label: '7 puntos' },
-        { value: 10, label: '10 puntos' },
+        { value: 7, label: '7 points' },
+        { value: 10, label: '10 points' },
       ])
+    })
+
+    it('uses padel i18n labels (ST-4: en "Games per set")', () => {
+      const fields = adapter.getConfigFields()
+      expect(fields.find(f => f.name === 'gamesPerSet')?.label).toBe('Games per set')
+      expect(fields.find(f => f.name === 'goldenPoint')?.label).toBe('Golden Point')
     })
 
     it('goldenPoint is a boolean field', () => {

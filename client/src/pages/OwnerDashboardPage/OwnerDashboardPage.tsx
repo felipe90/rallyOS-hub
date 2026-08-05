@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useI18n } from '@/i18n'
+import { useSportTerms } from '@/hooks/useSportTerms'
 import { DashboardGrid, DashboardHeader } from '@/components/organisms/DashboardGrid'
 import { PageHeader } from '@/components/molecules/PageHeader'
 import { PinModal } from '@/components/molecules/PinModal'
@@ -44,7 +44,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
   const [activeTab, setActiveTab] = useState('courts')
   const [kioskMode, setKioskModeState] = useState<KioskMode>('club')
   const navigate = useNavigate()
-  const { i18nText } = useI18n()
+  const { terms, i18nText, sport } = useSportTerms()
   const { courts, connected, socket, requestCourtsWithPins, appError, allHistories } = useSocketContext()
   const { logout, ownerPin, setCourtPin, isOwner, tournamentToken } = useAuthContext()
   const stats = useDashboardStats(courts)
@@ -64,9 +64,9 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
     wasCreatingRef.current = courtMgmt.isCreating;
     // Transition: was creating → now not creating = court created successfully
     if (wasCreating && !courtMgmt.isCreating && !appError) {
-      addToast('success', i18nText('toastCourtCreated'));
+      addToast('success', terms.toastCourtCreated);
     }
-  }, [courtMgmt.isCreating, appError, addToast, i18nText]);
+  }, [courtMgmt.isCreating, appError, addToast, terms.toastCourtCreated]);
 
   // Toast on PIN error
   useEffect(() => {
@@ -390,7 +390,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
                 jugadores: <Users className="text-emerald-500" size={28} />,
               }}
               statLabels={{
-                courts: i18nText('dashboardStatCourts'),
+                courts: terms.dashboardStatCourts,
                 matches: i18nText('dashboardStatMatches'),
                 players: i18nText('dashboardStatPlayers'),
               }}
@@ -402,7 +402,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
           <div role="tablist" className="flex border-b border-surface-high px-4">
             <Tab
               id="courts"
-              label={i18nText('clubAdminTabCourts')}
+              label={terms.clubAdminTabCourts}
               icon={<Table2 size={16} />}
               active={activeTab === 'courts'}
               onClick={() => setActiveTab('courts')}
@@ -438,14 +438,14 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
               onCleanCourtConfirm={() => {
                 courtMgmt.confirmClean();
                 requestCourtsWithPins(ownerPin || '');
-                addToast('success', i18nText('toastCourtCleaned'));
+                addToast('success', terms.toastCourtCleaned);
               }}
               onCleanCourtCancel={courtMgmt.cancelClean}
               onDeleteCourt={courtMgmt.requestDelete}
               showDeleteConfirm={courtMgmt.deleteConfirmCourtId}
               onDeleteCourtConfirm={() => {
                 courtMgmt.confirmDelete();
-                addToast('success', i18nText('toastCourtDeleted'));
+                addToast('success', terms.toastCourtDeleted);
               }}
               onDeleteCourtCancel={courtMgmt.cancelDelete}
               featuredCourtId={courts.find(t => t.featured)?.id ?? null}
@@ -483,13 +483,13 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
         <div className="fixed bottom-6 right-6 z-50">
           <FloatingActionButton
           icon={<Plus size={20} />}
-          label={i18nText('ownerCreateCourt')}
+          label={terms.ownerCreateCourt}
           onClick={() => {
             let next = courts.length + 1
-            let name = i18nText('clubAdminDefaultCourtName', { number: String(next) })
+            let name = i18nText(`sportTerm.clubAdminDefaultCourtName.${sport}`, { number: String(next) })
             while (courts.some(c => c.name === name)) {
               next++
-              name = i18nText('clubAdminDefaultCourtName', { number: String(next) })
+              name = i18nText(`sportTerm.clubAdminDefaultCourtName.${sport}`, { number: String(next) })
             }
             handleCreateCourt(name)
           }}

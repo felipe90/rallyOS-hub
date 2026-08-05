@@ -4,6 +4,31 @@ import { PadelPointDisplay } from './PadelPointDisplay';
 import { SPORT } from '@shared/types';
 import type { PadelPointDisplay as PadelPointDisplayData } from '@shared/types';
 
+vi.mock('@/i18n', () => ({
+  useI18n: () => ({
+    i18nText: (key: string, params?: Record<string, unknown>) => {
+      const map: Record<string, string> = {
+        serveIndicator: 'Serve',
+        gamesLabel: 'Games:',
+        scoreboardPlayerAreaAria: 'Area of {{player}}',
+        scoreboardUndoPointAria: 'Undo point for Player {{side}}',
+      };
+      let out = map[key] || key;
+      if (params) {
+        for (const [k, v] of Object.entries(params)) {
+          out = out.replace(`{{${k}}}`, String(v));
+        }
+      }
+      return out;
+    },
+    language: 'en-US',
+    changeLanguage: vi.fn(),
+  }),
+  i18nText: (key: string) => key,
+  changeLanguage: vi.fn(),
+  default: { language: 'en-US' },
+}))
+
 vi.mock('framer-motion', () => ({
   motion: {
     div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
@@ -229,7 +254,7 @@ describe('PadelPointDisplay', () => {
         />
       );
 
-      expect(screen.getByText('Saque')).toBeInTheDocument();
+      expect(screen.getByText('Serve')).toBeInTheDocument();
     });
 
     it('does not show serving indicator when neither is serving', () => {
@@ -246,7 +271,7 @@ describe('PadelPointDisplay', () => {
         />
       );
 
-      expect(screen.queryByText('Saque')).not.toBeInTheDocument();
+      expect(screen.queryByText('Serve')).not.toBeInTheDocument();
     });
   });
 

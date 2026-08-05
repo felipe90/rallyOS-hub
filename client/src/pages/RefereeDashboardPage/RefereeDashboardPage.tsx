@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useI18n } from '@/i18n'
+import { useSportTerms } from '@/hooks/useSportTerms'
 import { DashboardGrid } from '@/components/organisms/DashboardGrid'
 import { DashboardHeader } from '@/components/organisms/DashboardGrid'
 import { PageHeader } from '@/components/molecules/PageHeader'
@@ -29,7 +29,7 @@ export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashb
   const [pinModalOpen, setPinModalOpen] = useState(false)
   const [selectedCourt, setSelectedCourt] = useState<CourtInfoWithPin | null>(null)
   const navigate = useNavigate()
-  const { i18nText } = useI18n()
+  const { terms, i18nText, sport } = useSportTerms()
   const { courts, connected, socket, requestCourts } = useSocketContext()
   const { logout, setCourtPin } = useAuthContext()
   const stats = useDashboardStats(courts)
@@ -145,7 +145,7 @@ export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashb
               jugadores: <Users className="text-emerald-500" size={28} />,
             }}
             statLabels={{
-              courts: i18nText('dashboardStatCourts'),
+              courts: terms.dashboardStatCourts,
               matches: i18nText('dashboardStatMatches'),
               players: i18nText('dashboardStatPlayers'),
             }}
@@ -170,7 +170,7 @@ export function RefereeDashboardPage({ viewMode: initialViewMode }: RefereeDashb
         isLoading={pinLoading}
         error={translatePinError(pinError)}
         title={i18nText('matchConfigTitle')}
-        forTableLabel={i18nText('matchConfigForCourt', { courtName: selectedCourt?.name || '' })}
+        forTableLabel={i18nText(`sportTerm.matchConfigForCourt.${sport}`, { courtName: selectedCourt?.name || '' })}
         cancelLabel={i18nText('commonCancel')}
         submitLabel={i18nText('authEnter')}
         submitLoadingLabel={i18nText('authVerifying')}

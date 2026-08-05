@@ -3,6 +3,12 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { DashboardGrid, DashboardHeader } from './DashboardGrid';
 import type { CourtInfo } from '@shared/types';
 
+// TableStatusChip (rendered via CourtStatusChip) resolves its action labels
+// through useSportTerms, which requires SportContext. Default to tableTennis.
+vi.mock('@/contexts/SportContext', () => ({
+  useSport: () => ({ sport: 'tableTennis', sportLoaded: true }),
+}))
+
 // Provide default aria-labels for DashboardHeader buttons
 const defaultHeaderProps = {
   gridViewLabel: 'Grid view',

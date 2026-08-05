@@ -12,7 +12,7 @@
 
 import { useState } from 'react'
 import { MapPin, Undo2, AlertTriangle } from 'lucide-react'
-import { useI18n } from '@/i18n'
+import { useSportTerms } from '@/hooks/useSportTerms'
 import { Button } from '@/components/atoms/Button'
 import { Caption } from '@/components/atoms/Typography'
 import { ConfirmDialog } from '@/components/molecules/ConfirmDialog'
@@ -44,7 +44,7 @@ export function BracketMatchCard({
   onAssignCourt,
   onUndo,
 }: BracketMatchCardProps) {
-  const { i18nText } = useI18n()
+  const { terms, i18nText } = useSportTerms()
   const [winnerConfirm, setWinnerConfirm] = useState<Player | null>(null)
   const [undoConfirm, setUndoConfirm] = useState(false)
 
@@ -54,8 +54,8 @@ export function BracketMatchCard({
   const bye = !completed && oneEmpty
 
   const placeholder = i18nText('bracketPlaceholder')
-  const noCourt = i18nText('bracketNoCourt')
-  const orphanLabel = i18nText('bracketCourtOrphan')
+  const noCourt = terms.bracketNoCourt
+  const orphanLabel = terms.bracketCourtOrphan
 
   const courtDisplay =
     match.courtId == null ? noCourt : courtOrphan ? orphanLabel : (courtLabel ?? noCourt)
@@ -148,7 +148,7 @@ export function BracketMatchCard({
       {courtOccupied && (
         <div role="alert" className="flex items-center gap-1.5 text-amber-600">
           <AlertTriangle size={14} className="shrink-0" />
-          <span className="text-xs">{i18nText('bracketCourtOccupiedWarn')}</span>
+          <span className="text-xs">{terms.bracketCourtOccupiedWarn}</span>
         </div>
       )}
 

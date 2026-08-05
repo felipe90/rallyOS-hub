@@ -2,10 +2,21 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { TableStatusChip } from './TableStatusChip';
 
+vi.mock('@/contexts/SportContext', () => ({
+  useSport: () => ({ sport: 'tableTennis', sportLoaded: true }),
+}))
+
 vi.mock('@/i18n', () => ({
   useI18n: () => ({
     i18nText: (key: string) => {
       const labels: Record<string, string> = {
+        'sportTerm.clean.tableTennis': 'Limpiar Mesa',
+        'sportTerm.delete.tableTennis': 'Eliminar Mesa',
+        'sportTerm.cleanDialogTitle.tableTennis': 'Limpiar Mesa',
+        'sportTerm.cleanDialogMessage.tableTennis': '¿Estás seguro de resetear esta mesa? Se borrarán los nombres, el score y se generará un nuevo PIN.',
+        'sportTerm.deleteDialogTitle.tableTennis': 'Eliminar Mesa',
+        'sportTerm.deleteDialogMessage.tableTennis': '¿Estás seguro de eliminar la mesa? Esta acción no se puede deshacer.',
+        'sportTerm.deleteAria.tableTennis': 'Eliminar mesa',
         courtStatusWaiting: 'Esperando',
         courtStatusConfiguring: 'Configurando',
         courtStatusLive: 'En juego',
@@ -76,18 +87,18 @@ describe('TableStatusChip', () => {
     it('renders delete button when onDelete is provided', () => {
       const handleDelete = vi.fn();
       render(<TableStatusChip tableNumber={1} tableName="Test" status="WAITING" onDelete={handleDelete} />);
-      expect(screen.getByRole('button', { name: /Eliminar Cancha/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Eliminar Mesa/i })).toBeInTheDocument();
     });
 
     it('does not render delete button when onDelete is not provided', () => {
       render(<TableStatusChip tableNumber={1} tableName="Test" status="WAITING" />);
-      expect(screen.queryByRole('button', { name: /Eliminar Cancha/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Eliminar Mesa/i })).not.toBeInTheDocument();
     });
 
     it('calls onDelete when delete button is clicked', () => {
       const handleDelete = vi.fn();
       render(<TableStatusChip tableNumber={1} tableName="Test" status="WAITING" onDelete={handleDelete} />);
-      screen.getByRole('button', { name: /Eliminar Cancha/i }).click();
+      screen.getByRole('button', { name: /Eliminar Mesa/i }).click();
       expect(handleDelete).toHaveBeenCalledTimes(1);
     });
 
@@ -107,7 +118,7 @@ describe('TableStatusChip', () => {
         />
       );
       // ConfirmDialog shows with the specific message about table deletion
-      expect(screen.getByText(/Estás seguro de eliminar la cancha/)).toBeInTheDocument();
+      expect(screen.getByText(/Estás seguro de eliminar la mesa/)).toBeInTheDocument();
     });
 
     it('calls onDeleteConfirm when confirming delete', () => {

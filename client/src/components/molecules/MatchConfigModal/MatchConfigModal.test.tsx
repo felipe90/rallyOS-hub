@@ -187,9 +187,9 @@ describe('MatchConfigModal', () => {
   it('shows padel config fields when initialSport is padel', () => {
     render(<MatchConfigModal {...defaultProps} initialSport={SPORT.PADEL} />)
     expect(screen.queryByText('Handicap')).not.toBeInTheDocument()
-    expect(screen.getByText('Games por set')).toBeInTheDocument()
-    expect(screen.getByText('Tiebreak')).toBeInTheDocument()
-    expect(screen.getByText('Punto de Oro')).toBeInTheDocument()
+    expect(screen.getByText('Games per set')).toBeInTheDocument()
+    expect(screen.getByText('Tie-break')).toBeInTheDocument()
+    expect(screen.getByText('Golden Point')).toBeInTheDocument()
   })
 
   it('submits padel config with sport-specific fields', () => {

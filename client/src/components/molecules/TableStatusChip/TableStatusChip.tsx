@@ -5,7 +5,7 @@ import { Body } from '../../atoms/Typography';
 import { Button } from '../../atoms/Button';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { RefreshCw, Trash2, Star } from 'lucide-react';
-import { useI18n } from '@/i18n';
+import { useSportTerms } from '@/hooks/useSportTerms';
 
 /* TableStatusChip Molecule - Court info card component */
 export interface TableStatusChipProps {
@@ -90,7 +90,7 @@ export function TableStatusChip({
   featured,
   onToggleFeatured,
 }: TableStatusChipProps) {
-  const { i18nText } = useI18n();
+  const { terms, i18nText } = useSportTerms();
   const pillClass = statusPillClass[status];
   const resolvedLabel = statusLabel || (statusBadgeLabelKeys[status] ? i18nText(statusBadgeLabelKeys[status]) : status);
 
@@ -164,7 +164,7 @@ export function TableStatusChip({
           onClick={() => onClean()}
           stopPropagation
         >
-          Limpiar Cancha
+          {terms.clean}
         </Button>
       )}
 
@@ -190,17 +190,17 @@ export function TableStatusChip({
           onClick={() => onDelete()}
           stopPropagation
           className="mt-2"
-          aria-label={`Eliminar cancha ${tableName}`}
+          aria-label={`${terms.deleteAria} ${tableName}`}
         >
-          Eliminar Cancha
+          {terms.delete}
         </Button>
       )}
 
       {/* Delete confirmation dialog */}
       <ConfirmDialog
         isOpen={showDeleteConfirm && !!onDeleteConfirm && !!onDeleteCancel}
-        title="Eliminar Cancha"
-        message="¿Estás seguro de eliminar la cancha? Esta acción no se puede deshacer."
+        title={terms.deleteDialogTitle}
+        message={terms.deleteDialogMessage}
         severity="error"
         confirmLabel="Eliminar"
         cancelLabel="Cancelar"
@@ -211,8 +211,8 @@ export function TableStatusChip({
       {/* Clean confirmation - using ConfirmDialog component */}
       <ConfirmDialog
         isOpen={showCleanConfirm && !!onCleanConfirm && !!onCleanCancel}
-        title="Limpiar Cancha"
-        message="¿Estás seguro de resetear esta cancha? Se borrarán los nombres, el score y se generará un nuevo PIN."
+        title={terms.cleanDialogTitle}
+        message={terms.cleanDialogMessage}
         severity="warning"
         confirmLabel="Limpiar"
         cancelLabel="Cancelar"

@@ -3,6 +3,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Undo2 } from 'lucide-react';
 import { HoldToConfirmButton } from '../../atoms/Button/HoldToConfirmButton';
 import type { TTPointDisplay as TTPointDisplayData } from '@shared/types';
+import { useI18n } from '@/i18n';
 
 export interface TTPointDisplayProps {
   sportDisplay: TTPointDisplayData;
@@ -41,6 +42,7 @@ function PlayerSide({
   onSubtractPoint?: (side: 'A' | 'B') => void;
 }) {
   const shouldReduceMotion = useReducedMotion();
+  const { i18nText } = useI18n();
   const [displayScore, setDisplayScore] = useState(score);
   const prevScoreRef = useRef(score);
 
@@ -73,7 +75,7 @@ function PlayerSide({
       <section
         className={`absolute inset-0 flex flex-col overflow-hidden ${tapBgColor} cursor-pointer select-none`}
         onClick={handleTap}
-        aria-label={`Área de ${playerName}`}
+        aria-label={i18nText('scoreboardPlayerAreaAria', { player: playerName })}
       >
         {/* Serving Indicator */}
         {isServing && (
@@ -82,7 +84,7 @@ function PlayerSide({
             style={{ [isLeft ? 'left' : 'right']: '1.5rem' }}
           >
             <div className="w-3 h-3 bg-amber rounded-full animate-pulse" />
-            <span className="text-amber text-sm font-bold uppercase tracking-wider">Saque</span>
+            <span className="text-amber text-sm font-bold uppercase tracking-wider">{i18nText('serveIndicator')}</span>
           </div>
         )}
 
@@ -131,7 +133,7 @@ function PlayerSide({
           <button
             onClick={handleUndo}
             className="size-20 rounded-full flex items-center justify-center bg-white/5 hover:bg-white/10 text-white/40 hover:text-white transition-colors duration-200 p-4"
-            aria-label={`Undo point for Player ${side}`}
+            aria-label={i18nText('scoreboardUndoPointAria', { side })}
           >
             <Undo2 size={32} />
           </button>
@@ -153,6 +155,7 @@ export function TTPointDisplay({
   onSubtractPoint,
   onSwapSides,
 }: TTPointDisplayProps) {
+  const { i18nText } = useI18n();
   return (
     <div className="flex w-full h-full">
       <PlayerSide
@@ -180,7 +183,7 @@ export function TTPointDisplay({
               onConfirm={onSwapSides}
               holdDuration={1500}
               variant="neutral"
-              ariaLabel="Intercambiar lados"
+              ariaLabel={i18nText('scoreboardSwapSidesAria')}
             />
           </div>
         )}

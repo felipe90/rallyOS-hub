@@ -8,6 +8,7 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { useI18n, changeLanguage } from '@/i18n'
 import { useSocketContext, useAuthContext, useSport } from '@/contexts'
+import { useSportTerms } from '@/hooks/useSportTerms'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useScoreboardUrl } from '@/hooks/useScoreboardUrl'
 import { useOrientation } from '@/hooks/useOrientation'
@@ -64,6 +65,7 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
   const { currentMatch, emit, connected, socket, bracket } = useSocketContext()
   const { isReferee, isOwner, courtPin } = useAuthContext()
   const { sport } = useSport()
+  const { terms } = useSportTerms()
   const { scoreboard: perms } = usePermissions()
   const { canEdit, canConfigure, canViewHistory } = perms
   const { isLandscape, toggle: toggleOrientation } = useOrientation()
@@ -156,7 +158,7 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
     return () => { document.body.classList.remove('scoreboard-page') }
   }, [])
 
-  if (!tableId) return <div>{i18nText('scoreboardInvalidCourtId')}</div>
+  if (!tableId) return <div>{terms.scoreboardInvalidCourtId}</div>
   if (refRevoked) return <RefRevokedView />
   if (!currentMatch) return <LoadingView />
 
@@ -205,14 +207,14 @@ export function ScoreboardPage(_props: ScoreboardPageProps) {
         onSubmit={(config) => handleStartMatch({ ...config, pointsPerSet: 11 })}
         onClose={handleCancelMatch}
         title={i18nText('matchConfigTitle')}
-        forTableLabel={i18nText('matchConfigForCourt', { courtName: currentMatch.courtName || '' })}
+        forTableLabel={i18nText(`sportTerm.matchConfigForCourt.${sport}`, { courtName: currentMatch.courtName || '' })}
         playersLabel={i18nText('matchConfigPlayers')}
         playerAPlaceholder={i18nText('matchConfigPlayerAPlaceholder')}
         playerBPlaceholder={i18nText('matchConfigPlayerBPlaceholder')}
         bestOfLabel={i18nText('matchConfigBestOf')}
         handicapLabel={i18nText('matchConfigHandicap')}
-        teamALabel={i18nText('matchConfigTeamA')}
-        teamBLabel={i18nText('matchConfigTeamB')}
+        teamALabel={terms.matchConfigTeamA}
+        teamBLabel={terms.matchConfigTeamB}
         cancelLabel={i18nText('commonCancel')}
         submitLabel={i18nText('matchConfigStart')}
         submitLoadingLabel={i18nText('matchConfigStarting')}

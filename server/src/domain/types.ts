@@ -38,6 +38,7 @@ import {
   CLUB_STATUS,
   SessionMode,
   SESSION_MODE,
+  CourtRecord,
 } from '../../../shared/types';
 import type { MatchEngine } from './matchEngine';
 
@@ -81,6 +82,7 @@ export {
   CLUB_STATUS,
   SessionMode,
   SESSION_MODE,
+  CourtRecord,
 };
 
 /**
@@ -195,6 +197,59 @@ export function isTournamentCourt(court: Court): court is TournamentCourt {
 
 /** @deprecated Use Court instead — legacy alias for backward compat */
 export type Table = Court;
+
+// ── D1 Target Runtime Model (admin-court-inventory) ─────────────────────
+//
+// One physical court = ONE mutable-flow entity. `CourtRecord` (shared, durable,
+// admin-owned) is the identity; `FlowSlot` is exactly ONE active flow on the
+// court right now; kind is DERIVED from the active flow, never stored.
+//
+// NOTE (slice-1 bridge): the stack (CourtManager/services/handlers) still
+// consumes the legacy `Court` union below until the slice-2 CourtManager
+// delegation converts it. These types are the target model the repository and
+// stores are migrating toward (INV-2, E11).
+
+/** Flow-mode discriminator key — extendable ('clase' registers one contract). */
+export type FlowModeKey = 'tournament' | 'club';
+
+/**
+ * FlowSlot — the ONE active flow on a runtime court (D1).
+ * `null` = no active flow → court is IDLE.
+ * tournament: LIVE while a bracket match runs on the court.
+ * club: OCCUPIED (timer/cost running) → FINISHED, with session identity
+ *       (playerName/phone/adminId) carried on the slot.
+ */
+export type FlowSlot =
+  | { mode: 'tournament'; state: 'LIVE'; startedAt: number }
+  | {
+      mode: 'club';
+      state: 'OCCUPIED' | 'FINISHED';
+      sessionMode: SessionMode | null;
+      occupiedAt: number | null;
+      playerName: string | null;
+      phone: string | null;
+      adminId: string | null;
+    }
+  | null;
+
+/**
+ * RuntimeCourt — the in-memory court entity (D1).
+ * `record` is the durable inventory identity (CourtRecord); `flow` is the
+ * transient active session (or null → IDLE); availability is DERIVED from
+ * (record.inventoryStatus, flow, bracket binding) — never stored (INV-4).
+ */
+export interface RuntimeCourt {
+  record: CourtRecord;
+  flow: FlowSlot;
+  pin: string;
+  sportRules: MatchEngine;
+  /** Whether this court is currently featured/spotlight on the kiosk */
+  featured: boolean;
+  players: PlayerConnection[];
+  // Event callbacks — internal wiring, never exposed to client
+  onTableUpdate?: () => void;
+  onMatchEvent?: (event: MatchEvent) => void;
+}
 
 /**
  * Socket data attached to authenticated sockets.

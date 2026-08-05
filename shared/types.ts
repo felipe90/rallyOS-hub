@@ -317,6 +317,48 @@ export interface AllHistoryEntry {
   };
 }
 
+// ── Court Inventory ────────────────────────────────────────────────────
+
+/**
+ * Inventory status const — admin-owned court existence axis.
+ * `ACTIVE` = usable by any flow; `MAINTENANCE` = temporarily out of service;
+ * `ARCHIVED` = retired, never hard-deleted (history/cost integrity, INV-3).
+ */
+export const INVENTORY_STATUS = {
+  ACTIVE: 'ACTIVE',
+  MAINTENANCE: 'MAINTENANCE',
+  ARCHIVED: 'ARCHIVED',
+} as const;
+
+/** Inventory status — derived from INVENTORY_STATUS const */
+export type InventoryStatus = (typeof INVENTORY_STATUS)[keyof typeof INVENTORY_STATUS];
+
+/**
+ * Availability const — DERIVED occupancy axis (never persisted, INV-4).
+ * `IDLE` = not in use; `BUSY` = occupied now by a live flow or bracket binding.
+ * Future booking-only `HELD` is deferred (see design §10).
+ */
+export const AVAILABILITY = {
+  IDLE: 'IDLE',
+  BUSY: 'BUSY',
+} as const;
+
+/** Availability — derived from AVAILABILITY const */
+export type Availability = (typeof AVAILABILITY)[keyof typeof AVAILABILITY];
+
+/**
+ * CourtRecord — durable, admin-owned inventory identity (D1, INV-2).
+ * Sport-agnostic: `courtId` is the stable identity; `number` is a monotonic
+ * display id (never reused after archive, INV-3); `name` is a sport-aware
+ * display label. Kind is derived from the active flow, never stored here.
+ */
+export interface CourtRecord {
+  courtId: string;
+  number: number;
+  name: string;
+  inventoryStatus: InventoryStatus;
+}
+
 // ── Court Info (formerly Table Info) ─────────────────────────────────
 
 export interface CourtInfo {
@@ -337,6 +379,10 @@ export interface CourtInfo {
   clubStatus?: ClubStatus;
   /** Club session mode — only meaningful when mode === 'club' and status === 'OCCUPIED'. Undefined for tournament courts and unoccupied club courts. */
   sessionMode?: SessionMode;
+  /** Inventory status — present when the court comes from the admin catalog. */
+  inventoryStatus?: InventoryStatus;
+  /** Derived availability — IDLE | BUSY (INV-4); never stored. */
+  availability?: Availability;
 }
 
 export interface CourtInfoWithPin extends CourtInfo {

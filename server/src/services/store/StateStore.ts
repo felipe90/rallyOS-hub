@@ -3,23 +3,12 @@ import * as path from 'path';
 import { FileSystem, PersistedStateV4, PERSISTENCE_VERSION } from './types';
 import { logger } from '../../utils/logger';
 import type { ICourtPersistence } from '../../domain/ports/ICourtPersistence';
-import type { PersistedFlowSession } from '../../domain/ports/persistence-types';
-import type { TournamentBracket } from '../../../../shared/types';
 
 const DEFAULT_PATH = 'data/rallyos-state.json';
 
 export class StateStore implements ICourtPersistence {
   private readonly fs: FileSystem;
   private readonly filePath: string;
-
-  /**
-   * In-memory cache of the persisted bracket (P2). Avoids re-reading the
-   * entire state file on every `save()` just to carry the bracket forward.
-   * The disk is the source of truth on first load; afterwards the cache is
-   * authoritative for the process lifetime. Invalidated by clear()/archive().
-   */
-  private bracketCache: TournamentBracket | null = null;
-  private bracketCacheLoaded = false;
 
   /**
    * @param fsImpl  Filesystem implementation (real `fs` in production; fake in tests).
@@ -32,27 +21,18 @@ export class StateStore implements ICourtPersistence {
   }
 
   /**
-   * Persist the transient LIVE sessions (v4 `liveSessions` — PERS-2) to disk
-   * atomically (tmp + rename). Only the caller is responsible for filtering
-   * to LIVE/OCCUPIED/FINISHED flows. The optional bracket rides the same
-   * document.
+   * Persist the FULL v4 document (PERS-4 single-writer contract) to disk
+   * atomically (tmp + rename). The coordinator owns the in-memory snapshot
+   * (liveSessions + bracket) and hands it to save() unchanged; save() only
+   * stamps `savedAt` and serializes — it never reads the file first (no
+   * read-modify-write, so two writers can no longer tear each other's update).
    */
-  save(sessions: PersistedFlowSession[], bracket?: TournamentBracket | null): void {
+  save(state: PersistedStateV4): void {
     const persisted: PersistedStateV4 = {
+      ...state,
       version: PERSISTENCE_VERSION,
       savedAt: Date.now(),
-      liveSessions: sessions,
-      // If the caller provides a bracket, use it; otherwise carry forward the
-      // cached bracket (loaded once from disk) so CourtManager.persistState
-      // (which doesn't own the bracket) never wipes it. Spec R10: bracket
-      // survives court saves.
-      bracket: bracket !== undefined ? bracket : this.getCachedBracket(),
     };
-
-    if (bracket !== undefined) {
-      this.bracketCache = bracket;
-      this.bracketCacheLoaded = true;
-    }
 
     const dir = path.dirname(this.filePath);
     if (!this.fs.existsSync(dir)) {
@@ -125,67 +105,6 @@ export class StateStore implements ICourtPersistence {
     return this.fs.existsSync(this.filePath);
   }
 
-  /**
-   * Read the persisted bracket (R10). Returns `null` when the file is absent,
-   * has no `bracket` key (legacy v4 files), or the bracket was explicitly
-   * cleared (`bracket: null`).
-   */
-  getBracket(): TournamentBracket | null {
-    return this.load()?.bracket ?? null;
-  }
-
-  /**
-   * Persist the bracket independently of the sessions. Reads the current
-   * state file (preserving liveSessions) and writes a fresh v4 document with
-   * the supplied bracket. Pass `null` to clear. Used by BracketHandler
-   * (which owns the bracket) without coupling CourtManager to the bracket
-   * domain. NOTE (slice 6): the second-writer path on this file is removed
-   * by the PersistenceCoordinator; until then both writers do an atomic
-   * tmp+rename (existing torn-write risk, documented).
-   */
-  setBracket(bracket: TournamentBracket | null): void {
-    try {
-      const existing = this.load() ?? {
-        version: PERSISTENCE_VERSION,
-        savedAt: Date.now(),
-        liveSessions: [] as PersistedFlowSession[],
-      };
-      this.save(existing.liveSessions, bracket);
-    } catch (err) {
-      logger.error({ err }, 'StateStore: setBracket failed');
-    }
-  }
-
-  /**
-   * Read ONLY the bracket field from disk (best-effort), without running the
-   * full load pipeline. Used to seed the in-memory bracket cache on first
-   * access so `save()` never re-reads the whole file per point (P2).
-   */
-  private readBracketFromDisk(): TournamentBracket | null {
-    try {
-      if (!this.fs.existsSync(this.filePath)) return null;
-      const raw = this.fs.readFileSync(this.filePath, 'utf-8');
-      if (!raw || raw.trim().length === 0) return null;
-      const parsed = JSON.parse(raw) as { bracket?: TournamentBracket | null };
-      return parsed?.bracket ?? null;
-    } catch {
-      return null;
-    }
-  }
-
-  /**
-   * Return the current bracket without hitting the filesystem after the first
-   * load (P2). First call reads from disk; afterwards the in-memory cache is
-   * authoritative. `null` is a legitimate cached value (no bracket persisted).
-   */
-  private getCachedBracket(): TournamentBracket | null {
-    if (!this.bracketCacheLoaded) {
-      this.bracketCache = this.readBracketFromDisk();
-      this.bracketCacheLoaded = true;
-    }
-    return this.bracketCache;
-  }
-
   /** Delete the state file. No-op if the file does not exist. */
   clear(): void {
     try {
@@ -195,8 +114,6 @@ export class StateStore implements ICourtPersistence {
     } catch {
       // Silently ignore — file might already be gone or unwritable
     }
-    this.bracketCache = null;
-    this.bracketCacheLoaded = false;
   }
 
   /**
@@ -216,10 +133,6 @@ export class StateStore implements ICourtPersistence {
     if (this.fs.existsSync(this.filePath)) {
       this.fs.renameSync(this.filePath, archivePath);
     }
-
-    // File moved — the in-memory bracket cache no longer reflects disk.
-    this.bracketCache = null;
-    this.bracketCacheLoaded = false;
 
     return archivePath;
   }

@@ -10,17 +10,18 @@
  * single-interface file, exported via barrel.
  */
 
-import type { PersistedFlowSession, PersistedStateV4 } from './persistence-types';
-import type { TournamentBracket } from '../../../../shared/types';
+import type { PersistedStateV4 } from './persistence-types';
 
 export interface ICourtPersistence {
   /**
-   * Persist the transient LIVE sessions (v4 `liveSessions` rows — PERS-2).
-   * Only the caller is responsible for filtering to relevant flows
-   * (tournament LIVE; club OCCUPIED/FINISHED). The implementation handles
-   * atomic I/O. The optional bracket is carried on the same document.
+   * Persist the FULL v4 document (PERS-4 single-writer contract). The caller
+   * (PersistenceCoordinator) owns the in-memory snapshot — liveSessions rows
+   * AND the bracket — and hands the whole document to save(); the
+   * implementation performs atomic tmp+rename I/O only, never reading the
+   * file first. There is deliberately NO bracket-arg overload: a second
+   * writer on this file was the R2 torn-write source (removed in slice 6).
    */
-  save(sessions: PersistedFlowSession[], bracket?: TournamentBracket | null): void;
+  save(state: PersistedStateV4): void;
 
   /**
    * Load persisted state from storage (v4 shape, PERS-1 WIPE).

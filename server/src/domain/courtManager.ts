@@ -19,7 +19,8 @@ import { AllHistoryEntry, ClubKioskPayload, ClubKioskCourtInfo, ClubConfig, INVE
 import type { Availability, CourtRecord, BracketMatch } from '../../../shared/types';
 import { logger } from '../utils/logger';
 import { sanitizeInput } from '../utils/validation';
-import type { PersistedFlowSession, PersistedMatchState } from './ports/persistence-types';
+import type { PersistedFlowSession, PersistedMatchState, PersistedStateV4 } from './ports/persistence-types';
+import { PERSISTENCE_VERSION } from './ports/persistence-types';
 import type { ICourtRepository, IPlayerService, IMatchOrchestrator, ICourtPersistence, ICourtFormatter, IPinService, IQRService } from './ports';
 import { CourtNumberCounter } from './inventory/CourtNumberCounter';
 import type { InventoryManager } from './inventory/InventoryManager';
@@ -38,6 +39,18 @@ import { registerDefaultFlows } from './flows';
 export type CourtCatalog = Pick<InventoryManager, 'get' | 'list'>;
 
 /**
+ * Single-writer persistence coordinator seam (PERS-4, slice 6). The domain
+ * depends on this narrow surface; `PersistenceCoordinator` satisfies it
+ * structurally. Writers mutate the shared in-memory snapshot and flush the
+ * FULL document — no second writer on the state file (R2 fixed).
+ * Satisfied structurally by PersistenceCoordinator (services/store).
+ */
+export interface StateCoordinator {
+  mutate(fn: (s: PersistedStateV4) => void): void;
+  flush(): void;
+}
+
+/**
  * Dependency container for CourtManager.
  * All infrastructure dependencies are injected at construction —
  * no inline `new` instantiations.
@@ -50,6 +63,15 @@ export interface CourtManagerDeps {
   pinService: IPinService;
   qrService: IQRService;
   persistence?: ICourtPersistence;
+  /**
+   * PERS-4 — the single-writer persistence coordinator. When present,
+   * persistState() mutates the shared in-memory snapshot (liveSessions) and
+   * flushes the FULL document; the bracket (written by BracketHandler into
+   * the same snapshot) rides along and is never clobbered (R2 fixed). When
+   * absent (legacy test wiring), persistState() falls back to writing the
+   * liveSessions document through `persistence` directly.
+   */
+  coordinator?: StateCoordinator;
   /**
    * FMR-1 — the flow rule engine. Each flow mode (club/tournament, future
    * 'clase') registers one contract; CourtManager delegates end/forceEnd/
@@ -95,6 +117,7 @@ export class CourtManager {
   private pinService: IPinService;
   private qrService: IQRService;
   private stateStore?: ICourtPersistence;
+  private coordinator?: StateCoordinator;
   private registry: FlowModeRegistry;
   private inventory?: CourtCatalog;
   private resolveClubConfig: () => { costPerMinute?: number; currency?: string } | null;
@@ -122,6 +145,7 @@ export class CourtManager {
     this.formatter = deps.formatter;
     this.qrService = deps.qrService;
     this.stateStore = deps.persistence;
+    this.coordinator = deps.coordinator;
     this.registry = deps.registry ?? registerDefaultFlows();
     this.inventory = deps.inventory;
     this.resolveClubConfig = deps.resolveClubConfig ?? (() => null);
@@ -1238,6 +1262,12 @@ export class CourtManager {
    * Each runtime court with an active flow serializes through its mode
    * contract (single rule engine); the matchState is attached so a restart
    * can rebuild the MatchEngine. Errors are caught and logged.
+   *
+   * PERS-4 (slice 6): with a coordinator wired, the sessions mutate the
+   * shared in-memory snapshot and ONE flush re-serializes the FULL document
+   * (liveSessions + bracket) — the bracket writer's changes ride along and
+   * are never lost (R2 fixed). Without a coordinator (legacy test wiring) it
+   * falls back to a direct liveSessions-only save.
    */
   private persistState(): void {
     try {
@@ -1254,7 +1284,18 @@ export class CourtManager {
         });
       }
 
-      this.stateStore!.save(sessions);
+      if (this.coordinator) {
+        this.coordinator.mutate((s) => {
+          s.liveSessions = sessions;
+        });
+        this.coordinator.flush();
+      } else if (this.stateStore) {
+        this.stateStore.save({
+          version: PERSISTENCE_VERSION,
+          savedAt: Date.now(),
+          liveSessions: sessions,
+        });
+      }
     } catch (err) {
       logger.error({ err }, 'StateStore: auto-save failed');
     }

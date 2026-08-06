@@ -101,6 +101,20 @@ function makeClubSession(overrides: Partial<PersistedFlowSession> = {}): Persist
   };
 }
 
+// ── Helper — v4 full document (PERS-4 single-writer contract) ─────────
+
+function makeDoc(
+  liveSessions: PersistedFlowSession[],
+  bracket?: TournamentBracket | null,
+): PersistedStateV4 {
+  return {
+    version: 4,
+    savedAt: 0,
+    liveSessions,
+    ...(bracket !== undefined ? { bracket } : {}),
+  };
+}
+
 // ── Tests ────────────────────────────────────────────────────────────
 
 describe('StateStore', () => {
@@ -114,7 +128,7 @@ describe('StateStore', () => {
 
   describe('save', () => {
     it('should write v4 JSON with liveSessions (PERS-2 shape)', () => {
-      store.save([makeTournamentSession(), makeClubSession()]);
+      store.save(makeDoc([makeTournamentSession(), makeClubSession()]));
 
       const savedContent = fs._files.get('data/rallyos-state.json');
       expect(savedContent).toBeDefined();
@@ -132,7 +146,7 @@ describe('StateStore', () => {
     });
 
     it('should accept an empty sessions array', () => {
-      store.save([]);
+      store.save(makeDoc([]));
 
       const finalContent = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(finalContent!);
@@ -140,7 +154,7 @@ describe('StateStore', () => {
     });
 
     it('should rename tmp file to final path for atomic write', () => {
-      store.save([makeTournamentSession()]);
+      store.save(makeDoc([makeTournamentSession()]));
 
       const finalContent = fs._files.get('data/rallyos-state.json');
       expect(finalContent).toBeDefined();
@@ -149,11 +163,11 @@ describe('StateStore', () => {
     });
 
     it('should create data directory if it does not exist (no-op with fake fs)', () => {
-      expect(() => store.save([makeTournamentSession()])).not.toThrow();
+      expect(() => store.save(makeDoc([makeTournamentSession()]))).not.toThrow();
     });
 
     it('should write before rename for atomic guarantee', () => {
-      store.save([makeTournamentSession()]);
+      store.save(makeDoc([makeTournamentSession()]));
 
       const finalContent = fs._files.get('data/rallyos-state.json');
       expect(finalContent).toBeDefined();
@@ -164,7 +178,7 @@ describe('StateStore', () => {
     it('should save multiple tournament sessions', () => {
       const t1 = makeTournamentSession({ courtId: 't1', number: 1 });
       const t2 = makeTournamentSession({ courtId: 't2', number: 2 });
-      store.save([t1, t2]);
+      store.save(makeDoc([t1, t2]));
 
       const finalContent = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(finalContent!);
@@ -179,7 +193,7 @@ describe('StateStore', () => {
         courtId: 'c2',
         flow: { ...makeClubSession().flow, state: 'FINISHED' } as PersistedFlowSession['flow'],
       });
-      store.save([c1, c2]);
+      store.save(makeDoc([c1, c2]));
 
       const finalContent = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(finalContent!);
@@ -378,7 +392,7 @@ describe('StateStore', () => {
         }),
       ];
 
-      store.save(sessions);
+      store.save(makeDoc(sessions));
       const loaded = store.load();
 
       expect(loaded).not.toBeNull();
@@ -407,7 +421,7 @@ describe('StateStore', () => {
         }),
       ];
 
-      store.save(sessions);
+      store.save(makeDoc(sessions));
       const loaded = store.load();
 
       expect(loaded).not.toBeNull();
@@ -451,119 +465,76 @@ describe('StateStore', () => {
     };
   }
 
-  interface BracketStoreView {
-    setBracket(bracket: TournamentBracket | null): void;
-    getBracket(): TournamentBracket | null;
-  }
-  function asBracketStore(s: StateStore): BracketStoreView {
-    return s as unknown as BracketStoreView;
-  }
+  // ── Single-document save (PERS-4: the FULL v4 document rides one save) ──
 
-  describe('bracket persistence (R10)', () => {
-    it('setBracket persists the bracket and getBracket round-trips it', () => {
+  describe('single-document save (PERS-4 coordinator contract)', () => {
+    it('persists liveSessions AND bracket together in one save', () => {
       const fs = makeFs();
-      const store = asBracketStore(new StateStore(fs, 'state.json'));
-      const bracket = makeBracket();
+      const store = new StateStore(fs, 'state.json');
+      store.save(makeDoc([makeTournamentSession({ courtId: 't1' })], makeBracket()));
 
-      store.setBracket(bracket);
-      const got = store.getBracket();
-
-      expect(got).not.toBeNull();
-      expect(got!.name).toBe('Torneo');
-      expect(got!.numSlots).toBe(4);
-      expect(got!.matches).toHaveLength(3);
-    });
-
-    it('setBracket(null) clears the bracket but preserves persisted sessions', () => {
-      const fs = makeFs();
-      const raw = new StateStore(fs, 'state.json');
-      raw.save([makeTournamentSession({ courtId: 't1' })]);
-      const view = asBracketStore(raw);
-
-      view.setBracket(makeBracket());
-      view.setBracket(null);
-
-      const loaded = raw.load();
-      expect(loaded!.bracket).toBeNull();
+      const loaded = store.load();
+      expect(loaded).not.toBeNull();
       expect(loaded!.liveSessions).toHaveLength(1);
       expect(loaded!.liveSessions[0].courtId).toBe('t1');
-    });
-
-    it('session save (no bracket arg) preserves a previously-persisted bracket', () => {
-      const fs = makeFs();
-      const raw = new StateStore(fs, 'state.json');
-      const view = asBracketStore(raw);
-      view.setBracket(makeBracket({ name: 'Torneo Copa' }));
-
-      // Simulate CourtManager.persistState — saves sessions with no bracket arg.
-      raw.save([makeTournamentSession({ courtId: 't9' })]);
-
-      const loaded = raw.load();
       expect(loaded!.bracket).not.toBeNull();
-      expect(loaded!.bracket!.name).toBe('Torneo Copa');
+      expect(loaded!.bracket!.name).toBe('Torneo');
     });
 
-    it('legacy v4 file without a bracket key loads with bracket undefined/null', () => {
+    it('persists bracket: null when the document carries an explicit null', () => {
       const fs = makeFs();
-      fs._files.set(
-        'state.json',
-        JSON.stringify({ version: 4, savedAt: 1, liveSessions: [] }),
-      );
-      const raw = new StateStore(fs, 'state.json');
+      const store = new StateStore(fs, 'state.json');
+      store.save(makeDoc([], null));
 
-      const loaded = raw.load();
+      const loaded = store.load();
+      expect(loaded!.bracket).toBeNull();
       expect(loaded!.liveSessions).toEqual([]);
-      expect(loaded!.bracket ?? null).toBeNull();
+    });
+
+    it('a bracket written after sessions survives a later session-only save', () => {
+      // Simulates the PERS-4 interleave: the bracket writer mutates the shared
+      // document, then the session writer saves the SAME document — both land
+      // in one atomic write because save() serializes the whole document.
+      const fs = makeFs();
+      const store = new StateStore(fs, 'state.json');
+      const doc = makeDoc([makeTournamentSession({ courtId: 't1' })], makeBracket());
+      store.save(doc);
+
+      // Session debounce fires again with a NEW session — bracket rides along.
+      store.save(makeDoc([makeTournamentSession({ courtId: 't2' })], doc.bracket));
+
+      const loaded = store.load();
+      expect(loaded!.liveSessions).toHaveLength(1);
+      expect(loaded!.liveSessions[0].courtId).toBe('t2');
+      expect(loaded!.bracket!.name).toBe('Torneo');
+    });
+
+    it('writes version 4 and stamps savedAt on every save', () => {
+      const fs = makeFs();
+      const store = new StateStore(fs, 'state.json');
+      store.save(makeDoc([], null));
+
+      const loaded = store.load();
+      expect(loaded!.version).toBe(4);
+      expect(typeof loaded!.savedAt).toBe('number');
     });
   });
 
-  // ── Fase 2 P2: in-memory bracket cache (no per-save full-file re-read) ──
+  // ── v4 round-trip restore (PERS-2/6.4: restart restores from ONE file) ──
 
-  describe('bracket cache (P2)', () => {
-    it('does not re-read the state file on repeated save() calls once the cache is seeded', () => {
+  describe('v4 round-trip restore', () => {
+    it('restores liveSessions + bracket from a single persisted file', () => {
       const fs = makeFs();
       const store = new StateStore(fs, 'state.json');
-      const view = asBracketStore(store);
+      store.save(makeDoc([makeTournamentSession({ courtId: 't1' })], makeBracket()));
 
-      view.setBracket(makeBracket({ name: 'Torneo Copa' }));
+      const freshStore = new StateStore(fs, 'state.json');
+      const loaded = freshStore.load();
 
-      const readSpy = jest.spyOn(fs, 'readFileSync');
-      store.save([makeTournamentSession({ courtId: 't1' })]);
-      store.save([makeTournamentSession({ courtId: 't1' })]);
-      store.save([makeTournamentSession({ courtId: 't1' })]);
-
-      expect(readSpy).not.toHaveBeenCalled();
-
-      const loaded = store.load();
-      expect(loaded!.bracket!.name).toBe('Torneo Copa');
-    });
-
-    it('seeds the cache from disk on first save, then never reads again, returning the cached value', () => {
-      const fs = makeFs();
-      fs._files.set(
-        'state.json',
-        JSON.stringify({
-          version: 4,
-          savedAt: 1,
-          liveSessions: [],
-          bracket: makeBracket({ name: 'OnDisk' }),
-        }),
-      );
-      const store = new StateStore(fs, 'state.json');
-
-      const readSpy = jest.spyOn(fs, 'readFileSync');
-
-      // First save (no bracket arg) reads the disk once to seed the cache.
-      store.save([makeTournamentSession({ courtId: 't1' })]);
-      expect(readSpy).toHaveBeenCalledTimes(1);
-
-      readSpy.mockClear();
-      store.save([makeTournamentSession({ courtId: 't1' })]);
-      store.save([makeTournamentSession({ courtId: 't1' })]);
-
-      expect(readSpy).not.toHaveBeenCalled();
-
-      expect(store.load()!.bracket!.name).toBe('OnDisk');
+      expect(loaded).not.toBeNull();
+      expect(loaded!.liveSessions[0].courtId).toBe('t1');
+      expect(loaded!.liveSessions[0].flow).toEqual({ mode: 'tournament', state: 'LIVE', startedAt: 1700000000000 });
+      expect(loaded!.bracket!.name).toBe('Torneo');
     });
   });
 });

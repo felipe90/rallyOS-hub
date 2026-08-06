@@ -73,8 +73,8 @@ describe('CourtInventoryStore', () => {
       flow: { mode: 'tournament' as const, state: 'LIVE' as const, startedAt: 1 },
       matchState: null as never,
     };
-    stateStore.save([session]);
-    stateStore.save([session]);
+    stateStore.save({ version: 4, savedAt: 0, liveSessions: [session] });
+    stateStore.save({ version: 4, savedAt: 0, liveSessions: [session] });
 
     // The catalog file is byte-identical — sessions never rewrite it.
     expect(fs.files.get('data/court-inventory.json')).toBe(before);

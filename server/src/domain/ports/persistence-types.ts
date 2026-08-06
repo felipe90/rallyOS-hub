@@ -169,6 +169,23 @@ export interface PersistedStateV3 {
 }
 
 /**
+ * Current persistence schema version.
+ * - Version 1: Pre-multi-sport (no sport field in matchState).
+ * - Version 2: Multi-sport support (sport field in matchState).
+ * - Version 3: Split tournamentCourts[] and clubCourts[] arrays.
+ * - Version 4 (admin-court-inventory, PERS-1): persistence WIPE. `load()`
+ *   discards any file whose version !== 4 (no v3→v4 data migration — one-way
+ *   door, never ship after commercial launch). The v1→v2→v3 migration chain
+ *   is removed. The v4 document carries the transient `liveSessions[]`
+ *   (PersistedFlowSession) rows ONLY — the legacy tournamentCourts[]/
+ *   clubCourts[] arrays are dropped (slice-5 bridge reversal; PERS-2).
+ *
+ * Owned by the domain persistence contract (DIP); the storage layer
+ * re-exports it for backward compatibility.
+ */
+export const PERSISTENCE_VERSION = 4;
+
+/**
  * Minimal filesystem abstraction for dependency injection.
  * Enables unit testing without jest.mock (avoids Jest 30 compat issues).
  */

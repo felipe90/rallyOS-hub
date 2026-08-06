@@ -775,7 +775,7 @@ describe('Phase 2 port interfaces', () => {
     it('should have all persistence methods', () => {
       // Type-level contract: create a mock implementation
       const persistence: ICourtPersistence = {
-        save(_sessions: PersistedFlowSession[]): void {},
+        save(_state: PersistedStateV4): void {},
         load(): PersistedStateV4 | null { return null; },
         clear(): void {},
         checkExists(): boolean { return false; },
@@ -788,17 +788,17 @@ describe('Phase 2 port interfaces', () => {
 
     it('should accept empty arrays in save', () => {
       const persistence: ICourtPersistence = {
-        save(_sessions: PersistedFlowSession[]): void {},
+        save(_state: PersistedStateV4): void {},
         load(): PersistedStateV4 | null { return null; },
         clear(): void {},
         checkExists(): boolean { return false; },
       };
-      expect(() => persistence.save([])).not.toThrow();
+      expect(() => persistence.save({ version: 4, savedAt: 0, liveSessions: [] })).not.toThrow();
     });
 
     it('should return null from load when no state exists', () => {
       const persistence: ICourtPersistence = {
-        save(_sessions: PersistedFlowSession[]): void {},
+        save(_state: PersistedStateV4): void {},
         load(): PersistedStateV4 | null { return null; },
         clear(): void {},
         checkExists(): boolean { return false; },
@@ -813,7 +813,7 @@ describe('Phase 2 port interfaces', () => {
         liveSessions: [],
       };
       const persistence: ICourtPersistence = {
-        save(_sessions: PersistedFlowSession[]): void {},
+        save(_state: PersistedStateV4): void {},
         load(): PersistedStateV4 | null { return state; },
         clear(): void {},
         checkExists(): boolean { return false; },
@@ -850,18 +850,22 @@ describe('Phase 2 port interfaces', () => {
         },
       ];
       const persistence: ICourtPersistence = {
-        save(sessions: PersistedFlowSession[]): void {
-          expect(sessions).toHaveLength(1);
+        save(state: PersistedStateV4): void {
+          expect(state.liveSessions).toHaveLength(1);
         },
         load(): PersistedStateV4 | null { return null; },
         clear(): void {},
         checkExists(): boolean { return false; },
       };
-      persistence.save([{
-        courtId: 'c1',
-        flow: { mode: 'club', state: 'OCCUPIED', sessionMode: null, occupiedAt: 2000, playerName: null, phone: null, adminId: null },
-        matchState: null,
-      }]);
+      persistence.save({
+        version: 4,
+        savedAt: 0,
+        liveSessions: [{
+          courtId: 'c1',
+          flow: { mode: 'club', state: 'OCCUPIED', sessionMode: null, occupiedAt: 2000, playerName: null, phone: null, adminId: null },
+          matchState: null,
+        }],
+      });
     });
 
     it('should be callable without errors from clear', () => {
@@ -1017,7 +1021,7 @@ describe('Phase 2 port interfaces', () => {
         playerNames: { a: 'A', b: 'B' },
         createdAt: 1000,
       }];
-      store.save(sessions);
+      store.save({ version: 4, savedAt: 1000, liveSessions: sessions });
       const loaded = store.load();
       expect(loaded).not.toBeNull();
       expect(loaded!.liveSessions).toHaveLength(1);
@@ -1049,7 +1053,7 @@ describe('Phase 2 port interfaces', () => {
         playerNames: { a: '', b: '' },
         createdAt: 1000,
       }];
-      store.save(sessions);
+      store.save({ version: 4, savedAt: 1000, liveSessions: sessions });
       const loaded = store.load();
       expect(loaded).not.toBeNull();
       expect(loaded!.liveSessions).toHaveLength(1);

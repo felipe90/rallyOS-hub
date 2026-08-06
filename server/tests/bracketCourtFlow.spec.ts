@@ -1,62 +1,42 @@
 /**
- * Bracket ↔ Court integration e2e (Option 2).
+ * Bracket ↔ Court integration e2e (Option 2) — SLICE 4 REWRITE.
  *
- * Encodes a critical integration flow that was manually verified against the
- * live app and must now be repeatable:
- *   1. Courts bound to bracket matches (BRACKET_ASSIGN_COURT).
- *   2. Referee finishes a court match (MATCH_WON) → the bracket auto-advances
- *      the winner to the next round and auto-feeds the semifinal loser into
- *      the third-place match.
- *   3. Full tournament lifecycle: both semifinals, the final, and the
- *      third-place match are played through courts → the bracket reaches
- *      COMPLETED with the correct podium (champion / runner-up / third).
- *   4. The referee MatchConfigModal prefills player names from the bracket
- *      when the court is bound — verified through a REAL browser against the
- *      REAL server build (catches the stale `client/dist` bundle regression).
+ * The slice-1/3 bridge changes what "a bracket court" means:
+ *   - 4.2 widened `BracketHandler.courtExists` to the admin inventory
+ *     (inventory-ACTIVE only). CREATE_COURT runtime courts are NO LONGER
+ *     bindable — they are not in the catalog.
+ *   - Courts are seeded via INVENTORY_ADD (admin-gated) and bound via the
+ *     owner-picker event TOURNAMENT_SELECT_TABLE (D13, TCS-1/TCS-2).
  *
- * Protocol strategy: heavy setup runs over real socket.io-client connections
- * (deterministic, fast); only the prefill verification uses a browser page.
- * The server is assumed already running at https://localhost:3000 (same
- * contract as multi-court.spec.ts). No server-side mocks.
+ * Covered live (protocol over real socket.io-client):
+ *   1. Strict cold start (TCS-4): zero ACTIVE inventory courts →
+ *      BRACKET_CREATE rejected with COURT_INVENTORY_EMPTY.
+ *   2. SELECT binds an inventory-ACTIVE court (TCS-1).
+ *   3. SELECT validation (TCS-2/Q2): MAINTENANCE → COURT_NOT_FOUND, club
+ *      RESERVED → COURT_RESERVED, reverse index → COURT_ALREADY_ASSIGNED.
+ *   4. 2-step reset unbinds the bracket courts (bindings cleared).
  *
- * Determinism notes:
- * - Courts are created ONCE in beforeAll and both tests reuse them. The
- *   server rate-limits CREATE_COURT to 5/min/IP, so creating 4 per run
- *   (2 semis + final + third place) stays under the budget. `createCourt`
- *   still retries on RATE_LIMITED as a safety net.
- * - Every court created by this spec is deleted in afterAll, and leftover
- *   `E2E *` courts from earlier spec versions are swept in beforeAll — the
- *   owner dashboard is never polluted.
- * - The browser prefill test runs FIRST because it needs a WAITING court;
- *   it binds court1 without ever starting a match, so court1 is still
- *   WAITING when the protocol test plays match 1 on it.
+ * DEFERRED to slice 5 (documented bridge artifact): the full referee-play
+ * auto-advance + browser-prefill flows need a RUNTIME tournament court (PIN +
+ * match engine) at the inventory courtId. Slice 4 materializes runtime club
+ * courts only (4.4); the tournament runtime materialization + COURT_LIST →
+ * ACTIVE inventory lands at the slice-5 bridge reversal. Until then the
+ * MATCH_WON → bracket auto-advance path is covered by unit tests
+ * (BracketHandler.handleCourtMatchWon), not live e2e.
  *
- * Run: pnpm --filter server run test:e2e -- --grep bracketCourtFlow
+ * Admin auth: the club admin PIN is operator-set (CLUB_SETUP) and has no
+ * public API — provide it via CLUB_ADMIN_PIN (mirrors the TOURNAMENT_OWNER_PIN
+ * fallback in getOwnerPin).
+ *
+ * Run: CLUB_ADMIN_PIN=<pin> pnpm --filter server run test:e2e -- --grep bracketCourtFlow
  */
 
 import { test, expect } from '@playwright/test';
 import { io, type Socket } from 'socket.io-client';
 import { SocketEvents } from '../../shared/events';
-import type { TournamentBracket } from '../../shared/types';
+import type { CourtRecord, TournamentBracket } from '../../shared/types';
 
 const BASE_URL = 'https://localhost:3000';
-
-const PLAYERS = {
-  match1A: 'Juan Pérez',
-  match1B: 'María López',
-  match2A: 'Carlos Ruiz',
-  match2B: 'Ana Gómez',
-} as const;
-
-const START_MATCH_CONFIG = {
-  bestOf: 3,
-  pointsPerSet: 11,
-  handicapA: 0,
-  handicapB: 0,
-} as const;
-
-/** How many RECORD_POINT emits a best-of-3, 11pt match takes to finish: 11 + 11. */
-const POINTS_TO_WIN = 22;
 
 // ── socket helpers ───────────────────────────────────────────────────────
 
@@ -90,11 +70,7 @@ function once<T = unknown>(socket: Socket, event: string, timeoutMs = 10_000): P
   });
 }
 
-/**
- * Track every BRACKET_STATE on a socket and allow waiting for a state that
- * matches a predicate. The `latest` cache makes waits race-safe: callers may
- * register the wait before OR after the mutation that produces the state.
- */
+/** Track every BRACKET_STATE on a socket and allow waiting for a state that matches a predicate. */
 function trackBracket(socket: Socket) {
   let latest: TournamentBracket | null | undefined = undefined;
   const waiters: Array<{
@@ -168,6 +144,50 @@ async function connectOwner(): Promise<{ socket: Socket; pin: string }> {
   return { socket, pin };
 }
 
+/**
+ * Club-admin socket (INVENTORY_* gate). The admin PIN is operator-set during
+ * CLUB_SETUP and has no public API — required via CLUB_ADMIN_PIN.
+ */
+async function connectAdmin(): Promise<Socket> {
+  const pin = process.env.CLUB_ADMIN_PIN;
+  if (!pin) {
+    throw new Error('CLUB_ADMIN_PIN env not set — cannot seed inventory (bracketCourtFlow)');
+  }
+  const socket = await connectClient();
+  const verified = once(socket, SocketEvents.SERVER.CLUB_ADMIN_VERIFIED);
+  socket.emit(SocketEvents.CLIENT.CLUB_VERIFY_ADMIN, { pin });
+  await verified;
+  return socket;
+}
+
+/** Seed an inventory court via INVENTORY_ADD; resolves the created CourtRecord. */
+async function seedInventoryCourt(admin: Socket, name: string): Promise<CourtRecord> {
+  const updated = once<{ courts: CourtRecord[] }>(admin, SocketEvents.SERVER.INVENTORY_UPDATED);
+  admin.emit(SocketEvents.CLIENT.INVENTORY_ADD, { name });
+  const { courts } = await updated;
+  const record = courts.find((c) => c.name === name);
+  if (!record) throw new Error(`INVENTORY_ADD did not produce a record named ${name}`);
+  return record;
+}
+
+/** List the current inventory catalog (any role may INVENTORY_LIST). */
+async function listInventory(socket: Socket): Promise<CourtRecord[]> {
+  const updated = once<{ courts: CourtRecord[] }>(socket, SocketEvents.SERVER.INVENTORY_UPDATED);
+  socket.emit(SocketEvents.CLIENT.INVENTORY_LIST);
+  return (await updated).courts;
+}
+
+/** Archive a court (admin-only; best-effort). */
+async function archiveCourtBestEffort(admin: Socket, courtId: string): Promise<void> {
+  try {
+    const updated = once(admin, SocketEvents.SERVER.INVENTORY_UPDATED, 8_000);
+    admin.emit(SocketEvents.CLIENT.INVENTORY_ARCHIVE, { courtId });
+    await updated;
+  } catch {
+    // Court may already be gone — never fail the suite over cleanup.
+  }
+}
+
 /** Two-step bracket reset: request token, then confirm it. */
 async function resetBracket(socket: Socket, tracker: ReturnType<typeof trackBracket>): Promise<void> {
   const tokenReq = once<{ token: string }>(socket, SocketEvents.SERVER.BRACKET_RESET_CONFIRM);
@@ -182,409 +202,166 @@ function matchById(b: TournamentBracket | null, id: string) {
   return b?.matches.find((m) => m.id === id) ?? null;
 }
 
-/**
- * Create a tournament court over the protocol and capture id + pin.
- * CREATE_COURT is rate-limited server-side (5/min/IP). On RATE_LIMITED we
- * wait out the full 60s rolling window (each blocked attempt is itself
- * recorded by the limiter) before retrying.
- */
-async function createCourt(
-  socket: Socket,
-  name: string,
-  maxAttempts = 3,
-): Promise<{ id: string; pin: string; name: string }> {
-  let lastError: Error | null = null;
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      const created = await new Promise<{ id?: string; pin?: string; name?: string }>(
-        (resolve, reject) => {
-          const onCreated = (court: { id?: string; pin?: string; name?: string }) => {
-            cleanup();
-            resolve(court);
-          };
-          const onError = (err: { code?: string; message?: string }) => {
-            cleanup();
-            reject(new Error(`CREATE_COURT error: ${err.code ?? 'UNKNOWN'} ${err.message ?? ''}`));
-          };
-          const cleanup = () => {
-            socket.off(SocketEvents.SERVER.COURT_CREATED, onCreated as never);
-            socket.off(SocketEvents.SERVER.ERROR, onError as never);
-          };
-          socket.once(SocketEvents.SERVER.COURT_CREATED, onCreated as never);
-          socket.once(SocketEvents.SERVER.ERROR, onError as never);
-          socket.emit(SocketEvents.CLIENT.CREATE_COURT, { name });
-        },
-      );
-      if (!created.id || !created.pin) throw new Error('COURT_CREATED missing id/pin');
-      return { id: created.id, pin: created.pin, name: created.name ?? name };
-    } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err));
-      if (!lastError.message.includes('RATE_LIMITED')) throw lastError;
-      // Wait out the whole window so prior recorded attempts age out.
-      await new Promise((resolve) => setTimeout(resolve, 61_000));
-    }
-  }
-  throw lastError ?? new Error(`createCourt(${name}) exhausted retries`);
-}
-
-/** Authenticate `socket` as referee for `courtId` using its 4-digit PIN. */
-async function authReferee(socket: Socket, courtId: string, courtPin: string): Promise<void> {
-  const set = once(socket, SocketEvents.SERVER.REF_SET);
-  socket.emit(SocketEvents.CLIENT.SET_REF, { courtId, pin: courtPin });
-  await set;
-}
-
-/** Start a TT match and then play a 2-0 sweep for player 'A'. */
-async function playSweepForA(
-  ref: Socket,
-  courtId: string,
-  playerNameA: string,
-  playerNameB: string,
-): Promise<void> {
-  ref.emit(SocketEvents.CLIENT.START_MATCH, {
-    courtId,
-    playerNameA,
-    playerNameB,
-    ...START_MATCH_CONFIG,
-  });
-  const matchWon = once(ref, SocketEvents.SERVER.MATCH_WON);
-  for (let i = 0; i < POINTS_TO_WIN; i++) {
-    ref.emit(SocketEvents.CLIENT.RECORD_POINT, { courtId, player: 'A' });
-  }
-  await matchWon;
-}
-
 // ── shared setup ─────────────────────────────────────────────────────────
 
-/** Delete a court if it still exists; never throws (best-effort cleanup). */
-async function deleteCourtBestEffort(socket: Socket, courtId: string): Promise<void> {
-  try {
-    // COURT_DELETED is emitted only to the deleted court's room; the owner
-    // socket observes deletion via the global COURT_LIST broadcast instead.
-    const confirmed = once(socket, SocketEvents.SERVER.COURT_LIST, 8_000);
-    socket.emit(SocketEvents.CLIENT.DELETE_COURT, { courtId });
-    await confirmed;
-  } catch {
-    // Court may already be gone — never fail the suite over cleanup.
-  }
-}
-
-/** List courts visible to the owner (with pins). */
-async function listOwnerCourts(socket: Socket, pin: string): Promise<Array<{ id?: string; name?: string }>> {
-  const listed = once<{ courts?: Array<{ id?: string; name?: string }> }>(
-    socket,
-    SocketEvents.SERVER.COURT_LIST_WITH_PINS,
-  );
-  socket.emit(SocketEvents.CLIENT.GET_COURTS_WITH_PINS, { ownerPin: pin });
-  return (await listed).courts ?? [];
-}
-
-/**
- * Sweep leftover courts from PREVIOUS spec runs. Earlier versions of this
- * spec never cleaned up after themselves, so a dev server can accumulate
- * "E2E Court …" courts. Only courts named `E2E *` are removed — real courts
- * are never touched.
- */
-async function sweepLeftoverE2ECourts(socket: Socket, pin: string): Promise<void> {
-  const courts = await listOwnerCourts(socket, pin);
-  const leftovers = courts.filter((c) => c.name?.startsWith('E2E '));
-  for (const court of leftovers) {
-    if (court.id) await deleteCourtBestEffort(socket, court.id);
-  }
-}
-
 let ownerSocket: Socket;
+let ownerPin: string;
+let adminSocket: Socket;
 let tracker: ReturnType<typeof trackBracket>;
-let court1: { id: string; pin: string; name: string };
-let court2: { id: string; pin: string; name: string };
-let court3: { id: string; pin: string; name: string };
-let court4: { id: string; pin: string; name: string };
 
 test.beforeAll(async () => {
   test.setTimeout(180_000);
   const owner = await connectOwner();
   ownerSocket = owner.socket;
+  ownerPin = owner.pin;
+  adminSocket = await connectAdmin();
   tracker = trackBracket(ownerSocket);
-  // Clean leftovers from earlier spec versions before creating fresh courts.
-  await sweepLeftoverE2ECourts(ownerSocket, owner.pin);
   await resetBracket(ownerSocket, tracker);
-  // One-time court creation (rate-limited server-side, 5/min), shared by both
-  // tests: court1/court2 = semifinals, court3 = final, court4 = third place.
-  const suffix = Date.now();
-  court1 = await createCourt(ownerSocket, `E2E Court M1 ${suffix}`);
-  court2 = await createCourt(ownerSocket, `E2E Court M2 ${suffix}`);
-  court3 = await createCourt(ownerSocket, `E2E Court M3 ${suffix}`);
-  court4 = await createCourt(ownerSocket, `E2E Court M4 ${suffix}`);
 });
 
 test.afterAll(async () => {
-  // Cleanup: remove the courts this run created so repeated runs do not
-  // pollute the owner dashboard (DELETE_COURT accepts the owner socket).
-  for (const court of [court1, court2, court3, court4]) {
-    if (court?.id) await deleteCourtBestEffort(ownerSocket, court.id);
+  // Best-effort cleanup: archive every ACTIVE inventory court this run seeded.
+  const courts = await listInventory(adminSocket);
+  for (const c of courts) {
+    if (c.inventoryStatus === 'ACTIVE') await archiveCourtBestEffort(adminSocket, c.courtId);
   }
+  adminSocket?.disconnect();
   ownerSocket?.disconnect();
 });
 
 // ── tests ────────────────────────────────────────────────────────────────
 
-test.describe('bracket ↔ court integration (Option 2)', () => {
-  // Runs FIRST: needs a WAITING court. It binds court1 and never starts a
-  // match, so court1 is still WAITING for the protocol test below.
-  test('browser: MatchConfigModal prefills bracket names on a bound court', async ({ page }) => {
-    test.setTimeout(90_000);
+test.describe('bracket ↔ inventory courts (slice 4 bridge)', () => {
+  test('strict cold start: BRACKET_CREATE rejected with COURT_INVENTORY_EMPTY when no ACTIVE inventory court exists (TCS-4)', async () => {
+    test.setTimeout(60_000);
+    // Archive every ACTIVE inventory court → empty inventory.
+    const existing = await listInventory(adminSocket);
+    for (const c of existing) {
+      if (c.inventoryStatus === 'ACTIVE') await archiveCourtBestEffort(adminSocket, c.courtId);
+    }
+    const after = await listInventory(adminSocket);
+    expect(after.every((c) => c.inventoryStatus !== 'ACTIVE')).toBe(true);
 
+    // The owner cannot create a bracket with zero ACTIVE courts — no
+    // provisional seeding, no escape hatch.
+    const error = once<{ code: string }>(ownerSocket, SocketEvents.SERVER.BRACKET_ERROR);
+    ownerSocket.emit(SocketEvents.CLIENT.BRACKET_CREATE, {
+      name: 'Cold Start',
+      numSlots: 4,
+      includeThirdPlace: false,
+    });
+    expect((await error).code).toBe('COURT_INVENTORY_EMPTY');
+    expect(tracker.latest()).toBeNull();
+
+    // Restore one ACTIVE court so the rest of the suite can bind.
+    const restored = tracker.waitFor(
+      (b) => b !== null && b.status === 'SETUP',
+      'bracket SETUP after restore',
+    );
+    await seedInventoryCourt(adminSocket, `E2E Cold ${Date.now()}`);
+    ownerSocket.emit(SocketEvents.CLIENT.BRACKET_CREATE, {
+      name: 'Cold Restore',
+      numSlots: 4,
+      includeThirdPlace: false,
+    });
+    await restored;
     await resetBracket(ownerSocket, tracker);
-
-      // ── set up a bound court over the protocol ───────────────────────────
-      const created = tracker.waitFor(
-        (b) => b !== null && b.status === 'SETUP',
-        'bracket SETUP after create',
-      );
-      ownerSocket.emit(SocketEvents.CLIENT.BRACKET_CREATE, {
-        name: `E2E Prefill ${Date.now()}`,
-        numSlots: 4,
-        includeThirdPlace: true,
-      });
-      await created;
-
-      const p1a = tracker.waitFor(
-        (b) => matchById(b, 'R1-M1')?.playerA === PLAYERS.match1A,
-        'R1-M1 playerA',
-      );
-      ownerSocket.emit(SocketEvents.CLIENT.BRACKET_ASSIGN_PLAYER, {
-        matchId: 'R1-M1',
-        slot: 'A',
-        name: PLAYERS.match1A,
-      });
-      await p1a;
-
-      const p1b = tracker.waitFor(
-        (b) => matchById(b, 'R1-M1')?.playerB === PLAYERS.match1B,
-        'R1-M1 playerB',
-      );
-      ownerSocket.emit(SocketEvents.CLIENT.BRACKET_ASSIGN_PLAYER, {
-        matchId: 'R1-M1',
-        slot: 'B',
-        name: PLAYERS.match1B,
-      });
-      await p1b;
-
-      const bound = tracker.waitFor(
-        (b) => matchById(b, 'R1-M1')?.courtId === court1.id,
-        'R1-M1 bound to court1',
-      );
-      ownerSocket.emit(SocketEvents.CLIENT.BRACKET_ASSIGN_COURT, {
-        matchId: 'R1-M1',
-        courtId: court1.id,
-      });
-      await bound;
-
-      // ── real browser: referee flow → scoreboard → config modal ───────────
-      await page.goto(`${BASE_URL}/auth`, { waitUntil: 'domcontentloaded' });
-      // Button label depends on browser locale ("Referee" vs "Árbitro").
-      await page.getByRole('button', { name: /Referee|Árbitro/ }).click();
-
-      // Referee dashboard — pick the freshly created (WAITING) court.
-      const courtCard = page.getByText(court1.name, { exact: true });
-      await expect(courtCard).toBeVisible({ timeout: 15_000 });
-      await courtCard.click();
-
-      // PIN modal — enter the court's 4-digit PIN and confirm.
-      const pinInput = page.locator('input[type="password"]');
-      await expect(pinInput).toBeVisible({ timeout: 10_000 });
-      await pinInput.fill(court1.pin);
-      await page.getByRole('dialog').getByRole('button', { name: /Enter|Ingresar/ }).click();
-
-      // Scoreboard — the config modal should open (court is WAITING) and the
-      // player inputs MUST be prefilled from the bracket. Empty inputs mean
-      // the stale-bundle regression is present → the test fails on purpose.
-      await expect(page).toHaveURL(new RegExp(`/scoreboard/${court1.id}/referee`), {
-        timeout: 15_000,
-      });
-      const playerA = page.locator('#player-a-name');
-      const playerB = page.locator('#player-b-name');
-      await expect(playerA).toBeVisible({ timeout: 15_000 });
-      await expect(playerA).toHaveValue(PLAYERS.match1A);
-      await expect(playerB).toHaveValue(PLAYERS.match1B);
-
-      // ── cleanup ───────────────────────────────────────────────────────────
-      await resetBracket(ownerSocket, tracker);
-    // ownerSocket is shared with the protocol test — left connected, torn
-    // down in afterAll.
   });
 
-  test('protocol flow: bound court match wins auto-advance the bracket', async () => {
-    test.setTimeout(90_000);
-    const ref = await connectClient();
+  test('TOURNAMENT_SELECT_TABLE binds an inventory-ACTIVE court and validates guards (TCS-1/TCS-2, Q2)', async () => {
+    test.setTimeout(60_000);
+    const suffix = Date.now();
+    const c1 = await seedInventoryCourt(adminSocket, `E2E Sel 1 ${suffix}`);
+    const c2 = await seedInventoryCourt(adminSocket, `E2E Sel 2 ${suffix}`);
+    const cMaint = await seedInventoryCourt(adminSocket, `E2E Maint ${suffix}`);
+    adminSocket.emit(SocketEvents.CLIENT.INVENTORY_MAINTENANCE, {
+      courtId: cMaint.courtId,
+      maintenance: true,
+    });
 
-    try {
-      // Clean slate — a previous run may have left a bracket behind.
-      await resetBracket(ownerSocket, tracker);
+    const created = tracker.waitFor(
+      (b) => b !== null && b.status === 'SETUP',
+      'bracket SETUP after create',
+    );
+    ownerSocket.emit(SocketEvents.CLIENT.BRACKET_CREATE, {
+      name: `E2E Select ${suffix}`,
+      numSlots: 4,
+      includeThirdPlace: false,
+    });
+    await created;
 
-      // ── create bracket (4 slots + third place) ──────────────────────────
-      const created = tracker.waitFor(
-        (b) => b !== null && b.status === 'SETUP',
-        'bracket SETUP after create',
-      );
-      ownerSocket.emit(SocketEvents.CLIENT.BRACKET_CREATE, {
-        name: `E2E ${Date.now()}`,
-        numSlots: 4,
-        includeThirdPlace: true,
-      });
-      const bracket = (await created)!;
-      expect(bracket.matches.filter((m) => m.round === 1)).toHaveLength(2);
-      expect(matchById(bracket, 'R1-M1')).not.toBeNull();
-      expect(matchById(bracket, 'R1-M2')).not.toBeNull();
-      expect(matchById(bracket, 'R2-M1')).not.toBeNull();
-      expect(bracket.thirdPlaceMatch?.id).toBe('TP-M1');
+    // Happy path — bind R1-M1 to c1 via the owner picker event.
+    const bound = tracker.waitFor(
+      (b) => matchById(b, 'R1-M1')?.courtId === c1.courtId,
+      'R1-M1 bound to c1',
+    );
+    ownerSocket.emit(SocketEvents.CLIENT.TOURNAMENT_SELECT_TABLE, {
+      matchId: 'R1-M1',
+      courtId: c1.courtId,
+    });
+    await bound;
 
-      // ── assign players ───────────────────────────────────────────────────
-      const p1a = tracker.waitFor(
-        (b) => matchById(b, 'R1-M1')?.playerA === PLAYERS.match1A,
-        'R1-M1 playerA',
-      );
-      ownerSocket.emit(SocketEvents.CLIENT.BRACKET_ASSIGN_PLAYER, {
-        matchId: 'R1-M1',
-        slot: 'A',
-        name: PLAYERS.match1A,
-      });
-      await p1a;
+    // Reverse index — c1 is already bound to R1-M1; binding R1-M2 → COURT_ALREADY_ASSIGNED.
+    const reverseErr = once<{ code: string }>(ownerSocket, SocketEvents.SERVER.BRACKET_ERROR);
+    ownerSocket.emit(SocketEvents.CLIENT.TOURNAMENT_SELECT_TABLE, {
+      matchId: 'R1-M2',
+      courtId: c1.courtId,
+    });
+    expect((await reverseErr).code).toBe('COURT_ALREADY_ASSIGNED');
 
-      const p1b = tracker.waitFor(
-        (b) => matchById(b, 'R1-M1')?.playerB === PLAYERS.match1B,
-        'R1-M1 playerB',
-      );
-      ownerSocket.emit(SocketEvents.CLIENT.BRACKET_ASSIGN_PLAYER, {
-        matchId: 'R1-M1',
-        slot: 'B',
-        name: PLAYERS.match1B,
-      });
-      await p1b;
+    // MAINTENANCE inventory court → COURT_NOT_FOUND.
+    const maintErr = once<{ code: string }>(ownerSocket, SocketEvents.SERVER.BRACKET_ERROR);
+    ownerSocket.emit(SocketEvents.CLIENT.TOURNAMENT_SELECT_TABLE, {
+      matchId: 'R1-M2',
+      courtId: cMaint.courtId,
+    });
+    expect((await maintErr).code).toBe('COURT_NOT_FOUND');
 
-      const p2a = tracker.waitFor(
-        (b) => matchById(b, 'R1-M2')?.playerA === PLAYERS.match2A,
-        'R1-M2 playerA',
-      );
-      ownerSocket.emit(SocketEvents.CLIENT.BRACKET_ASSIGN_PLAYER, {
-        matchId: 'R1-M2',
-        slot: 'A',
-        name: PLAYERS.match2A,
-      });
-      await p2a;
+    // Club RESERVED (pending PIN) court → COURT_RESERVED (Q2). CLUB_ACTIVATE_COURT
+    // on an inventory court materializes a runtime club court → RESERVED (4.4).
+    adminSocket.emit(SocketEvents.CLIENT.CLUB_ACTIVATE_COURT, { courtId: c2.courtId });
+    await new Promise((resolve) => setTimeout(resolve, 500)); // let the activation land
+    const reservedErr = once<{ code: string }>(ownerSocket, SocketEvents.SERVER.BRACKET_ERROR);
+    ownerSocket.emit(SocketEvents.CLIENT.TOURNAMENT_SELECT_TABLE, {
+      matchId: 'R1-M2',
+      courtId: c2.courtId,
+    });
+    expect((await reservedErr).code).toBe('COURT_RESERVED');
 
-      const p2b = tracker.waitFor(
-        (b) => matchById(b, 'R1-M2')?.playerB === PLAYERS.match2B,
-        'R1-M2 playerB',
-      );
-      ownerSocket.emit(SocketEvents.CLIENT.BRACKET_ASSIGN_PLAYER, {
-        matchId: 'R1-M2',
-        slot: 'B',
-        name: PLAYERS.match2B,
-      });
-      await p2b;
+    await resetBracket(ownerSocket, tracker);
+  });
 
-      // ── bind the shared courts to the semifinals ────────────────────────
-      const bound1 = tracker.waitFor(
-        (b) => matchById(b, 'R1-M1')?.courtId === court1.id,
-        'R1-M1 bound to court1',
-      );
-      ownerSocket.emit(SocketEvents.CLIENT.BRACKET_ASSIGN_COURT, {
-        matchId: 'R1-M1',
-        courtId: court1.id,
-      });
-      await bound1;
+  test('2-step reset releases the bracket court bindings (TCS-3/Q4 releaseAll via reset)', async () => {
+    test.setTimeout(60_000);
+    const c = await seedInventoryCourt(adminSocket, `E2E Reset ${Date.now()}`);
 
-      const bound2 = tracker.waitFor(
-        (b) => matchById(b, 'R1-M2')?.courtId === court2.id,
-        'R1-M2 bound to court2',
-      );
-      ownerSocket.emit(SocketEvents.CLIENT.BRACKET_ASSIGN_COURT, {
-        matchId: 'R1-M2',
-        courtId: court2.id,
-      });
-      await bound2;
+    const created = tracker.waitFor(
+      (b) => b !== null && b.status === 'SETUP',
+      'bracket SETUP after create',
+    );
+    ownerSocket.emit(SocketEvents.CLIENT.BRACKET_CREATE, {
+      name: `E2E Reset ${Date.now()}`,
+      numSlots: 4,
+      includeThirdPlace: false,
+    });
+    await created;
 
-      // ── referee match 1 on court1: Juan beats María 2-0 ──────────────────
-      await authReferee(ref, court1.id, court1.pin);
-      const m1Won = tracker.waitFor(
-        (b) => matchById(b, 'R1-M1')?.status === 'COMPLETED',
-        'R1-M1 COMPLETED after court match',
-      );
-      await playSweepForA(ref, court1.id, PLAYERS.match1A, PLAYERS.match1B);
-      const after1 = (await m1Won)!;
+    const bound = tracker.waitFor(
+      (b) => matchById(b, 'R1-M1')?.courtId === c.courtId,
+      'R1-M1 bound',
+    );
+    ownerSocket.emit(SocketEvents.CLIENT.TOURNAMENT_SELECT_TABLE, {
+      matchId: 'R1-M1',
+      courtId: c.courtId,
+    });
+    await bound;
 
-      expect(matchById(after1, 'R1-M1')?.winner).toBe('A');
-      expect(matchById(after1, 'R2-M1')?.playerA).toBe(PLAYERS.match1A);
-      expect(after1.thirdPlaceMatch?.playerA).toBe(PLAYERS.match1B);
-
-      // ── referee match 2 on court2: Carlos beats Ana 2-0 ──────────────────
-      await authReferee(ref, court2.id, court2.pin);
-      const m2Won = tracker.waitFor(
-        (b) => matchById(b, 'R1-M2')?.status === 'COMPLETED',
-        'R1-M2 COMPLETED after court match',
-      );
-      await playSweepForA(ref, court2.id, PLAYERS.match2A, PLAYERS.match2B);
-      const after2 = (await m2Won)!;
-
-      expect(matchById(after2, 'R2-M1')?.playerB).toBe(PLAYERS.match2A);
-      expect(after2.thirdPlaceMatch?.playerB).toBe(PLAYERS.match2B);
-      expect(after2.status).toBe('ACTIVE');
-
-      // ── bind the final (R2-M1) and the third-place match (TP-M1) ──────────
-      const boundFinal = tracker.waitFor(
-        (b) => matchById(b, 'R2-M1')?.courtId === court3.id,
-        'R2-M1 bound to court3',
-      );
-      ownerSocket.emit(SocketEvents.CLIENT.BRACKET_ASSIGN_COURT, {
-        matchId: 'R2-M1',
-        courtId: court3.id,
-      });
-      await boundFinal;
-
-      const boundTP = tracker.waitFor(
-        (b) => b?.thirdPlaceMatch?.courtId === court4.id,
-        'TP-M1 bound to court4',
-      );
-      ownerSocket.emit(SocketEvents.CLIENT.BRACKET_ASSIGN_COURT, {
-        matchId: 'TP-M1',
-        courtId: court4.id,
-      });
-      await boundTP;
-
-      // ── final on court3: Juan beats Carlos 2-0 → bracket COMPLETED ───────
-      await authReferee(ref, court3.id, court3.pin);
-      const finalWon = tracker.waitFor(
-        (b) => matchById(b, 'R2-M1')?.status === 'COMPLETED',
-        'R2-M1 COMPLETED after final',
-      );
-      await playSweepForA(ref, court3.id, PLAYERS.match1A, PLAYERS.match2A);
-      const afterFinal = (await finalWon)!;
-
-      expect(matchById(afterFinal, 'R2-M1')?.winner).toBe('A');
-      expect(afterFinal.status).toBe('COMPLETED');
-
-      // ── third place on court4: María beats Ana 2-0 ────────────────────────
-      await authReferee(ref, court4.id, court4.pin);
-      const tpWon = tracker.waitFor(
-        (b) => b?.thirdPlaceMatch?.status === 'COMPLETED',
-        'TP-M1 COMPLETED after third-place match',
-      );
-      await playSweepForA(ref, court4.id, PLAYERS.match1B, PLAYERS.match2B);
-      const afterTP = (await tpWon)!;
-
-      expect(afterTP.thirdPlaceMatch?.winner).toBe('A');
-
-      // Podium derivation from the completed bracket: champion = final winner,
-      // runner-up = final loser, third place = TP winner.
-      expect(matchById(afterTP, 'R2-M1')?.playerA).toBe(PLAYERS.match1A); // champion
-      expect(matchById(afterTP, 'R2-M1')?.playerB).toBe(PLAYERS.match2A); // runner-up
-      expect(afterTP.thirdPlaceMatch?.playerA).toBe(PLAYERS.match1B); // third place
-
-      // ── cleanup: leave the server in a clean bracket state ───────────────
-      await resetBracket(ownerSocket, tracker);
-    } finally {
-      ref.disconnect();
-    }
+    // 2-step reset → the bracket is cleared AND its court bindings released.
+    const tokenReq = once<{ token: string }>(ownerSocket, SocketEvents.SERVER.BRACKET_RESET_CONFIRM);
+    ownerSocket.emit(SocketEvents.CLIENT.BRACKET_RESET, { confirmToken: undefined });
+    const { token } = await tokenReq;
+    const cleared = tracker.waitFor((b) => b === null, 'bracket null after reset');
+    ownerSocket.emit(SocketEvents.CLIENT.BRACKET_RESET, { confirmToken: token });
+    await cleared;
   });
 });

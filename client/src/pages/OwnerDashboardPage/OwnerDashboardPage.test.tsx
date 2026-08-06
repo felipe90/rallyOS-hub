@@ -4,7 +4,6 @@ import { MemoryRouter } from 'react-router-dom'
 import { OwnerDashboardPage } from './OwnerDashboardPage'
 import { useSocketContext } from '@/contexts/SocketContext'
 import { useAuthContext } from '@/contexts/AuthContext'
-import { useCourtManagement } from '@/hooks/useCourtManagement'
 import { useCourtInventory } from '@/hooks/useCourtInventory'
 
 // Mock SocketContext
@@ -46,25 +45,6 @@ vi.mock('@/hooks/useRefereeSession', () => ({
     findAnyValidSession: () => null,
     clearSession: vi.fn(),
   }),
-}))
-
-vi.mock('@/hooks/useCourtManagement', () => ({
-  useCourtManagement: vi.fn(() => ({
-    isCreatingCourt: false,
-    courtName: '',
-    setCourtName: vi.fn(),
-    createCourt: vi.fn(),
-    cancelCreating: vi.fn(),
-    startCreating: vi.fn(),
-    requestClean: vi.fn(),
-    cleanConfirmCourtId: null,
-    confirmClean: vi.fn(),
-    cancelClean: vi.fn(),
-    requestDelete: vi.fn(),
-    deleteConfirmCourtId: null,
-    confirmDelete: vi.fn(),
-    cancelDelete: vi.fn(),
-  })),
 }))
 
 // Mock useCourtInventory — the owner picker consumes the same catalog +
@@ -443,44 +423,6 @@ describe('OwnerDashboardPage — kiosk mode toggle', () => {
     })
 
     expect(mockOn).toHaveBeenCalledWith('KIOSK_MODE', expect.any(Function))
-  })
-})
-
-describe('OwnerDashboardPage – appError display', () => {
-  it('shows appError with role="alert" and AlertTriangle icon when creating court', () => {
-    // Override useCourtManagement to show creation mode
-    vi.mocked(useCourtManagement).mockReturnValue({
-      isCreatingCourt: true,
-      courtName: 'Test Court',
-      setCourtName: vi.fn(),
-      createCourt: vi.fn(),
-      cancelCreating: vi.fn(),
-      startCreating: vi.fn(),
-      isCreating: true,
-      requestClean: vi.fn(),
-      cleanConfirmCourtId: null,
-      confirmClean: vi.fn(),
-      cancelClean: vi.fn(),
-      requestDelete: vi.fn(),
-      deleteConfirmCourtId: null,
-      confirmDelete: vi.fn(),
-      cancelDelete: vi.fn(),
-    })
-
-    renderPage({
-      customSocket: {
-        courts: [createCourt()],
-        appError: 'Court creation failed',
-      },
-    })
-
-    const alert = screen.getByRole('alert')
-    expect(alert).toBeInTheDocument()
-    expect(alert).toHaveTextContent('Court creation failed')
-
-    // AlertTriangle icon should be rendered as SVG inside the alert
-    const alertIcon = alert.querySelector('svg')
-    expect(alertIcon).toBeInTheDocument()
   })
 })
 

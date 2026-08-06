@@ -86,6 +86,21 @@ export const SocketEvents = {
     BRACKET_UNDO_MATCH: 'BRACKET_UNDO_MATCH',
     BRACKET_GET: 'BRACKET_GET',
     BRACKET_RESET: 'BRACKET_RESET',
+    // Admin Court Inventory — admin-only existence mutations (D3, INV-1).
+    // The admin is the single source of truth for court existence; the
+    // tournament/owner can NEVER mutate existence. Responses to every
+    // mutation are the single `INVENTORY_UPDATED` snapshot broadcast
+    // (Q3/design-answers — no per-op response events). INVENTORY_LIST is
+    // the view request (all roles) that returns the catalog via
+    // INVENTORY_UPDATED. INVENTORY_FORCE_END is the admin's cross-mode
+    // stop control (R7): it force-ends ANY live session (club OCCUPIED or
+    // tournament LIVE) to free the court → IDLE.
+    INVENTORY_LIST: 'INVENTORY_LIST',
+    INVENTORY_ADD: 'INVENTORY_ADD',
+    INVENTORY_RENAME: 'INVENTORY_RENAME',
+    INVENTORY_MAINTENANCE: 'INVENTORY_MAINTENANCE',
+    INVENTORY_ARCHIVE: 'INVENTORY_ARCHIVE',
+    INVENTORY_FORCE_END: 'INVENTORY_FORCE_END',
   },
   // Emitted by SERVER → received by CLIENT
   SERVER: {
@@ -155,6 +170,11 @@ export const SocketEvents = {
     BRACKET_STATE: 'BRACKET_STATE',
     BRACKET_ERROR: 'BRACKET_ERROR',
     BRACKET_RESET_CONFIRM: 'BRACKET_RESET_CONFIRM',
+    // Admin Court Inventory — single catalog snapshot broadcast after EVERY
+    // inventory mutation (add/rename/maintenance/archive/force-end) and on
+    // request (INVENTORY_LIST) / connect. Payload: { courts: CourtRecord[] }.
+    // One snapshot event, no per-op responses (Q3/design-answers).
+    INVENTORY_UPDATED: 'INVENTORY_UPDATED',
   },
 } as const;
 

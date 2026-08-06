@@ -165,3 +165,60 @@ describe('Club session history — event name uniqueness', () => {
     );
   });
 });
+
+// ── Admin court inventory events (admin-court-inventory slice 3) ───────
+
+describe('Admin court inventory — client → server events', () => {
+  test('INVENTORY_LIST event name is registered', () => {
+    expect(SocketEvents.CLIENT.INVENTORY_LIST).toBe('INVENTORY_LIST');
+  });
+
+  test('INVENTORY_ADD event name is registered', () => {
+    expect(SocketEvents.CLIENT.INVENTORY_ADD).toBe('INVENTORY_ADD');
+  });
+
+  test('INVENTORY_RENAME event name is registered', () => {
+    expect(SocketEvents.CLIENT.INVENTORY_RENAME).toBe('INVENTORY_RENAME');
+  });
+
+  test('INVENTORY_MAINTENANCE event name is registered', () => {
+    expect(SocketEvents.CLIENT.INVENTORY_MAINTENANCE).toBe('INVENTORY_MAINTENANCE');
+  });
+
+  test('INVENTORY_ARCHIVE event name is registered', () => {
+    expect(SocketEvents.CLIENT.INVENTORY_ARCHIVE).toBe('INVENTORY_ARCHIVE');
+  });
+
+  test('INVENTORY_FORCE_END event name is registered', () => {
+    expect(SocketEvents.CLIENT.INVENTORY_FORCE_END).toBe('INVENTORY_FORCE_END');
+  });
+});
+
+describe('Admin court inventory — server → client events', () => {
+  test('INVENTORY_UPDATED event name is registered', () => {
+    expect(SocketEvents.SERVER.INVENTORY_UPDATED).toBe('INVENTORY_UPDATED');
+  });
+});
+
+describe('Admin court inventory — event name uniqueness', () => {
+  test('every INVENTORY_* event is unique across the whole dictionary', () => {
+    const allValues = [
+      ...Object.values(SocketEvents.CLIENT),
+      ...Object.values(SocketEvents.SERVER),
+    ];
+    const inventoryEvents = [
+      SocketEvents.CLIENT.INVENTORY_LIST,
+      SocketEvents.CLIENT.INVENTORY_ADD,
+      SocketEvents.CLIENT.INVENTORY_RENAME,
+      SocketEvents.CLIENT.INVENTORY_MAINTENANCE,
+      SocketEvents.CLIENT.INVENTORY_ARCHIVE,
+      SocketEvents.CLIENT.INVENTORY_FORCE_END,
+      SocketEvents.SERVER.INVENTORY_UPDATED,
+    ];
+    for (const ev of inventoryEvents) {
+      // The event name can legitimately appear exactly once (itself).
+      const occurrences = allValues.filter((v) => v === ev).length;
+      expect(occurrences).toBe(1);
+    }
+  });
+});

@@ -57,6 +57,14 @@ export const TERM_KEYS = {
   bracketErrorCourtNotFound: 'bracketError.courtNotFound',
   bracketErrorCourtAlreadyAssigned: 'bracketError.courtAlreadyAssigned',
   matchConfigForCourt: 'matchConfigForCourt',
+  // ── admin court inventory (admin-court-inventory slice 3) ─────────
+  // New inventory surface keys — ADD only (dead-key removal is slice 5.2).
+  inventoryAdd: 'inventoryAdd',
+  inventoryRename: 'inventoryRename',
+  inventoryMaintenance: 'inventoryMaintenance',
+  inventoryArchive: 'inventoryArchive',
+  inventoryForceEnd: 'inventoryForceEnd',
+  courtArchiveNoDelete: 'courtArchiveNoDelete',
   // ── TableStatusChip (ST-4) ─────────────────────────────────────────
   clean: 'clean',
   delete: 'delete',

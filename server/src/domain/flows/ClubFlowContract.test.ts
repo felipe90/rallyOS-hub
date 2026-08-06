@@ -65,6 +65,10 @@ function clubCourt(overrides: Partial<RuntimeCourt> = {}): RuntimeCourt {
 const occupied = (overrides: Partial<RuntimeCourt> = {}): RuntimeCourt =>
   clubCourt({ clubStatus: CLUB_STATUS.OCCUPIED, occupiedAt: Date.now(), ...overrides });
 
+afterEach(() => {
+  jest.restoreAllMocks();
+});
+
 describe('ClubFlowContract — contract surface (FMR-2)', () => {
   it('declares key, states and allowedTransitions', () => {
     expect(contract.key).toBe('club');
@@ -131,8 +135,9 @@ describe('ClubFlowContract — start (session mode + identity)', () => {
 
 describe('ClubFlowContract — end → settled cost (FMR-3)', () => {
   it('transitions OCCUPIED → FINISHED, clears pin, returns elapsed (min 1) + settled cost', () => {
-    const court = occupied({ occupiedAt: Date.now() - 65_000 }); // 65s → ceil = 2 min
-    const result = contract.end(court, { costPerMinute: 50, currency: 'ARS' });
+    const occupiedAt = Date.now() - 65_000; // 65s → ceil = 2 min
+    const court = occupied({ occupiedAt });
+    const result = contract.end(court, { costPerMinute: 50, currency: 'ARS', now: occupiedAt + 65_000 });
     expect(result).not.toBeNull();
     expect(result!.elapsedMinutes).toBe(2);
     expect(result!.elapsedSeconds).toBe(65);
@@ -144,14 +149,27 @@ describe('ClubFlowContract — end → settled cost (FMR-3)', () => {
 
   it('enforces a minimum of 1 elapsed minute for a just-started session', () => {
     const court = occupied(); // occupiedAt = now
-    const result = contract.end(court, { costPerMinute: 30 });
+    const result = contract.end(court, { costPerMinute: 30, now: court.occupiedAt! });
     expect(result!.elapsedMinutes).toBe(1);
     expect(result!.cost).toBe(30);
   });
 
   it('settles cost 0 for free sessions (costPerMinute 0)', () => {
-    const court = occupied({ occupiedAt: Date.now() - 120_000 });
-    const result = contract.end(court, { costPerMinute: 0 });
+    const occupiedAt = Date.now() - 120_000;
+    const court = occupied({ occupiedAt });
+    const result = contract.end(court, { costPerMinute: 0, now: occupiedAt + 120_000 });
+    expect(result!.elapsedMinutes).toBe(2);
+    expect(result!.cost).toBe(0);
+  });
+
+  it('settles cost 0 for free sessions — immune to wall-clock drift between fixture and end()', () => {
+    const occupiedAt = Date.now() - 120_000;
+    const court = occupied({ occupiedAt });
+    // Reproduce the flake: under full-suite load end() re-reads the clock and
+    // the delta can exceed 120_000ms (ceil → 3). The assertion must not
+    // depend on wall-clock timing.
+    jest.spyOn(Date, 'now').mockReturnValue(occupiedAt + 120_999);
+    const result = contract.end(court, { costPerMinute: 0, now: occupiedAt + 120_000 });
     expect(result!.elapsedMinutes).toBe(2);
     expect(result!.cost).toBe(0);
   });
@@ -164,8 +182,9 @@ describe('ClubFlowContract — end → settled cost (FMR-3)', () => {
 
 describe('ClubFlowContract — forceEnd (AFE-3)', () => {
   it('finalizes cost, releases → FINISHED, and returns the settled fields', () => {
-    const court = occupied({ occupiedAt: Date.now() - 65_000, adminId: null });
-    const result = contract.forceEnd(court, 'admin-1', { costPerMinute: 50, currency: 'ARS' });
+    const occupiedAt = Date.now() - 65_000;
+    const court = occupied({ occupiedAt, adminId: null });
+    const result = contract.forceEnd(court, 'admin-1', { costPerMinute: 50, currency: 'ARS', now: occupiedAt + 65_000 });
     expect(result).not.toBeNull();
     expect(result!.releasedCourtId).toBe('club-1');
     expect(result!.elapsedMinutes).toBe(2);

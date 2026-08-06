@@ -101,12 +101,14 @@ export class ClubFlowContract implements FlowModeContract {
   /**
    * End the session: OCCUPIED → FINISHED, clear the PIN, settle the cost
    * (FMR-3). `cost` = ceil(elapsedMinutes × costPerMinute); 0 for free.
+   * `ctx.now` overrides the wall clock (deterministic test seam); otherwise
+   * the current Date.now() is used.
    */
   end(court: RuntimeCourt, ctx: FlowContext = {}): FlowCost | null {
     const flow = clubFlow(court);
     if (!flow || flow.state !== 'OCCUPIED') return null;
 
-    const now = Date.now();
+    const now = ctx.now ?? Date.now();
     const elapsedMs = flow.occupiedAt ? now - flow.occupiedAt : 0;
     const elapsedMinutes = Math.max(MIN_ELAPSED_MINUTES, Math.ceil(elapsedMs / 60000));
     const elapsedSeconds = Math.max(0, Math.floor(elapsedMs / 1000));

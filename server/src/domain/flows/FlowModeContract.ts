@@ -61,6 +61,8 @@ export interface ForceEndResult {
  * NOT on the court object arrives via this context (no I/O, no globals).
  */
 export interface FlowContext {
+  /** Injected wall-clock (ms epoch) — deterministic test seam; defaults to Date.now(). */
+  now?: number;
   /** ClubConfig.costPerMinute — club cost settle; default 0. */
   costPerMinute?: number;
   /** ClubConfig.currency — default 'ARS'. */

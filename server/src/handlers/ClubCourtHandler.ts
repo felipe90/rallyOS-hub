@@ -92,7 +92,9 @@ export class ClubCourtHandler extends SocketHandlerBase {
         return;
       }
 
-      if (!this.validateCourtExists(socket, data.courtId)) return;
+      // Slice 4.4 — target inventory courts: a catalog-ACTIVE court with no
+      // runtime entry is materialized first (closes the slice-3 kiosk gap).
+      if (!this.ensureRuntimeClubCourt(socket, data.courtId)) return;
 
       const activated = this.tableManager.activateCourt(data.courtId);
       if (!activated) {
@@ -189,8 +191,6 @@ export class ClubCourtHandler extends SocketHandlerBase {
         return;
       }
 
-      if (!this.validateCourtExists(socket, data.courtId)) return;
-
       // adminId MUST be present — see header comment. JWT-restore gap was
       // fixed in `applySessionClaims` (Phase 3 / U2); refuse defensively
       // so a misconfigured caller cannot produce an unattributed session.
@@ -198,6 +198,11 @@ export class ClubCourtHandler extends SocketHandlerBase {
       if (typeof socketData?.adminId !== 'string' || socketData.adminId.length === 0) {
         return this.emitError(socket, 'UNAUTHORIZED', 'Admin identity required');
       }
+
+      // Slice 4.4 — CLUB_ADMIN_OCCUPY also targets inventory courts (single-
+      // step flow): materialize a catalog-only court, then the occupy
+      // auto-activates (AVAILABLE → RESERVED → OCCUPIED).
+      if (!this.ensureRuntimeClubCourt(socket, data.courtId)) return;
 
       // Resolve sport from ClubConfig — required for the default match
       // config the occupy builds (punto/set/deuce/heighth defaults differ
@@ -493,5 +498,25 @@ export class ClubCourtHandler extends SocketHandlerBase {
     this.io.emit(SocketEvents.SERVER.INVENTORY_UPDATED, {
       courts: this.inventoryManager.list(),
     });
+  }
+
+  /**
+   * Slice 4.4 — bridge closer: guarantee a RUNTIME club court exists for the
+   * admin's club-flow action. When the target is an inventory-ACTIVE catalog
+   * court with no runtime entry (the slice-3 catalog/runtime gap), it is
+   * materialized from the catalog record (shared courtId/name/number — E11)
+   * so the court reaches the runtime/kiosk. Non-ACTIVE / unknown courts are
+   * rejected with TABLE_NOT_FOUND (no materialization). Returns true when a
+   * runtime court exists after the call.
+   */
+  private ensureRuntimeClubCourt(socket: Socket, courtId: string): boolean {
+    if (this.tableManager.getCourt(courtId)) return true;
+    const record = this.inventoryManager?.get(courtId);
+    if (!record || record.inventoryStatus !== INVENTORY_STATUS.ACTIVE) {
+      this.emitError(socket, 'TABLE_NOT_FOUND', 'Cancha no encontrada');
+      return false;
+    }
+    this.tableManager.materializeClubCourtFromInventory(record);
+    return true;
   }
 }

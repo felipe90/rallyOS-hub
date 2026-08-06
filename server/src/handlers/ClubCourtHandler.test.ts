@@ -911,5 +911,98 @@ describe('ClubCourtHandler — INVENTORY_* admin inventory (slice 3)', () => {
       );
     });
   });
+
+  // ── Slice 4: club occupy refactor — activate/occupy target inventory courts
+  // (closes the slice-3 kiosk gap: catalog-only courts now materialize a
+  // runtime club court on the first club-flow action). ─────────────────────
+
+  describe('club occupy targets inventory courts (slice 4.4)', () => {
+    beforeEach(() => setupHandler());
+
+    it('CLUB_ACTIVATE_COURT materializes a runtime club court from a catalog-ACTIVE record (catalog courtId) and activates it', () => {
+      const record = inventory.add('Mesa Inventario');
+      // NO runtime court exists yet — the slice-3 catalog/runtime gap.
+      expect(manager.getCourt(record.courtId)).toBeUndefined();
+
+      const socket = adminSocket('admin-occ-1');
+      handler.registerHandlers(socket as unknown as Socket);
+      trigger(socket, SocketEvents.CLIENT.CLUB_ACTIVATE_COURT, { courtId: record.courtId });
+
+      const runtime = manager.getCourt(record.courtId) as any;
+      expect(runtime).toBeDefined();
+      // The runtime court SHARES the catalog identity (E11 — one physical court).
+      expect(runtime.id).toBe(record.courtId);
+      expect(runtime.name).toBe(record.name);
+      expect(runtime.clubStatus).toBe(CLUB_STATUS.RESERVED);
+      expect(runtime.pin).not.toBe('');
+      // kiosk sees the court (CLUB_KIOSK_DATA broadcast via notifyUpdate).
+      expect(manager.getClubKioskPayload(null).courts.some((c) => c.id === record.courtId)).toBe(true);
+    });
+
+    it('CLUB_ACTIVATE_COURT on a catalog court with an EXISTING runtime court keeps bridge behavior', () => {
+      const { record } = linkRuntimeCourtToCatalog('Mesa Vinculada');
+      const socket = adminSocket('admin-occ-2');
+      handler.registerHandlers(socket as unknown as Socket);
+
+      trigger(socket, SocketEvents.CLIENT.CLUB_ACTIVATE_COURT, { courtId: record.courtId });
+
+      const runtime = manager.getCourt(record.courtId) as any;
+      expect(runtime.clubStatus).toBe(CLUB_STATUS.RESERVED);
+    });
+
+    it('CLUB_ACTIVATE_COURT rejects a MAINTENANCE catalog court (no materialization)', () => {
+      const record = inventory.add('Mesa Mant');
+      inventory.setMaintenance(record.courtId, true);
+      const socket = adminSocket('admin-occ-3');
+      handler.registerHandlers(socket as unknown as Socket);
+
+      trigger(socket, SocketEvents.CLIENT.CLUB_ACTIVATE_COURT, { courtId: record.courtId });
+
+      expect(manager.getCourt(record.courtId)).toBeUndefined();
+      expect(socket.emit).toHaveBeenCalledWith(
+        'ERROR',
+        expect.objectContaining({ code: 'TABLE_NOT_FOUND' }),
+      );
+    });
+
+    it('CLUB_ADMIN_OCCUPY works on a catalog court — single-step flow materializes + auto-activates + occupies', () => {
+      // The occupy handler requires a configured club (resolves sport for the
+      // default match config) — build a handler with a real ClubConfigStore.
+      const clubConfigStore = setupClubConfig();
+      const occupyHandler = new ClubCourtHandler(io, manager, OWNER_PIN, clubConfigStore, inventory, () => forceEndCtx);
+      wireKioskBroadcast(manager, clubConfigStore, io);
+
+      const record = inventory.add('Mesa Ocupar');
+      const socket = adminSocket('admin-occ-4');
+      occupyHandler.registerHandlers(socket as unknown as Socket);
+
+      // No explicit activation: the occupy targets the catalog court directly.
+      trigger(socket, SocketEvents.CLIENT.CLUB_ADMIN_OCCUPY, {
+        courtId: record.courtId,
+        playerName: 'María',
+        phone: 'enc:nonce:body:tag',
+        mode: 'free',
+      });
+
+      const runtime = manager.getCourt(record.courtId) as any;
+      expect(runtime).toBeDefined();
+      expect(runtime.clubStatus).toBe(CLUB_STATUS.OCCUPIED);
+      expect(runtime.playerName).toBe('María');
+    });
+
+    it('CLUB_ACTIVATE_COURT still requires a club admin (INV-1 gate unchanged)', () => {
+      const record = inventory.add('Mesa Seg');
+      const socket = createMockSocket('no-admin', { isClubAdmin: false });
+      handler.registerHandlers(socket as unknown as Socket);
+
+      trigger(socket, SocketEvents.CLIENT.CLUB_ACTIVATE_COURT, { courtId: record.courtId });
+
+      expect(manager.getCourt(record.courtId)).toBeUndefined();
+      expect(socket.emit).toHaveBeenCalledWith(
+        'ERROR',
+        expect.objectContaining({ code: 'UNAUTHORIZED' }),
+      );
+    });
+  });
 });
 });

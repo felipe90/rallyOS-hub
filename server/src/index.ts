@@ -133,7 +133,7 @@ const courtManager = new CourtManager({
 // of truth (ENCRYPTION_SECRET via pinEncryption.getServerSecret).
 const sessionTokenService = new SessionTokenService();
 
-createSocketServer(io, courtManager, ownerPin, hubConfig, clubConfigStore, sessionHistoryStore, undefined, stateStore);
+createSocketServer(io, courtManager, ownerPin, hubConfig, clubConfigStore, sessionHistoryStore, undefined, stateStore, inventoryManager);
 
 // Restore persisted state (OCCUPIED/FINISHED courts) from disk.
 // Must run AFTER createSocketServer so onTableUpdate callbacks are wired.

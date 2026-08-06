@@ -12,15 +12,19 @@ import { Server, Socket } from 'socket.io';
 import { CourtManager } from '../domain/courtManager';
 import { isClubCourt } from '../domain/types';
 import type { IClubConfigRepository } from '../domain/ports/IClubConfigRepository';
+import type { InventoryManager } from '../domain/inventory/InventoryManager';
+import type { FlowContext } from '../domain/flows/FlowModeContract';
 import { validateSocketPayload } from '../utils/validation';
 import { logger } from '../utils/logger';
 import { SocketEvents } from '../../../shared/events';
-import { COURT_MODE, SPORT, SESSION_MODE } from '../../../shared/types';
+import { COURT_MODE, SPORT, SESSION_MODE, INVENTORY_STATUS } from '../../../shared/types';
 import type { SessionMode } from '../../../shared/types';
 import { SocketHandlerBase } from './SocketHandlerBase';
 
 export class ClubCourtHandler extends SocketHandlerBase {
   private clubConfigStore?: IClubConfigRepository;
+  private inventoryManager?: InventoryManager;
+  private forceEndContext?: () => FlowContext;
 
   constructor(
     io: Server,
@@ -35,9 +39,26 @@ export class ClubCourtHandler extends SocketHandlerBase {
      * older tests that instantiate with the legacy 3-arg shape.
      */
     clubConfigStore?: IClubConfigRepository,
+    /**
+     * InventoryManager — the admin court catalog (D3, INV-1). Required for
+     * the INVENTORY_* handlers. Optional so pre-slice-3 constructors (older
+     * tests) keep working; when absent the INVENTORY_* events are rejected.
+     */
+    inventoryManager?: InventoryManager,
+    /**
+     * Force-end bracket context factory (AFE-2): supplies the bracket
+     * resolve/unbind callbacks so `CourtManager.forceEndSession` can unbind
+     * a tournament match when an admin force-ends its court. Wired by
+     * SocketHandler from the BracketHandler seam that exists today
+     * (resolveBracketMatchForCourt); the full unbind plumbing is completed
+     * in slice 4.
+     */
+    forceEndContext?: () => FlowContext,
   ) {
     super(io, tableManager, ownerPin);
     this.clubConfigStore = clubConfigStore;
+    this.inventoryManager = inventoryManager;
+    this.forceEndContext = forceEndContext;
   }
 
   /**
@@ -291,6 +312,186 @@ export class ClubCourtHandler extends SocketHandlerBase {
       this.io.emit(SocketEvents.SERVER.CLUB_KIOSK_DATA, kioskPayload);
 
       logger.info({ courtId: data.courtId }, 'Club court deleted by admin');
+    });
+
+    // ── Admin Court Inventory (D3, INV-1) ───────────────────────────────
+    //
+    // The admin is the single source of truth for court EXISTENCE. Every
+    // mutation delegates to the InventoryManager (durable catalog) and then
+    // broadcasts the single INVENTORY_UPDATED catalog snapshot (Q3 — no
+    // per-op response events). Rejections use the existing ERROR event.
+    // BRIDGE: availability/BUSY is derived from the runtime court flow via
+    // CourtManager.canArchiveCourt (the catalog and the runtime court are
+    // separate entities until the RuntimeCourt conversion — see
+    // apply-progress slice-1 bridge notes).
+
+    // INVENTORY_LIST: view — any role may request the catalog snapshot.
+    socket.on(SocketEvents.CLIENT.INVENTORY_LIST, () => {
+      if (!this.inventoryManager) {
+        return this.emitError(socket, 'INVENTORY_NOT_CONFIGURED', 'El inventario no está configurado');
+      }
+      socket.emit(SocketEvents.SERVER.INVENTORY_UPDATED, {
+        courts: this.inventoryManager.list(),
+      });
+    });
+
+    // INVENTORY_ADD: create a catalog court (counter.next(), sport-aware
+    // suggested name MP-2). No BUSY gate — a new court is never in use.
+    socket.on(SocketEvents.CLIENT.INVENTORY_ADD, (data?: { name?: string }) => {
+      if (!this.validateClubAdmin(socket)) return;
+      if (!this.inventoryManager) {
+        return this.emitError(socket, 'INVENTORY_NOT_CONFIGURED', 'El inventario no está configurado');
+      }
+
+      if (!validateSocketPayload(socket, data || {}, {
+        name: { type: 'string', maxLength: 100, required: false },
+      }, 'INVENTORY_ADD')) {
+        return;
+      }
+
+      const court = this.inventoryManager.add(data?.name?.trim() || undefined);
+      this.broadcastInventory();
+      logger.info({ courtId: court.courtId, courtName: court.name, number: court.number }, 'Inventory court added by admin');
+    });
+
+    // INVENTORY_RENAME: display name over the stable courtId (E7/E9).
+    socket.on(SocketEvents.CLIENT.INVENTORY_RENAME, (data: { courtId: string; name: string }) => {
+      if (!this.validateClubAdmin(socket)) return;
+      if (!this.inventoryManager) {
+        return this.emitError(socket, 'INVENTORY_NOT_CONFIGURED', 'El inventario no está configurado');
+      }
+
+      if (!validateSocketPayload(socket, data, {
+        courtId: { required: true, type: 'string', maxLength: 36 },
+        name: { required: true, type: 'string', maxLength: 100 },
+      }, 'INVENTORY_RENAME')) {
+        return;
+      }
+      if (!this.inventoryManager.get(data.courtId)) {
+        return this.emitError(socket, 'COURT_NOT_FOUND', 'La cancha no existe');
+      }
+
+      const renamed = this.inventoryManager.rename(data.courtId, data.name.trim());
+      if (!renamed) {
+        return this.emitError(socket, 'COURT_NOT_FOUND', 'La cancha no existe');
+      }
+
+      this.broadcastInventory();
+      logger.info({ courtId: data.courtId, courtName: renamed.name }, 'Inventory court renamed');
+    });
+
+    // INVENTORY_MAINTENANCE: ACTIVE ↔ MAINTENANCE. Requires !BUSY (R7).
+    socket.on(SocketEvents.CLIENT.INVENTORY_MAINTENANCE, (data: { courtId: string; maintenance: boolean }) => {
+      if (!this.validateClubAdmin(socket)) return;
+      if (!this.inventoryManager) {
+        return this.emitError(socket, 'INVENTORY_NOT_CONFIGURED', 'El inventario no está configurado');
+      }
+
+      if (!validateSocketPayload(socket, data, {
+        courtId: { required: true, type: 'string', maxLength: 36 },
+        maintenance: { required: true, type: 'boolean' },
+      }, 'INVENTORY_MAINTENANCE')) {
+        return;
+      }
+      if (!this.inventoryManager.get(data.courtId)) {
+        return this.emitError(socket, 'COURT_NOT_FOUND', 'La cancha no existe');
+      }
+
+      // R7/INV-5: a BUSY court (live flow) cannot be moved to maintenance —
+      // the admin force-ends first, then maintenance is allowed.
+      if (!this.tableManager.canArchiveCourt(data.courtId)) {
+        return this.emitError(socket, 'MAINTENANCE_FAILED', 'No se pudo poner en mantenimiento. La cancha está en uso.');
+      }
+
+      const updated = this.inventoryManager.setMaintenance(data.courtId, data.maintenance);
+      if (!updated) {
+        return this.emitError(socket, 'MAINTENANCE_FAILED', 'No se pudo poner en mantenimiento.');
+      }
+
+      this.broadcastInventory();
+      logger.info({ courtId: data.courtId, maintenance: data.maintenance }, 'Inventory court maintenance toggled');
+    });
+
+    // INVENTORY_ARCHIVE: archive-not-delete (INV-3/E13). Requires canArchive
+    // (INV-5/R7): BUSY → rejected; the admin force-ends first, then archives.
+    socket.on(SocketEvents.CLIENT.INVENTORY_ARCHIVE, (data: { courtId: string }) => {
+      if (!this.validateClubAdmin(socket)) return;
+      if (!this.inventoryManager) {
+        return this.emitError(socket, 'INVENTORY_NOT_CONFIGURED', 'El inventario no está configurado');
+      }
+
+      if (!validateSocketPayload(socket, data, {
+        courtId: { required: true, type: 'string', maxLength: 36 },
+      }, 'INVENTORY_ARCHIVE')) {
+        return;
+      }
+      if (!this.inventoryManager.get(data.courtId)) {
+        return this.emitError(socket, 'COURT_NOT_FOUND', 'La cancha no existe');
+      }
+
+      // INV-5/R7 — BUSY (live flow) blocks archive; force-end first.
+      if (!this.tableManager.canArchiveCourt(data.courtId)) {
+        return this.emitError(socket, 'ARCHIVE_FAILED', 'No se pudo archivar. La cancha está en uso.');
+      }
+
+      const archived = this.inventoryManager.archive(data.courtId);
+      if (!archived) {
+        return this.emitError(socket, 'ARCHIVE_FAILED', 'No se pudo archivar.');
+      }
+
+      this.broadcastInventory();
+      logger.info({ courtId: data.courtId }, 'Inventory court archived');
+    });
+
+    // INVENTORY_FORCE_END: the admin's general stop control (R7) — force-ends
+    // ANY live session (club OCCUPIED or tournament LIVE) to free the court →
+    // IDLE. Mirrors the CLUB_FORCE_END adminId traceability guard
+    // (ClubCourtHandler.ts:112-115): without adminId we refuse — an
+    // unattributed force-end would break habeas-data traceability.
+    // AFE-2: the bracket ctx (resolveMatchForCourt/unbindMatch) is forwarded
+    // to CourtManager.forceEndSession so a tournament force-end unbinds the
+    // match — NO setWinner/NO advance. The full bracket unbind wiring is
+    // completed in slice 4; the plumbing exists now.
+    socket.on(SocketEvents.CLIENT.INVENTORY_FORCE_END, (data: { courtId: string }) => {
+      if (!this.validateClubAdmin(socket)) return;
+      if (!this.inventoryManager) {
+        return this.emitError(socket, 'INVENTORY_NOT_CONFIGURED', 'El inventario no está configurado');
+      }
+
+      if (!validateSocketPayload(socket, data, {
+        courtId: { required: true, type: 'string', maxLength: 36 },
+      }, 'INVENTORY_FORCE_END')) {
+        return;
+      }
+
+      const socketData = socket.data as { adminId?: unknown };
+      if (typeof socketData?.adminId !== 'string' || socketData.adminId.length === 0) {
+        return this.emitError(socket, 'UNAUTHORIZED', 'Admin identity required');
+      }
+
+      const ended = this.tableManager.forceEndSession(
+        data.courtId,
+        socketData.adminId,
+        this.forceEndContext?.() ?? {},
+      );
+      if (!ended) {
+        return this.emitError(socket, 'FORCE_END_FAILED', 'No se pudo finalizar la sesión. La cancha no está en uso.');
+      }
+
+      // Availability change is broadcast via notifyUpdate → onTableUpdate
+      // (CLUB_KIOSK_DATA for club flows / COURT_LIST for tournament); the
+      // catalog snapshot is re-broadcast too (Q3 — snapshot after every
+      // mutation, the client hook reconciles all sources).
+      this.broadcastInventory();
+      logger.info({ courtId: data.courtId, adminId: socketData.adminId }, 'Inventory court session force-ended');
+    });
+  }
+
+  /** Broadcast the single catalog snapshot after every inventory mutation (Q3). */
+  private broadcastInventory(): void {
+    if (!this.inventoryManager) return;
+    this.io.emit(SocketEvents.SERVER.INVENTORY_UPDATED, {
+      courts: this.inventoryManager.list(),
     });
   }
 }

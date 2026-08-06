@@ -17,6 +17,8 @@
 import { Server, Socket } from 'socket.io';
 import { CourtManager } from '../domain/courtManager';
 import type { IClubConfigRepository } from '../domain/ports/IClubConfigRepository';
+import type { InventoryManager } from '../domain/inventory/InventoryManager';
+import type { FlowContext } from '../domain/flows/FlowModeContract';
 import { AdminPinService } from '../services/security/AdminPinService';
 import { SessionTokenService } from '../services/security/SessionTokenService';
 import type { SessionClaims } from '../services/security/SessionTokenService';
@@ -51,6 +53,8 @@ export class SocketHandler {
   private hubConfig: HubConfig;
   private connectionRateLimiter: RateLimiter;
   private clubConfigStore?: IClubConfigRepository;
+  /** Admin court catalog (D3/INV-1) — wired into ClubCourtHandler + connect push. */
+  private inventoryManager?: InventoryManager;
   
   // Handler instances
   private courtHandler: CourtEventHandler;
@@ -77,6 +81,14 @@ export class SocketHandler {
     sessionHistoryStore?: SessionHistoryStore,
     phoneRevealAuditStore?: PhoneRevealAuditStore,
     stateStore?: StateStore,
+    /**
+     * InventoryManager — the admin court catalog (admin-court-inventory,
+     * D3/INV-1). Injected into ClubCourtHandler for the INVENTORY_* events
+     * and pushed to every connecting socket as INVENTORY_UPDATED (mirrors
+     * the CLUB_KIOSK_DATA connect push). Optional so older test wiring
+     * without an inventory keeps working.
+     */
+    inventoryManager?: InventoryManager,
   ) {
     this.io = io;
     this.tableManager = tableManager;
@@ -84,6 +96,7 @@ export class SocketHandler {
     this.hubConfig = hubConfig;
     this.connectionRateLimiter = new RateLimiter(60_000, 20); // 20 connections per 60s per IP
     this.clubConfigStore = clubConfigStore;
+    this.inventoryManager = inventoryManager;
     this.phoneRevealAuditStore = phoneRevealAuditStore ?? new PhoneRevealAuditStore();
     
     // Initialize services
@@ -118,17 +131,28 @@ export class SocketHandler {
       this.clubHistoryHandler = new ClubSessionHistoryHandler(io, sessionHistoryStore, auditStore, configStore);
     }
     this.clubAdminHandler = new ClubAdminHandler(io, tableManager, ownerPin, clubConfigStore!, adminPinService, sessionTokenService, this.clubHistoryHandler);
-    // Phase 3 / U2: pass clubConfigStore so CLUB_ADMIN_OCCUPY can resolve
-    // the configured sport for the default match config on the freshly
-    // occupied court.
-    this.clubCourtHandler = new ClubCourtHandler(io, tableManager, ownerPin, clubConfigStore);
-    this.clubPlayerHandler = new ClubPlayerHandler(io, tableManager, ownerPin, clubConfigStore!, sessionHistoryStore);
-    // BracketHandler (Tier 2): constructed only when a StateStore is injected
-    // so the bracket persists across restarts (R10). Omitting the store
-    // keeps older test wiring working without a bracket handler.
+    // BracketHandler (Tier 2): constructed BEFORE ClubCourtHandler so its
+    // force-end context seam (AFE-2 bracket unbind) can be wired into the
+    // INVENTORY_FORCE_END handler below. Constructed only when a StateStore
+    // is injected so the bracket persists across restarts (R10); omitting
+    // the store keeps older test wiring working without a bracket handler.
     if (stateStore) {
       this.bracketHandler = new BracketHandler(io, tableManager, ownerPin, stateStore);
     }
+    // Phase 3 / U2: pass clubConfigStore so CLUB_ADMIN_OCCUPY can resolve
+    // the configured sport for the default match config on the freshly
+    // occupied court. Slice 3: pass the InventoryManager (INVENTORY_* events)
+    // + the AFE-2 bracket force-end context (plumbing — see
+    // bracketForceEndContext for what slice 4 completes).
+    this.clubCourtHandler = new ClubCourtHandler(
+      io,
+      tableManager,
+      ownerPin,
+      clubConfigStore,
+      inventoryManager,
+      this.bracketHandler ? () => this.bracketForceEndContext() : undefined,
+    );
+    this.clubPlayerHandler = new ClubPlayerHandler(io, tableManager, ownerPin, clubConfigStore!, sessionHistoryStore);
 
     // Default kiosk mode — tournament unless club is configured
     const existingConfig = this.clubConfigStore?.load() ?? null
@@ -274,6 +298,16 @@ export class SocketHandler {
       const kioskPayload = this.tableManager.getClubKioskPayload(clubConfig);
       socket.emit(SocketEvents.SERVER.CLUB_KIOSK_DATA, kioskPayload);
 
+      // Send the admin inventory catalog snapshot so a freshly connected
+      // client reconciles the catalog immediately (mirrors the
+      // CLUB_KIOSK_DATA / KIOSK_MODE connect pushes). After that, catalog
+      // changes arrive via the INVENTORY_UPDATED broadcast.
+      if (this.inventoryManager) {
+        socket.emit(SocketEvents.SERVER.INVENTORY_UPDATED, {
+          courts: this.inventoryManager.list(),
+        });
+      }
+
       // Send hub config to new client (WiFi QR credentials + domain)
       socket.emit(SocketEvents.SERVER.HUB_CONFIG, {
         ssid: this.hubConfig.ssid,
@@ -371,6 +405,27 @@ export class SocketHandler {
   
   public getCourtInfo(courtId: string) {
     return this.tableManager.getAllCourts().find(c => c.id === courtId);
+  }
+
+  /**
+   * AFE-2 force-end bracket context — supplies the resolve seam for the
+   * INVENTORY_FORCE_END handler so a tournament force-end can find the
+   * bracket match bound to the court. BRIDGE (slice 3): only the resolve
+   * seam exists today (`BracketHandler.resolveBracketMatchForCourt`); the
+   * `unbindMatch` callback (engine.assignCourt(m, null)) is completed in
+   * slice 4 with the bracket binding work. Until then a force-ended
+   * tournament court is freed (flow cleared → IDLE) and the dangling
+   * binding is a documented bridge artifact (see apply-progress).
+   */
+  private bracketForceEndContext(): FlowContext {
+    const bh = this.bracketHandler;
+    if (!bh) return {};
+    return {
+      resolveMatchForCourt: (courtId: string) => {
+        const m = bh.resolveBracketMatchForCourt(courtId);
+        return m ? { id: m.id } : null;
+      },
+    };
   }
 
   /**

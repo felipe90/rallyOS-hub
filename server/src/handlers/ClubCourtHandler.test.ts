@@ -26,8 +26,12 @@ import { ClubCourtHandler } from './ClubCourtHandler';
 import { CourtManager } from '../domain/courtManager';
 import { createTestCourtManager } from '../domain/courtManager.test-factory';
 import { ClubConfigStore } from '../services/store/ClubConfigStore';
+import { CourtRepository } from '../services/table/CourtRepository';
+import { CourtInventoryStore } from '../services/store/CourtInventoryStore';
+import { InventoryManager } from '../domain/inventory/InventoryManager';
+import type { FlowContext } from '../domain/flows/FlowModeContract';
 import { SocketEvents } from '../../../shared/events';
-import { SPORT, CLUB_STATUS } from '../../../shared/types';
+import { SPORT, CLUB_STATUS, INVENTORY_STATUS } from '../../../shared/types';
 import type { Socket } from 'socket.io';
 import type { FileSystem } from '../services/store/types';
 
@@ -562,4 +566,350 @@ describe('ClubCourtHandler — CLUB_ADMIN_OCCUPY (Phase 3 task 3.1)', () => {
       expect((manager.getCourt(courtId) as any).clubStatus).toBe(CLUB_STATUS.OCCUPIED);
     });
   });
+
+// ── Slice 3: INVENTORY_* admin inventory events ──────────────────────────
+
+/**
+ * Admin court inventory tests (admin-court-inventory slice 3).
+ *
+ * Scope: INV-1 role rejection (non-admin INVENTORY_ADD rejected), INV-5
+ * archive guard (ARCHIVE on BUSY rejected → force-end → IDLE → archive OK),
+ * MAINTENANCE requires !BUSY, catalog ops delegate to InventoryManager,
+ * force-end delegates to CourtManager.forceEndSession with the bracket ctx,
+ * and every mutation broadcasts the single INVENTORY_UPDATED snapshot (Q3).
+ *
+ * BRIDGE: catalog records (CourtInventoryStore) and runtime courts
+ * (CourtRepository) are separate entities in the slice-1 bridge. To test the
+ * BUSY guard end-to-end we link a runtime court to a catalog record by
+ * re-creating the runtime court under the catalog's courtId
+ * (linkRuntimeCourtToCatalog). At the RuntimeCourt bridge reversal the two
+ * become one entity and this fixture collapses.
+ */
+
+describe('ClubCourtHandler — INVENTORY_* admin inventory (slice 3)', () => {
+  let manager: CourtManager;
+  let repository: CourtRepository;
+  let inventory: InventoryManager;
+  let io: any;
+  let handler: ClubCourtHandler;
+  let forceEndCtx: FlowContext;
+
+  function setupHandler(sport: 'tableTennis' | 'padel' = 'tableTennis'): void {
+    io = createMockIo();
+    repository = new CourtRepository();
+    manager = createTestCourtManager({ repository });
+    const store = new CourtInventoryStore(createFakeFs());
+    inventory = new InventoryManager(store, {
+      resolveCourtSport: () => (sport === 'padel' ? SPORT.PADEL : SPORT.TABLE_TENNIS),
+    });
+    forceEndCtx = {
+      resolveMatchForCourt: jest.fn(() => null),
+      unbindMatch: jest.fn(),
+    };
+    handler = new ClubCourtHandler(io, manager, OWNER_PIN, undefined, inventory, () => forceEndCtx);
+  }
+
+  function adminSocket(id: string): MockSocket {
+    return createMockSocket(id, { isClubAdmin: true, adminId: id });
+  }
+
+  function trigger(socket: MockSocket, event: string, payload?: unknown): void {
+    socket._trigger(event, payload);
+  }
+
+  function inventoryUpdatedCalls(): any[][] {
+    return (io.emit as jest.Mock).mock.calls.filter(
+      ([ev]: [string]) => ev === SocketEvents.SERVER.INVENTORY_UPDATED,
+    );
+  }
+
+  /**
+   * Bridge fixture: create a catalog record + a runtime club court, then move
+   * the runtime court under the catalog courtId so the BUSY/archive guards
+   * (which read the runtime flow) see one court.
+   */
+  function linkRuntimeCourtToCatalog(name: string): { record: any; runtime: any } {
+    const record = inventory.add(name);
+    const runtime = manager.createClubCourt(name);
+    repository.delete(runtime.id);
+    repository.create({ ...runtime, id: record.courtId });
+    return { record, runtime };
+  }
+
+  /** Occupy the linked runtime court → clubStatus OCCUPIED (BUSY). */
+  function occupyLinkedCourt(courtId: string): void {
+    manager.activateCourt(courtId);
+    manager.adminOccupyCourt(courtId, {
+      playerName: 'Lucía',
+      phone: 'enc:nonce:body:tag',
+      adminId: 'starter-1',
+      mode: 'free',
+      sport: SPORT.TABLE_TENNIS,
+    });
+  }
+
+  describe('INVENTORY_ADD (INV-1 role rejection + happy path)', () => {
+    beforeEach(() => setupHandler());
+
+    it('rejects a non-admin socket with UNAUTHORIZED and leaves the catalog empty (INV-1)', () => {
+      const socket = createMockSocket('non-admin', { isClubAdmin: false });
+      handler.registerHandlers(socket as unknown as Socket);
+
+      trigger(socket, SocketEvents.CLIENT.INVENTORY_ADD, { name: 'Mesa 1' });
+
+      expect(socket.emit).toHaveBeenCalledWith(
+        'ERROR',
+        expect.objectContaining({ code: 'UNAUTHORIZED' }),
+      );
+      expect(inventory.list()).toHaveLength(0);
+    });
+
+    it('adds a court to the catalog as ACTIVE with the admin-provided name and broadcasts INVENTORY_UPDATED', () => {
+      const socket = adminSocket('admin-1');
+      handler.registerHandlers(socket as unknown as Socket);
+
+      trigger(socket, SocketEvents.CLIENT.INVENTORY_ADD, { name: 'Mesa 1' });
+
+      const list = inventory.list();
+      expect(list).toHaveLength(1);
+      expect(list[0].name).toBe('Mesa 1');
+      expect(list[0].inventoryStatus).toBe(INVENTORY_STATUS.ACTIVE);
+
+      const calls = inventoryUpdatedCalls();
+      expect(calls.length).toBeGreaterThan(0);
+      expect(calls[calls.length - 1][1].courts).toHaveLength(1);
+    });
+
+    it('suggests a sport-aware default name when none is provided (MP-2)', () => {
+      const padelIo = createMockIo();
+      const padelRepo = new CourtRepository();
+      const padelManager = createTestCourtManager({ repository: padelRepo });
+      const padelStore = new CourtInventoryStore(createFakeFs());
+      const padelInventory = new InventoryManager(padelStore, {
+        resolveCourtSport: () => SPORT.PADEL,
+      });
+      const padelHandler = new ClubCourtHandler(
+        padelIo, padelManager, OWNER_PIN, undefined, padelInventory,
+      );
+      const socket = createMockSocket('admin-padel', { isClubAdmin: true, adminId: 'admin-padel' });
+      padelHandler.registerHandlers(socket as unknown as Socket);
+
+      trigger(socket, SocketEvents.CLIENT.INVENTORY_ADD, {});
+
+      expect(padelInventory.list()[0].name).toBe('Cancha 1');
+    });
+  });
+
+  describe('INVENTORY_RENAME', () => {
+    beforeEach(() => setupHandler());
+
+    it('renames over the stable courtId (E7) and broadcasts the snapshot', () => {
+      const record = inventory.add('Mesa 1');
+      const socket = adminSocket('admin-2');
+      handler.registerHandlers(socket as unknown as Socket);
+
+      trigger(socket, SocketEvents.CLIENT.INVENTORY_RENAME, {
+        courtId: record.courtId,
+        name: 'Mesa Renombrada',
+      });
+
+      const updated = inventory.get(record.courtId);
+      expect(updated?.name).toBe('Mesa Renombrada');
+      expect(updated?.courtId).toBe(record.courtId); // identity stable (E7)
+
+      const calls = inventoryUpdatedCalls();
+      expect(calls.length).toBeGreaterThan(0);
+      expect(calls[calls.length - 1][1].courts[0].name).toBe('Mesa Renombrada');
+    });
+
+    it('rejects an unknown courtId with COURT_NOT_FOUND and does not broadcast', () => {
+      const socket = adminSocket('admin-3');
+      handler.registerHandlers(socket as unknown as Socket);
+
+      trigger(socket, SocketEvents.CLIENT.INVENTORY_RENAME, {
+        courtId: 'nope',
+        name: 'X',
+      });
+
+      expect(socket.emit).toHaveBeenCalledWith(
+        'ERROR',
+        expect.objectContaining({ code: 'COURT_NOT_FOUND' }),
+      );
+      expect(inventoryUpdatedCalls()).toHaveLength(0);
+    });
+  });
+
+  describe('INVENTORY_MAINTENANCE (requires !BUSY)', () => {
+    beforeEach(() => setupHandler());
+
+    it('toggles ACTIVE → MAINTENANCE on an IDLE court and broadcasts', () => {
+      const record = inventory.add('Mesa 1');
+      const socket = adminSocket('admin-4');
+      handler.registerHandlers(socket as unknown as Socket);
+
+      trigger(socket, SocketEvents.CLIENT.INVENTORY_MAINTENANCE, {
+        courtId: record.courtId,
+        maintenance: true,
+      });
+
+      expect(inventory.get(record.courtId)?.inventoryStatus).toBe(INVENTORY_STATUS.MAINTENANCE);
+      expect(inventoryUpdatedCalls().length).toBeGreaterThan(0);
+
+      // Triangulate: maintenance=false restores ACTIVE.
+      trigger(socket, SocketEvents.CLIENT.INVENTORY_MAINTENANCE, {
+        courtId: record.courtId,
+        maintenance: false,
+      });
+      expect(inventory.get(record.courtId)?.inventoryStatus).toBe(INVENTORY_STATUS.ACTIVE);
+    });
+
+    it('rejects MAINTENANCE while the court is BUSY (INV-5/R7) and leaves the catalog unchanged', () => {
+      const { record } = linkRuntimeCourtToCatalog('Mesa Ocupada');
+      occupyLinkedCourt(record.courtId);
+      expect(manager.canArchiveCourt(record.courtId)).toBe(false); // BUSY
+
+      const socket = adminSocket('admin-5');
+      handler.registerHandlers(socket as unknown as Socket);
+
+      trigger(socket, SocketEvents.CLIENT.INVENTORY_MAINTENANCE, {
+        courtId: record.courtId,
+        maintenance: true,
+      });
+
+      expect(socket.emit).toHaveBeenCalledWith(
+        'ERROR',
+        expect.objectContaining({ code: 'MAINTENANCE_FAILED' }),
+      );
+      expect(inventory.get(record.courtId)?.inventoryStatus).toBe(INVENTORY_STATUS.ACTIVE);
+    });
+  });
+
+  describe('INVENTORY_ARCHIVE (INV-5 guard, archive-not-delete)', () => {
+    beforeEach(() => setupHandler());
+
+    it('archives an IDLE court — record stays in the catalog (no hard delete)', () => {
+      const record = inventory.add('Mesa 1');
+      const socket = adminSocket('admin-6');
+      handler.registerHandlers(socket as unknown as Socket);
+
+      trigger(socket, SocketEvents.CLIENT.INVENTORY_ARCHIVE, { courtId: record.courtId });
+
+      expect(inventory.get(record.courtId)?.inventoryStatus).toBe(INVENTORY_STATUS.ARCHIVED);
+      expect(inventory.list()).toHaveLength(1); // archive-not-delete (INV-3/E13)
+      expect(inventoryUpdatedCalls().length).toBeGreaterThan(0);
+    });
+
+    it('INV-5: rejects ARCHIVE on a BUSY court, then force-end → IDLE → archive succeeds', () => {
+      const { record } = linkRuntimeCourtToCatalog('Mesa Ocupada');
+      occupyLinkedCourt(record.courtId);
+      expect(manager.canArchiveCourt(record.courtId)).toBe(false);
+
+      const socket = adminSocket('admin-7');
+      handler.registerHandlers(socket as unknown as Socket);
+
+      // Step 1 — BUSY → archive rejected.
+      trigger(socket, SocketEvents.CLIENT.INVENTORY_ARCHIVE, { courtId: record.courtId });
+      expect(socket.emit).toHaveBeenCalledWith(
+        'ERROR',
+        expect.objectContaining({ code: 'ARCHIVE_FAILED' }),
+      );
+      expect(inventory.get(record.courtId)?.inventoryStatus).toBe(INVENTORY_STATUS.ACTIVE);
+
+      // Step 2 — force-end frees the court → IDLE.
+      trigger(socket, SocketEvents.CLIENT.INVENTORY_FORCE_END, { courtId: record.courtId });
+      expect(manager.canArchiveCourt(record.courtId)).toBe(true);
+
+      // Step 3 — archive now succeeds.
+      trigger(socket, SocketEvents.CLIENT.INVENTORY_ARCHIVE, { courtId: record.courtId });
+      expect(inventory.get(record.courtId)?.inventoryStatus).toBe(INVENTORY_STATUS.ARCHIVED);
+    });
+  });
+
+  describe('INVENTORY_FORCE_END (admin stop control, AFE-2/AFE-3)', () => {
+    beforeEach(() => setupHandler());
+
+    it('rejects a non-admin socket with UNAUTHORIZED', () => {
+      const socket = createMockSocket('non-admin-fe', { isClubAdmin: false });
+      handler.registerHandlers(socket as unknown as Socket);
+
+      trigger(socket, SocketEvents.CLIENT.INVENTORY_FORCE_END, { courtId: 'x' });
+
+      expect(socket.emit).toHaveBeenCalledWith(
+        'ERROR',
+        expect.objectContaining({ code: 'UNAUTHORIZED' }),
+      );
+    });
+
+    it('rejects an admin socket WITHOUT socket.data.adminId (admin traceability, mirror ClubCourtHandler:112-115)', () => {
+      const socket = createMockSocket('restored-admin', { isClubAdmin: true /* no adminId */ });
+      handler.registerHandlers(socket as unknown as Socket);
+
+      trigger(socket, SocketEvents.CLIENT.INVENTORY_FORCE_END, { courtId: 'x' });
+
+      const errorCalls = (socket.emit as jest.Mock).mock.calls.filter(
+        ([event]: [string]) => event === 'ERROR',
+      );
+      expect(errorCalls.length).toBeGreaterThan(0);
+      expect(errorCalls[0][1].code).toBe('UNAUTHORIZED');
+    });
+
+    it('force-ends a club OCCUPIED session: court released, adminId stamped, snapshot broadcast', () => {
+      const { record } = linkRuntimeCourtToCatalog('Mesa Ocupada');
+      occupyLinkedCourt(record.courtId);
+      const socket = adminSocket('admin-force');
+      handler.registerHandlers(socket as unknown as Socket);
+
+      trigger(socket, SocketEvents.CLIENT.INVENTORY_FORCE_END, { courtId: record.courtId });
+
+      const runtime = manager.getCourt(record.courtId) as any;
+      expect(runtime.clubStatus).toBe(CLUB_STATUS.FINISHED); // released → IDLE
+      expect(runtime.adminId).toBe('admin-force'); // force-ender stamped
+      expect(inventoryUpdatedCalls().length).toBeGreaterThan(0);
+    });
+
+    it('forwards the bracket ctx to CourtManager.forceEndSession for AFE-2 unbind (plumbing)', () => {
+      // Tournament court linked to a catalog record, match LIVE → BUSY.
+      const record = inventory.add('Mesa Torneo');
+      const runtime = manager.createCourt('Mesa Torneo');
+      repository.delete(runtime.id);
+      repository.create({ ...runtime, id: record.courtId });
+      manager.startMatch(record.courtId, { playerNameA: 'A', playerNameB: 'B' });
+      expect(manager.canArchiveCourt(record.courtId)).toBe(false); // LIVE → BUSY
+
+      forceEndCtx = {
+        resolveMatchForCourt: jest.fn(() => ({ id: 'R1-M1' })),
+        unbindMatch: jest.fn(),
+      };
+
+      const socket = adminSocket('admin-tfe');
+      handler.registerHandlers(socket as unknown as Socket);
+
+      trigger(socket, SocketEvents.CLIENT.INVENTORY_FORCE_END, { courtId: record.courtId });
+
+      const runtimeAfter = manager.getCourt(record.courtId) as any;
+      expect(runtimeAfter.status).toBe('WAITING'); // flow cleared → IDLE
+      // The handler passed the ctx through: the tournament contract resolved
+      // the bound match and unbound it (AFE-2 binding-only, NO advance).
+      expect(forceEndCtx.resolveMatchForCourt).toHaveBeenCalledWith(record.courtId);
+      expect(forceEndCtx.unbindMatch).toHaveBeenCalledWith('R1-M1');
+    });
+  });
+
+  describe('INVENTORY_LIST (view, all roles)', () => {
+    beforeEach(() => setupHandler());
+
+    it('returns the catalog snapshot to any socket via INVENTORY_UPDATED', () => {
+      const record = inventory.add('Mesa 1');
+      const socket = createMockSocket('viewer', { isClubAdmin: false });
+      handler.registerHandlers(socket as unknown as Socket);
+
+      trigger(socket, SocketEvents.CLIENT.INVENTORY_LIST);
+
+      expect(socket.emit).toHaveBeenCalledWith(
+        SocketEvents.SERVER.INVENTORY_UPDATED,
+        { courts: expect.arrayContaining([expect.objectContaining({ courtId: record.courtId })]) },
+      );
+    });
+  });
+});
 });

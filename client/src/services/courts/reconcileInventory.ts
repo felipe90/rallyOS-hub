@@ -47,7 +47,13 @@ export interface InventoryCourtView {
   /** DERIVED (INV-4): BUSY when a live flow or bracket binding exists. */
   availability: Availability
   clubStatus?: ClubStatus
-  tournamentStatus?: TournamentStatus
+  /**
+   * Runtime status from COURT_LIST — the wire type is TournamentStatus | ClubStatus
+   * because the catalog list is mode-agnostic (a club-mode court reports its
+   * ClubStatus here too). Consumers should prefer `clubStatus` (CLUB_KIOSK_DATA)
+   * for club-mode courts.
+   */
+  tournamentStatus?: TournamentStatus | ClubStatus
   pin?: string
   playerName?: string
   featured?: boolean
@@ -76,7 +82,7 @@ export function boundCourtIds(bracket: TournamentBracket | null): string[] {
 
 function deriveAvailability(
   clubStatus: string | undefined,
-  tournamentStatus: TournamentStatus | undefined,
+  tournamentStatus: TournamentStatus | ClubStatus | undefined,
   isBound: boolean,
 ): Availability {
   if (clubStatus === 'OCCUPIED' || tournamentStatus === 'LIVE' || isBound) {

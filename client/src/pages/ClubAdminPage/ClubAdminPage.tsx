@@ -117,7 +117,7 @@ function translateOperationError(code: string | null, i18nText: (key: string) =>
     RESET_FAILED: i18nText('toastClubResetFailed'),
     NO_CONNECTION: i18nText('errorClubConnection'),
   }
-  return map[code] || code || ''
+  return code ? map[code] || code : ''
 }
 
 export function ClubAdminPage() {

@@ -44,7 +44,7 @@ import {
 import { SessionHistoryStore } from '../services/store/SessionHistoryStore';
 import { PhoneRevealAuditStore } from '../services/store/PhoneRevealAuditStore';
 import { ClubConfigStore } from '../services/store/ClubConfigStore';
-import { StateStore } from '../services/store/StateStore';
+import { PersistenceCoordinator } from '../services/store/PersistenceCoordinator';
 
 export class SocketHandler {
   private io: Server;
@@ -80,7 +80,14 @@ export class SocketHandler {
     clubConfigStore?: IClubConfigRepository,
     sessionHistoryStore?: SessionHistoryStore,
     phoneRevealAuditStore?: PhoneRevealAuditStore,
-    stateStore?: StateStore,
+    /**
+     * Slice 6 (PERS-4): the single-writer persistence coordinator. Replaces
+     * the raw StateStore for the BracketHandler seam — the coordinator owns
+     * the in-memory snapshot (bracket cache lives there), so every bracket
+     * write mutates the snapshot and flushes the FULL document atomically.
+     * Optional so older test wiring without a coordinator keeps working.
+     */
+    coordinator?: PersistenceCoordinator,
     /**
      * InventoryManager — the admin court catalog (admin-court-inventory,
      * D3/INV-1). Injected into ClubCourtHandler for the INVENTORY_* events
@@ -133,14 +140,16 @@ export class SocketHandler {
     this.clubAdminHandler = new ClubAdminHandler(io, tableManager, ownerPin, clubConfigStore!, adminPinService, sessionTokenService, this.clubHistoryHandler);
     // BracketHandler (Tier 2): constructed BEFORE ClubCourtHandler so its
     // force-end context seam (AFE-2 bracket unbind) can be wired into the
-    // INVENTORY_FORCE_END handler below. Constructed only when a StateStore
+    // INVENTORY_FORCE_END handler below. Constructed only when a coordinator
     // is injected so the bracket persists across restarts (R10); omitting
-    // the store keeps older test wiring working without a bracket handler.
-    if (stateStore) {
+    // the coordinator keeps older test wiring working without a bracket
+    // handler.
+    if (coordinator) {
       // Slice 4: BracketHandler now consumes the InventoryManager for
       // courtExists (TCS-2 — inventory-ACTIVE) and the strict cold-start gate
       // (TCS-4 — no ACTIVE court → COURT_INVENTORY_EMPTY on BRACKET_CREATE).
-      this.bracketHandler = new BracketHandler(io, tableManager, ownerPin, stateStore, inventoryManager);
+      // Slice 6 (PERS-4): the coordinator is the bracket store seam.
+      this.bracketHandler = new BracketHandler(io, tableManager, ownerPin, coordinator, inventoryManager);
     }
     // Phase 3 / U2: pass clubConfigStore so CLUB_ADMIN_OCCUPY can resolve
     // the configured sport for the default match config on the freshly
@@ -440,6 +449,16 @@ export class SocketHandler {
    */
   releaseAllBracketCourts(): string[] {
     return this.bracketHandler?.releaseAllCourts() ?? [];
+  }
+
+  /**
+   * Flush any pending debounced bracket persistence immediately (slice 6 —
+   * graceful shutdown). The CourtManager flush covers the session debounce;
+   * this covers the bracket's 2s slot-save timer so a restart never loses
+   * the last bracket mutation. No-op when no BracketHandler is wired.
+   */
+  flushBracketPersistence(): void {
+    this.bracketHandler?.flushPending();
   }
 
   /**

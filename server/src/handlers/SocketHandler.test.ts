@@ -13,6 +13,7 @@ import { CourtManager } from '../domain/courtManager';
 import { createTestCourtManager } from '../domain/courtManager.test-factory';
 import { ClubConfigStore } from '../services/store/ClubConfigStore';
 import { StateStore } from '../services/store/StateStore';
+import { PersistenceCoordinator } from '../services/store/PersistenceCoordinator';
 import { CourtInventoryStore } from '../services/store/CourtInventoryStore';
 import { InventoryManager } from '../domain/inventory/InventoryManager';
 import { SessionTokenService } from '../services/security/SessionTokenService';
@@ -618,11 +619,23 @@ describe('SocketHandler — BracketHandler wiring', () => {
     };
     if (bracket) {
       // Seed a persisted bracket so the handler restores it on construction.
-      const store = new StateStore(fakeFs, 'state.json');
-      (store as unknown as { setBracket: (b: typeof bracket) => void }).setBracket(bracket);
+      // Slice 6 (PERS-4): the coordinator owns the snapshot — seed through it.
+      const seedStore = new StateStore(fakeFs, 'state.json');
+      const seedCoordinator = new PersistenceCoordinator(seedStore, {
+        version: 4,
+        savedAt: 0,
+        liveSessions: [],
+        bracket: null,
+      });
+      seedCoordinator.setBracket(bracket);
+      seedCoordinator.flush();
     }
     const clubConfigStore = new ClubConfigStore(fakeFs);
     const stateStore = new StateStore(fakeFs, 'state.json');
+    const coordinator = new PersistenceCoordinator(
+      stateStore,
+      stateStore.load() ?? { version: 4, savedAt: 0, liveSessions: [], bracket: null },
+    );
     new SocketHandler(
       io as any,
       courtManager as CourtManager,
@@ -631,14 +644,14 @@ describe('SocketHandler — BracketHandler wiring', () => {
       clubConfigStore,
       undefined,
       undefined,
-      stateStore,
+      coordinator,
     );
 
     const connectionCall = (io.on as jest.Mock).mock.calls.find(
       ([event]: [string]) => event === 'connection',
     );
     expect(connectionCall).toBeDefined();
-    return { io, connectionCall, courtManager, stateStore, fakeFs };
+    return { io, connectionCall, courtManager, stateStore, coordinator, fakeFs };
   }
 
   function makeOwnerSocket() {

@@ -24,11 +24,14 @@ import { SocketEvents } from '../../../shared/events';
 import type { TournamentBracket } from '../../../shared/types';
 import type { Socket } from 'socket.io';
 
-// ── Fake StateStore (bracket-only seam) ──────────────────────────────────
+// ── Fake StateStore (bracket-only seam — slice 6 coordinator contract) ────
+// setBracket mutates the in-memory snapshot ONLY (no disk I/O); flush() is
+// the single atomic disk write. This mirrors PersistenceCoordinator.
 
 interface FakeStateStore {
   getBracket: jest.Mock;
   setBracket: jest.Mock;
+  flush: jest.Mock;
 }
 function createFakeStateStore(persisted: TournamentBracket | null = null): FakeStateStore {
   let state = persisted;
@@ -37,6 +40,7 @@ function createFakeStateStore(persisted: TournamentBracket | null = null): FakeS
     setBracket: jest.fn((b: TournamentBracket | null) => {
       state = b;
     }),
+    flush: jest.fn(),
   };
 }
 
@@ -302,17 +306,41 @@ describe('BracketHandler', () => {
       expect(lastError(socket)?.code).toBe('NAME_TOO_LONG');
     });
 
-    it('debounces slot-save: setBracket is NOT called synchronously', () => {
+    it('debounces the DISK flush for slot-saves while mutating the snapshot immediately', () => {
       const { handler, stateStore } = makeHandler();
       const socket = createMockSocket('o8');
       handler.registerHandlers(socket as unknown as Socket);
       socket._trigger(SocketEvents.CLIENT.BRACKET_CREATE, { name: 'T', numSlots: 4, includeThirdPlace: false });
-      const savesAfterCreate = (stateStore.setBracket as jest.Mock).mock.calls.length;
+      (stateStore.setBracket as jest.Mock).mockClear();
+      (stateStore.flush as jest.Mock).mockClear();
 
       socket._trigger(SocketEvents.CLIENT.BRACKET_ASSIGN_PLAYER, { matchId: 'R1-M1', slot: 'A', name: 'Juan' });
 
-      // debounced 2s — no immediate save beyond the create save
-      expect((stateStore.setBracket as jest.Mock).mock.calls.length).toBe(savesAfterCreate);
+      // The in-memory snapshot is mutated immediately (PERS-4: the shared
+      // source of truth stays current so a concurrent CourtManager flush
+      // serializes the latest bracket)…
+      expect(stateStore.setBracket).toHaveBeenCalled();
+      // …but the DISK write (flush) is debounced 2s — no immediate save.
+      expect(stateStore.flush).not.toHaveBeenCalled();
+    });
+
+    it('flushes the debounced slot-save after the 2s window — one atomic write', () => {
+      jest.useFakeTimers();
+      try {
+        const { handler, stateStore } = makeHandler();
+        const socket = createMockSocket('o8b');
+        handler.registerHandlers(socket as unknown as Socket);
+        socket._trigger(SocketEvents.CLIENT.BRACKET_CREATE, { name: 'T', numSlots: 4, includeThirdPlace: false });
+        (stateStore.flush as jest.Mock).mockClear();
+
+        socket._trigger(SocketEvents.CLIENT.BRACKET_ASSIGN_PLAYER, { matchId: 'R1-M1', slot: 'A', name: 'Juan' });
+        expect(stateStore.flush).not.toHaveBeenCalled();
+
+        jest.advanceTimersByTime(2_000);
+        expect(stateStore.flush).toHaveBeenCalledTimes(1);
+      } finally {
+        jest.useRealTimers();
+      }
     });
   });
 
@@ -704,6 +732,8 @@ describe('BracketHandler', () => {
       const rec = socket._emitted.filter((e) => e.event === SocketEvents.SERVER.BRACKET_STATE).pop();
       expect(rec!.data).toBeNull();
       expect(stateStore.setBracket).toHaveBeenCalledWith(null);
+      // reset is immediate — the disk flush fires synchronously (no debounce).
+      expect(stateStore.flush).toHaveBeenCalled();
     });
 
     it('rejects an expired confirmToken with RESET_EXPIRED', () => {
@@ -1028,5 +1058,106 @@ describe('BracketHandler', () => {
       expect(lastError(socket)).toBeUndefined();
       expect(ownerBracketState(socket)).not.toBeNull();
     });
+  });
+});
+
+// ── Slice 6: BracketHandler through a REAL coordinator (PERS-4 wiring) ──
+
+import { StateStore } from '../services/store/StateStore';
+import { PersistenceCoordinator } from '../services/store/PersistenceCoordinator';
+import type { FileSystem, PersistedStateV4 } from '../services/store/types';
+
+function realFs(): FileSystem & { _files: Map<string, string> } {
+  const files = new Map<string, string>();
+  const written = new Map<string, string>();
+  return {
+    _files: files,
+    writeFileSync(p: string, d: string) { written.set(p, d); },
+    readFileSync(p: string) {
+      if (!files.has(p)) throw Object.assign(new Error(`ENOENT: ${p}`), { code: 'ENOENT' });
+      return files.get(p)!;
+    },
+    renameSync(o: string, n: string) {
+      const c = written.has(o) ? written.get(o) : files.get(o);
+      files.set(n, c!);
+      files.delete(o);
+      written.delete(o);
+    },
+    existsSync(p: string) { return files.has(p) || written.has(p); },
+    unlinkSync(p: string) { files.delete(p); written.delete(p); },
+    mkdirSync() { return undefined; },
+  };
+}
+
+describe('BracketHandler — real coordinator (PERS-4 single writer)', () => {
+  it('bracket writes land in the shared snapshot; a later session-only flush keeps them (R2 fixed)', () => {
+    const fs = realFs();
+    const store = new StateStore(fs, 'state.json');
+    const coordinator = new PersistenceCoordinator(store, {
+      version: 4,
+      savedAt: 0,
+      liveSessions: [],
+      bracket: null,
+    } as PersistedStateV4);
+    const io = createMockIo();
+    const tableManager = createFakeTableManager(['c1'], {});
+    const handler = new BracketHandler(io, tableManager, 'pin', coordinator, createFakeInventory() as never);
+
+    const socket = createMockSocket('real1');
+    handler.registerHandlers(socket as unknown as Socket);
+    socket._trigger(SocketEvents.CLIENT.BRACKET_CREATE, { name: 'T', numSlots: 4, includeThirdPlace: false });
+
+    // Simulate CourtManager's session debounce firing AFTER the bracket write:
+    // it mutates liveSessions on the SAME snapshot and flushes.
+    coordinator.mutate((s) => {
+      s.liveSessions = [{ courtId: 't1', flow: { mode: 'tournament', state: 'LIVE', startedAt: 1 }, matchState: null }];
+    });
+    coordinator.flush();
+
+    const loaded = store.load();
+    expect(loaded!.bracket).not.toBeNull();
+    expect(loaded!.bracket!.name).toBe('T');
+    expect(loaded!.liveSessions).toHaveLength(1);
+    expect(loaded!.liveSessions[0].courtId).toBe('t1');
+  });
+
+  it('hydrates the engine from the coordinator snapshot at construction (R10)', () => {
+    const fs = realFs();
+    const store = new StateStore(fs, 'state.json');
+    const persisted = {
+      version: 4,
+      savedAt: 0,
+      liveSessions: [],
+      bracket: {
+        name: 'Restored',
+        numSlots: 4,
+        includeThirdPlace: false,
+        matches: [
+          {
+            id: 'R1-M1', round: 1, position: 0,
+            playerA: 'Juan', playerB: null, winner: null,
+            status: 'READY', courtId: null,
+          },
+        ],
+        thirdPlaceMatch: null,
+        status: 'SETUP',
+        createdAt: 1,
+      } as TournamentBracket,
+    };
+    store.save(persisted);
+
+    const freshStore = new StateStore(fs, 'state.json');
+    const coordinator = new PersistenceCoordinator(freshStore, freshStore.load()!);
+    const io = createMockIo();
+    const tableManager = createFakeTableManager(['c1'], {});
+    const handler = new BracketHandler(io, tableManager, 'pin', coordinator, createFakeInventory() as never);
+
+    const socket = createMockSocket('real2');
+    handler.sendStateToSocket(socket as unknown as Socket);
+    const emitted = (socket as unknown as MockSocket)._emitted.find(
+      (e) => e.event === SocketEvents.SERVER.BRACKET_STATE,
+    );
+    expect((emitted!.data as TournamentBracket).name).toBe('Restored');
+    expect((emitted!.data as TournamentBracket).matches[0].playerA).toBe('Juan');
   });
 });

@@ -38,9 +38,18 @@ interface PendingReset {
   expiresAt: number;
 }
 
+/**
+ * Persistence seam for the bracket (slice 6 — PERS-4 single writer).
+ * `setBracket` mutates the shared IN-MEMORY snapshot only (never disk);
+ * `flush()` performs the ONE atomic tmp+rename of the FULL document.
+ * `PersistenceCoordinator` satisfies this structurally — the bracket cache
+ * lives in the coordinator snapshot, so a concurrent CourtManager session
+ * flush re-serializes the latest bracket and can never clobber it (R2 fixed).
+ */
 interface BracketStoreSeam {
   getBracket(): TournamentBracket | null;
   setBracket(bracket: TournamentBracket | null): void;
+  flush(): void;
 }
 
 export class BracketHandler extends SocketHandlerBase {
@@ -344,7 +353,8 @@ export class BracketHandler extends SocketHandlerBase {
     // tournament flows reach IDLE (courts freed for club/tournament reuse).
     this.releaseAllCourts();
     this.engine.reset();
-    this.store.setBracket(null); // immediate
+    this.store.setBracket(null); // mutate the snapshot immediately
+    this.store.flush(); // reset must not be lost — immediate disk write
     this.broadcastState(socket);
   }
 
@@ -565,15 +575,36 @@ export class BracketHandler extends SocketHandlerBase {
       clearTimeout(this.saveTimer);
       this.saveTimer = null;
     }
-    this.store.setBracket(this.engine.bracket);
+    this.store.setBracket(this.engine.bracket); // mutate the snapshot now…
+    this.store.flush(); // …and flush the FULL document immediately (atomic).
   }
 
-  /** Debounced (2s) persistence — used for slot-class mutations. */
+  /**
+   * Flush any pending debounced save immediately (PERS-4 graceful shutdown).
+   * The snapshot is already current (scheduleDebouncedSave mutates it right
+   * away); this only forces the pending 2s DISK write. No-op when no save is
+   * pending.
+   */
+  flushPending(): void {
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer);
+      this.saveTimer = null;
+      this.store.flush();
+    }
+  }
+
+  /**
+   * Debounced (2s) persistence — used for slot-class mutations. The in-memory
+   * snapshot is mutated IMMEDIATELY (PERS-4: the shared source of truth stays
+   * current so a concurrent CourtManager flush serializes the latest bracket);
+   * only the DISK write (flush) is debounced.
+   */
   private scheduleDebouncedSave(): void {
     if (this.saveTimer) clearTimeout(this.saveTimer);
+    this.store.setBracket(this.engine.bracket);
     this.saveTimer = setTimeout(() => {
       this.saveTimer = null;
-      this.store.setBracket(this.engine.bracket);
+      this.store.flush();
     }, SAVE_DEBOUNCE_MS);
     if (typeof this.saveTimer.unref === 'function') this.saveTimer.unref();
   }

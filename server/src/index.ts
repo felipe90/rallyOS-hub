@@ -20,6 +20,8 @@ import { QRService } from './services/qr/QRService';
 import { SportRegistry } from './domain/sports/sport.registry';
 import { DefaultMatchEngineFactory } from './domain/ports';
 import { StateStore } from './services/store/StateStore';
+import { PersistenceCoordinator } from './services/store/PersistenceCoordinator';
+import { PERSISTENCE_VERSION } from './domain/ports/persistence-types';
 import { CourtInventoryStore } from './services/store/CourtInventoryStore';
 import { InventoryManager } from './domain/inventory/InventoryManager';
 import { registerDefaultFlows } from './domain/flows';
@@ -65,6 +67,20 @@ const hubConfig = {
 
 // Create stores
 const stateStore = new StateStore();
+// Slice 6 (PERS-4): the single-writer persistence coordinator. Seeded from
+// the persisted v4 document (or a fresh empty one); it owns the in-memory
+// snapshot (liveSessions + bracket) and performs ONE atomic tmp+rename of
+// the FULL document per flush. CourtManager (sessions) and BracketHandler
+// (bracket) both mutate this snapshot — the R2 torn-write is gone.
+const persistenceCoordinator = new PersistenceCoordinator(
+  stateStore,
+  stateStore.load() ?? {
+    version: PERSISTENCE_VERSION,
+    savedAt: 0,
+    liveSessions: [],
+    bracket: null,
+  },
+);
 const clubConfigStore = new ClubConfigStore();
 // Admin inventory catalog (PERS-2/PERS-3): durable CourtRecord store with
 // synchronous immediate writes; InventoryManager is the ONLY existence
@@ -104,6 +120,9 @@ const courtManager = new CourtManager({
   formatter,
   qrService,
   persistence: stateStore,
+  // PERS-4 (slice 6) — single-writer coordinator: persistState mutates the
+  // shared snapshot and flushes the FULL document (sessions + bracket).
+  coordinator: persistenceCoordinator,
   // FMR-1 — the flow rule engine (club + tournament contracts).
   registry: registerDefaultFlows(),
   // INV-4 — catalog view for the persist/restore axis split (ghost-drop).
@@ -133,7 +152,7 @@ const courtManager = new CourtManager({
 // of truth (ENCRYPTION_SECRET via pinEncryption.getServerSecret).
 const sessionTokenService = new SessionTokenService();
 
-const socketHandler = createSocketServer(io, courtManager, ownerPin, hubConfig, clubConfigStore, sessionHistoryStore, undefined, stateStore, inventoryManager);
+const socketHandler = createSocketServer(io, courtManager, ownerPin, hubConfig, clubConfigStore, sessionHistoryStore, undefined, persistenceCoordinator, inventoryManager);
 
 // Restore persisted state (OCCUPIED/FINISHED courts) from disk.
 // Must run AFTER createSocketServer so onTableUpdate callbacks are wired.
@@ -222,7 +241,12 @@ const shutdown = (signal: 'SIGTERM' | 'SIGINT') => {
 
   // P1: flush any pending debounced persist before the event loop winds
   // down — a rolling match must not lose its last points on a restart.
+  // Slice 6 (PERS-4): CourtManager.flush() covers the 600ms session debounce;
+  // flushBracketPersistence() covers the bracket's 2s slot-save timer. Both
+  // flush through the SAME coordinator, so one atomic write lands the full
+  // document (sessions + bracket) before the process exits.
   courtManager.flush();
+  socketHandler.flushBracketPersistence?.();
 
   gracefulShutdown(
     httpsServer,

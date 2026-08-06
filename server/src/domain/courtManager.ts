@@ -237,6 +237,47 @@ export class CourtManager {
   }
 
   /**
+   * Materialize a RUNTIME club court from a catalog record (slice 4.4 — closes
+   * the slice-3 catalog/runtime gap). The runtime court SHARES the catalog
+   * identity (E11 — one physical court): id = record.courtId, name/number from
+   * the record. The admin's first club-flow action on an inventory court
+   * (activate/occupy) reaches the runtime/kiosk this way. State AVAILABLE —
+   * the caller then activates/occupies as usual.
+   */
+  materializeClubCourtFromInventory(record: CourtRecord): ClubCourt {
+    const court: ClubCourt = {
+      kind: 'club',
+      id: record.courtId,
+      number: record.number,
+      name: record.name,
+      clubStatus: CLUB_STATUS.AVAILABLE,
+      pin: '',
+      sportRules: new MatchEngine(),
+      playerNames: { a: '', b: '' },
+      history: [],
+      players: [],
+      createdAt: Date.now(),
+      featured: false,
+      occupiedAt: null,
+      sessionMode: null,
+      playerName: null,
+      phone: null,
+      adminId: null,
+    };
+
+    court.sportRules.setCourtId(record.courtId, record.name);
+    court.sportRules.setEventCallback((event: any) => {
+      this.onMatchEvent(record.courtId, event);
+    });
+
+    this.repository.create(court);
+    logger.info({ courtId: record.courtId, courtName: record.name, mode: 'club' }, 'Club court materialized from inventory');
+    this.notifyUpdate(court);
+
+    return court;
+  }
+
+  /**
    * Delete a club-mode court. Only allowed when clubStatus is AVAILABLE.
    */
   deleteClubCourt(courtId: string): boolean {
@@ -671,6 +712,20 @@ export class CourtManager {
     if (!court) return true;
     const mode: FlowModeKey = isClubCourt(court) ? 'club' : 'tournament';
     return this.registry.get(mode).canArchive(court);
+  }
+
+  /**
+   * Tournament end/reset detach (TCS-3, Q4 — releaseAll): release the flow on
+   * a court via its mode contract. Tournament release clears the flow → IDLE;
+   * club release is a NO-OP (club courts are untouched by tournament
+   * releaseAll — ClubFlowContract.release). Unknown court → no-op.
+   */
+  releaseCourtFlow(courtId: string): void {
+    const court = this.repository.get(courtId);
+    if (!court) return;
+    const mode: FlowModeKey = isClubCourt(court) ? 'club' : 'tournament';
+    this.registry.get(mode).release(court, this.flowContext());
+    this.notifyUpdate(court);
   }
 
   /** Flow context for contract calls — club cost config (FMR-3/AFE-3). */

@@ -4,7 +4,7 @@ import { CourtManager, type CourtCatalog } from './courtManager';
 import { createTestCourtManager } from './courtManager.test-factory';
 import { StateStore } from '../services/store/StateStore';
 import type { FileSystem, PersistedCourt, PersistedClubCourt, PersistedMatchState } from '../services/store/types';
-import type { ClubCourt, MatchStateExtended, MatchEvent, FlowSlot, FlowModeKey, Court } from './types';
+import type { ClubCourt, TournamentCourt, MatchStateExtended, MatchEvent, FlowSlot, FlowModeKey, Court } from './types';
 import { MatchEngine, MAX_HISTORY_LENGTH } from './matchEngine';
 import { FlowModeRegistry } from './flows/FlowModeRegistry';
 import type { FlowModeContract, FlowContext } from './flows/FlowModeContract';
@@ -2293,6 +2293,66 @@ describe('courtManager — derived availability + canArchive (INV-4/INV-5)', () 
     expect(manager.canArchiveCourt(tourney.id)).toBe(false);
     manager.forceEndSession(tourney.id);
     expect(manager.canArchiveCourt(tourney.id)).toBe(true);
+  });
+
+  it('releaseCourtFlow releases a LIVE tournament court → IDLE (TCS-3/Q4)', () => {
+    const manager = createTestCourtManager();
+    const court = manager.createCourt('Rel Tourney');
+    manager.startMatch(court.id, { playerNameA: 'A', playerNameB: 'B' });
+    expect(manager.getCourtAvailability(court.id)).toBe(AVAILABILITY.BUSY);
+
+    manager.releaseCourtFlow(court.id);
+
+    expect(manager.getCourtAvailability(court.id)).toBe(AVAILABILITY.IDLE);
+    expect((manager.getCourt(court.id) as TournamentCourt).status).toBe('WAITING');
+  });
+
+  it('releaseCourtFlow is a NO-OP for club courts — club untouched by releaseAll (TCS-3)', () => {
+    const manager = createTestCourtManager();
+    const club = manager.createClubCourt('Rel Club');
+    manager.activateCourt(club.id);
+    manager.occupyClubCourt(club.id, SPORT.TABLE_TENNIS);
+    expect(manager.getCourtAvailability(club.id)).toBe(AVAILABILITY.BUSY);
+
+    manager.releaseCourtFlow(club.id);
+
+    // club flow survives — releaseAll is bracket-scoped and never touches club courts.
+    expect(manager.getCourtAvailability(club.id)).toBe(AVAILABILITY.BUSY);
+    expect((manager.getCourt(club.id) as ClubCourt).clubStatus).toBe(CLUB_STATUS.OCCUPIED);
+  });
+
+  it('releaseCourtFlow is a no-op for an unknown court', () => {
+    const manager = createTestCourtManager();
+    expect(() => manager.releaseCourtFlow('nope')).not.toThrow();
+  });
+
+  it('releaseCourtFlow delegates to the mode contract release (spy)', () => {
+    const releaseSpy = jest.fn();
+    const registry = new FlowModeRegistry().register('tournament', () => stubFlowContract('tournament', { release: releaseSpy }));
+    const manager = createTestCourtManager({ registry });
+    const court = manager.createCourt('Rel Deleg');
+
+    manager.releaseCourtFlow(court.id);
+
+    expect(releaseSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('materializeClubCourtFromInventory creates a runtime club court with the CATALOG identity (slice 4.4)', () => {
+    const manager = createTestCourtManager();
+    const record: CourtRecord = {
+      courtId: 'cat-1',
+      number: 7,
+      name: 'Mesa 7',
+      inventoryStatus: INVENTORY_STATUS.ACTIVE,
+    };
+
+    const court = manager.materializeClubCourtFromInventory(record);
+
+    expect(court.id).toBe('cat-1');
+    expect(court.name).toBe('Mesa 7');
+    expect(court.number).toBe(7);
+    expect(court.clubStatus).toBe(CLUB_STATUS.AVAILABLE);
+    expect(manager.getCourt('cat-1')).toBeDefined();
   });
 });
 

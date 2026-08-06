@@ -42,10 +42,34 @@ function createFakeStateStore(persisted: TournamentBracket | null = null): FakeS
 
 // ── Fake CourtManager (only getAllTournamentCourts is used) ───────────────
 
-function createFakeTableManager(courtIds: string[] = ['c1', 'c2']) {
+function createFakeTableManager(
+  courtIds: string[] = ['c1', 'c2'],
+  runtimeCourts: Record<string, unknown> = {},
+) {
   return {
     getAllTournamentCourts: jest.fn(() => courtIds.map((id) => ({ id }))),
+    getCourt: jest.fn((id: string) => runtimeCourts[id]),
+    releaseCourtFlow: jest.fn(),
   } as unknown as import('../domain/courtManager').CourtManager;
+}
+
+// ── Fake InventoryManager (catalog; slice-4 courtExists + cold-start) ─────
+
+interface FakeInventoryRecord {
+  courtId: string;
+  inventoryStatus: string;
+}
+function createFakeInventory(
+  records: FakeInventoryRecord[] = [
+    { courtId: 'c1', inventoryStatus: 'ACTIVE' },
+    { courtId: 'c2', inventoryStatus: 'ACTIVE' },
+  ],
+) {
+  return {
+    get: jest.fn((id: string) => records.find((r) => r.courtId === id)),
+    hasActive: jest.fn(() => records.some((r) => r.inventoryStatus === 'ACTIVE')),
+    list: jest.fn(() => records),
+  } as unknown as import('../domain/inventory/InventoryManager').InventoryManager;
 }
 
 // ── Mock socket ───────────────────────────────────────────────────────────
@@ -100,11 +124,16 @@ function createMockIo() {
 function makeHandler(
   stateStore: FakeStateStore = createFakeStateStore(),
   courtIds: string[] = ['c1', 'c2'],
+  opts: {
+    runtimeCourts?: Record<string, unknown>;
+    inventory?: ReturnType<typeof createFakeInventory>;
+  } = {},
 ) {
   const io = createMockIo();
-  const tableManager = createFakeTableManager(courtIds);
-  const handler = new BracketHandler(io, tableManager, 'pin', stateStore as any);
-  return { io, tableManager, handler, stateStore };
+  const tableManager = createFakeTableManager(courtIds, opts.runtimeCourts ?? {});
+  const inventory = opts.inventory ?? createFakeInventory();
+  const handler = new BracketHandler(io, tableManager, 'pin', stateStore as any, inventory as any);
+  return { io, tableManager, inventory, handler, stateStore };
 }
 
 function ownerBracketState(socket: MockSocket): TournamentBracket | null {
@@ -730,6 +759,246 @@ describe('BracketHandler', () => {
       expect(b).not.toBeNull();
       expect(b!.name).toBe('Persistido');
       expect(b!.numSlots).toBe(8);
+    });
+  });
+
+  // ── Slice 4: TOURNAMENT_SELECT_TABLE (D13, TCS-1/TCS-2, Q1/Q2) ────────
+
+  describe('TOURNAMENT_SELECT_TABLE (TCS-1/TCS-2, Q1/Q2)', () => {
+    it('binds a match to an inventory-ACTIVE flow-empty court and emits BRACKET_STATE', () => {
+      const { handler } = makeHandler();
+      const socket = createMockSocket('s1');
+      handler.registerHandlers(socket as unknown as Socket);
+      socket._trigger(SocketEvents.CLIENT.BRACKET_CREATE, { name: 'T', numSlots: 4, includeThirdPlace: false });
+
+      socket._trigger(SocketEvents.CLIENT.TOURNAMENT_SELECT_TABLE, { matchId: 'R1-M1', courtId: 'c1' });
+
+      const b = ownerBracketState(socket);
+      expect(b!.matches.find((m) => m.id === 'R1-M1')!.courtId).toBe('c1');
+    });
+
+    it('rejects a MAINTENANCE inventory court with COURT_NOT_FOUND (TCS-2)', () => {
+      const inventory = createFakeInventory([
+        { courtId: 'c1', inventoryStatus: 'MAINTENANCE' },
+        { courtId: 'c2', inventoryStatus: 'ACTIVE' },
+      ]);
+      const { handler } = makeHandler(undefined, ['c1', 'c2'], { inventory });
+      const socket = createMockSocket('s2');
+      handler.registerHandlers(socket as unknown as Socket);
+      socket._trigger(SocketEvents.CLIENT.BRACKET_CREATE, { name: 'T', numSlots: 4, includeThirdPlace: false });
+
+      socket._trigger(SocketEvents.CLIENT.TOURNAMENT_SELECT_TABLE, { matchId: 'R1-M1', courtId: 'c1' });
+
+      expect(lastError(socket)?.code).toBe('COURT_NOT_FOUND');
+      expect(ownerBracketState(socket)!.matches.find((m) => m.id === 'R1-M1')!.courtId).toBeNull();
+    });
+
+    it('refuses a court with a live club flow (OCCUPIED) — COURT_BUSY (TCS-2)', () => {
+      const inventory = createFakeInventory([
+        { courtId: 'c1', inventoryStatus: 'ACTIVE' },
+      ]);
+      const { handler } = makeHandler(undefined, ['c1'], {
+        inventory,
+        runtimeCourts: { c1: { id: 'c1', kind: 'club', clubStatus: 'OCCUPIED' } },
+      });
+      const socket = createMockSocket('s3');
+      handler.registerHandlers(socket as unknown as Socket);
+      socket._trigger(SocketEvents.CLIENT.BRACKET_CREATE, { name: 'T', numSlots: 4, includeThirdPlace: false });
+
+      socket._trigger(SocketEvents.CLIENT.TOURNAMENT_SELECT_TABLE, { matchId: 'R1-M1', courtId: 'c1' });
+
+      expect(lastError(socket)?.code).toBe('COURT_BUSY');
+      expect(ownerBracketState(socket)!.matches.find((m) => m.id === 'R1-M1')!.courtId).toBeNull();
+    });
+
+    it('refuses a club court in RESERVED (pending PIN) state — COURT_RESERVED (Q2)', () => {
+      const inventory = createFakeInventory([
+        { courtId: 'c1', inventoryStatus: 'ACTIVE' },
+      ]);
+      const { handler } = makeHandler(undefined, ['c1'], {
+        inventory,
+        runtimeCourts: { c1: { id: 'c1', kind: 'club', clubStatus: 'RESERVED' } },
+      });
+      const socket = createMockSocket('s4');
+      handler.registerHandlers(socket as unknown as Socket);
+      socket._trigger(SocketEvents.CLIENT.BRACKET_CREATE, { name: 'T', numSlots: 4, includeThirdPlace: false });
+
+      socket._trigger(SocketEvents.CLIENT.TOURNAMENT_SELECT_TABLE, { matchId: 'R1-M1', courtId: 'c1' });
+
+      expect(lastError(socket)?.code).toBe('COURT_RESERVED');
+      expect(ownerBracketState(socket)!.matches.find((m) => m.id === 'R1-M1')!.courtId).toBeNull();
+    });
+
+    it('rejects a court already bound to ANOTHER bracket match with COURT_ALREADY_ASSIGNED (TCS-2 reverse index)', () => {
+      const { handler } = makeHandler();
+      const socket = createMockSocket('s5');
+      handler.registerHandlers(socket as unknown as Socket);
+      socket._trigger(SocketEvents.CLIENT.BRACKET_CREATE, { name: 'T', numSlots: 4, includeThirdPlace: false });
+      socket._trigger(SocketEvents.CLIENT.TOURNAMENT_SELECT_TABLE, { matchId: 'R1-M1', courtId: 'c1' });
+
+      socket._trigger(SocketEvents.CLIENT.TOURNAMENT_SELECT_TABLE, { matchId: 'R1-M2', courtId: 'c1' });
+
+      expect(lastError(socket)?.code).toBe('COURT_ALREADY_ASSIGNED');
+      const b = ownerBracketState(socket);
+      expect(b!.matches.find((m) => m.id === 'R1-M1')!.courtId).toBe('c1');
+      expect(b!.matches.find((m) => m.id === 'R1-M2')!.courtId).toBeNull();
+    });
+
+    it('rejects a non-owner socket with UNAUTHORIZED and no binding', () => {
+      const { handler } = makeHandler();
+      const socket = createMockSocket('s6', false);
+      handler.registerHandlers(socket as unknown as Socket);
+
+      socket._trigger(SocketEvents.CLIENT.TOURNAMENT_SELECT_TABLE, { matchId: 'R1-M1', courtId: 'c1' });
+
+      expect(lastError(socket)?.code).toBe('UNAUTHORIZED');
+    });
+
+    it('rejects a missing matchId or courtId with INVALID_PARAMS', () => {
+      const { handler } = makeHandler();
+      const socket = createMockSocket('s7');
+      handler.registerHandlers(socket as unknown as Socket);
+      socket._trigger(SocketEvents.CLIENT.BRACKET_CREATE, { name: 'T', numSlots: 4, includeThirdPlace: false });
+
+      socket._trigger(SocketEvents.CLIENT.TOURNAMENT_SELECT_TABLE, { matchId: '', courtId: 'c1' });
+      expect(lastError(socket)?.code).toBe('INVALID_PARAMS');
+
+      socket._trigger(SocketEvents.CLIENT.TOURNAMENT_SELECT_TABLE, { matchId: 'R1-M1', courtId: '' });
+      expect(lastError(socket)?.code).toBe('INVALID_PARAMS');
+    });
+
+    it('rejects an unknown matchId via the engine MATCH_NOT_FOUND path', () => {
+      const { handler } = makeHandler();
+      const socket = createMockSocket('s8');
+      handler.registerHandlers(socket as unknown as Socket);
+      socket._trigger(SocketEvents.CLIENT.BRACKET_CREATE, { name: 'T', numSlots: 4, includeThirdPlace: false });
+
+      socket._trigger(SocketEvents.CLIENT.TOURNAMENT_SELECT_TABLE, { matchId: 'NOPE', courtId: 'c1' });
+
+      expect(lastError(socket)?.code).toBe('MATCH_NOT_FOUND');
+    });
+  });
+
+  // ── Slice 4: courtExists widening (TCS-2) ─────────────────────────────
+
+  describe('courtExists widened to inventory-ACTIVE (TCS-2)', () => {
+    it('BRACKET_ASSIGN_COURT rejects a runtime-only tournament court not in the catalog', () => {
+      // inventory has c1 only; runtime has c1 + a legacy runtime-only c9.
+      const inventory = createFakeInventory([{ courtId: 'c1', inventoryStatus: 'ACTIVE' }]);
+      const { handler } = makeHandler(undefined, ['c1', 'c9'], { inventory });
+      const socket = createMockSocket('w1');
+      handler.registerHandlers(socket as unknown as Socket);
+      socket._trigger(SocketEvents.CLIENT.BRACKET_CREATE, { name: 'T', numSlots: 4, includeThirdPlace: false });
+
+      socket._trigger(SocketEvents.CLIENT.BRACKET_ASSIGN_COURT, { matchId: 'R1-M1', courtId: 'c9' });
+
+      expect(lastError(socket)?.code).toBe('COURT_NOT_FOUND');
+    });
+
+    it('BRACKET_ASSIGN_COURT accepts an inventory-ACTIVE court', () => {
+      const { handler } = makeHandler();
+      const socket = createMockSocket('w2');
+      handler.registerHandlers(socket as unknown as Socket);
+      socket._trigger(SocketEvents.CLIENT.BRACKET_CREATE, { name: 'T', numSlots: 4, includeThirdPlace: false });
+
+      socket._trigger(SocketEvents.CLIENT.BRACKET_ASSIGN_COURT, { matchId: 'R1-M1', courtId: 'c1' });
+
+      const b = ownerBracketState(socket);
+      expect(b!.matches.find((m) => m.id === 'R1-M1')!.courtId).toBe('c1');
+    });
+  });
+
+  // ── Slice 4: unbindMatch public seam (AFE-2 completion) ───────────────
+
+  describe('unbindMatch (AFE-2 public seam)', () => {
+    it('nulls the courtId of the bound match and persists', () => {
+      const { handler, stateStore } = makeHandler();
+      const socket = createMockSocket('u1');
+      handler.registerHandlers(socket as unknown as Socket);
+      socket._trigger(SocketEvents.CLIENT.BRACKET_CREATE, { name: 'T', numSlots: 4, includeThirdPlace: false });
+      socket._trigger(SocketEvents.CLIENT.TOURNAMENT_SELECT_TABLE, { matchId: 'R1-M1', courtId: 'c1' });
+
+      handler.unbindMatch('R1-M1');
+
+      const b = ownerBracketState(socket);
+      expect(b!.matches.find((m) => m.id === 'R1-M1')!.courtId).toBeNull();
+      // debounced save is scheduled (2s) — the save timer will fire later; the
+      // engine state is what matters for the assertion above.
+      expect(stateStore.setBracket).toHaveBeenCalled();
+    });
+
+    it('is a no-op for an unknown match (no throw)', () => {
+      const { handler } = makeHandler();
+      expect(() => handler.unbindMatch('DOES-NOT-EXIST')).not.toThrow();
+    });
+  });
+
+  // ── Slice 4: releaseAllCourts (TCS-3, Q4) ─────────────────────────────
+
+  describe('releaseAllCourts (TCS-3, Q4)', () => {
+    it('unbinds every match, releases the tournament flows → IDLE via CourtManager, and KEEPS the bracket for display', () => {
+      const { handler, tableManager, stateStore } = makeHandler();
+      const socket = createMockSocket('r1');
+      handler.registerHandlers(socket as unknown as Socket);
+      socket._trigger(SocketEvents.CLIENT.BRACKET_CREATE, { name: 'T', numSlots: 4, includeThirdPlace: true });
+      socket._trigger(SocketEvents.CLIENT.TOURNAMENT_SELECT_TABLE, { matchId: 'R1-M1', courtId: 'c1' });
+      socket._trigger(SocketEvents.CLIENT.TOURNAMENT_SELECT_TABLE, { matchId: 'R1-M2', courtId: 'c2' });
+      socket._trigger(SocketEvents.CLIENT.TOURNAMENT_SELECT_TABLE, { matchId: 'TP-M1', courtId: 'c1' });
+
+      const released = handler.releaseAllCourts();
+
+      expect(released.sort()).toEqual(['c1', 'c2']);
+      // every match unbound — the bracket itself is KEPT (Q4).
+      const b = ownerBracketState(socket);
+      expect(b).not.toBeNull();
+      for (const m of b!.matches) expect(m.courtId).toBeNull();
+      expect(b!.thirdPlaceMatch!.courtId).toBeNull();
+      // tournament flow release delegated per distinct released court.
+      expect(tableManager.releaseCourtFlow).toHaveBeenCalledWith('c1');
+      expect(tableManager.releaseCourtFlow).toHaveBeenCalledWith('c2');
+      // persisted once.
+      expect(stateStore.setBracket).toHaveBeenCalled();
+    });
+
+    it('is a no-op when nothing is bound — bracket untouched, no release calls', () => {
+      const { handler, tableManager } = makeHandler();
+      const socket = createMockSocket('r2');
+      handler.registerHandlers(socket as unknown as Socket);
+      socket._trigger(SocketEvents.CLIENT.BRACKET_CREATE, { name: 'T', numSlots: 4, includeThirdPlace: false });
+
+      expect(handler.releaseAllCourts()).toEqual([]);
+      expect(tableManager.releaseCourtFlow).not.toHaveBeenCalled();
+      expect(ownerBracketState(socket)).not.toBeNull();
+    });
+  });
+
+  // ── Slice 4: strict cold start (TCS-4) ────────────────────────────────
+
+  describe('strict cold start (TCS-4)', () => {
+    it('BRACKET_CREATE is rejected with COURT_INVENTORY_EMPTY when no ACTIVE inventory court exists', () => {
+      const inventory = createFakeInventory([
+        { courtId: 'c1', inventoryStatus: 'MAINTENANCE' },
+      ]);
+      const { handler, stateStore } = makeHandler(undefined, ['c1'], { inventory });
+      const socket = createMockSocket('c1s');
+      handler.registerHandlers(socket as unknown as Socket);
+
+      socket._trigger(SocketEvents.CLIENT.BRACKET_CREATE, { name: 'T', numSlots: 4, includeThirdPlace: false });
+
+      expect(lastError(socket)?.code).toBe('COURT_INVENTORY_EMPTY');
+      expect(stateStore.setBracket).not.toHaveBeenCalled();
+      expect(ownerBracketState(socket)).toBeNull();
+    });
+
+    it('BRACKET_CREATE is allowed when at least one ACTIVE inventory court exists', () => {
+      const { handler } = makeHandler();
+      const socket = createMockSocket('c2s');
+      handler.registerHandlers(socket as unknown as Socket);
+
+      socket._trigger(SocketEvents.CLIENT.BRACKET_CREATE, { name: 'T', numSlots: 4, includeThirdPlace: false });
+
+      expect(lastError(socket)).toBeUndefined();
+      expect(ownerBracketState(socket)).not.toBeNull();
     });
   });
 });

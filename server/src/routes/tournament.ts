@@ -81,12 +81,17 @@ export function handleNew(
 /**
  * POST /finish
  * Clears the active tournament state.
+ *
+ * Slice 4 (TCS-3/Q4): when a bracket release seam is wired, every bracket
+ * court binding is released first (flows → IDLE, bracket kept for display);
+ * club courts are never touched. The finished bracket stays rendered.
  */
 export function handleFinish(
   stateStore: ICourtPersistence,
   tableManager: CourtManager,
   _req: Request,
   res: Response,
+  releaseAllBracketCourts?: () => string[],
 ): void {
   if (!stateStore.checkExists()) {
     res.status(409).json({
@@ -95,6 +100,10 @@ export function handleFinish(
     });
     return;
   }
+
+  // TCS-3/Q4 — release bracket-scoped court bindings + tournament flows
+  // BEFORE finishTournament clears the runtime tournament entries.
+  releaseAllBracketCourts?.();
 
   stateStore.clear();
   tableManager.finishTournament();
@@ -109,12 +118,15 @@ export function handleFinish(
  * @param stateStore  StateStore instance for persistence operations.
  * @param tableManager  CourtManager instance for tournament restoration.
  * @param authMiddleware  Express middleware for owner auth validation.
+ * @param releaseAllBracketCourts  Optional bracket release seam (TCS-3/Q4) —
+ *   wired from the SocketHandler so POST /finish unbinds bracket courts.
  * @returns  Configured Express Router.
  */
 export function createTournamentRouter(
   stateStore: ICourtPersistence,
   tableManager: CourtManager,
   authMiddleware: (req: Request, res: Response, next: () => void) => void,
+  releaseAllBracketCourts?: () => string[],
 ): Router {
   const router = Router();
 
@@ -131,7 +143,7 @@ export function createTournamentRouter(
   });
 
   router.post('/finish', authMiddleware, (req: Request, res: Response) => {
-    handleFinish(stateStore, tableManager, req, res);
+    handleFinish(stateStore, tableManager, req, res, releaseAllBracketCourts);
   });
 
   return router;

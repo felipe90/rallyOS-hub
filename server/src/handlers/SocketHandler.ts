@@ -137,7 +137,10 @@ export class SocketHandler {
     // is injected so the bracket persists across restarts (R10); omitting
     // the store keeps older test wiring working without a bracket handler.
     if (stateStore) {
-      this.bracketHandler = new BracketHandler(io, tableManager, ownerPin, stateStore);
+      // Slice 4: BracketHandler now consumes the InventoryManager for
+      // courtExists (TCS-2 — inventory-ACTIVE) and the strict cold-start gate
+      // (TCS-4 — no ACTIVE court → COURT_INVENTORY_EMPTY on BRACKET_CREATE).
+      this.bracketHandler = new BracketHandler(io, tableManager, ownerPin, stateStore, inventoryManager);
     }
     // Phase 3 / U2: pass clubConfigStore so CLUB_ADMIN_OCCUPY can resolve
     // the configured sport for the default match config on the freshly
@@ -408,14 +411,12 @@ export class SocketHandler {
   }
 
   /**
-   * AFE-2 force-end bracket context — supplies the resolve seam for the
-   * INVENTORY_FORCE_END handler so a tournament force-end can find the
-   * bracket match bound to the court. BRIDGE (slice 3): only the resolve
-   * seam exists today (`BracketHandler.resolveBracketMatchForCourt`); the
-   * `unbindMatch` callback (engine.assignCourt(m, null)) is completed in
-   * slice 4 with the bracket binding work. Until then a force-ended
-   * tournament court is freed (flow cleared → IDLE) and the dangling
-   * binding is a documented bridge artifact (see apply-progress).
+   * AFE-2 force-end bracket context — supplies the resolve + unbind seams for
+   * the INVENTORY_FORCE_END handler so a tournament force-end can find the
+   * bracket match bound to the court and then clear the binding
+   * (assignCourt(m, null)) WITHOUT setWinner/advance. Slice 3 wired only the
+   * resolve seam; slice 4 completes `unbindMatch` via the public
+   * `BracketHandler.unbindMatch` passthrough (engine is private).
    */
   private bracketForceEndContext(): FlowContext {
     const bh = this.bracketHandler;
@@ -425,7 +426,20 @@ export class SocketHandler {
         const m = bh.resolveBracketMatchForCourt(courtId);
         return m ? { id: m.id } : null;
       },
+      unbindMatch: (matchId: string) => {
+        bh.unbindMatch(matchId);
+      },
     };
+  }
+
+  /**
+   * Release every bracket court binding + tournament flow (TCS-3, Q4) —
+   * public seam for the POST /api/tournament/finish route. Bracket-scoped:
+   * club courts untouched; the completed bracket is KEPT for display. No-op
+   * when no BracketHandler is wired.
+   */
+  releaseAllBracketCourts(): string[] {
+    return this.bracketHandler?.releaseAllCourts() ?? [];
   }
 
   /**

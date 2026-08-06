@@ -133,7 +133,7 @@ const courtManager = new CourtManager({
 // of truth (ENCRYPTION_SECRET via pinEncryption.getServerSecret).
 const sessionTokenService = new SessionTokenService();
 
-createSocketServer(io, courtManager, ownerPin, hubConfig, clubConfigStore, sessionHistoryStore, undefined, stateStore, inventoryManager);
+const socketHandler = createSocketServer(io, courtManager, ownerPin, hubConfig, clubConfigStore, sessionHistoryStore, undefined, stateStore, inventoryManager);
 
 // Restore persisted state (OCCUPIED/FINISHED courts) from disk.
 // Must run AFTER createSocketServer so onTableUpdate callbacks are wired.
@@ -159,10 +159,18 @@ app.get('/api/club/config', (_req, res) => {
   });
 });
 
-// Mount tournament lifecycle routes (before SPA fallback)
+// Mount tournament lifecycle routes (before SPA fallback).
+// Slice 4 (TCS-3/Q4): POST /finish also releases every bracket court binding
+// (flows → IDLE) via the SocketHandler seam — the finished bracket stays on
+// display and club courts are untouched.
 app.use(
   '/api/tournament',
-  createTournamentRouter(stateStore, courtManager, ownerAuthMiddleware),
+  createTournamentRouter(
+    stateStore,
+    courtManager,
+    ownerAuthMiddleware,
+    () => socketHandler.releaseAllBracketCourts(),
+  ),
 );
 
 // Mount CSV export route (before SPA fallback)

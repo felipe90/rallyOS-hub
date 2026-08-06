@@ -34,6 +34,8 @@ export interface UseBracketReturn {
   assignPlayer: (matchId: string, slot: BracketSlot, name: string) => void
   setWinner: (matchId: string, winner: Player) => void
   assignCourt: (matchId: string, courtId: string | null) => void
+  /** Owner-picker court binding (D13/TCS-1) — emits TOURNAMENT_SELECT_TABLE. */
+  selectTable: (matchId: string, courtId: string) => void
   undoMatch: (matchId: string) => void
   getBracket: () => void
   /** Step 1 reset — server replies with BRACKET_RESET_CONFIRM (token). */
@@ -92,12 +94,15 @@ export function useBracket(socket: Socket | null): UseBracketReturn {
     resetExpiresIn,
     createBracket: (name, numSlots, includeThirdPlace = false) =>
       emit(SocketEvents.CLIENT.BRACKET_CREATE, { name, numSlots, includeThirdPlace }),
-    assignPlayer: (matchId, slot, name) =>
-      emit(SocketEvents.CLIENT.BRACKET_ASSIGN_PLAYER, { matchId, slot, name }),
+  assignPlayer: (matchId, slot, name) =>
+    emit(SocketEvents.CLIENT.BRACKET_ASSIGN_PLAYER, { matchId, slot, name }),
     setWinner: (matchId, winner) =>
       emit(SocketEvents.CLIENT.BRACKET_SET_WINNER, { matchId, winner }),
     assignCourt: (matchId, courtId) =>
       emit(SocketEvents.CLIENT.BRACKET_ASSIGN_COURT, { matchId, courtId }),
+    /** Owner-picker court binding (D13/TCS-1) — emits TOURNAMENT_SELECT_TABLE. */
+    selectTable: (matchId, courtId) =>
+      emit(SocketEvents.CLIENT.TOURNAMENT_SELECT_TABLE, { matchId, courtId }),
     undoMatch: (matchId) =>
       emit(SocketEvents.CLIENT.BRACKET_UNDO_MATCH, { matchId }),
     getBracket: () => emit(SocketEvents.CLIENT.BRACKET_GET, undefined),

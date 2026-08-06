@@ -218,6 +218,8 @@
   "sportTerm.bracketCourtOccupiedWarn.padel": "La cancha está ocupada por otro partido",
   "sportTerm.bracketAssignCourtTitle.tableTennis": "Asignar mesa",
   "sportTerm.bracketAssignCourtTitle.padel": "Asignar cancha",
+  "sportTerm.tournamentNoCourts.tableTennis": "No hay mesas disponibles. Configurá el inventario como admin para comenzar un torneo.",
+  "sportTerm.tournamentNoCourts.padel": "No hay canchas disponibles. Configurá el inventario como admin para comenzar un torneo.",
   "sportTerm.bracketAssignCourtNone.tableTennis": "Sin mesa",
   "sportTerm.bracketAssignCourtNone.padel": "Sin cancha",
   "sportTerm.bracketErrorCourtNotFound.tableTennis": "La mesa no existe",

@@ -53,11 +53,37 @@ const handlers = {
   onAssignPlayer: noop,
   onSetWinner: noop,
   onAssignCourt: noop,
+  onSelectTable: noop,
   onUndo: noop,
   onReset: noop as ((token?: string) => void),
   onResetConfirm: noop,
   onClearError: noop,
 }
+
+describe('BracketView — strict cold-start empty state (TCS-4)', () => {
+  it('shows the empty-state copy instead of the setup form when no ACTIVE inventory courts exist', () => {
+    renderWithI18n(
+      <BracketView
+        bracket={null}
+        courts={[]}
+        resetToken={null}
+        hasAvailableCourts={false}
+        {...handlers}
+      />,
+    )
+    expect(screen.getByText(/No hay mesas disponibles/i)).toBeInTheDocument()
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Crear$/i })).not.toBeInTheDocument()
+  })
+
+  it('renders the setup form when ACTIVE inventory courts exist', () => {
+    renderWithI18n(
+      <BracketView bracket={null} courts={[]} resetToken={null} hasAvailableCourts {...handlers} />,
+    )
+    expect(screen.getByRole('textbox')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Crear$/i })).toBeInTheDocument()
+  })
+})
 
 describe('BracketView — empty state (no bracket)', () => {
   it('renders the setup form when bracket is null', () => {
@@ -197,15 +223,15 @@ describe('BracketView — slot assignment modal', () => {
 })
 
 describe('BracketView — court assignment modal', () => {
-  it('clicking the court button lists available courts; selecting one assigns', () => {
-    const onAssignCourt = vi.fn()
+  it('clicking the court button lists available courts; selecting one emits SELECT (D13)', () => {
+    const onSelectTable = vi.fn()
     renderWithI18n(
       <BracketView
         bracket={makeBracket()}
         courts={[makeCourt('c-1', 'Cancha 1'), makeCourt('c-2', 'Cancha 2')]}
         resetToken={null}
         {...handlers}
-        onAssignCourt={onAssignCourt}
+        onSelectTable={onSelectTable}
       />,
     )
     fireEvent.click(screen.getAllByRole('button', { name: /Sin mesa/i })[0])
@@ -213,7 +239,7 @@ describe('BracketView — court assignment modal', () => {
     expect(screen.getByText('Cancha 1')).toBeInTheDocument()
     expect(screen.getByText('Cancha 2')).toBeInTheDocument()
     fireEvent.click(screen.getByText('Cancha 2'))
-    expect(onAssignCourt).toHaveBeenCalledWith('R1-M1', 'c-2')
+    expect(onSelectTable).toHaveBeenCalledWith('R1-M1', 'c-2')
   })
 
   it('"Sin mesa" clears the court', () => {

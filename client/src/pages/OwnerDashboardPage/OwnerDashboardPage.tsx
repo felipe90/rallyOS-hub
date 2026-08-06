@@ -3,7 +3,7 @@
  * Full admin dashboard with table creation, PIN management, and QR codes
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSportTerms } from '@/hooks/useSportTerms'
 import { DashboardGrid, DashboardHeader } from '@/components/organisms/DashboardGrid'
@@ -19,15 +19,16 @@ import { useDashboardStats } from '@/hooks/useDashboardStats'
 import { usePinSubmission } from '@/hooks/usePinSubmission'
 import { useRefereeSession } from '@/hooks/useRefereeSession'
 import { useCourtManagement } from '@/hooks/useCourtManagement'
+import { useCourtInventory } from '@/hooks/useCourtInventory'
 import { useBracket } from '@/hooks/useBracket'
 import { BracketView } from '@/components/organisms'
 import { useToast } from '@/components/molecules/Toast'
-import { Button, FloatingActionButton } from '@/components/atoms'
+import { Button } from '@/components/atoms'
 import { Body, Typography } from '@/components/atoms/Typography'
 import { SocketEvents } from '@shared/events'
 import { Routes, buildScoreboardRoute } from '@/routes'
-import { COURT_MODE, type CourtInfoWithPin, type KioskNotificationType, type CourtInfo, type KioskMode } from '@shared/types'
-import { ArrowLeft, Table2, Swords, Users, Bell, Flag, Download, AlertTriangle, Plus, Clock, Trophy, Monitor, ListTree } from 'lucide-react'
+import { INVENTORY_STATUS, type CourtInfoWithPin, type KioskNotificationType, type CourtInfo, type KioskMode } from '@shared/types'
+import { ArrowLeft, Table2, Swords, Users, Bell, Flag, Download, AlertTriangle, Clock, Trophy, Monitor, ListTree } from 'lucide-react'
 
 
 export interface OwnerDashboardPageProps {
@@ -44,7 +45,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
   const [activeTab, setActiveTab] = useState('courts')
   const [kioskMode, setKioskModeState] = useState<KioskMode>('club')
   const navigate = useNavigate()
-  const { terms, i18nText, sport } = useSportTerms()
+  const { terms, i18nText } = useSportTerms()
   const { courts, connected, socket, requestCourtsWithPins, appError, allHistories } = useSocketContext()
   const { logout, ownerPin, setCourtPin, isOwner, tournamentToken } = useAuthContext()
   const stats = useDashboardStats(courts)
@@ -53,20 +54,22 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
 
   const courtMgmt = useCourtManagement({ socket, connected })
   const bracketApi = useBracket(socket)
-  /** Tournament courts only — pass to BracketView for court assignment. */
-  const tournamentCourts: CourtInfo[] = courts.filter((c) => c.mode !== COURT_MODE.CLUB)
+  // Slice 4.5 (D12): the owner picker consumes the SAME catalog + availability
+  // view as the admin (useCourtInventory) — ACTIVE inventory courts only.
+  const inventory = useCourtInventory(socket, connected)
+  /** Owner picker list: ACTIVE inventory courts (id + name for BracketView). */
+  const pickerCourts: CourtInfo[] = useMemo(
+    () =>
+      inventory.courts
+        .filter((c) => c.inventoryStatus === INVENTORY_STATUS.ACTIVE)
+        .map((c) => ({ id: c.courtId, name: c.name }) as CourtInfo),
+    [inventory.courts],
+  )
+  /** TCS-4 strict cold-start: false → the picker shows the empty-state copy. */
+  const hasActiveInventoryCourts = inventory.courts.some(
+    (c) => c.inventoryStatus === INVENTORY_STATUS.ACTIVE,
+  )
   const { addToast } = useToast()
-
-  // Track previous creating state to detect court creation completion
-  const wasCreatingRef = useRef(courtMgmt.isCreating)
-  useEffect(() => {
-    const wasCreating = wasCreatingRef.current;
-    wasCreatingRef.current = courtMgmt.isCreating;
-    // Transition: was creating → now not creating = court created successfully
-    if (wasCreating && !courtMgmt.isCreating && !appError) {
-      addToast('success', terms.toastCourtCreated);
-    }
-  }, [courtMgmt.isCreating, appError, addToast, terms.toastCourtCreated]);
 
   // Toast on PIN error
   useEffect(() => {
@@ -268,11 +271,6 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
     return map[code] || code
   }
 
-  const handleCreateCourt = (name: string) => {
-    courtMgmt.setCourtName(name);
-    courtMgmt.createCourt();
-  };
-
   const dashboardActions = <div className="flex flex-wrap gap-1 items-center">
     {!courtMgmt.isCreating ? (
       <>
@@ -454,13 +452,15 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
           ) : activeTab === 'tournament' ? (
             <BracketView
               bracket={bracketApi.bracket}
-              courts={tournamentCourts}
+              courts={pickerCourts}
               error={bracketApi.error}
               resetToken={bracketApi.resetToken}
+              hasAvailableCourts={hasActiveInventoryCourts}
               onCreate={bracketApi.createBracket}
               onAssignPlayer={bracketApi.assignPlayer}
               onSetWinner={bracketApi.setWinner}
               onAssignCourt={bracketApi.assignCourt}
+              onSelectTable={bracketApi.selectTable}
               onUndo={bracketApi.undoMatch}
               onReset={() => bracketApi.reset()}
               onResetConfirm={bracketApi.resetConfirm}
@@ -477,27 +477,6 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
           )}
         </div>
       </main>
-
-      {/* Floating Action Button — Nueva Cancha (solo en tab Canchas) */}
-      {activeTab === 'courts' && (
-        <div className="fixed bottom-6 right-6 z-50">
-          <FloatingActionButton
-          icon={<Plus size={20} />}
-          label={terms.ownerCreateCourt}
-          onClick={() => {
-            let next = courts.length + 1
-            let name = i18nText(`sportTerm.clubAdminDefaultCourtName.${sport}`, { number: String(next) })
-            while (courts.some(c => c.name === name)) {
-              next++
-              name = i18nText(`sportTerm.clubAdminDefaultCourtName.${sport}`, { number: String(next) })
-            }
-            handleCreateCourt(name)
-          }}
-          disabled={courtMgmt.isCreating}
-          loading={courtMgmt.isCreating}
-        />
-        </div>
-      )}
 
       <PinModal
         isOpen={pinModalOpen}

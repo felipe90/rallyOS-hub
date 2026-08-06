@@ -218,6 +218,8 @@
   "sportTerm.bracketCourtOccupiedWarn.padel": "The court is busy with another match",
   "sportTerm.bracketAssignCourtTitle.tableTennis": "Assign table",
   "sportTerm.bracketAssignCourtTitle.padel": "Assign court",
+  "sportTerm.tournamentNoCourts.tableTennis": "No tables available. Configure the inventory as admin to start a tournament.",
+  "sportTerm.tournamentNoCourts.padel": "No courts available. Configure the inventory as admin to start a tournament.",
   "sportTerm.bracketAssignCourtNone.tableTennis": "No table",
   "sportTerm.bracketAssignCourtNone.padel": "No court",
   "sportTerm.bracketErrorCourtNotFound.tableTennis": "The table does not exist",

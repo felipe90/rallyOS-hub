@@ -54,6 +54,8 @@ export const TERM_KEYS = {
   bracketCourtOccupiedWarn: 'bracketCourtOccupiedWarn',
   bracketAssignCourtTitle: 'bracketAssignCourtTitle',
   bracketAssignCourtNone: 'bracketAssignCourtNone',
+  // TCS-4 — strict cold-start empty-state copy for the owner picker.
+  tournamentNoCourts: 'tournamentNoCourts',
   bracketErrorCourtNotFound: 'bracketError.courtNotFound',
   bracketErrorCourtAlreadyAssigned: 'bracketError.courtAlreadyAssigned',
   matchConfigForCourt: 'matchConfigForCourt',

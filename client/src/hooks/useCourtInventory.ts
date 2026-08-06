@@ -132,6 +132,23 @@ export function useCourtInventory(socket: Socket | null, connected: boolean) {
     [emitAction],
   )
 
+  // club-featured-courts — toggle featured for a club court. The server is
+  // authoritative: local state is reconciled on the next CLUB_KIOSK_DATA
+  // broadcast, so we do NOT optimistically flip `featured` here.
+  const toggleFeatured = useCallback((courtId: string) => {
+    if (!socket || !connected) {
+      setError('NO_CONNECTION')
+      return
+    }
+    setLoading(true)
+    setError(null)
+    const target = courts.find(c => c.courtId === courtId)
+    const isFeatured = target?.featured === true
+    socket.emit(SocketEvents.CLIENT.SET_FEATURED, {
+      targetCourtId: isFeatured ? null : courtId,
+    })
+  }, [socket, connected, courts])
+
   const clearError = useCallback(() => setError(null), [])
 
   return {
@@ -148,6 +165,7 @@ export function useCourtInventory(socket: Socket | null, connected: boolean) {
     deactivate,
     reset,
     adminOccupy,
+    toggleFeatured,
   }
 }
 

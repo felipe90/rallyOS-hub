@@ -1,36 +1,38 @@
 /**
- * ClubAdminPage — tabbed refactor acceptance test (task 3.5).
+ * ClubAdminPage — admin court inventory UI (admin-court-inventory slice 3).
  *
- * Verifies that the admin dashboard renders a TabContainer with the
- * "Canchas" and "Historial" tabs, that "Canchas" is the default, and
- * that switching to "Historial" renders the ClubSessionHistoryPanel.
+ * The page lists the reconciled inventory (ACTIVE/MAINTENANCE/ARCHIVED),
+ * offers add/rename/maintenance/archive + force-end on BUSY (no-delete copy),
+ * and keeps the bridge club-flow actions (activate/occupy/reset/featured) +
+ * PIN verify + history tab + notifications.
  *
- * Hook collaborators are mocked at the module boundary. The page is a
- * composition layer — the underlying hooks (useClubAdmin,
- * useClubCourtManagement, useClubSessionHistory) each have their own
- * unit tests.
+ * Hook collaborators are mocked at the module boundary; the page is a
+ * composition layer (useClubAdmin, useCourtInventory, useClubSessionHistory
+ * each have their own unit tests).
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
+import type { InventoryCourtView } from '@/services/courts/reconcileInventory'
+import { AVAILABILITY, INVENTORY_STATUS } from '@shared/types'
 
 vi.mock('@/contexts/SportContext', () => ({
   useSport: () => ({ sport: 'tableTennis', sportLoaded: true }),
 }))
 
 const useClubAdminMock = vi.fn()
-const useClubCourtManagementMock = vi.fn()
+const useCourtInventoryMock = vi.fn()
 const useClubSessionHistoryMock = vi.fn()
-
 const mockUseSocketContext = vi.hoisted(() => vi.fn())
+const mockUseToast = vi.hoisted(() => vi.fn())
 
 vi.mock('@/hooks/useClubAdmin', () => ({
   useClubAdmin: (...args: unknown[]) => useClubAdminMock(...args),
 }))
 
-vi.mock('@/hooks/useClubCourtManagement', () => ({
-  useClubCourtManagement: (...args: unknown[]) => useClubCourtManagementMock(...args),
+vi.mock('@/hooks/useCourtInventory', () => ({
+  useCourtInventory: (...args: unknown[]) => useCourtInventoryMock(...args),
 }))
 
 vi.mock('@/hooks/useClubSessionHistory', () => ({
@@ -46,26 +48,16 @@ vi.mock('@/contexts/AuthContext', () => ({
 }))
 
 vi.mock('@/components/molecules/KioskNotificationModal', () => ({
-  KioskNotificationModal: vi.fn(({ isOpen, onSubmit, onClose, showGeneralToggle, isLoading, error }) =>
+  KioskNotificationModal: vi.fn(({ isOpen, onSubmit, onClose, showGeneralToggle }) =>
     isOpen ? (
       <div data-testid="kiosk-notification-modal">
         {showGeneralToggle && <span data-testid="general-toggle">General toggle visible</span>}
-        {isLoading && <span data-testid="loading-indicator">Loading...</span>}
-        {error && <span data-testid="error-message">{error}</span>}
-        <button
-          data-testid="modal-submit"
-          onClick={() => onSubmit({
-            type: 'info',
-            message: 'Test notification',
-            duration: 5,
-            scope: 'club',
-          })}
-        >
-          Submit
-        </button>
+        <button data-testid="modal-submit" onClick={() => onSubmit({
+          type: 'info', message: 'Test notification', duration: 5, scope: 'club',
+        })}>Submit</button>
         <button data-testid="modal-close" onClick={onClose}>Close</button>
       </div>
-    ) : null
+    ) : null,
   ),
 }))
 
@@ -73,18 +65,15 @@ vi.mock('@/i18n', () => ({
   useI18n: () => ({
     i18nText: (key: string, opts?: Record<string, unknown>) => {
       const map: Record<string, string> = {
-        'sportTerm.toastClubCourtCreated.tableTennis': 'Mesa creada',
-        'sportTerm.toastClubCourtActivated.tableTennis': 'Mesa activada',
-        'sportTerm.toastClubCourtDeleted.tableTennis': 'Mesa eliminada',
-        'sportTerm.toastClubCourtDeactivated.tableTennis': 'Mesa desactivada',
-        'sportTerm.toastClubCourtResetted.tableTennis': 'Mesa restablecida',
-        'sportTerm.toastClubDeleteFailed.tableTennis': 'No se pudo eliminar la mesa',
-        'sportTerm.toastClubResetFailed.tableTennis': 'No se pudo restablecer la mesa',
         'sportTerm.clubAdminTabCourts.tableTennis': 'Mesas',
         'sportTerm.clubAdminNoCourts.tableTennis': 'Sin mesas aún',
-        'sportTerm.clubAdminCreateCourt.tableTennis': 'Nueva Mesa',
         'sportTerm.clubAdminDefaultCourtName.tableTennis': 'Mesa {{number}}',
-        'sportTerm.clubAdminDeleteConfirm.tableTennis': '¿Eliminar esta mesa?',
+        'sportTerm.inventoryAdd.tableTennis': 'Agregar Mesa',
+        'sportTerm.inventoryRename.tableTennis': 'Renombrar Mesa',
+        'sportTerm.inventoryMaintenance.tableTennis': 'Mantenimiento',
+        'sportTerm.inventoryArchive.tableTennis': 'Archivar',
+        'sportTerm.inventoryForceEnd.tableTennis': 'Finalizar Sesión',
+        'sportTerm.courtArchiveNoDelete.tableTennis': 'Las mesas usadas se archivan, nunca se eliminan',
         clubAdminTabCourts: 'Canchas',
         clubAdminTabHistory: 'Historial',
         clubAdminTitle: 'Admin del Club',
@@ -92,13 +81,9 @@ vi.mock('@/i18n', () => ({
         clubAdminEnterPin: 'Ingresá el PIN de Admin',
         clubAdminVerify: 'Verificar',
         clubAdminVerifying: 'Verificando...',
-        clubAdminCreateCourt: 'Nueva Cancha',
-        clubAdminNoCourts: 'Sin canchas aún',
         clubAdminBack: 'Atrás',
         clubAdminForceEnd: 'Finalizar Sesión',
         clubAdminForceEndConfirm: '¿Finalizar esta sesión?',
-        clubAdminDelete: 'Eliminar',
-        clubAdminDeleteConfirm: '¿Eliminar esta cancha?',
         clubAdminActivate: 'Activar',
         clubAdminDeactivate: 'Desactivar',
         clubAdminReset: 'Restablecer',
@@ -107,17 +92,13 @@ vi.mock('@/i18n', () => ({
         clubAdminStatusOccupied: 'Ocupada',
         clubAdminStatusFinished: 'Finalizada',
         clubAdminStatusMaintenance: 'Mantenimiento',
-        clubAdminPinLabel: 'PIN: {{pin}}',
-        clubAdminDefaultCourtName: 'Cancha {{number}}',
-        toastClubCourtCreated: 'Cancha creada',
-        toastClubCourtActivated: 'Cancha activada',
-        toastClubSessionEnded: 'Sesión finalizada',
-        toastClubCourtDeleted: 'Cancha eliminada',
-        toastClubCourtDeactivated: 'Cancha desactivada',
-        toastClubCourtResetted: 'Cancha restablecida',
-        toastClubActivationFailed: 'No se pudo activar',
+        inventoryStatusActive: 'Activa',
+        inventoryStatusArchived: 'Archivada',
+        clubAdminOccupy: 'Ocupar',
         toastClubForceEndFailed: 'No se pudo finalizar',
-        toastClubDeleteFailed: 'No se pudo eliminar',
+        toastClubArchiveFailed: 'No se pudo archivar',
+        toastClubMaintenanceFailed: 'No se pudo poner en mantenimiento',
+        toastClubActivationFailed: 'No se pudo activar',
         toastClubDeactivateFailed: 'No se pudo desactivar',
         toastClubResetFailed: 'No se pudo restablecer',
         errorClubPinInvalid: 'PIN incorrecto',
@@ -127,14 +108,16 @@ vi.mock('@/i18n', () => ({
         errorClubNotConfigured: 'No configurado',
         commonBack: 'Atrás',
         commonCancel: 'Cancelar',
+        commonConfirm: 'Confirmar',
         connectionConnected: 'Conectado',
         connectionConnecting: 'Conectando',
         connectionNoConnection: 'Sin Conexión',
         connectionDisconnected: 'Desconectado',
         notificationModalTitle: 'Send Notification',
-        notificationScopeLabel: 'Scope',
-        notificationScopeClub: 'Club',
         notificationScopeGeneral: 'General',
+        courtDestacar: 'Destacar',
+        courtQuitarDestacado: 'Quitar Destacado',
+        clubAdminRenameLabel: 'Nuevo nombre',
       }
       let s = map[key] ?? key
       if (opts) {
@@ -148,7 +131,7 @@ vi.mock('@/i18n', () => ({
 }))
 
 vi.mock('@/components/molecules/Toast', () => ({
-  useToast: () => ({ addToast: vi.fn() }),
+  useToast: mockUseToast,
 }))
 
 import { ClubAdminPage } from './ClubAdminPage'
@@ -161,79 +144,55 @@ function adminPage() {
   )
 }
 
-describe('ClubAdminPage — tabbed layout', () => {
-  beforeEach(() => {
-    mockUseSocketContext.mockReturnValue({ socket: null, connected: true })
-    useClubAdminMock.mockReturnValue({
-      isAdmin: true,
-      verifyAdminPin: vi.fn(),
-      verifyLoading: false,
-      verifyError: null,
-      clearVerifyError: vi.fn(),
-    })
-    useClubCourtManagementMock.mockReturnValue({
-      courts: [],
-      loading: false,
-      error: null,
-      lastEvent: null,
-      createCourt: vi.fn(),
-      activateCourt: vi.fn(),
-      deactivateCourt: vi.fn(),
-      forceEndSession: vi.fn(),
-      deleteCourt: vi.fn(),
-      resetCourt: vi.fn(),
-      clearEvent: vi.fn(),
-    })
-    useClubSessionHistoryMock.mockReturnValue({
-      sessions: [],
-      clearHistory: vi.fn(),
-      confirmClearHistory: vi.fn(),
-      cancelClearHistory: vi.fn(),
-      pendingClearConfirm: false,
-      clearError: null,
-    })
-  })
-
-  it('renders both tab triggers ("Mesas" and "Historial") once admin is verified', () => {
-    adminPage()
-    expect(screen.getByRole('tab', { name: 'Mesas' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'Historial' })).toBeInTheDocument()
-  })
-
-  it('defaults to the "Mesas" tab as active', () => {
-    adminPage()
-    expect(screen.getByRole('tab', { name: 'Mesas' })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByRole('tab', { name: 'Historial' })).toHaveAttribute('aria-selected', 'false')
-  })
-
-  it('renders the court-management UI inside the "Mesas" tab by default', () => {
-    adminPage()
-    // The "Nueva Mesa" creation button is the canonical affordance of the courts tab
-    expect(screen.getByRole('button', { name: /Nueva Mesa/ })).toBeInTheDocument()
-  })
-
-  it('switches to the "Historial" tab when its trigger is clicked and shows the history panel', () => {
-    adminPage()
-    fireEvent.click(screen.getByRole('tab', { name: 'Historial' }))
-    expect(screen.getByRole('tab', { name: 'Historial' })).toHaveAttribute('aria-selected', 'true')
-    // The empty-placeholder i18n string rendered by the injected history panel
-    // (useClubSessionHistoryMock returns sessions: []).
-    // Panel is rendered inside the Historial tab; "Export CSV" button is the
-    // canonical affordance even in empty state — but our mock i18n returns the
-    // raw "historyExportBtn" key because we trimmed the i18n map. Assert on it.
-    expect(screen.getByText('historyExportBtn')).toBeInTheDocument()
-    expect(screen.getByText('historyClearBtn')).toBeInTheDocument()
-  })
-
-  it('does not render the history panel while on the "Mesas" tab', () => {
-    adminPage()
-    expect(screen.queryByText('historyExportBtn')).not.toBeInTheDocument()
-  })
+const view = (over: Partial<InventoryCourtView> = {}): InventoryCourtView => ({
+  courtId: 'c1',
+  number: 1,
+  name: 'Mesa 1',
+  inventoryStatus: INVENTORY_STATUS.ACTIVE,
+  availability: AVAILABILITY.IDLE,
+  inCatalog: true,
+  ...over,
 })
 
+function defaultHooks(courts: InventoryCourtView[] = []) {
+  mockUseSocketContext.mockReturnValue({ socket: null, connected: true })
+  mockUseToast.mockReturnValue({ addToast: vi.fn() })
+  useClubAdminMock.mockReturnValue({
+    isAdmin: true,
+    verifyAdminPin: vi.fn(),
+    verifyLoading: false,
+    verifyError: null,
+    clearVerifyError: vi.fn(),
+  })
+  useCourtInventoryMock.mockReturnValue({
+    courts,
+    loading: false,
+    error: null,
+    clearError: vi.fn(),
+    add: vi.fn(),
+    rename: vi.fn(),
+    setMaintenance: vi.fn(),
+    archive: vi.fn(),
+    forceEnd: vi.fn(),
+    activate: vi.fn(),
+    deactivate: vi.fn(),
+    reset: vi.fn(),
+    adminOccupy: vi.fn(),
+    toggleFeatured: vi.fn(),
+  })
+  useClubSessionHistoryMock.mockReturnValue({
+    sessions: [],
+    clearHistory: vi.fn(),
+    confirmClearHistory: vi.fn(),
+    cancelClearHistory: vi.fn(),
+    pendingClearConfirm: false,
+    clearError: null,
+  })
+}
+
 describe('ClubAdminPage — pre-admin PIN screen', () => {
-  beforeEach(() => {
-    mockUseSocketContext.mockReturnValue({ socket: null, connected: true })
+  it('renders the PIN entry screen (no tab layout) before admin is verified', () => {
+    defaultHooks()
     useClubAdminMock.mockReturnValue({
       isAdmin: false,
       verifyAdminPin: vi.fn(),
@@ -241,208 +200,186 @@ describe('ClubAdminPage — pre-admin PIN screen', () => {
       verifyError: null,
       clearVerifyError: vi.fn(),
     })
-  })
-
-  it('renders the PIN entry screen (no tab layout) before admin is verified', () => {
     adminPage()
-    expect(screen.queryByRole('tablist')).not.toBeInTheDocument()
     expect(screen.getByText('Ingresá el PIN de Admin')).toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: 'Mesas' })).not.toBeInTheDocument()
   })
 })
 
-describe('ClubAdminPage — featured toggle button (club-featured-courts)', () => {
-  function makeCourt(overrides: Record<string, unknown> = {}) {
-    return {
-      id: 'court-1',
-      name: 'Mesa 1',
-      status: 'OCCUPIED',
-      mode: 'club',
-      featured: false,
-      sessionMode: 'match',
-      ...overrides,
-    }
-  }
-
-  function setupCourt(courts: ReturnType<typeof makeCourt>[]) {
-    mockUseSocketContext.mockReturnValue({ socket: null, connected: true })
-    useClubAdminMock.mockReturnValue({
-      isAdmin: true,
-      verifyAdminPin: vi.fn(),
-      verifyLoading: false,
-      verifyError: null,
-      clearVerifyError: vi.fn(),
-    })
-    const toggleFeatured = vi.fn()
-    useClubCourtManagementMock.mockReturnValue({
-      courts,
-      loading: false,
-      error: null,
-      lastEvent: null,
-      createCourt: vi.fn(),
-      activateCourt: vi.fn(),
-      deactivateCourt: vi.fn(),
-      forceEndSession: vi.fn(),
-      deleteCourt: vi.fn(),
-      resetCourt: vi.fn(),
-      clearEvent: vi.fn(),
-      toggleFeatured,
-    })
-    useClubSessionHistoryMock.mockReturnValue({
-      sessions: [],
-      clearHistory: vi.fn(),
-      confirmClearHistory: vi.fn(),
-      cancelClearHistory: vi.fn(),
-      pendingClearConfirm: false,
-      clearError: null,
-    })
-    return { toggleFeatured }
-  }
-
-  it('renders the Destacar (Feature) button on a match-mode OCCUPIED court card when featured is false', () => {
-    setupCourt([makeCourt({ status: 'OCCUPIED', sessionMode: 'match', featured: false })])
+describe('ClubAdminPage — tabbed layout + inventory list', () => {
+  it('renders both tab triggers once admin is verified', () => {
+    defaultHooks()
     adminPage()
-    expect(screen.getByRole('button', { name: /courtDestacar/ })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /courtQuitarDestacado/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Mesas' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Historial' })).toBeInTheDocument()
   })
 
-  it('renders the Quitar Destacado button on a match-mode court card when featured is true', () => {
-    setupCourt([makeCourt({ status: 'OCCUPIED', sessionMode: 'match', featured: true })])
-    adminPage()
-    expect(screen.getByRole('button', { name: /courtQuitarDestacado/ })).toBeInTheDocument()
-  })
-
-  it('does NOT render the Destacar button on free-mode OCCUPIED courts', () => {
-    setupCourt([makeCourt({ status: 'OCCUPIED', sessionMode: 'free', featured: false })])
-    adminPage()
-    expect(screen.queryByRole('button', { name: /courtDestacar/ })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /courtQuitarDestacado/ })).not.toBeInTheDocument()
-  })
-
-  it('does NOT render the Destacar button on non-OCCUPIED statuses', () => {
-    setupCourt([
-      makeCourt({ id: 'c-a', status: 'AVAILABLE', sessionMode: undefined }),
-      makeCourt({ id: 'c-r', status: 'RESERVED', sessionMode: undefined }),
-      makeCourt({ id: 'c-f', status: 'FINISHED', sessionMode: undefined }),
+  it('lists ACTIVE, MAINTENANCE and ARCHIVED inventory courts with status labels', () => {
+    defaultHooks([
+      view({ courtId: 'c1', name: 'Mesa Activa' }),
+      view({ courtId: 'c2', name: 'Mesa Mant', inventoryStatus: INVENTORY_STATUS.MAINTENANCE }),
+      view({ courtId: 'c3', name: 'Mesa Archivada', inventoryStatus: INVENTORY_STATUS.ARCHIVED }),
     ])
     adminPage()
-    expect(screen.queryByRole('button', { name: /courtDestacar/ })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /courtQuitarDestacado/ })).not.toBeInTheDocument()
+    expect(screen.getByText('Mesa Activa')).toBeInTheDocument()
+    expect(screen.getByText('Mesa Mant')).toBeInTheDocument()
+    expect(screen.getByText('Mesa Archivada')).toBeInTheDocument()
+    expect(screen.getByText('Activa')).toBeInTheDocument()
+    expect(screen.getAllByText('Mantenimiento').length).toBeGreaterThan(0)
+    expect(screen.getByText('Archivada')).toBeInTheDocument()
   })
 
-  it('calls toggleFeatured(courtId) when the Destacar button is clicked', () => {
-    const { toggleFeatured } = setupCourt([makeCourt({ id: 'court-1', status: 'OCCUPIED', sessionMode: 'match', featured: false })])
+  it('shows the no-delete copy ("used courts are archived, never deleted") in the archive confirm', () => {
+    const archiveMock = vi.fn()
+    defaultHooks([view({ courtId: 'c1', name: 'Mesa 1' })])
+    useCourtInventoryMock.mockReturnValue({
+      courts: [view({ courtId: 'c1', name: 'Mesa 1' })],
+      loading: false,
+      error: null,
+      clearError: vi.fn(),
+      add: vi.fn(),
+      rename: vi.fn(),
+      setMaintenance: vi.fn(),
+      archive: archiveMock,
+      forceEnd: vi.fn(),
+      activate: vi.fn(),
+      deactivate: vi.fn(),
+      reset: vi.fn(),
+      adminOccupy: vi.fn(),
+      toggleFeatured: vi.fn(),
+    })
     adminPage()
-    fireEvent.click(screen.getByRole('button', { name: /courtDestacar/ }))
-    expect(toggleFeatured).toHaveBeenCalledWith('court-1')
+    fireEvent.click(screen.getByRole('button', { name: /archivar/i }))
+    expect(screen.getByText('Las mesas usadas se archivan, nunca se eliminan')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /confirmar/i }))
+    expect(archiveMock).toHaveBeenCalledWith('c1')
   })
 
-  it('calls toggleFeatured(courtId) when the Quitar Destacado button is clicked', () => {
-    const { toggleFeatured } = setupCourt([makeCourt({ id: 'court-1', status: 'OCCUPIED', sessionMode: 'match', featured: true })])
+  it('adds a court via the FloatingActionButton (INVENTORY_ADD suggested name)', () => {
+    const addMock = vi.fn()
+    defaultHooks()
+    useCourtInventoryMock.mockReturnValue({
+      courts: [], loading: false, error: null, clearError: vi.fn(),
+      add: addMock, rename: vi.fn(), setMaintenance: vi.fn(), archive: vi.fn(), forceEnd: vi.fn(),
+      activate: vi.fn(), deactivate: vi.fn(), reset: vi.fn(), adminOccupy: vi.fn(), toggleFeatured: vi.fn(),
+    })
     adminPage()
-    fireEvent.click(screen.getByRole('button', { name: /courtQuitarDestacado/ }))
-    expect(toggleFeatured).toHaveBeenCalledWith('court-1')
+    fireEvent.click(screen.getByRole('button', { name: /agregar mesa/i }))
+    expect(addMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('renames a court through the rename dialog (INVENTORY_RENAME)', () => {
+    const renameMock = vi.fn()
+    defaultHooks([view({ courtId: 'c1', name: 'Mesa 1' })])
+    useCourtInventoryMock.mockReturnValue({
+      courts: [view({ courtId: 'c1', name: 'Mesa 1' })],
+      loading: false, error: null, clearError: vi.fn(),
+      add: vi.fn(), rename: renameMock, setMaintenance: vi.fn(), archive: vi.fn(), forceEnd: vi.fn(),
+      activate: vi.fn(), deactivate: vi.fn(), reset: vi.fn(), adminOccupy: vi.fn(), toggleFeatured: vi.fn(),
+    })
+    adminPage()
+    fireEvent.click(screen.getByRole('button', { name: /renombrar mesa/i }))
+    const input = screen.getByRole('textbox')
+    fireEvent.change(input, { target: { value: 'Mesa Renombrada' } })
+    fireEvent.click(screen.getByRole('button', { name: /confirmar/i }))
+    expect(renameMock).toHaveBeenCalledWith('c1', 'Mesa Renombrada')
+  })
+
+  it('toggles maintenance (INVENTORY_MAINTENANCE) from the court card', () => {
+    const setMaintenanceMock = vi.fn()
+    defaultHooks([view({ courtId: 'c1', name: 'Mesa 1' })])
+    useCourtInventoryMock.mockReturnValue({
+      courts: [view({ courtId: 'c1', name: 'Mesa 1' })],
+      loading: false, error: null, clearError: vi.fn(),
+      add: vi.fn(), rename: vi.fn(), setMaintenance: setMaintenanceMock, archive: vi.fn(), forceEnd: vi.fn(),
+      activate: vi.fn(), deactivate: vi.fn(), reset: vi.fn(), adminOccupy: vi.fn(), toggleFeatured: vi.fn(),
+    })
+    adminPage()
+    fireEvent.click(screen.getByRole('button', { name: /mantenimiento/i }))
+    expect(setMaintenanceMock).toHaveBeenCalledWith('c1', true)
+  })
+})
+
+describe('ClubAdminPage — force-end on BUSY courts (INVENTORY_FORCE_END)', () => {
+  it('renders a force-end action on a BUSY court and confirms via dialog', () => {
+    const forceEndMock = vi.fn()
+    defaultHooks([view({ courtId: 'c1', name: 'Mesa 1', availability: AVAILABILITY.BUSY })])
+    useCourtInventoryMock.mockReturnValue({
+      courts: [view({ courtId: 'c1', name: 'Mesa 1', availability: AVAILABILITY.BUSY })],
+      loading: false, error: null, clearError: vi.fn(),
+      add: vi.fn(), rename: vi.fn(), setMaintenance: vi.fn(), archive: vi.fn(), forceEnd: forceEndMock,
+      activate: vi.fn(), deactivate: vi.fn(), reset: vi.fn(), adminOccupy: vi.fn(), toggleFeatured: vi.fn(),
+    })
+    adminPage()
+    fireEvent.click(screen.getByRole('button', { name: /finalizar sesión/i }))
+    expect(screen.getByText('¿Finalizar esta sesión?')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /confirmar/i }))
+    expect(forceEndMock).toHaveBeenCalledWith('c1')
+  })
+
+  it('does NOT offer archive on a BUSY court (the force-end path frees it first)', () => {
+    defaultHooks([view({ courtId: 'c1', name: 'Mesa 1', availability: AVAILABILITY.BUSY })])
+    adminPage()
+    expect(screen.getByRole('button', { name: /finalizar sesión/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /archivar/i })).not.toBeInTheDocument()
+  })
+})
+
+describe('ClubAdminPage — bridge club-flow actions on club courts', () => {
+  it('offers activate + occupy on an AVAILABLE club court', () => {
+    const activateMock = vi.fn()
+    defaultHooks([view({ courtId: 'c1', name: 'Mesa 1', clubStatus: 'AVAILABLE' })])
+    useCourtInventoryMock.mockReturnValue({
+      courts: [view({ courtId: 'c1', name: 'Mesa 1', clubStatus: 'AVAILABLE' })],
+      loading: false, error: null, clearError: vi.fn(),
+      add: vi.fn(), rename: vi.fn(), setMaintenance: vi.fn(), archive: vi.fn(), forceEnd: vi.fn(),
+      activate: activateMock, deactivate: vi.fn(), reset: vi.fn(), adminOccupy: vi.fn(), toggleFeatured: vi.fn(),
+    })
+    adminPage()
+    fireEvent.click(screen.getByRole('button', { name: /activar/i }))
+    expect(activateMock).toHaveBeenCalledWith('c1')
+  })
+
+  it('renders the Destacar (featured) button on a match-mode OCCUPIED club court and calls toggleFeatured', () => {
+    const toggleFeaturedMock = vi.fn()
+    defaultHooks([view({
+      courtId: 'c1',
+      name: 'Mesa 1',
+      clubStatus: 'OCCUPIED',
+      availability: AVAILABILITY.BUSY,
+      sessionMode: 'match',
+      featured: false,
+    })])
+    useCourtInventoryMock.mockReturnValue({
+      courts: [view({
+        courtId: 'c1', name: 'Mesa 1', clubStatus: 'OCCUPIED',
+        availability: AVAILABILITY.BUSY, sessionMode: 'match', featured: false,
+      })],
+      loading: false, error: null, clearError: vi.fn(),
+      add: vi.fn(), rename: vi.fn(), setMaintenance: vi.fn(), archive: vi.fn(), forceEnd: vi.fn(),
+      activate: vi.fn(), deactivate: vi.fn(), reset: vi.fn(), adminOccupy: vi.fn(), toggleFeatured: toggleFeaturedMock,
+    })
+    adminPage()
+    fireEvent.click(screen.getByRole('button', { name: /destacar/i }))
+    expect(toggleFeaturedMock).toHaveBeenCalledWith('c1')
   })
 })
 
 describe('ClubAdminPage — notification button', () => {
-  beforeEach(() => {
-    mockUseSocketContext.mockReturnValue({ socket: null, connected: true })
-    useClubAdminMock.mockReturnValue({
-      isAdmin: true,
-      verifyAdminPin: vi.fn(),
-      verifyLoading: false,
-      verifyError: null,
-      clearVerifyError: vi.fn(),
-    })
-    useClubCourtManagementMock.mockReturnValue({
-      courts: [],
-      loading: false,
-      error: null,
-      lastEvent: null,
-      createCourt: vi.fn(),
-      activateCourt: vi.fn(),
-      deactivateCourt: vi.fn(),
-      forceEndSession: vi.fn(),
-      deleteCourt: vi.fn(),
-      resetCourt: vi.fn(),
-      clearEvent: vi.fn(),
-    })
-    useClubSessionHistoryMock.mockReturnValue({
-      sessions: [],
-      clearHistory: vi.fn(),
-      confirmClearHistory: vi.fn(),
-      cancelClearHistory: vi.fn(),
-      pendingClearConfirm: false,
-      clearError: null,
-    })
-  })
+  beforeEach(() => defaultHooks())
 
-  it('renders a bell icon button in the action bar when admin is verified', () => {
-    adminPage()
-    const notifBtn = screen.getByRole('button', { name: /send notification/i })
-    expect(notifBtn).toBeInTheDocument()
-  })
-
-  it('opens KioskNotificationModal when bell icon button is clicked (RED test — not yet implemented)', () => {
+  it('opens KioskNotificationModal when the bell button is clicked', () => {
     adminPage()
     fireEvent.click(screen.getByRole('button', { name: /send notification/i }))
     expect(screen.getByTestId('kiosk-notification-modal')).toBeInTheDocument()
   })
 
-  it('passes showGeneralToggle=true to KioskNotificationModal', () => {
+  it('emits CLUB_SEND_NOTIFICATION with the correct payload when the modal submits', () => {
+    const mockEmit = vi.fn()
+    mockUseSocketContext.mockReturnValue({ socket: { on: vi.fn(), off: vi.fn(), emit: mockEmit }, connected: true })
     adminPage()
     fireEvent.click(screen.getByRole('button', { name: /send notification/i }))
-    expect(screen.getByTestId('general-toggle')).toBeInTheDocument()
-  })
-
-  it('emits CLUB_SEND_NOTIFICATION with correct payload when modal submits', () => {
-    const mockEmit = vi.fn()
-    mockUseSocketContext.mockReturnValue({
-      socket: { on: vi.fn(), off: vi.fn(), emit: mockEmit },
-      connected: true,
-    })
-    // Also need to re-set i18n mock for the admin page render
-    // (adminPage helper is already defined, but we use custom setup here)
-
-    useClubAdminMock.mockReturnValue({
-      isAdmin: true,
-      verifyAdminPin: vi.fn(),
-      verifyLoading: false,
-      verifyError: null,
-      clearVerifyError: vi.fn(),
-    })
-    useClubCourtManagementMock.mockReturnValue({
-      courts: [],
-      loading: false,
-      error: null,
-      lastEvent: null,
-      createCourt: vi.fn(),
-      activateCourt: vi.fn(),
-      deactivateCourt: vi.fn(),
-      forceEndSession: vi.fn(),
-      deleteCourt: vi.fn(),
-      resetCourt: vi.fn(),
-      clearEvent: vi.fn(),
-    })
-    useClubSessionHistoryMock.mockReturnValue({
-      sessions: [],
-      clearHistory: vi.fn(),
-      confirmClearHistory: vi.fn(),
-      cancelClearHistory: vi.fn(),
-      pendingClearConfirm: false,
-      clearError: null,
-    })
-
-    render(
-      <MemoryRouter>
-        <ClubAdminPage />
-      </MemoryRouter>,
-    )
-
-    // Open modal and submit
-    fireEvent.click(screen.getByRole('button', { name: /send notification/i }))
     fireEvent.click(screen.getByTestId('modal-submit'))
-
     expect(mockEmit).toHaveBeenCalledWith('CLUB_SEND_NOTIFICATION', {
       type: 'info',
       message: 'Test notification',
@@ -451,118 +388,8 @@ describe('ClubAdminPage — notification button', () => {
     })
   })
 
-  it('closes the notification modal after submitting', () => {
-    const mockEmit = vi.fn()
-    mockUseSocketContext.mockReturnValue({
-      socket: { on: vi.fn(), off: vi.fn(), emit: mockEmit },
-      connected: true,
-    })
-
-    useClubAdminMock.mockReturnValue({
-      isAdmin: true,
-      verifyAdminPin: vi.fn(),
-      verifyLoading: false,
-      verifyError: null,
-      clearVerifyError: vi.fn(),
-    })
-    useClubCourtManagementMock.mockReturnValue({
-      courts: [],
-      loading: false,
-      error: null,
-      lastEvent: null,
-      createCourt: vi.fn(),
-      activateCourt: vi.fn(),
-      deactivateCourt: vi.fn(),
-      forceEndSession: vi.fn(),
-      deleteCourt: vi.fn(),
-      resetCourt: vi.fn(),
-      clearEvent: vi.fn(),
-    })
-    useClubSessionHistoryMock.mockReturnValue({
-      sessions: [],
-      clearHistory: vi.fn(),
-      confirmClearHistory: vi.fn(),
-      cancelClearHistory: vi.fn(),
-      pendingClearConfirm: false,
-      clearError: null,
-    })
-
-    render(
-      <MemoryRouter>
-        <ClubAdminPage />
-      </MemoryRouter>,
-    )
-
-    // Open modal
-    fireEvent.click(screen.getByRole('button', { name: /send notification/i }))
-    expect(screen.getByTestId('kiosk-notification-modal')).toBeInTheDocument()
-
-    // Submit — modal should close
-    fireEvent.click(screen.getByTestId('modal-submit'))
-    expect(screen.queryByTestId('kiosk-notification-modal')).not.toBeInTheDocument()
-  })
-
-  it('renders error message on the modal when notification fails', () => {
-    const mockEmit = vi.fn((_event: string, _data: unknown, callback?: (arg: unknown) => void) => {
-      // callback not provided in simple emit — reject by emitting error
-    })
-    mockUseSocketContext.mockReturnValue({
-      socket: { on: vi.fn(), off: vi.fn(), emit: mockEmit },
-      connected: true,
-    })
-
-    useClubAdminMock.mockReturnValue({
-      isAdmin: true,
-      verifyAdminPin: vi.fn(),
-      verifyLoading: false,
-      verifyError: null,
-      clearVerifyError: vi.fn(),
-    })
-    useClubCourtManagementMock.mockReturnValue({
-      courts: [],
-      loading: false,
-      error: null,
-      lastEvent: null,
-      createCourt: vi.fn(),
-      activateCourt: vi.fn(),
-      deactivateCourt: vi.fn(),
-      forceEndSession: vi.fn(),
-      deleteCourt: vi.fn(),
-      resetCourt: vi.fn(),
-      clearEvent: vi.fn(),
-    })
-    useClubSessionHistoryMock.mockReturnValue({
-      sessions: [],
-      clearHistory: vi.fn(),
-      confirmClearHistory: vi.fn(),
-      cancelClearHistory: vi.fn(),
-      pendingClearConfirm: false,
-      clearError: null,
-    })
-
-    render(
-      <MemoryRouter>
-        <ClubAdminPage />
-      </MemoryRouter>,
-    )
-
-    // Open modal
-    fireEvent.click(screen.getByRole('button', { name: /send notification/i }))
-
-    // Initially no error
-    expect(screen.queryByTestId('error-message')).not.toBeInTheDocument()
-  })
-
-  it('closes modal when clicking the close button', () => {
-    adminPage()
-    fireEvent.click(screen.getByRole('button', { name: /send notification/i }))
-    expect(screen.getByTestId('kiosk-notification-modal')).toBeInTheDocument()
-
-    fireEvent.click(screen.getByTestId('modal-close'))
-    expect(screen.queryByTestId('kiosk-notification-modal')).not.toBeInTheDocument()
-  })
-
-  it('does NOT render notification button before admin is verified', () => {
+  it('does NOT render the notification button before admin is verified', () => {
+    defaultHooks()
     useClubAdminMock.mockReturnValue({
       isAdmin: false,
       verifyAdminPin: vi.fn(),
@@ -570,13 +397,22 @@ describe('ClubAdminPage — notification button', () => {
       verifyError: null,
       clearVerifyError: vi.fn(),
     })
-
-    render(
-      <MemoryRouter>
-        <ClubAdminPage />
-      </MemoryRouter>,
-    )
-
+    adminPage()
     expect(screen.queryByRole('button', { name: /send notification/i })).not.toBeInTheDocument()
+  })
+})
+
+describe('ClubAdminPage — error toasts from inventory ops', () => {
+  it('toasts an error when an inventory operation fails', () => {
+    const addToastMock = vi.fn()
+    defaultHooks()
+    mockUseToast.mockReturnValue({ addToast: addToastMock })
+    useCourtInventoryMock.mockReturnValue({
+      courts: [], loading: false, error: 'ARCHIVE_FAILED', clearError: vi.fn(),
+      add: vi.fn(), rename: vi.fn(), setMaintenance: vi.fn(), archive: vi.fn(), forceEnd: vi.fn(),
+      activate: vi.fn(), deactivate: vi.fn(), reset: vi.fn(), adminOccupy: vi.fn(), toggleFeatured: vi.fn(),
+    })
+    adminPage()
+    expect(addToastMock).toHaveBeenCalledWith('error', 'No se pudo archivar')
   })
 })

@@ -204,6 +204,22 @@ describe('useCourtInventory — action emitters', () => {
     })
   })
 
+  it('toggleFeatured() emits SET_FEATURED with the opposite target (club-featured-courts)', () => {
+    const { result } = renderHook(() => useCourtInventory(mockSocket as Socket, true))
+    act(() => {
+      mockSocket.fireServerEvent(SocketEvents.SERVER.INVENTORY_UPDATED, {
+        courts: [catalogRecord('c1')],
+      })
+      mockSocket.fireServerEvent(SocketEvents.SERVER.CLUB_KIOSK_DATA, {
+        clubName: 'Club',
+        courts: [{ id: 'c1', name: 'Mesa c1', status: 'OCCUPIED', mode: 'club', featured: false }],
+      })
+    })
+    // Not featured → feature it.
+    act(() => result.current.toggleFeatured('c1'))
+    expect(mockSocket.emit).toHaveBeenCalledWith(SocketEvents.CLIENT.SET_FEATURED, { targetCourtId: 'c1' })
+  })
+
   it('sets the error code from a server ERROR event', () => {
     const { result } = renderHook(() => useCourtInventory(mockSocket as Socket, true))
     act(() => {

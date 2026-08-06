@@ -10,22 +10,24 @@
  * single-interface file, exported via barrel.
  */
 
-import type { PersistedCourt, PersistedClubCourt, PersistedStateV3 } from './persistence-types';
+import type { PersistedFlowSession, PersistedStateV4 } from './persistence-types';
+import type { TournamentBracket } from '../../../../shared/types';
 
 export interface ICourtPersistence {
   /**
-   * Persist tournament and club courts to storage.
-   * Only the caller is responsible for filtering to relevant states
-   * (LIVE/FINISHED/OCCUPIED). The implementation handles atomic I/O.
+   * Persist the transient LIVE sessions (v4 `liveSessions` rows — PERS-2).
+   * Only the caller is responsible for filtering to relevant flows
+   * (tournament LIVE; club OCCUPIED/FINISHED). The implementation handles
+   * atomic I/O. The optional bracket is carried on the same document.
    */
-  save(tournamentCourts: PersistedCourt[], clubCourts: PersistedClubCourt[]): void;
+  save(sessions: PersistedFlowSession[], bracket?: TournamentBracket | null): void;
 
   /**
-   * Load persisted state from storage.
-   * Returns null if no state exists or deserialization fails.
-   * Implementations should handle migration from older formats.
+   * Load persisted state from storage (v4 shape, PERS-1 WIPE).
+   * Returns null if no state exists, deserialization fails, or the file
+   * version is not 4 (v1/v2/v3 files are discarded — one-way door).
    */
-  load(): PersistedStateV3 | null;
+  load(): PersistedStateV4 | null;
 
   /**
    * Check whether persisted state exists in storage.

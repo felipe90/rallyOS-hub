@@ -12,8 +12,9 @@
  *   - `release`  no-op — club courts are untouched by tournament releaseAll
  *                (TCS-3)
  *
- * BRIDGE NOTE: operates on the legacy `ClubCourt` (slice-2 bridge); re-typed
- * to RuntimeCourt at the conversion (see FlowModeContract.ts header).
+ * Slice-5 bridge reversal: operates on the single `RuntimeCourt` type — the
+ * FLOW slot is authoritative and the `clubStatus`/`sessionMode`/identity
+ * projection fields are written at the same site (single writer, no drift).
  */
 import {
   CLUB_STATUS,
@@ -22,8 +23,7 @@ import {
   type Availability,
   type SessionMode,
 } from '../../../../shared/types';
-import { isClubCourt } from '../types';
-import type { Court, ClubCourt } from '../types';
+import type { RuntimeCourt } from '../types';
 import type {
   FlowModeContract,
   FlowContext,
@@ -36,8 +36,9 @@ import type {
 const MIN_ELAPSED_MINUTES = 1;
 const DEFAULT_CURRENCY = 'ARS';
 
-function asClubCourt(court: Court): ClubCourt | null {
-  return isClubCourt(court) ? court : null;
+/** The club flow slot of a runtime court — null when not in a club flow. */
+function clubFlow(court: RuntimeCourt) {
+  return court.flow?.mode === 'club' ? court.flow : null;
 }
 
 export class ClubFlowContract implements FlowModeContract {
@@ -52,30 +53,48 @@ export class ClubFlowContract implements FlowModeContract {
   }
 
   /** RESERVED → OCCUPIED: start the session timer and capture identity. */
-  occupy(court: Court, ctx: FlowContext = {}): boolean {
-    const c = asClubCourt(court);
-    if (!c || c.clubStatus !== CLUB_STATUS.RESERVED) return false;
+  occupy(court: RuntimeCourt, ctx: FlowContext = {}): boolean {
+    if (court.flow !== null || !court.reserved) return false;
 
-    c.clubStatus = CLUB_STATUS.OCCUPIED;
-    c.occupiedAt = Date.now();
-    if (ctx.sessionMode !== undefined) c.sessionMode = ctx.sessionMode;
-    if (typeof ctx.playerName === 'string') c.playerName = ctx.playerName;
-    if (typeof ctx.phone === 'string') c.phone = ctx.phone;
+    court.flow = {
+      mode: 'club',
+      state: 'OCCUPIED',
+      sessionMode: ctx.sessionMode ?? null,
+      occupiedAt: Date.now(),
+      playerName: typeof ctx.playerName === 'string' ? ctx.playerName : null,
+      phone: typeof ctx.phone === 'string' ? ctx.phone : null,
+      adminId: null,
+    };
+    // Projection (single writer)
+    court.mode = 'club';
+    court.reserved = false;
+    court.clubStatus = CLUB_STATUS.OCCUPIED;
+    court.occupiedAt = court.flow.occupiedAt;
+    if (ctx.sessionMode !== undefined) court.sessionMode = ctx.sessionMode;
+    if (typeof ctx.playerName === 'string') court.playerName = ctx.playerName;
+    if (typeof ctx.phone === 'string') court.phone = ctx.phone;
     return true;
   }
 
   /** Set the session mode (free | match) + player identity on an OCCUPIED court. */
-  start(court: Court, ctx: FlowContext = {}): boolean {
-    const c = asClubCourt(court);
-    if (!c || c.clubStatus !== CLUB_STATUS.OCCUPIED) return false;
+  start(court: RuntimeCourt, ctx: FlowContext = {}): boolean {
+    const flow = clubFlow(court);
+    if (!flow || flow.state !== 'OCCUPIED') return false;
 
     if (ctx.sessionMode === SESSION_MODE.FREE || ctx.sessionMode === SESSION_MODE.MATCH) {
-      c.sessionMode = ctx.sessionMode;
+      flow.sessionMode = ctx.sessionMode;
+      court.sessionMode = ctx.sessionMode;
     }
     // player-identity — populate when provided, PRESERVE otherwise (idempotent
     // re-entry: CLUB_START_FREE / CLUB_NEW_MATCH re-sent without identity).
-    if (typeof ctx.playerName === 'string') c.playerName = ctx.playerName;
-    if (typeof ctx.phone === 'string') c.phone = ctx.phone;
+    if (typeof ctx.playerName === 'string') {
+      flow.playerName = ctx.playerName;
+      court.playerName = ctx.playerName;
+    }
+    if (typeof ctx.phone === 'string') {
+      flow.phone = ctx.phone;
+      court.phone = ctx.phone;
+    }
     return true;
   }
 
@@ -83,19 +102,20 @@ export class ClubFlowContract implements FlowModeContract {
    * End the session: OCCUPIED → FINISHED, clear the PIN, settle the cost
    * (FMR-3). `cost` = ceil(elapsedMinutes × costPerMinute); 0 for free.
    */
-  end(court: Court, ctx: FlowContext = {}): FlowCost | null {
-    const c = asClubCourt(court);
-    if (!c || c.clubStatus !== CLUB_STATUS.OCCUPIED) return null;
+  end(court: RuntimeCourt, ctx: FlowContext = {}): FlowCost | null {
+    const flow = clubFlow(court);
+    if (!flow || flow.state !== 'OCCUPIED') return null;
 
     const now = Date.now();
-    const elapsedMs = c.occupiedAt ? now - c.occupiedAt : 0;
+    const elapsedMs = flow.occupiedAt ? now - flow.occupiedAt : 0;
     const elapsedMinutes = Math.max(MIN_ELAPSED_MINUTES, Math.ceil(elapsedMs / 60000));
     const elapsedSeconds = Math.max(0, Math.floor(elapsedMs / 1000));
     const cost = Math.ceil(elapsedMinutes * (ctx.costPerMinute ?? 0));
     const currency = ctx.currency ?? DEFAULT_CURRENCY;
 
-    c.clubStatus = CLUB_STATUS.FINISHED;
-    c.pin = '';
+    flow.state = 'FINISHED';
+    court.clubStatus = CLUB_STATUS.FINISHED;
+    court.pin = '';
 
     return { elapsedMinutes, elapsedSeconds, cost, currency };
   }
@@ -104,21 +124,22 @@ export class ClubFlowContract implements FlowModeContract {
    * Admin stop control (AFE-3): adminId-stamp (when provided) then finalize
    * cost + release → IDLE. Mirrors CLUB_FORCE_END cost semantics.
    */
-  forceEnd(court: Court, adminId: string, ctx: FlowContext = {}): ForceEndResult | null {
-    const c = asClubCourt(court);
-    if (!c || c.clubStatus !== CLUB_STATUS.OCCUPIED) return null;
+  forceEnd(court: RuntimeCourt, adminId: string, ctx: FlowContext = {}): ForceEndResult | null {
+    const flow = clubFlow(court);
+    if (!flow || flow.state !== 'OCCUPIED') return null;
 
     // Traceability: stamp BEFORE the release so the onClubSessionEnd callback
     // (which reads court.adminId) attributes the force-ender, not the starter.
     if (typeof adminId === 'string' && adminId.length > 0) {
-      c.adminId = adminId;
+      flow.adminId = adminId;
+      court.adminId = adminId;
     }
 
-    const settled = this.end(c, ctx);
+    const settled = this.end(court, ctx);
     if (!settled) return null;
 
     return {
-      releasedCourtId: c.id,
+      releasedCourtId: court.record.courtId,
       elapsedMinutes: settled.elapsedMinutes,
       elapsedSeconds: settled.elapsedSeconds,
       cost: settled.cost,
@@ -126,34 +147,41 @@ export class ClubFlowContract implements FlowModeContract {
     };
   }
 
-  /** Serialize the active flow into the target v4 liveSessions row. */
-  serialize(court: Court): PersistedFlowSession | null {
-    const c = asClubCourt(court);
-    if (!c) return null;
-    if (c.clubStatus !== CLUB_STATUS.OCCUPIED && c.clubStatus !== CLUB_STATUS.FINISHED) return null;
+  /** Serialize the active flow into the v4 liveSessions row. */
+  serialize(court: RuntimeCourt): PersistedFlowSession | null {
+    const flow = clubFlow(court);
+    if (!flow) return null;
+    if (flow.state !== 'OCCUPIED' && flow.state !== 'FINISHED') return null;
 
     return {
-      courtId: c.id,
+      courtId: court.record.courtId,
       flow: {
         mode: 'club',
-        state: c.clubStatus === CLUB_STATUS.OCCUPIED ? 'OCCUPIED' : 'FINISHED',
-        sessionMode: c.sessionMode as SessionMode | null,
-        occupiedAt: c.occupiedAt,
-        playerName: c.playerName,
-        phone: c.phone,
-        adminId: c.adminId,
+        state: flow.state,
+        sessionMode: flow.sessionMode,
+        occupiedAt: flow.occupiedAt,
+        playerName: flow.playerName,
+        phone: flow.phone,
+        adminId: flow.adminId,
       },
       matchState: null,
+      // Display identity snapshot (CSV export / restore fallback).
+      number: court.record.number,
+      name: court.record.name,
+      pin: court.pin,
+      playerNames: { ...court.playerNames },
+      createdAt: court.createdAt,
     };
   }
 
   /** Archive guard (INV-5): false while BUSY (OCCUPIED). */
-  canArchive(court: Court): boolean {
-    return this.availabilityOf(asClubCourt(court)?.clubStatus ?? '') !== AVAILABILITY.BUSY;
+  canArchive(court: RuntimeCourt): boolean {
+    const flow = clubFlow(court);
+    return flow?.state !== CLUB_STATUS.OCCUPIED;
   }
 
   /** No-op — club courts are untouched by tournament releaseAll (TCS-3). */
-  release(_court: Court, _ctx?: FlowContext): void {
+  release(_court: RuntimeCourt, _ctx?: FlowContext): void {
     // club flows have no bracket-scoped release; reset/end are explicit actions
   }
 }

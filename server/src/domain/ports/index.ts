@@ -33,6 +33,8 @@ export type {
   PersistedMatchState,
   PersistedTable,
   PersistedStateV3,
+  PersistedStateV4,
+  PersistedFlowSession,
   FileSystem,
   MatchExporter,
 } from './persistence-types';

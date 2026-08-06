@@ -1,8 +1,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { FileSystem, PersistedCourt, PersistedClubCourt, PersistedStateV3, PERSISTENCE_VERSION } from './types';
+import { FileSystem, PersistedStateV4, PERSISTENCE_VERSION } from './types';
 import { logger } from '../../utils/logger';
 import type { ICourtPersistence } from '../../domain/ports/ICourtPersistence';
+import type { PersistedFlowSession } from '../../domain/ports/persistence-types';
 import type { TournamentBracket } from '../../../../shared/types';
 
 const DEFAULT_PATH = 'data/rallyos-state.json';
@@ -31,16 +32,16 @@ export class StateStore implements ICourtPersistence {
   }
 
   /**
-   * Persist courts to disk atomically (tmp + rename).
-   * Writes PERSISTENCE_VERSION (4) with separate tournament and club arrays.
-   * Only the caller is responsible for filtering to LIVE/FINISHED/OCCUPIED courts.
+   * Persist the transient LIVE sessions (v4 `liveSessions` — PERS-2) to disk
+   * atomically (tmp + rename). Only the caller is responsible for filtering
+   * to LIVE/OCCUPIED/FINISHED flows. The optional bracket rides the same
+   * document.
    */
-  save(tournamentCourts: PersistedCourt[], clubCourts: PersistedClubCourt[], bracket?: TournamentBracket | null): void {
-    const persisted: PersistedStateV3 = {
+  save(sessions: PersistedFlowSession[], bracket?: TournamentBracket | null): void {
+    const persisted: PersistedStateV4 = {
       version: PERSISTENCE_VERSION,
       savedAt: Date.now(),
-      tournamentCourts,
-      clubCourts,
+      liveSessions: sessions,
       // If the caller provides a bracket, use it; otherwise carry forward the
       // cached bracket (loaded once from disk) so CourtManager.persistState
       // (which doesn't own the bracket) never wipes it. Spec R10: bracket
@@ -73,7 +74,7 @@ export class StateStore implements ICourtPersistence {
    * The catalog starts fresh and the admin rebuilds it. Returns `null` when
    * the file is missing, empty, invalid, or from a wiped version.
    */
-  load(): PersistedStateV3 | null {
+  load(): PersistedStateV4 | null {
     try {
       if (!this.fs.existsSync(this.filePath)) {
         return null;
@@ -107,12 +108,12 @@ export class StateStore implements ICourtPersistence {
       }
 
       // v4 — validate structure and return as-is.
-      if (!Array.isArray(parsed.tournamentCourts) || !Array.isArray(parsed.clubCourts)) {
+      if (!Array.isArray(parsed.liveSessions)) {
         logger.warn('StateStore: invalid v4 format, returning null');
         return null;
       }
 
-      return parsed as PersistedStateV3;
+      return parsed as PersistedStateV4;
     } catch (err) {
       logger.warn({ err }, 'StateStore: failed to load state, returning null');
       return null;
@@ -134,26 +135,22 @@ export class StateStore implements ICourtPersistence {
   }
 
   /**
-   * Persist the bracket independently of the court arrays. Reads the current
-   * state file (preserving tournament/club courts) and writes a fresh v4
-   * document with the supplied bracket. Pass `null` to clear. Used by
-   * BracketHandler (which owns the bracket) without coupling CourtManager to
-   * the bracket domain.
-   *
-   * MVP note: bracket and court saves both do an atomic tmp+rename on the same
-   * file. The single-owner Raspberry Pi target makes a torn write between the
-   * two writers extremely unlikely; a future revision can route both through
-   * one atomic writer.
+   * Persist the bracket independently of the sessions. Reads the current
+   * state file (preserving liveSessions) and writes a fresh v4 document with
+   * the supplied bracket. Pass `null` to clear. Used by BracketHandler
+   * (which owns the bracket) without coupling CourtManager to the bracket
+   * domain. NOTE (slice 6): the second-writer path on this file is removed
+   * by the PersistenceCoordinator; until then both writers do an atomic
+   * tmp+rename (existing torn-write risk, documented).
    */
   setBracket(bracket: TournamentBracket | null): void {
     try {
       const existing = this.load() ?? {
         version: PERSISTENCE_VERSION,
         savedAt: Date.now(),
-        tournamentCourts: [] as PersistedCourt[],
-        clubCourts: [] as PersistedClubCourt[],
+        liveSessions: [] as PersistedFlowSession[],
       };
-      this.save(existing.tournamentCourts, existing.clubCourts, bracket);
+      this.save(existing.liveSessions, bracket);
     } catch (err) {
       logger.error({ err }, 'StateStore: setBracket failed');
     }
@@ -161,8 +158,8 @@ export class StateStore implements ICourtPersistence {
 
   /**
    * Read ONLY the bracket field from disk (best-effort), without running the
-   * full migration pipeline. Used to seed the in-memory bracket cache on
-   * first access so `save()` never re-reads the whole file per point (P2).
+   * full load pipeline. Used to seed the in-memory bracket cache on first
+   * access so `save()` never re-reads the whole file per point (P2).
    */
   private readBracketFromDisk(): TournamentBracket | null {
     try {

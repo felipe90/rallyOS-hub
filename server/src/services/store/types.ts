@@ -19,6 +19,8 @@ export type {
   PersistedTable,
   PersistedClubCourt,
   PersistedStateV3,
+  PersistedStateV4,
+  PersistedFlowSession,
   MatchExporter,
   FileSystem,
 } from '../../domain/ports/persistence-types';
@@ -31,10 +33,8 @@ export type {
  * - Version 4 (admin-court-inventory, PERS-1): persistence WIPE. `load()`
  *   discards any file whose version !== 4 (no v3→v4 data migration — one-way
  *   door, never ship after commercial launch). The v1→v2→v3 migration chain
- *   is removed.
- *
- * Slice-1 bridge (documented): the v4 file still carries the legacy
- * tournamentCourts[]/clubCourts[] arrays — the runtime stack (CourtManager)
- * is not converted to the liveSessions shape until the slice-2 delegation.
+ *   is removed. The v4 document carries the transient `liveSessions[]`
+ *   (PersistedFlowSession) rows ONLY — the legacy tournamentCourts[]/
+ *   clubCourts[] arrays are dropped (slice-5 bridge reversal; PERS-2).
  */
 export const PERSISTENCE_VERSION = 4;

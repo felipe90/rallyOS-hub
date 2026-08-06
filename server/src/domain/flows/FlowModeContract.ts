@@ -8,10 +8,9 @@
  * ONLY drives the registry — it never branches on `sessionMode` inline
  * (the enum+switch anti-pattern this engine removes, design §8).
  *
- * BRIDGE NOTE (slice 2): the contract methods are typed against the legacy
- * `Court` union because the repository still stores it (slice-1 bridge — see
- * apply-progress). When the RuntimeCourt conversion lands, re-type the methods
- * to `RuntimeCourt`; the contract surface does not change (INV-2, E11).
+ * Slice-5 bridge reversal: the contract methods are typed against the single
+ * `RuntimeCourt` type (the legacy `Court` union is removed — see
+ * apply-progress). The contract surface is unchanged (INV-2, E11).
  */
 
 import {
@@ -22,7 +21,9 @@ import {
   type BracketMatch,
   type SessionMode,
 } from '../../../../shared/types';
-import type { Court, FlowModeKey, FlowSlot } from '../types';
+import type { FlowModeKey, FlowSlot, RuntimeCourt } from '../types';
+import type { PersistedFlowSession } from '../ports/persistence-types';
+export type { PersistedFlowSession };
 
 /**
  * Settled session result of `end()` (FMR-3/AFE-3 — club flow).
@@ -78,7 +79,6 @@ export interface FlowContext {
 
 /**
  * The flow contract surface (FMR-2). One instance per mode.
- * BRIDGE NOTE: `Court` is the legacy runtime union (see header).
  */
 export interface FlowModeContract {
   readonly key: FlowModeKey;
@@ -87,32 +87,19 @@ export interface FlowModeContract {
   /** Map a flow state → availability (OCCUPIED/LIVE → BUSY, else IDLE). */
   availabilityOf(state: string): Availability;
   /** Occupy a court (club: RESERVED → OCCUPIED). Tournament has no occupy. */
-  occupy?(court: Court, ctx?: FlowContext): boolean;
+  occupy?(court: RuntimeCourt, ctx?: FlowContext): boolean;
   /** Start the flow on an occupied court (club: set session mode + identity). */
-  start?(court: Court, ctx?: FlowContext): boolean;
+  start?(court: RuntimeCourt, ctx?: FlowContext): boolean;
   /** End the flow → settled cost (club) or null (tournament). */
-  end(court: Court, ctx?: FlowContext): FlowCost | null;
+  end(court: RuntimeCourt, ctx?: FlowContext): FlowCost | null;
   /** Admin stop control — finalize + release → IDLE (AFE-1). */
-  forceEnd(court: Court, adminId: string, ctx?: FlowContext): ForceEndResult | null;
-  /** Serialize the active flow into the liveSessions row (target v4 shape). */
-  serialize(court: Court): PersistedFlowSession | null;
+  forceEnd(court: RuntimeCourt, adminId: string, ctx?: FlowContext): ForceEndResult | null;
+  /** Serialize the active flow into the liveSessions row (v4 shape). */
+  serialize(court: RuntimeCourt): PersistedFlowSession | null;
   /** Archive guard — false while the court is BUSY (INV-5/R7). */
-  canArchive(court: Court): boolean;
+  canArchive(court: RuntimeCourt): boolean;
   /** Detach the flow on tournament end/reset (releaseAll, TCS-3). */
-  release(court: Court, ctx?: FlowContext): void;
-}
-
-/**
- * PersistedFlowSession — the transient flow row of the target v4
- * `liveSessions` shape (PERS-2). Produced by contract.serialize(); wired into
- * the v4 file at the RuntimeCourt bridge reversal — the bridge v4 file still
- * carries the legacy tournamentCourts[]/clubCourts[] arrays (apply-progress).
- */
-export interface PersistedFlowSession {
-  courtId: string;
-  flow: FlowSlot;
-  /** Serializable match state (null for flows without a started match). */
-  matchState: unknown | null;
+  release(court: RuntimeCourt, ctx?: FlowContext): void;
 }
 
 /**

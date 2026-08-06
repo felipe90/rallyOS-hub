@@ -1,7 +1,7 @@
 /**
  * ICourtRepository — Domain-level runtime court store contract.
  *
- * Defines the storage abstraction for runtime Court objects. One unified map
+ * Defines the storage abstraction for runtime RuntimeCourt objects. One unified map
  * (no tournament/club kind dispatch — one physical court is one entity,
  * E11/D1). Numbering lives in CourtNumberCounter (INV-3), NOT here — the old
  * getNextTableNumber() was removed.
@@ -13,23 +13,23 @@
  * pure interface, one file per concern.
  */
 
-import type { Court } from '../types';
+import type { RuntimeCourt } from '../types';
 
 export interface ICourtRepository {
   /**
    * Store a court. Unified — no kind dispatch.
    * Returns the stored court.
    */
-  create(court: Court): Court;
+  create(court: RuntimeCourt): RuntimeCourt;
 
   /**
    * Look up a court by ID.
    * Returns undefined if not found.
    */
-  get(id: string): Court | undefined;
+  get(id: string): RuntimeCourt | undefined;
 
   /** Return all runtime courts (tournament + club, one catalog). */
-  getAll(): Court[];
+  getAll(): RuntimeCourt[];
 
   /**
    * Delete a court by ID.

@@ -24,7 +24,12 @@ export function handleStatus(
 ): void {
   const loaded = stateStore.load();
 
-  if (!loaded || !loaded.tournamentCourts || loaded.tournamentCourts.length === 0) {
+  // v4 shape: tournament match count = tournament-mode LIVE/FINISHED sessions.
+  const tournamentSessions = (loaded?.liveSessions ?? []).filter(
+    (s) => s.flow?.mode === 'tournament',
+  );
+
+  if (tournamentSessions.length === 0) {
     res.json({
       exists: false,
       matchCount: 0,
@@ -35,8 +40,8 @@ export function handleStatus(
 
   res.json({
     exists: true,
-    matchCount: loaded.tournamentCourts.length,
-    lastSaved: new Date(loaded.savedAt).toISOString(),
+    matchCount: tournamentSessions.length,
+    lastSaved: new Date(loaded!.savedAt).toISOString(),
   });
 }
 

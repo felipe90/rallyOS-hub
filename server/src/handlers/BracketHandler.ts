@@ -257,17 +257,16 @@ export class BracketHandler extends SocketHandlerBase {
       return this.emitError(socket, 'COURT_NOT_FOUND', 'La cancha no existe o no está disponible');
     }
     const runtime = this.tableManager.getCourt(c);
-    if (runtime && (runtime as { kind?: string }).kind === 'club') {
-      const clubStatus = (runtime as { clubStatus?: string }).clubStatus;
+    if (runtime && runtime.mode === 'club') {
       // Q2: RESERVED (pending PIN) is pre-flow but must never be SELECTED.
-      if (clubStatus === 'RESERVED') {
+      if (runtime.clubStatus === 'RESERVED') {
         return this.emitError(socket, 'COURT_RESERVED', 'La cancha está reservada para una sesión de club');
       }
       // TCS-2: a live club flow (OCCUPIED/FINISHED) refuses SELECT.
-      if (clubStatus === 'OCCUPIED' || clubStatus === 'FINISHED') {
+      if (runtime.clubStatus === 'OCCUPIED' || runtime.clubStatus === 'FINISHED') {
         return this.emitError(socket, 'COURT_BUSY', 'La cancha está en uso');
       }
-    } else if (runtime && (runtime as { status?: string }).status === 'LIVE') {
+    } else if (runtime && runtime.flow?.state === 'LIVE') {
       // TCS-2: a live tournament flow refuses SELECT.
       return this.emitError(socket, 'COURT_BUSY', 'La cancha está en uso');
     }
@@ -285,6 +284,10 @@ export class BracketHandler extends SocketHandlerBase {
     } catch (err) {
       return this.onEngineError(socket, err);
     }
+    // Slice 5 — materialize the tournament RUNTIME court at SELECT time so
+    // the court + PIN exist for the referee (referee-play path). No-op when
+    // already materialized; unknown/non-ACTIVE courts were rejected above.
+    this.tableManager.ensureRuntimeTournamentCourt(c);
     this.scheduleDebouncedSave();
     this.broadcastState(socket);
   }

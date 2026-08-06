@@ -1,9 +1,9 @@
 /**
  * ICourtFormatter — Court to DTO transformation interface.
  *
- * Domain-level contract for formatting Court objects into
+ * Domain-level contract for formatting RuntimeCourt objects into
  * public-facing DTOs (CourtInfo, CourtInfoWithPin). Implementations
- * handle the Court → ClubCourt discrimination and extract match
+ * derive the mode/status from the runtime flow and extract match
  * state information (scores, sets, winner, player names) from
  * the MatchEngine's current game state.
  *
@@ -11,19 +11,19 @@
  * pure interface, one file per concern.
  */
 
-import type { Court } from '../types';
+import type { RuntimeCourt } from '../types';
 import type { CourtInfo, CourtInfoWithPin } from '../types';
 
 export interface ICourtFormatter {
   /** Format a single court into public-facing info (no PIN) */
-  toPublicInfo(court: Court): CourtInfo;
+  toPublicInfo(court: RuntimeCourt): CourtInfo;
 
   /** Format a single court into info that includes the PIN */
-  toInfoWithPin(court: Court): CourtInfoWithPin;
+  toInfoWithPin(court: RuntimeCourt): CourtInfoWithPin;
 
   /** Format multiple courts into a public list (no PINs) */
-  toPublicList(courts: Court[]): CourtInfo[];
+  toPublicList(courts: RuntimeCourt[]): CourtInfo[];
 
   /** Format multiple courts into a list that includes PINs */
-  toListWithPins(courts: Court[]): CourtInfoWithPin[];
+  toListWithPins(courts: RuntimeCourt[]): CourtInfoWithPin[];
 }

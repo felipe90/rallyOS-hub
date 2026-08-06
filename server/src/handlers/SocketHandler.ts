@@ -22,7 +22,7 @@ import type { FlowContext } from '../domain/flows/FlowModeContract';
 import { AdminPinService } from '../services/security/AdminPinService';
 import { SessionTokenService } from '../services/security/SessionTokenService';
 import type { SessionClaims } from '../services/security/SessionTokenService';
-import { CourtInfo, HubConfig, isClubCourt } from '../domain/types';
+import { CourtInfo, HubConfig, isClubFlowCourt } from '../domain/types';
 import type { SocketData } from '../domain/types';
 import { logger } from '../utils/logger';
 import { RateLimiter } from '../services/security/RateLimiter';
@@ -192,7 +192,7 @@ export class SocketHandler {
 
         const court = this.tableManager.getCourt(courtId);
 
-        if (court && isClubCourt(court)) {
+        if (court && isClubFlowCourt(court)) {
           // Club mode: keep the court OCCUPIED after the match finishes.
           // Spec scenario 3 —— the session is NOT auto-ended; the player
           // choses the next post-match action (reset / new match / free /
@@ -476,6 +476,7 @@ export class SocketHandler {
   }
 
   private getPublicCourtList(): CourtInfo[] {
-    return this.tableManager.getAllTournamentCourts();
+    // D11 — COURT_LIST is the ACTIVE inventory catalog (mode-agnostic).
+    return this.tableManager.getPublicCourtList();
   }
 }

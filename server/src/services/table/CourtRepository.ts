@@ -9,29 +9,29 @@
  *
  * clear() = tournament-flow release (design 1.6): removes tournament-mode
  * runtime entries only — club courts survive (finishTournament contract).
- * Slice-1 bridge: the stored objects are still the legacy Court union; the
- * RuntimeCourt migration lands with the slice-2 CourtManager delegation.
+ * Slice-5 bridge reversal: the repository stores `RuntimeCourt` (the single
+ * runtime court type — the legacy Court union is removed).
  */
 
-import { Court } from '../../domain/types';
+import type { RuntimeCourt } from '../../domain/types';
 import type { ICourtRepository } from '../../domain/ports';
 
 export class CourtRepository implements ICourtRepository {
-  private courts: Map<string, Court> = new Map();
+  private courts: Map<string, RuntimeCourt> = new Map();
 
   /** Store a court (unified — no kind dispatch). Returns the stored court. */
-  create(court: Court): Court {
+  create(court: RuntimeCourt): RuntimeCourt {
     this.courts.set(court.id, court);
     return court;
   }
 
   /** Look up a court by ID. */
-  get(id: string): Court | undefined {
+  get(id: string): RuntimeCourt | undefined {
     return this.courts.get(id);
   }
 
   /** All runtime courts (tournament + club, one catalog). */
-  getAll(): Court[] {
+  getAll(): RuntimeCourt[] {
     return Array.from(this.courts.values());
   }
 
@@ -48,7 +48,7 @@ export class CourtRepository implements ICourtRepository {
    */
   clear(): void {
     for (const [id, court] of this.courts) {
-      if (court.kind === 'tournament') {
+      if (court.mode === 'tournament') {
         this.courts.delete(id);
       }
     }

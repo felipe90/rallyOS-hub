@@ -456,7 +456,7 @@ export function ClubAdminPage() {
                                   </Button>
                                 </>
                               )}
-                              {court.clubStatus === CLUB_STATUS.AVAILABLE && (
+                              {(court.clubStatus === CLUB_STATUS.AVAILABLE || court.clubStatus === undefined) && (
                                 <>
                                   <Button variant="primary" size="xs" fullWidth onClick={() => inventory.activate(court.courtId)} disabled={inventory.loading} icon={<Play size={14} />}>
                                     {i18nText('clubAdminActivate')}

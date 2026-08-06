@@ -24,7 +24,6 @@ export { useDashboardStats } from './useDashboardStats'
 export { usePermissions } from './usePermissions'
 export { useCan } from './useCan'
 export { useAuthFlow } from './useAuthFlow'
-export { useCourtManagement } from './useCourtManagement'
 export { useWakeLock } from './useWakeLock'
 export type { WakeLockState } from './useWakeLock'
 
@@ -34,7 +33,6 @@ export { useFocusTrap } from './useFocusTrap'
 // Club Mode hooks
 export { useClubAdmin } from './useClubAdmin'
 export type { ClubConfigData, ClubSetupData } from './useClubAdmin'
-export { useClubCourtManagement } from './useClubCourtManagement'
 export { useClubSessionHistory } from './useClubSessionHistory'
 export type { UseClubSessionHistoryReturn } from './useClubSessionHistory'
 

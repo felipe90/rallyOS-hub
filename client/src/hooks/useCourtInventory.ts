@@ -48,10 +48,26 @@ export function useCourtInventory(socket: Socket | null, connected: boolean) {
   useEffect(() => {
     if (!socket) return
 
-    const onInventory = (data: { courts: CourtRecord[] }) => setCatalog(data?.courts ?? [])
-    const onKiosk = (data: ClubKioskPayloadLike) => setClubFlows(data?.courts ?? [])
-    const onCourtList = (data: CourtInfo[]) => setTournamentCourts(data ?? [])
-    const onBracket = (data: TournamentBracket | null) => setBracket(data)
+    const onInventory = (data: { courts: CourtRecord[] }) => {
+      setCatalog(data?.courts ?? [])
+      // Any catalog snapshot arriving means the pending mutation completed —
+      // release the loading flag (buttons re-enable).
+      setLoading(false)
+    }
+    const onKiosk = (data: ClubKioskPayloadLike) => {
+      setClubFlows(data?.courts ?? [])
+      // Club-flow snapshots (activate/occupy/end) also complete a pending
+      // action — clear loading so admin buttons re-enable.
+      setLoading(false)
+    }
+    const onCourtList = (data: CourtInfo[]) => {
+      setTournamentCourts(data ?? [])
+      setLoading(false)
+    }
+    const onBracket = (data: TournamentBracket | null) => {
+      setBracket(data)
+      setLoading(false)
+    }
     const onError = (err: { code: string; message: string }) => {
       setError(err?.code || 'UNKNOWN_ERROR')
       setLoading(false)

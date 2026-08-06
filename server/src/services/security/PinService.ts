@@ -6,7 +6,7 @@
  */
 
 import crypto from 'crypto';
-import { Court } from '../../domain/types';
+import type { RuntimeCourt } from '../../domain/types';
 import type { IPinService } from '../../domain/ports';
 
 export class PinService implements IPinService {
@@ -18,7 +18,7 @@ export class PinService implements IPinService {
    * Validate a PIN against a table's PIN using constant-time comparison.
    * Prevents timing attacks that could leak PIN digits.
    */
-  validatePin(table: Court, pin: string): boolean {
+  validatePin(table: RuntimeCourt, pin: string): boolean {
     const tablePinBuf = Buffer.from(table.pin, 'utf8');
     const inputPinBuf = Buffer.from(pin, 'utf8');
 

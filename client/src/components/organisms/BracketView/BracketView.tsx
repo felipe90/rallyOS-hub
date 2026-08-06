@@ -34,6 +34,8 @@ export interface BracketViewHandlers {
   onAssignPlayer: (matchId: string, slot: BracketSlot, name: string) => void
   onSetWinner: (matchId: string, winner: Player) => void
   onAssignCourt: (matchId: string, courtId: string | null) => void
+  /** Owner-picker court binding (D13/TCS-1) — emits TOURNAMENT_SELECT_TABLE. */
+  onSelectTable: (matchId: string, courtId: string) => void
   onUndo: (matchId: string) => void
   onReset: (token?: string) => void
   onResetConfirm: (token: string) => void
@@ -45,6 +47,12 @@ export interface BracketViewProps extends BracketViewHandlers {
   courts: CourtInfo[]
   error: { code: string; message: string } | null
   resetToken: string | null
+  /**
+   * TCS-4 strict cold start: false when the inventory has zero ACTIVE courts —
+   * the setup form is replaced by the empty-state copy (no provisional
+   * seeding). Defaults to true (backward compatible with direct usage).
+   */
+  hasAvailableCourts?: boolean
 }
 
 const SIZES: Array<4 | 8 | 16 | 32> = [4, 8, 16, 32]
@@ -78,10 +86,12 @@ export function BracketView({
   courts,
   error,
   resetToken,
+  hasAvailableCourts = true,
   onCreate,
   onAssignPlayer,
   onSetWinner,
   onAssignCourt,
+  onSelectTable,
   onUndo,
   onReset,
   onResetConfirm,
@@ -112,6 +122,16 @@ export function BracketView({
   )
 
   if (bracket === null) {
+    // TCS-4 strict cold start: zero ACTIVE inventory courts → no provisional
+    // seeding — the setup form is replaced by the explicit empty-state copy.
+    if (hasAvailableCourts === false) {
+      return (
+        <div className="max-w-md mx-auto py-6">
+          <Title className="mb-1">{i18nText('bracketSetupTitle')}</Title>
+          <Body className="mb-4 text-text/70">{terms.tournamentNoCourts}</Body>
+        </div>
+      )
+    }
     return (
       <div className="max-w-md mx-auto py-6">
         <Title className="mb-1">{i18nText('bracketSetupTitle')}</Title>
@@ -203,8 +223,6 @@ export function BracketView({
                     key={match.id}
                     match={match}
                     courtLabel={ctx.courtLabel}
-                    courtOrphan={ctx.courtOrphan}
-                    courtOccupied={ctx.courtOccupied}
                     onAssignSlot={(mid, slot) => {
                       const m = match // closed over the current match
                       const current =
@@ -230,8 +248,6 @@ export function BracketView({
             <BracketMatchCard
               match={bracket.thirdPlaceMatch}
               courtLabel={resolveCourtContext(bracket.thirdPlaceMatch, courts, bracket.matches).courtLabel}
-              courtOrphan={resolveCourtContext(bracket.thirdPlaceMatch, courts, bracket.matches).courtOrphan}
-              courtOccupied={resolveCourtContext(bracket.thirdPlaceMatch, courts, bracket.matches).courtOccupied}
               onAssignSlot={(mid, slot) => {
                 const m = bracket.thirdPlaceMatch!
                 const current = slot === 'A' ? m.playerA ?? '' : m.playerB ?? ''
@@ -299,7 +315,7 @@ export function BracketView({
               variant="secondary"
               fullWidth
               onClick={() => {
-                if (courtTargetMatchId) onAssignCourt(courtTargetMatchId, c.id)
+                if (courtTargetMatchId) onSelectTable(courtTargetMatchId, c.id)
                 setCourtTargetMatchId(null)
               }}
             >

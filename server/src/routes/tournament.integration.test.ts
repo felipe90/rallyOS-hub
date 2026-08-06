@@ -157,9 +157,11 @@ describe('Tournament router integration', () => {
   describe('handler behavior through router', () => {
     it('should return 200 from /status when state exists', () => {
       const persisted = {
-        version: 1,
+        version: 4,
         savedAt: 1700000000000,
-        tables: [makePersistedCourt()],
+        liveSessions: [
+          { courtId: makePersistedCourt().id, flow: { mode: 'tournament' as const, state: 'LIVE' as const, startedAt: 1700000000000 }, matchState: null },
+        ],
       };
       fs._files.set('data/rallyos-state.json', JSON.stringify(persisted));
 

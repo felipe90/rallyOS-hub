@@ -22,7 +22,6 @@ const TestConsumer = () => {
       <span data-testid="courts-count">{context.courts.length}</span>
       <span data-testid="currentMatch">{String(context.currentMatch)}</span>
       <button data-testid="emit-btn" onClick={() => context.emit('test-event', { foo: 'bar' })}>Emit</button>
-      <button data-testid="createCourt-btn" onClick={() => context.createCourt('test-court')}>Create Court</button>
       <button data-testid="joinCourt-btn" onClick={() => context.joinCourt('court-1', '1234', 'referee')}>Join Court</button>
       <button data-testid="leaveTable-btn" onClick={() => context.emit('LEAVE_COURT')}>Leave Court</button>
       <button data-testid="disconnect-btn" onClick={() => context.disconnect()}>Disconnect</button>
@@ -47,7 +46,6 @@ describe('SocketContext', () => {
       connect: vi.fn(),
       disconnect: vi.fn(),
       emit: vi.fn(),
-      createCourt: vi.fn(),
       joinCourt: vi.fn(),
       requestCourts: vi.fn(),
       scorePoint: vi.fn(),
@@ -77,7 +75,6 @@ describe('SocketContext', () => {
       connect: vi.fn(),
       disconnect: vi.fn(),
       emit: vi.fn(),
-      createCourt: vi.fn(),
       joinCourt: vi.fn(),
       requestCourts: vi.fn(),
       scorePoint: vi.fn(),
@@ -107,7 +104,6 @@ describe('SocketContext', () => {
       connect: vi.fn(),
       disconnect: vi.fn(),
       emit: vi.fn(),
-      createCourt: vi.fn(),
       joinCourt: vi.fn(),
       requestCourts: vi.fn(),
       scorePoint: vi.fn(),
@@ -138,7 +134,6 @@ describe('SocketContext', () => {
       connect: vi.fn(),
       disconnect: vi.fn(),
       emit: emitFn,
-      createCourt: vi.fn(),
       joinCourt: vi.fn(),
       requestCourts: vi.fn(),
       scorePoint: vi.fn(),
@@ -158,39 +153,6 @@ describe('SocketContext', () => {
     expect(emitFn).toHaveBeenCalledWith('test-event', { foo: 'bar' })
   })
 
-  it('createCourt() creates new court', () => {
-    const createCourtFn = vi.fn()
-    const mockSocketValue = {
-      connected: true,
-      connecting: false,
-      error: null,
-      courts: [],
-      currentCourt: null,
-      currentMatch: null,
-      socket: null,
-      connect: vi.fn(),
-      disconnect: vi.fn(),
-      emit: vi.fn(),
-      createCourt: createCourtFn,
-      joinCourt: vi.fn(),
-      requestCourts: vi.fn(),
-      scorePoint: vi.fn(),
-      undoLastPoint: vi.fn(),
-      startMatch: vi.fn(),
-    }
-    mockUseSocket.mockReturnValue(mockSocketValue)
-
-    render(
-      <SocketProvider>
-        <TestConsumer />
-      </SocketProvider>
-    )
-
-    screen.getByTestId('createCourt-btn').click()
-
-    expect(createCourtFn).toHaveBeenCalledWith('test-court')
-  })
-
   it('joinCourt() joins existing court', () => {
     const joinCourtFn = vi.fn()
     const mockSocketValue = {
@@ -204,7 +166,6 @@ describe('SocketContext', () => {
       connect: vi.fn(),
       disconnect: vi.fn(),
       emit: vi.fn(),
-      createCourt: vi.fn(),
       joinCourt: joinCourtFn,
       requestCourts: vi.fn(),
       scorePoint: vi.fn(),
@@ -237,7 +198,6 @@ describe('SocketContext', () => {
       connect: vi.fn(),
       disconnect: vi.fn(),
       emit: emitFn,
-      createCourt: vi.fn(),
       joinCourt: vi.fn(),
       requestCourts: vi.fn(),
       scorePoint: vi.fn(),
@@ -270,7 +230,6 @@ describe('SocketContext', () => {
       connect: vi.fn(),
       disconnect: disconnectFn,
       emit: vi.fn(),
-      createCourt: vi.fn(),
       joinCourt: vi.fn(),
       requestCourts: vi.fn(),
       scorePoint: vi.fn(),
@@ -308,7 +267,6 @@ describe('SocketContext', () => {
       connect: vi.fn(),
       disconnect: vi.fn(),
       emit: mockEmit,
-      createCourt: vi.fn(),
       joinCourt: vi.fn(),
       requestCourts: vi.fn(),
       scorePoint: vi.fn(),
@@ -344,7 +302,6 @@ describe('SocketContext', () => {
       connect: vi.fn(),
       disconnect: vi.fn(),
       emit: vi.fn(),
-      createCourt: vi.fn(),
       joinCourt: vi.fn(),
       requestCourts: vi.fn(),
       scorePoint: vi.fn(),

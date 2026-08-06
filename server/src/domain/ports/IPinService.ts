@@ -9,7 +9,7 @@
  * pure interface, one file per concern.
  */
 
-import type { Court } from '../types';
+import type { RuntimeCourt } from '../types';
 
 export interface IPinService {
   /** Generate a new PIN string (typically 4-digit numeric) */
@@ -19,5 +19,5 @@ export interface IPinService {
    * Validate a PIN for a given court using constant-time comparison.
    * Returns true only when the PIN matches the court's current PIN.
    */
-  validatePin(court: Court, pin: string): boolean;
+  validatePin(court: RuntimeCourt, pin: string): boolean;
 }

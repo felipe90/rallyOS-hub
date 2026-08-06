@@ -79,6 +79,7 @@ function createMockTableManager(): CourtManager {
     onMatchEvent: () => {},
     getAllCourts: () => [],
     getAllTournamentCourts: () => [],
+    getPublicCourtList: () => [],
     getCourt: () => undefined,
     getMatchState: () => null,
     courtToInfo: () => undefined,

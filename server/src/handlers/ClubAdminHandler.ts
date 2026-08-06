@@ -18,7 +18,7 @@ import { SocketEvents } from '../../../shared/events';
 import { ADMIN_PIN_RULES, sanitizeMessage } from '../../../shared/validation';
 import { COURT_MODE, KioskNotificationType } from '../../../shared/types';
 import { SocketHandlerBase } from './SocketHandlerBase';
-import { isClubCourt } from '../domain/types';
+import type { RuntimeCourt } from '../domain/types';
 import type { SocketData } from '../domain/types';
 import type { ClubSessionHistoryHandler } from './ClubSessionHistoryHandler';
 // player-identity (Phase 2 task 2.6) — AES-256-GCM key generator used on
@@ -240,7 +240,7 @@ export class ClubAdminHandler extends SocketHandlerBase {
         this.io.emit(SocketEvents.SERVER.CLUB_COURT_CREATED, {
           id: court.id,
           name: court.name,
-          status: isClubCourt(court) ? court.clubStatus : COURT_MODE.CLUB,
+          status: (court as RuntimeCourt).clubStatus,
           mode: COURT_MODE.CLUB,
         });
       }

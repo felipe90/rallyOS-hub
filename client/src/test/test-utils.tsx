@@ -30,7 +30,7 @@ const defaultMockSocketContext: SocketContextType = {
   appError: null,
   currentCourt: null,
   emit: vi.fn(),
-  createCourt: vi.fn(),
+
   joinCourt: vi.fn(),
   disconnect: vi.fn(),
   connect: vi.fn(),

@@ -17,10 +17,12 @@
 import { Server, Socket } from 'socket.io';
 import { CourtManager } from '../domain/courtManager';
 import type { IClubConfigRepository } from '../domain/ports/IClubConfigRepository';
+import type { InventoryManager } from '../domain/inventory/InventoryManager';
+import type { FlowContext } from '../domain/flows/FlowModeContract';
 import { AdminPinService } from '../services/security/AdminPinService';
 import { SessionTokenService } from '../services/security/SessionTokenService';
 import type { SessionClaims } from '../services/security/SessionTokenService';
-import { CourtInfo, HubConfig, isClubCourt } from '../domain/types';
+import { CourtInfo, HubConfig, isClubFlowCourt } from '../domain/types';
 import type { SocketData } from '../domain/types';
 import { logger } from '../utils/logger';
 import { RateLimiter } from '../services/security/RateLimiter';
@@ -42,7 +44,7 @@ import {
 import { SessionHistoryStore } from '../services/store/SessionHistoryStore';
 import { PhoneRevealAuditStore } from '../services/store/PhoneRevealAuditStore';
 import { ClubConfigStore } from '../services/store/ClubConfigStore';
-import { StateStore } from '../services/store/StateStore';
+import { PersistenceCoordinator } from '../services/store/PersistenceCoordinator';
 
 export class SocketHandler {
   private io: Server;
@@ -51,6 +53,8 @@ export class SocketHandler {
   private hubConfig: HubConfig;
   private connectionRateLimiter: RateLimiter;
   private clubConfigStore?: IClubConfigRepository;
+  /** Admin court catalog (D3/INV-1) — wired into ClubCourtHandler + connect push. */
+  private inventoryManager?: InventoryManager;
   
   // Handler instances
   private courtHandler: CourtEventHandler;
@@ -76,7 +80,22 @@ export class SocketHandler {
     clubConfigStore?: IClubConfigRepository,
     sessionHistoryStore?: SessionHistoryStore,
     phoneRevealAuditStore?: PhoneRevealAuditStore,
-    stateStore?: StateStore,
+    /**
+     * Slice 6 (PERS-4): the single-writer persistence coordinator. Replaces
+     * the raw StateStore for the BracketHandler seam — the coordinator owns
+     * the in-memory snapshot (bracket cache lives there), so every bracket
+     * write mutates the snapshot and flushes the FULL document atomically.
+     * Optional so older test wiring without a coordinator keeps working.
+     */
+    coordinator?: PersistenceCoordinator,
+    /**
+     * InventoryManager — the admin court catalog (admin-court-inventory,
+     * D3/INV-1). Injected into ClubCourtHandler for the INVENTORY_* events
+     * and pushed to every connecting socket as INVENTORY_UPDATED (mirrors
+     * the CLUB_KIOSK_DATA connect push). Optional so older test wiring
+     * without an inventory keeps working.
+     */
+    inventoryManager?: InventoryManager,
   ) {
     this.io = io;
     this.tableManager = tableManager;
@@ -84,6 +103,7 @@ export class SocketHandler {
     this.hubConfig = hubConfig;
     this.connectionRateLimiter = new RateLimiter(60_000, 20); // 20 connections per 60s per IP
     this.clubConfigStore = clubConfigStore;
+    this.inventoryManager = inventoryManager;
     this.phoneRevealAuditStore = phoneRevealAuditStore ?? new PhoneRevealAuditStore();
     
     // Initialize services
@@ -118,17 +138,33 @@ export class SocketHandler {
       this.clubHistoryHandler = new ClubSessionHistoryHandler(io, sessionHistoryStore, auditStore, configStore);
     }
     this.clubAdminHandler = new ClubAdminHandler(io, tableManager, ownerPin, clubConfigStore!, adminPinService, sessionTokenService, this.clubHistoryHandler);
+    // BracketHandler (Tier 2): constructed BEFORE ClubCourtHandler so its
+    // force-end context seam (AFE-2 bracket unbind) can be wired into the
+    // INVENTORY_FORCE_END handler below. Constructed only when a coordinator
+    // is injected so the bracket persists across restarts (R10); omitting
+    // the coordinator keeps older test wiring working without a bracket
+    // handler.
+    if (coordinator) {
+      // Slice 4: BracketHandler now consumes the InventoryManager for
+      // courtExists (TCS-2 — inventory-ACTIVE) and the strict cold-start gate
+      // (TCS-4 — no ACTIVE court → COURT_INVENTORY_EMPTY on BRACKET_CREATE).
+      // Slice 6 (PERS-4): the coordinator is the bracket store seam.
+      this.bracketHandler = new BracketHandler(io, tableManager, ownerPin, coordinator, inventoryManager);
+    }
     // Phase 3 / U2: pass clubConfigStore so CLUB_ADMIN_OCCUPY can resolve
     // the configured sport for the default match config on the freshly
-    // occupied court.
-    this.clubCourtHandler = new ClubCourtHandler(io, tableManager, ownerPin, clubConfigStore);
+    // occupied court. Slice 3: pass the InventoryManager (INVENTORY_* events)
+    // + the AFE-2 bracket force-end context (plumbing — see
+    // bracketForceEndContext for what slice 4 completes).
+    this.clubCourtHandler = new ClubCourtHandler(
+      io,
+      tableManager,
+      ownerPin,
+      clubConfigStore,
+      inventoryManager,
+      this.bracketHandler ? () => this.bracketForceEndContext() : undefined,
+    );
     this.clubPlayerHandler = new ClubPlayerHandler(io, tableManager, ownerPin, clubConfigStore!, sessionHistoryStore);
-    // BracketHandler (Tier 2): constructed only when a StateStore is injected
-    // so the bracket persists across restarts (R10). Omitting the store
-    // keeps older test wiring working without a bracket handler.
-    if (stateStore) {
-      this.bracketHandler = new BracketHandler(io, tableManager, ownerPin, stateStore);
-    }
 
     // Default kiosk mode — tournament unless club is configured
     const existingConfig = this.clubConfigStore?.load() ?? null
@@ -165,7 +201,7 @@ export class SocketHandler {
 
         const court = this.tableManager.getCourt(courtId);
 
-        if (court && isClubCourt(court)) {
+        if (court && isClubFlowCourt(court)) {
           // Club mode: keep the court OCCUPIED after the match finishes.
           // Spec scenario 3 —— the session is NOT auto-ended; the player
           // choses the next post-match action (reset / new match / free /
@@ -274,6 +310,16 @@ export class SocketHandler {
       const kioskPayload = this.tableManager.getClubKioskPayload(clubConfig);
       socket.emit(SocketEvents.SERVER.CLUB_KIOSK_DATA, kioskPayload);
 
+      // Send the admin inventory catalog snapshot so a freshly connected
+      // client reconciles the catalog immediately (mirrors the
+      // CLUB_KIOSK_DATA / KIOSK_MODE connect pushes). After that, catalog
+      // changes arrive via the INVENTORY_UPDATED broadcast.
+      if (this.inventoryManager) {
+        socket.emit(SocketEvents.SERVER.INVENTORY_UPDATED, {
+          courts: this.inventoryManager.list(),
+        });
+      }
+
       // Send hub config to new client (WiFi QR credentials + domain)
       socket.emit(SocketEvents.SERVER.HUB_CONFIG, {
         ssid: this.hubConfig.ssid,
@@ -374,6 +420,48 @@ export class SocketHandler {
   }
 
   /**
+   * AFE-2 force-end bracket context — supplies the resolve + unbind seams for
+   * the INVENTORY_FORCE_END handler so a tournament force-end can find the
+   * bracket match bound to the court and then clear the binding
+   * (assignCourt(m, null)) WITHOUT setWinner/advance. Slice 3 wired only the
+   * resolve seam; slice 4 completes `unbindMatch` via the public
+   * `BracketHandler.unbindMatch` passthrough (engine is private).
+   */
+  private bracketForceEndContext(): FlowContext {
+    const bh = this.bracketHandler;
+    if (!bh) return {};
+    return {
+      resolveMatchForCourt: (courtId: string) => {
+        const m = bh.resolveBracketMatchForCourt(courtId);
+        return m ? { id: m.id } : null;
+      },
+      unbindMatch: (matchId: string) => {
+        bh.unbindMatch(matchId);
+      },
+    };
+  }
+
+  /**
+   * Release every bracket court binding + tournament flow (TCS-3, Q4) —
+   * public seam for the POST /api/tournament/finish route. Bracket-scoped:
+   * club courts untouched; the completed bracket is KEPT for display. No-op
+   * when no BracketHandler is wired.
+   */
+  releaseAllBracketCourts(): string[] {
+    return this.bracketHandler?.releaseAllCourts() ?? [];
+  }
+
+  /**
+   * Flush any pending debounced bracket persistence immediately (slice 6 —
+   * graceful shutdown). The CourtManager flush covers the session debounce;
+   * this covers the bracket's 2s slot-save timer so a restart never loses
+   * the last bracket mutation. No-op when no BracketHandler is wired.
+   */
+  flushBracketPersistence(): void {
+    this.bracketHandler?.flushPending();
+  }
+
+  /**
    * Apply verified JWT claims to socket.data based on role (REQ-07/11).
    * Pure — no I/O. Exposed as a method for clarity and testability of the
    * role→flags mapping.
@@ -407,6 +495,7 @@ export class SocketHandler {
   }
 
   private getPublicCourtList(): CourtInfo[] {
-    return this.tableManager.getAllTournamentCourts();
+    // D11 — COURT_LIST is the ACTIVE inventory catalog (mode-agnostic).
+    return this.tableManager.getPublicCourtList();
   }
 }

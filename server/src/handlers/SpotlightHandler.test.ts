@@ -255,10 +255,14 @@ describe('SET_FEATURED — club admin auth (club-featured-courts)', () => {
   function createClubCourt(overrides: Record<string, any> = {}): any {
     return {
       id: 'club-court-1',
+      mode: 'club',
+      flow: null,
+      reserved: false,
+      record: { courtId: 'club-court-1', number: 1, name: 'Club Cancha 1', inventoryStatus: 'ACTIVE' },
       number: 1,
       name: 'Club Cancha 1',
-      kind: 'club',
       clubStatus: 'AVAILABLE',
+      status: 'WAITING',
       featured: false,
       playerNames: { a: '', b: '' },
       pin: '',

@@ -49,30 +49,9 @@ describe('useSportTerms — ST-2 resolution', () => {
     expect(result.current.sportLoaded).toBe(true)
   })
 
-  it('resolves ownerCreateCourt to "Cancha" for es + padel', () => {
-    mockUseSport.mockReturnValue({ sport: 'padel', sportLoaded: true })
-
-    const { result } = renderHook(() => useSportTerms())
-
-    expect(result.current.terms.ownerCreateCourt).toBe('Cancha')
-  })
-
-  it('resolves ownerCreateCourt to "Court" for en-US + padel (ST-2)', () => {
-    mockUseSport.mockReturnValue({ sport: 'padel', sportLoaded: true })
-    mockUseI18n.mockReturnValue({
-      i18nText: enLookup,
-      language: 'en-US',
-      changeLanguage: vi.fn(),
-    })
-
-    const { result } = renderHook(() => useSportTerms())
-
-    expect(result.current.terms.ownerCreateCourt).toBe('Court')
-  })
-
   it('re-resolves terms when the language switches (ST-2 locale switch)', () => {
     const { result, rerender } = renderHook(() => useSportTerms())
-    expect(result.current.terms.ownerCreateCourt).toBe('Mesa')
+    expect(result.current.terms.dashboardStatCourts).toBe('Mesas')
 
     mockUseI18n.mockReturnValue({
       i18nText: enLookup,
@@ -81,7 +60,7 @@ describe('useSportTerms — ST-2 resolution', () => {
     })
     rerender()
 
-    expect(result.current.terms.ownerCreateCourt).toBe('Table')
+    expect(result.current.terms.dashboardStatCourts).toBe('Tables')
   })
 
   it('passes through sportLoaded and exposes i18nText for interpolated keys (D2)', () => {
@@ -118,10 +97,6 @@ describe('ST-3 — sportTerm locale parity', () => {
     // in PR-2 task 2.1 (see the skipped coverage suite below).
     expect(esLookup('sportTerm.dashboardStatCourts.tableTennis')).toBe('Mesas')
     expect(esLookup('sportTerm.dashboardStatCourts.padel')).toBe('Canchas')
-    expect(esLookup('sportTerm.ownerCreateCourt.tableTennis')).toBe('Mesa')
-    expect(esLookup('sportTerm.ownerCreateCourt.padel')).toBe('Cancha')
-    expect(enLookup('sportTerm.ownerCreateCourt.tableTennis')).toBe('Table')
-    expect(enLookup('sportTerm.ownerCreateCourt.padel')).toBe('Court')
   })
 })
 

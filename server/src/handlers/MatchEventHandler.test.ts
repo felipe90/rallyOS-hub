@@ -17,7 +17,7 @@ import { createTestCourtManager } from '../domain/courtManager.test-factory';
 import { MatchEventHandler } from './MatchEventHandler';
 import { SocketEvents } from '../../../shared/events';
 import type { MatchStateExtended } from '../domain/matchEngine';
-import { SPORT, COURT_MODE } from '../../../shared/types';
+import { SPORT, COURT_MODE, INVENTORY_STATUS } from '../../../shared/types';
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
@@ -276,10 +276,14 @@ describe('MatchEventHandler — COURT_UPDATE club court guard (club leak fix)', 
   function createClubCourt(id: string) {
     return {
       id,
-      kind: 'club',
+      mode: 'club',
+      flow: null,
+      reserved: false,
+      record: { courtId: id, number: 1, name: 'Club Court', inventoryStatus: INVENTORY_STATUS.ACTIVE },
       number: 1,
       name: 'Club Court',
       status: 'WAITING',
+      clubStatus: 'AVAILABLE',
       pin: '1234',
       playerNames: { a: '', b: '' },
       players: [],

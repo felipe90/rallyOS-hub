@@ -105,6 +105,22 @@ function makeFinishedTable(overrides: Partial<PersistedCourt> = {}): PersistedCo
   };
 }
 
+// ── Helpers: v4 session rows ────────────────────────────────────────────
+
+/** Convert a PersistedCourt fixture into a v4 tournament liveSessions row. */
+function tableToSession(t: PersistedCourt) {
+  return {
+    courtId: t.id,
+    flow: { mode: 'tournament' as const, state: 'LIVE' as const, startedAt: t.createdAt },
+    matchState: t.matchState,
+    number: t.number,
+    name: t.name,
+    pin: t.pin,
+    playerNames: { ...t.playerNames },
+    createdAt: t.createdAt,
+  };
+}
+
 // ── Tests: Handler ──────────────────────────────────────────────────────
 
 describe('handleExport', () => {
@@ -114,9 +130,9 @@ describe('handleExport', () => {
 
     // Seed state with 1 FINISHED table
     const persisted = {
-      version: 1,
+      version: 4,
       savedAt: 1700000000000,
-      tables: [makeFinishedTable()],
+      liveSessions: [tableToSession(makeFinishedTable())],
     };
     fs._files.set('data/rallyos-state.json', JSON.stringify(persisted));
 
@@ -141,14 +157,14 @@ describe('handleExport', () => {
 
     // State exists but only LIVE tables
     const persisted = {
-      version: 1,
+      version: 4,
       savedAt: 1700000000000,
-      tables: [
-        {
+      liveSessions: [
+        tableToSession({
           ...makeFinishedTable(),
           status: 'LIVE' as const,
           matchState: { ...makeFinishedTable().matchState, status: 'LIVE' as const, winner: null },
-        },
+        }),
       ],
     };
     fs._files.set('data/rallyos-state.json', JSON.stringify(persisted));
@@ -199,7 +215,11 @@ describe('handleExport', () => {
     };
     const finished2 = makeFinishedTable({ id: 't3', number: 3, name: 'Mesa 3' });
 
-    const persisted = { version: 1, savedAt: 1700000000000, tables: [finished1, live, finished2] };
+    const persisted = {
+      version: 4,
+      savedAt: 1700000000000,
+      liveSessions: [tableToSession(finished1), tableToSession(live), tableToSession(finished2)],
+    };
     fs._files.set('data/rallyos-state.json', JSON.stringify(persisted));
 
     const req = mockReq();

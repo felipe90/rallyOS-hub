@@ -12,7 +12,7 @@
 
 import { Server, Socket } from 'socket.io';
 import { CourtManager } from '../domain/courtManager';
-import { isClubCourt } from '../domain/types';
+import { isClubFlowCourt } from '../domain/types';
 import type { IClubConfigRepository } from '../domain/ports/IClubConfigRepository';
 import { logger } from '../utils/logger';
 import { SocketEvents } from '../../../shared/events';
@@ -49,8 +49,8 @@ export class SpotlightHandler extends SocketHandlerBase {
    * No-op for tournament courts — the tournament kiosk reads featured
    * via the ambient `COURT_UPDATE` stream, not `CLUB_KIOSK_DATA`.
    */
-  private broadcastClubKioskData(court: { kind?: string }): void {
-    if (!isClubCourt(court as any)) return;
+  private broadcastClubKioskData(court: { mode?: string }): void {
+    if (court.mode !== 'club') return;
     const clubConfig = this.clubConfigStore?.load() ?? null;
     const payload = this.tableManager.getClubKioskPayload(clubConfig);
     this.io.emit(SocketEvents.SERVER.CLUB_KIOSK_DATA, payload);
@@ -77,7 +77,7 @@ export class SpotlightHandler extends SocketHandlerBase {
             court.featured = false;
             const courtInfo = this.tableManager.courtToInfo(court);
             // Do not broadcast COURT_UPDATE for club courts — they use CLUB_KIOSK_DATA.
-            if (!isClubCourt(court)) {
+            if (!isClubFlowCourt(court)) {
               this.io.emit(SocketEvents.SERVER.COURT_UPDATE, courtInfo);
             }
             logger.debug({ courtId: court.id }, 'Featured cleared via SET_FEATURED(null)');
@@ -101,7 +101,7 @@ export class SpotlightHandler extends SocketHandlerBase {
             court.featured = false;
             const courtInfo = this.tableManager.courtToInfo(court);
             // Do not broadcast COURT_UPDATE for club courts — they use CLUB_KIOSK_DATA.
-            if (!isClubCourt(court)) {
+            if (!isClubFlowCourt(court)) {
               this.io.emit(SocketEvents.SERVER.COURT_UPDATE, courtInfo);
             }
             logger.debug({ courtId: court.id }, 'Previous featured court cleared');
@@ -112,7 +112,7 @@ export class SpotlightHandler extends SocketHandlerBase {
       targetCourt.featured = true;
       const courtInfo = this.tableManager.courtToInfo(targetCourt);
       // Do not broadcast COURT_UPDATE for club courts — they use CLUB_KIOSK_DATA.
-      if (!isClubCourt(targetCourt)) {
+      if (!isClubFlowCourt(targetCourt)) {
         this.io.emit(SocketEvents.SERVER.COURT_UPDATE, courtInfo);
       }
       logger.info({ courtId: targetCourt.id }, 'Court set as featured');

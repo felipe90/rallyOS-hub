@@ -38,6 +38,7 @@ import {
   CLUB_STATUS,
   SessionMode,
   SESSION_MODE,
+  CourtRecord,
 } from '../../../shared/types';
 import type { MatchEngine } from './matchEngine';
 
@@ -49,6 +50,8 @@ export type {
   PersistedClubCourt,
   PersistedMatchState,
   PersistedTable,
+  PersistedFlowSession,
+  PersistedStateV4,
 } from './ports/persistence-types';
 
 // Re-export everything from shared so consumers can still `import { X } from './types'`
@@ -81,6 +84,7 @@ export {
   CLUB_STATUS,
   SessionMode,
   SESSION_MODE,
+  CourtRecord,
 };
 
 /**
@@ -100,7 +104,7 @@ export interface HubConfig {
 /**
  * Player connection (internal server-only)
  *
- * Tracks connected players/spectators/referees per table.
+ * Tracks connected players/spectators/referees per court.
  * Never sent to the client in this raw form.
  */
 export interface PlayerConnection {
@@ -110,91 +114,119 @@ export interface PlayerConnection {
   joinedAt: number;
 }
 
-/**
- * TournamentCourt — A court in tournament mode.
- *
- * Has `status: TournamentStatus` to track match lifecycle.
- * Does NOT have club-specific fields (clubStatus, occupiedAt, mode).
- */
-export interface TournamentCourt {
-  kind: 'tournament';
-  id: string;
-  number: number;
-  name: string;
-  status: TournamentStatus;
-  pin: string;
-  sportRules: MatchEngine;
-  playerNames: { a: string; b: string };
-  history: MatchEvent[];
-  players: PlayerConnection[];
-  createdAt: number;
-  /** Whether this court is currently featured/spotlight on the kiosk */
-  featured: boolean;
-  // Event callbacks — internal wiring, never exposed to client
-  onTableUpdate?: () => void;
-  onMatchEvent?: (event: MatchEvent) => void;
-}
+/** Flow-mode discriminator key — extendable ('clase' registers one contract). */
+export type FlowModeKey = 'tournament' | 'club';
 
 /**
- * ClubCourt — A court in club mode.
- *
- * Has `clubStatus: ClubStatus` for club lifecycle (AVAILABLE, RESERVED,
- * OCCUPIED, FINISHED, MAINTENANCE) and `occupiedAt` for session tracking.
- * Does NOT have tournament-specific fields (status).
+ * FlowSlot — the ONE active flow on a runtime court (D1).
+ * `null` = no active flow → court is IDLE.
+ * tournament: LIVE while a bracket match runs on the court.
+ * club: OCCUPIED (timer/cost running) → FINISHED, with session identity
+ *       (playerName/phone/adminId) carried on the slot.
  */
-export interface ClubCourt {
-  kind: 'club';
+export type FlowSlot =
+  | { mode: 'tournament'; state: 'LIVE'; startedAt: number }
+  | {
+      mode: 'club';
+      state: 'OCCUPIED' | 'FINISHED';
+      sessionMode: SessionMode | null;
+      occupiedAt: number | null;
+      playerName: string | null;
+      phone: string | null;
+      adminId: string | null;
+    }
+  | null;
+
+/**
+ * RuntimeCourt — the in-memory court entity (D1). THE single runtime court
+ * type: the legacy `TournamentCourt`/`ClubCourt` union and the
+ * `isClubCourt`/`isTournamentCourt` guards are REMOVED (admin-court-inventory
+ * slice 5 — bridge reversal). One physical court = ONE entity; the kind is
+ * DERIVED from the active `flow`, never stored.
+ *
+ * - `record` is the durable inventory identity (CourtRecord); `flow` is the
+ *   transient active session (or null → IDLE); availability is DERIVED from
+ *   (record.inventoryStatus, flow, bracket binding) — never stored (INV-4).
+ * - `reserved` is the club pre-flow pending-PIN state (RESERVED, Q2) — a
+ *   court with no flow yet but a live session PIN.
+ *
+ * DEVIATION (documented): the runtime court retains the legacy projection
+ * fields (`status`, `clubStatus`, `occupiedAt`, `sessionMode`, `playerName`,
+ * `phone`, `adminId`, `playerNames`, `history`, `createdAt`) because the
+ * wire/UI layer (CourtInfo, kiosk payload) and the pre-slice-5 test suites
+ * consume them. They are NOT a second source of truth: `flow` is
+ * authoritative, and every flow mutation (CourtManager/flow contracts) keeps
+ * the projection in sync at the single write site.
+ */
+export interface RuntimeCourt {
+  /** D1 — durable inventory identity (admin-owned catalog record). */
+  record: CourtRecord;
+  /** D1 — the ONE active flow (null → IDLE). */
+  flow: FlowSlot;
+  /**
+   * Club pre-flow pending-PIN state (RESERVED, Q2) — excludes SELECT.
+   * A court can be `reserved` while `flow` is still null (IDLE): the PIN
+   * exists, the session has not started.
+   */
+  reserved: boolean;
+  /**
+   * Flow-mode ORIENTATION — the court's current mode ('tournament' | 'club').
+   *
+   * DEVIATION (documented): the design says kind is derived from the active
+   * flow and never stored. In practice an IDLE court (flow null) must still
+   * render correctly (a reset club court shows as "Disponible" in the club
+   * kiosk; a bound-but-not-started tournament court shows in the tournament
+   * list). `mode` is therefore a RETAINED orientation that FOLLOWS the flow:
+   * it is set at materialization (createClubCourt / materialize / deprecated
+   * createCourt) and updated whenever a flow starts (club occupy → 'club',
+   * tournament start → 'tournament'). It is NOT a permanent discriminator —
+   * kind-mutability holds: a court used for club today and tournament
+   * tomorrow keeps ONE courtId; only mode+flow change (INV-2/E11).
+   */
+  mode: FlowModeKey;
+  // ── legacy identity accessors — mirror `record` (invariant:
+  //    id === record.courtId, number === record.number, name === record.name,
+  //    maintained at construction) so pre-slice-5 consumers and test
+  //    fixtures that read `court.id`/`court.name`/`court.number` keep working.
   id: string;
   number: number;
   name: string;
-  clubStatus: ClubStatus;
   pin: string;
   sportRules: MatchEngine;
-  playerNames: { a: string; b: string };
-  history: MatchEvent[];
-  players: PlayerConnection[];
-  createdAt: number;
   /** Whether this court is currently featured/spotlight on the kiosk */
   featured: boolean;
+  players: PlayerConnection[];
+  playerNames: { a: string; b: string };
+  createdAt: number;
+  history: MatchEvent[];
+  // ── legacy projection fields — kept in sync with `flow` (see header) ──
+  status: TournamentStatus;
+  clubStatus: ClubStatus;
   /** Epoch ms when the court was first occupied (set on RESERVED→OCCUPIED transition) */
   occupiedAt: number | null;
-  /** Active session mode — 'free' | 'match'. Null when court is not in an active session (AVAILABLE/RESERVED/FINISHED). */
+  /** Active session mode — 'free' | 'match'. Null when no active session. */
   sessionMode: SessionMode | null;
-  // ── player-identity additions (spec: session-record MODIFIED) ──────────
-  // Player name snapshot captured at session-start (CLUB_START_FREE /
-  // CLUB_NEW_MATCH / CLUB_ADMIN_OCCUPY). Null on creation; populated by
-  // `occupyClubCourt` defaults to null and is filled in by
-  // `startFreePlay`/`newMatch`/`adminOccupyCourt` (Phase 2/3). Cleared back
-  // to null by `resetCourt`.
+  /** Player name snapshot captured at session-start. */
   playerName: string | null;
-  // Phone — AES-256-GCM base64 ciphertext string. Null on creation;
-  // populated alongside playerName. Server NEVER decrypts inside the
-  // session flow; only the phone-reveal handler (Phase 4) decrypts server-side.
+  /** Phone — AES-256-GCM base64 ciphertext string. */
   phone: string | null;
-  // Admin socket id who started the session (`socket.data.adminId` set at
-  // CLUB_VERIFY_ADMIN). Null for player-initiated sessions. Cleared back
-  // to null by `resetCourt`.
+  /** Admin socket id who started the session (`socket.data.adminId`). */
   adminId: string | null;
   // Event callbacks — internal wiring, never exposed to client
   onTableUpdate?: () => void;
   onMatchEvent?: (event: MatchEvent) => void;
 }
 
-/** Discriminated union — use `kind` to narrow. */
-export type Court = TournamentCourt | ClubCourt;
-
-/** Type guard: narrow Court → ClubCourt */
-export function isClubCourt(court: Court): court is ClubCourt {
-  return court.kind === 'club';
+/**
+ * True when the court is club-oriented (its retained flow-mode orientation is
+ * 'club' — see `RuntimeCourt.mode`). Replaces the legacy `isClubCourt` kind
+ * guard (slice-5 bridge reversal): orientation follows the flow, so a court
+ * with a club flow, a RESERVED pending-PIN court, and an IDLE-but-materialized
+ * club court all report club. Tournament courts report false.
+ */
+export function isClubFlowCourt(court: RuntimeCourt): boolean {
+  return court.mode === 'club';
 }
-
-/** Type guard: narrow Court → TournamentCourt */
-export function isTournamentCourt(court: Court): court is TournamentCourt {
-  return court.kind === 'tournament';
-}
-
-/** @deprecated Use Court instead — legacy alias for backward compat */
-export type Table = Court;
 
 /**
  * Socket data attached to authenticated sockets.

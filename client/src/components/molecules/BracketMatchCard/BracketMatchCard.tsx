@@ -11,7 +11,7 @@
  */
 
 import { useState } from 'react'
-import { MapPin, Undo2, AlertTriangle } from 'lucide-react'
+import { MapPin, Undo2 } from 'lucide-react'
 import { useSportTerms } from '@/hooks/useSportTerms'
 import { Button } from '@/components/atoms/Button'
 import { Caption } from '@/components/atoms/Typography'
@@ -22,10 +22,6 @@ export interface BracketMatchCardProps {
   match: BracketMatch
   /** Canonical name of the live court referenced by `match.courtId`, if any. */
   courtLabel?: string | null
-  /** courtId still set but the court was removed from the dashboard list. */
-  courtOrphan?: boolean
-  /** The court is busy with another match (non-blocking warning). */
-  courtOccupied?: boolean
   onAssignSlot: (matchId: string, slot: BracketSlot) => void
   onSetWinner: (matchId: string, winner: Player) => void
   onAssignCourt: (matchId: string) => void
@@ -37,8 +33,6 @@ const SLOT: Record<Player | 'A' | 'B', BracketSlot> = { A: 'A', B: 'B' }
 export function BracketMatchCard({
   match,
   courtLabel,
-  courtOrphan = false,
-  courtOccupied = false,
   onAssignSlot,
   onSetWinner,
   onAssignCourt,
@@ -55,10 +49,8 @@ export function BracketMatchCard({
 
   const placeholder = i18nText('bracketPlaceholder')
   const noCourt = terms.bracketNoCourt
-  const orphanLabel = terms.bracketCourtOrphan
 
-  const courtDisplay =
-    match.courtId == null ? noCourt : courtOrphan ? orphanLabel : (courtLabel ?? noCourt)
+  const courtDisplay = match.courtId == null ? noCourt : (courtLabel ?? noCourt)
 
   const winnerName = winnerConfirm ? (winnerConfirm === 'A' ? match.playerA : match.playerB) : null
   const confirmMessage =
@@ -144,13 +136,6 @@ export function BracketMatchCard({
           </Button>
         )}
       </div>
-
-      {courtOccupied && (
-        <div role="alert" className="flex items-center gap-1.5 text-amber-600">
-          <AlertTriangle size={14} className="shrink-0" />
-          <span className="text-xs">{terms.bracketCourtOccupiedWarn}</span>
-        </div>
-      )}
 
       {/* Winner confirm */}
       <ConfirmDialog

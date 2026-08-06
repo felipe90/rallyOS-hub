@@ -4,7 +4,7 @@
  * Responsibility: Join, leave, and referee management.
  */
 
-import { Court, PlayerConnection } from '../../domain/types';
+import type { RuntimeCourt, PlayerConnection } from '../../domain/types';
 import { logger } from '../../utils/logger';
 import { sanitizeInput } from '../../utils/validation';
 import { PinService } from '../security/PinService';
@@ -17,7 +17,7 @@ export class PlayerService implements IPlayerService {
     this.pinService = pinService;
   }
 
-  joinCourt(court: Court, socketId: string, name: string, pin?: string): boolean {
+  joinCourt(court: RuntimeCourt, socketId: string, name: string, pin?: string): boolean {
     if (pin && !this.pinService.validatePin(court, pin)) {
       logger.warn({ courtId: court.id, courtName: court.name }, 'Invalid PIN attempt');
       return false;
@@ -42,7 +42,7 @@ export class PlayerService implements IPlayerService {
     return true;
   }
 
-  leaveCourt(court: Court, socketId: string): void {
+  leaveCourt(court: RuntimeCourt, socketId: string): void {
     const index = court.players.findIndex(p => p.socketId === socketId);
     if (index === -1) return;
 
@@ -51,7 +51,7 @@ export class PlayerService implements IPlayerService {
     logger.info({ courtId: court.id, courtName: court.name, playerName: player.name }, 'Player left court');
   }
 
-  setReferee(court: Court, socketId: string, pin: string): boolean {
+  setReferee(court: RuntimeCourt, socketId: string, pin: string): boolean {
     if (!this.pinService.validatePin(court, pin)) return false;
 
     const existingReferee = court.players.find(p => p.role === 'REFEREE');
@@ -82,7 +82,7 @@ export class PlayerService implements IPlayerService {
    *
    * @returns The old referee's socketId if one was displaced, null otherwise.
    */
-  setRefereeDirect(court: Court, socketId: string, name: string): string | null {
+  setRefereeDirect(court: RuntimeCourt, socketId: string, name: string): string | null {
     const existingReferee = court.players.find(p => p.role === 'REFEREE');
     let displacedSocketId: string | null = null;
     if (existingReferee && existingReferee.socketId !== socketId) {
@@ -107,12 +107,12 @@ export class PlayerService implements IPlayerService {
     return displacedSocketId;
   }
 
-  isReferee(court: Court, socketId: string): boolean {
+  isReferee(court: RuntimeCourt, socketId: string): boolean {
     const player = court.players.find(p => p.socketId === socketId);
     return player?.role === 'REFEREE';
   }
 
-  getRefereeSocketId(court: Court): string | null {
+  getRefereeSocketId(court: RuntimeCourt): string | null {
     const referee = court.players.find(p => p.role === 'REFEREE');
     return referee?.socketId || null;
   }

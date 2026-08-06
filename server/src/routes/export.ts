@@ -11,15 +11,19 @@
 import { Router, Request, Response } from 'express';
 import { CsvExporter } from '../services/store/CsvExporter';
 import type { ICourtPersistence } from '../domain/ports';
+import type { PersistedCourt, PersistedMatchState } from '../domain/ports/persistence-types';
 
 const csvExporter = new CsvExporter();
 
 /**
  * GET /
- * Returns a CSV of all FINISHED tables from the state store.
+ * Returns a CSV of all FINISHED tournament matches from the state store.
  *
- * Reads persisted state, filters to FINISHED tables, generates CSV,
- * and sets appropriate headers for file download.
+ * Reads the v4 `liveSessions` rows (PERS-2), filters to tournament-mode
+ * sessions whose match state is FINISHED, maps them back into the
+ * PersistedCourt row shape the CsvExporter consumes, and sets the
+ * download headers. Identity fields (number/name) come from the session
+ * snapshot (written at serialize time from the catalog record).
  */
 export function handleExport(
   stateStore: ICourtPersistence,
@@ -27,7 +31,25 @@ export function handleExport(
   res: Response,
 ): void {
   const loaded = stateStore.load();
-  const tables = loaded?.tournamentCourts ?? [];
+  const sessions = loaded?.liveSessions ?? [];
+
+  const tables: PersistedCourt[] = sessions
+    .filter(
+      (s) =>
+        s.flow?.mode === 'tournament' &&
+        (s.matchState as { status?: string } | null)?.status === 'FINISHED',
+    )
+    .map((s) => ({
+      id: s.courtId,
+      number: s.number ?? 0,
+      name: s.name ?? s.courtId,
+      status: 'FINISHED' as const,
+      pin: s.pin ?? '',
+      playerNames: s.playerNames ?? { a: '', b: '' },
+      createdAt: s.createdAt ?? 0,
+      matchState: (s.matchState as unknown as PersistedMatchState) ?? null,
+    }))
+    .filter((t) => t.matchState !== null);
 
   const csv = csvExporter.export(tables);
 

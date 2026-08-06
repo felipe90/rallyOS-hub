@@ -8,10 +8,11 @@
 import { Server as IOServer } from 'socket.io';
 import { SocketHandler } from './handlers/SocketHandler';
 import { CourtManager } from './domain/courtManager';
+import type { InventoryManager } from './domain/inventory/InventoryManager';
 import { ClubConfigStore } from './services/store/ClubConfigStore';
 import { SessionHistoryStore } from './services/store/SessionHistoryStore';
 import { PhoneRevealAuditStore } from './services/store/PhoneRevealAuditStore';
-import { StateStore } from './services/store/StateStore';
+import { PersistenceCoordinator } from './services/store/PersistenceCoordinator';
 import { HubConfig } from './domain/types';
 import { logger } from './utils/logger';
 
@@ -23,7 +24,8 @@ export function createSocketServer(
   clubConfigStore?: ClubConfigStore,
   sessionHistoryStore?: SessionHistoryStore,
   phoneRevealAuditStore?: PhoneRevealAuditStore,
-  stateStore?: StateStore,
+  coordinator?: PersistenceCoordinator,
+  inventoryManager?: InventoryManager,
 ): SocketHandler {
   const socketHandler = new SocketHandler(
     io,
@@ -33,7 +35,8 @@ export function createSocketServer(
     clubConfigStore,
     sessionHistoryStore,
     phoneRevealAuditStore,
-    stateStore,
+    coordinator,
+    inventoryManager,
   );
 
   logger.info('Socket.IO initialized');

@@ -3,7 +3,7 @@
  * Full admin dashboard with table creation, PIN management, and QR codes
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSportTerms } from '@/hooks/useSportTerms'
 import { DashboardGrid, DashboardHeader } from '@/components/organisms/DashboardGrid'
@@ -18,16 +18,16 @@ import { useAuthContext } from '@/contexts/AuthContext'
 import { useDashboardStats } from '@/hooks/useDashboardStats'
 import { usePinSubmission } from '@/hooks/usePinSubmission'
 import { useRefereeSession } from '@/hooks/useRefereeSession'
-import { useCourtManagement } from '@/hooks/useCourtManagement'
+import { useCourtInventory } from '@/hooks/useCourtInventory'
 import { useBracket } from '@/hooks/useBracket'
 import { BracketView } from '@/components/organisms'
 import { useToast } from '@/components/molecules/Toast'
-import { Button, FloatingActionButton } from '@/components/atoms'
+import { Button } from '@/components/atoms'
 import { Body, Typography } from '@/components/atoms/Typography'
 import { SocketEvents } from '@shared/events'
 import { Routes, buildScoreboardRoute } from '@/routes'
-import { COURT_MODE, type CourtInfoWithPin, type KioskNotificationType, type CourtInfo, type KioskMode } from '@shared/types'
-import { ArrowLeft, Table2, Swords, Users, Bell, Flag, Download, AlertTriangle, Plus, Clock, Trophy, Monitor, ListTree } from 'lucide-react'
+import { INVENTORY_STATUS, type CourtInfoWithPin, type KioskNotificationType, type CourtInfo, type KioskMode } from '@shared/types'
+import { ArrowLeft, Table2, Swords, Users, Bell, Flag, Download, AlertTriangle, Clock, Trophy, Monitor, ListTree } from 'lucide-react'
 
 
 export interface OwnerDashboardPageProps {
@@ -44,29 +44,42 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
   const [activeTab, setActiveTab] = useState('courts')
   const [kioskMode, setKioskModeState] = useState<KioskMode>('club')
   const navigate = useNavigate()
-  const { terms, i18nText, sport } = useSportTerms()
+  const { terms, i18nText } = useSportTerms()
   const { courts, connected, socket, requestCourtsWithPins, appError, allHistories } = useSocketContext()
   const { logout, ownerPin, setCourtPin, isOwner, tournamentToken } = useAuthContext()
   const stats = useDashboardStats(courts)
   const { submitPin, loading: pinLoading, error: pinError, clearError } = usePinSubmission(socket)
   const { saveSession, findAnyValidSession, clearSession } = useRefereeSession()
 
-  const courtMgmt = useCourtManagement({ socket, connected })
   const bracketApi = useBracket(socket)
-  /** Tournament courts only — pass to BracketView for court assignment. */
-  const tournamentCourts: CourtInfo[] = courts.filter((c) => c.mode !== COURT_MODE.CLUB)
+  // Slice 4.5 (D12): the owner picker consumes the SAME catalog + availability
+  // view as the admin (useCourtInventory) — ACTIVE inventory courts only.
+  const inventory = useCourtInventory(socket, connected)
+  /** Owner picker list: ACTIVE inventory courts (id + name for BracketView). */
+  const pickerCourts: CourtInfo[] = useMemo(
+    () =>
+      inventory.courts
+        .filter((c) => c.inventoryStatus === INVENTORY_STATUS.ACTIVE)
+        .map((c) => ({ id: c.courtId, name: c.name }) as CourtInfo),
+    [inventory.courts],
+  )
+  /** TCS-4 strict cold-start: false → the picker shows the empty-state copy. */
+  const hasActiveInventoryCourts = inventory.courts.some(
+    (c) => c.inventoryStatus === INVENTORY_STATUS.ACTIVE,
+  )
   const { addToast } = useToast()
 
-  // Track previous creating state to detect court creation completion
-  const wasCreatingRef = useRef(courtMgmt.isCreating)
-  useEffect(() => {
-    const wasCreating = wasCreatingRef.current;
-    wasCreatingRef.current = courtMgmt.isCreating;
-    // Transition: was creating → now not creating = court created successfully
-    if (wasCreating && !courtMgmt.isCreating && !appError) {
-      addToast('success', terms.toastCourtCreated);
+  // ── Court cleaning (PIN regeneration) — local UI state. The DELETE path is
+  // GONE (slice 5.4): court existence is admin-only via INVENTORY_ARCHIVE.
+  const [cleanConfirmCourtId, setCleanConfirmCourtId] = useState<string | null>(null)
+  const requestClean = useCallback((courtId: string) => setCleanConfirmCourtId(courtId), [])
+  const confirmClean = useCallback(() => {
+    if (cleanConfirmCourtId && socket && connected) {
+      socket.emit(SocketEvents.CLIENT.REGENERATE_PIN, { courtId: cleanConfirmCourtId })
     }
-  }, [courtMgmt.isCreating, appError, addToast, terms.toastCourtCreated]);
+    setCleanConfirmCourtId(null)
+  }, [cleanConfirmCourtId, socket, connected])
+  const cancelClean = useCallback(() => setCleanConfirmCourtId(null), [])
 
   // Toast on PIN error
   useEffect(() => {
@@ -268,89 +281,66 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
     return map[code] || code
   }
 
-  const handleCreateCourt = (name: string) => {
-    courtMgmt.setCourtName(name);
-    courtMgmt.createCourt();
-  };
-
   const dashboardActions = <div className="flex flex-wrap gap-1 items-center">
-    {!courtMgmt.isCreating ? (
-      <>
-        <div className="flex gap-1 p-0.5 rounded-lg bg-surface-low border border-border">
-          <button
-            onClick={() => socket?.emit(SocketEvents.CLIENT.SET_KIOSK_MODE, { mode: 'club' })}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold tracking-wide transition-all duration-150 ${
-              kioskMode === 'club' ? 'bg-surface text-text shadow-sm' : 'text-text-muted hover:text-text'
-            }`}
-          >
-            <Monitor size={14} />
-            {i18nText('ownerKioskModeClub')}
-          </button>
-          <button
-            onClick={() => socket?.emit(SocketEvents.CLIENT.SET_KIOSK_MODE, { mode: 'tournament' })}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold tracking-wide transition-all duration-150 ${
-              kioskMode === 'tournament' ? 'bg-surface text-text shadow-sm' : 'text-text-muted hover:text-text'
-            }`}
-          >
-            <Trophy size={14} />
-            {i18nText('ownerKioskModeTournament')}
-          </button>
-          <button
-            onClick={() => socket?.emit(SocketEvents.CLIENT.SET_KIOSK_MODE, { mode: 'bracket' })}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold tracking-wide transition-all duration-150 ${
-              kioskMode === 'bracket' ? 'bg-surface text-text shadow-sm' : 'text-text-muted hover:text-text'
-            }`}
-            aria-label={i18nText('ownerKioskModeBracket')}
-          >
-            <ListTree size={14} />
-            {i18nText('ownerKioskModeBracket')}
-          </button>
-        </div>
-        <Button
-          variant="secondary"
-          size="xs"
-          onClick={() => setNotifModalOpen(true)}
-          icon={<Bell size={14} />}
-        >
-          {i18nText('notificationModalTitle')}
-        </Button>
-        {/* Export CSV button — only for owners when FINISHED courts exist */}
-        {isOwner && hasFinishedCourts && (
-          <Button
-            variant="secondary"
-            size="xs"
-            onClick={downloadCsv}
-            icon={<Download size={14} />}
-          >
-            {i18nText('exportCsv')}
-          </Button>
-        )}
-        {/* End Tournament button — only for owners when courts exist */}
-        {isOwner && hasCourts && (
-          <Button
-            variant="danger"
-            size="xs"
-            onClick={() => setFinishDialogOpen(true)}
-            icon={<Flag size={14} />}
-          >
-            {i18nText('finishTournament')}
-          </Button>
-        )}
-      </>
-    ) : (
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-2 px-3 py-2 bg-surface-low rounded border border-border">
-          <span className="text-sm text-primary font-medium whitespace-nowrap animate-pulse">
-            {i18nText('ownerCreating')}
-          </span>
-        </div>
-        {appError && (
-          <div role="alert" className="flex items-center gap-2 mt-1">
-            <AlertTriangle size={16} className="text-red-500 shrink-0" />
-            <p className="text-red-500 text-sm">{appError}</p>
-          </div>
-        )}
-      </div>
+    <div className="flex gap-1 p-0.5 rounded-lg bg-surface-low border border-border">
+      <button
+        onClick={() => socket?.emit(SocketEvents.CLIENT.SET_KIOSK_MODE, { mode: 'club' })}
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold tracking-wide transition-all duration-150 ${
+          kioskMode === 'club' ? 'bg-surface text-text shadow-sm' : 'text-text-muted hover:text-text'
+        }`}
+      >
+        <Monitor size={14} />
+        {i18nText('ownerKioskModeClub')}
+      </button>
+      <button
+        onClick={() => socket?.emit(SocketEvents.CLIENT.SET_KIOSK_MODE, { mode: 'tournament' })}
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold tracking-wide transition-all duration-150 ${
+          kioskMode === 'tournament' ? 'bg-surface text-text shadow-sm' : 'text-text-muted hover:text-text'
+        }`}
+      >
+        <Trophy size={14} />
+        {i18nText('ownerKioskModeTournament')}
+      </button>
+      <button
+        onClick={() => socket?.emit(SocketEvents.CLIENT.SET_KIOSK_MODE, { mode: 'bracket' })}
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold tracking-wide transition-all duration-150 ${
+          kioskMode === 'bracket' ? 'bg-surface text-text shadow-sm' : 'text-text-muted hover:text-text'
+        }`}
+        aria-label={i18nText('ownerKioskModeBracket')}
+      >
+        <ListTree size={14} />
+        {i18nText('ownerKioskModeBracket')}
+      </button>
+    </div>
+    <Button
+      variant="secondary"
+      size="xs"
+      onClick={() => setNotifModalOpen(true)}
+      icon={<Bell size={14} />}
+    >
+      {i18nText('notificationModalTitle')}
+    </Button>
+    {/* Export CSV button — only for owners when FINISHED courts exist */}
+    {isOwner && hasFinishedCourts && (
+      <Button
+        variant="secondary"
+        size="xs"
+        onClick={downloadCsv}
+        icon={<Download size={14} />}
+      >
+        {i18nText('exportCsv')}
+      </Button>
+    )}
+    {/* End Tournament button — only for owners when courts exist */}
+    {isOwner && hasCourts && (
+      <Button
+        variant="danger"
+        size="xs"
+        onClick={() => setFinishDialogOpen(true)}
+        icon={<Flag size={14} />}
+      >
+        {i18nText('finishTournament')}
+      </Button>
     )}
   </div>
 
@@ -433,34 +423,29 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
               viewMode={viewMode}
               showPin={true}
               showQr={true}
-              onCleanCourt={courtMgmt.requestClean}
-              cleanConfirmCourtId={courtMgmt.cleanConfirmCourtId}
+              onCleanCourt={requestClean}
+              cleanConfirmCourtId={cleanConfirmCourtId}
               onCleanCourtConfirm={() => {
-                courtMgmt.confirmClean();
+                confirmClean();
                 requestCourtsWithPins(ownerPin || '');
                 addToast('success', terms.toastCourtCleaned);
               }}
-              onCleanCourtCancel={courtMgmt.cancelClean}
-              onDeleteCourt={courtMgmt.requestDelete}
-              showDeleteConfirm={courtMgmt.deleteConfirmCourtId}
-              onDeleteCourtConfirm={() => {
-                courtMgmt.confirmDelete();
-                addToast('success', terms.toastCourtDeleted);
-              }}
-              onDeleteCourtCancel={courtMgmt.cancelDelete}
+              onCleanCourtCancel={cancelClean}
               featuredCourtId={courts.find(t => t.featured)?.id ?? null}
               onToggleFeatured={handleToggleFeatured}
             />
           ) : activeTab === 'tournament' ? (
             <BracketView
               bracket={bracketApi.bracket}
-              courts={tournamentCourts}
+              courts={pickerCourts}
               error={bracketApi.error}
               resetToken={bracketApi.resetToken}
+              hasAvailableCourts={hasActiveInventoryCourts}
               onCreate={bracketApi.createBracket}
               onAssignPlayer={bracketApi.assignPlayer}
               onSetWinner={bracketApi.setWinner}
               onAssignCourt={bracketApi.assignCourt}
+              onSelectTable={bracketApi.selectTable}
               onUndo={bracketApi.undoMatch}
               onReset={() => bracketApi.reset()}
               onResetConfirm={bracketApi.resetConfirm}
@@ -477,27 +462,6 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
           )}
         </div>
       </main>
-
-      {/* Floating Action Button — Nueva Cancha (solo en tab Canchas) */}
-      {activeTab === 'courts' && (
-        <div className="fixed bottom-6 right-6 z-50">
-          <FloatingActionButton
-          icon={<Plus size={20} />}
-          label={terms.ownerCreateCourt}
-          onClick={() => {
-            let next = courts.length + 1
-            let name = i18nText(`sportTerm.clubAdminDefaultCourtName.${sport}`, { number: String(next) })
-            while (courts.some(c => c.name === name)) {
-              next++
-              name = i18nText(`sportTerm.clubAdminDefaultCourtName.${sport}`, { number: String(next) })
-            }
-            handleCreateCourt(name)
-          }}
-          disabled={courtMgmt.isCreating}
-          loading={courtMgmt.isCreating}
-        />
-        </div>
-      )}
 
       <PinModal
         isOpen={pinModalOpen}

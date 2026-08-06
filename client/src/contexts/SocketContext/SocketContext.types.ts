@@ -26,7 +26,6 @@ export interface SocketContextType {
   connect: () => void
   disconnect: () => void
   emit: (event: string, data?: unknown) => void
-  createCourt: (name?: string) => void
   joinCourt: (tableId: string, pin: string, name?: string) => void
   requestCourts: () => void
   requestCourtsWithPins: (ownerPin?: string) => void

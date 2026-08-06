@@ -7,7 +7,7 @@
 
 import { CourtManager } from '../src/domain/courtManager';
 import { createTestCourtManager } from '../src/domain/courtManager.test-factory';
-import type { Court } from '../src/domain/types';
+import type { RuntimeCourt } from '../src/domain/types';
 
 describe('getAllHistories — handicap', () => {
   let manager: CourtManager;
@@ -17,7 +17,7 @@ describe('getAllHistories — handicap', () => {
   });
 
   it('includes handicap in payload when config has handicapA and handicapB', () => {
-    const court = manager.createCourt('Mesa Test') as Court;
+    const court = manager.createCourt('Mesa Test');
 
     // Set config with handicap via sportRules.getConfig() → mutate state
     const sportRules = court.sportRules;
@@ -30,7 +30,7 @@ describe('getAllHistories — handicap', () => {
   });
 
   it('does NOT include handicap when config has no handicap fields', () => {
-    const court = manager.createCourt('Mesa Sin Handicap') as Court;
+    const court = manager.createCourt('Mesa Sin Handicap');
 
     const histories = manager.getAllHistories();
     expect(histories).toHaveLength(1);
@@ -38,7 +38,7 @@ describe('getAllHistories — handicap', () => {
   });
 
   it('handles partial handicap (handicapA without handicapB)', () => {
-    const court = manager.createCourt('Mesa Partial') as Court;
+    const court = manager.createCourt('Mesa Partial');
 
     const sportRules = court.sportRules;
     (sportRules as any).state.config.handicapA = 3;

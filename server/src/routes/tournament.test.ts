@@ -124,11 +124,14 @@ describe('Tournament route handlers', () => {
       const fs = makeFs();
       const stateStore = new StateStore(fs, 'data/rallyos-state.json');
 
-      // Seed state with 2 tables
+      // Seed state with 2 tables (v4 format — PERS-1 wipe accepts only v4)
       const persisted = {
-        version: 1,
+        version: 4,
         savedAt: 1700000000000,
-        tables: [makeTable({ id: 't1' }), makeTable({ id: 't2' })],
+        liveSessions: [
+          { courtId: 't1', flow: { mode: 'tournament' as const, state: 'LIVE' as const, startedAt: 1700000000000 }, matchState: null },
+          { courtId: 't2', flow: { mode: 'tournament' as const, state: 'LIVE' as const, startedAt: 1700000000000 }, matchState: null },
+        ],
       };
       fs._files.set('data/rallyos-state.json', JSON.stringify(persisted));
 
@@ -364,6 +367,36 @@ describe('Tournament route handlers', () => {
         error: 'No hay torneo activo',
         code: 'NO_ACTIVE_TOURNAMENT',
       });
+    });
+
+    it('releases bracket courts before clearing when the seam is wired (TCS-3/Q4)', () => {
+      const fs = makeFs();
+      const stateStore = new StateStore(fs, 'data/rallyos-state.json');
+      const persisted = { version: 1, savedAt: 1700000000000, tables: [makeTable({ id: 't1' })] };
+      fs._files.set('data/rallyos-state.json', JSON.stringify(persisted));
+
+      const releaseAll = jest.fn(() => ['c1', 'c2']);
+      const req = mockReq();
+      const { status, json } = mockRes();
+
+      handleFinish(stateStore, mockTableManager as never, req, { status, json } as unknown as Response, releaseAll);
+
+      expect(releaseAll).toHaveBeenCalledTimes(1);
+      expect(mockTableManager.finishTournament).toHaveBeenCalled();
+      expect(json).toHaveBeenCalledWith({ success: true });
+    });
+
+    it('does not release bracket courts when no ACTIVE tournament exists', () => {
+      const fs = makeFs();
+      const stateStore = new StateStore(fs, 'data/rallyos-state.json');
+      const releaseAll = jest.fn();
+      const req = mockReq();
+      const { status, json } = mockRes();
+
+      handleFinish(stateStore, mockTableManager as never, req, { status, json } as unknown as Response, releaseAll);
+
+      expect(status).toHaveBeenCalledWith(409);
+      expect(releaseAll).not.toHaveBeenCalled();
     });
   });
 });

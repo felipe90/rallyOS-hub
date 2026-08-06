@@ -35,37 +35,23 @@ export function groupIntoRounds(bracket: TournamentBracket): BracketRound[] {
 /** Per-match court resolution helper. */
 export interface CourtContext {
   courtLabel: string | null
-  courtOrphan: boolean
-  courtOccupied: boolean
 }
 
 /**
- * Resolve a match's court context against the owner's tournament courts list.
+ * Resolve a match's court context against the inventory courts list.
  * - `courtId === null` → no court (label null).
- * - courtId refers to a court not in the list → orphan.
- * - `courtOccupied` when another non-completed match shares the same courtId.
+ * - courtId refers to a court not in the list → label null (the card falls
+ *   back to the generic "Sin cancha"). Inventory courts are archive-only, so
+ *   there is no orphan/occupied-warning state (slice 5.2).
  */
 export function resolveCourtContext(
   match: BracketMatch,
   courts: { id: string; name: string }[],
-  allMatches: BracketMatch[],
+  _allMatches: BracketMatch[],
 ): CourtContext {
   if (match.courtId == null) {
-    return { courtLabel: null, courtOrphan: false, courtOccupied: false }
+    return { courtLabel: null }
   }
   const found = courts.find((c) => c.id === match.courtId)
-  const courtOccupied =
-    match.status !== 'COMPLETED' &&
-    allMatches.some(
-      (m) =>
-        m.id !== match.id &&
-        m.courtId !== null &&
-        m.courtId === match.courtId &&
-        m.status !== 'COMPLETED',
-    )
-  return {
-    courtLabel: found ? found.name : null,
-    courtOrphan: !found,
-    courtOccupied,
-  }
+  return { courtLabel: found ? found.name : null }
 }

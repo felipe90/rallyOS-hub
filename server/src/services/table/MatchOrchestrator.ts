@@ -11,7 +11,8 @@
  * (new) or SportRegistry (old) as the first argument.
  */
 
-import { Court, MatchEvent, Player, SPORT } from '../../domain/types';
+import type { RuntimeCourt, MatchEvent, Player } from '../../domain/types';
+import { SPORT } from '../../domain/types';
 import { MatchEngine, MatchConfig, MatchStateExtended } from '../../domain/matchEngine';
 import { logger } from '../../utils/logger';
 import { SportRegistry } from '../../domain/sports/sport.registry';
@@ -46,7 +47,7 @@ export class MatchOrchestrator implements IMatchOrchestrator {
    * Create a new MatchEngine and wire callbacks for a court.
    */
   private createEngine(
-    court: Court,
+    court: RuntimeCourt,
     config: MatchConfig,
     playerNames?: { a: string; b: string },
   ): MatchEngine {
@@ -64,7 +65,7 @@ export class MatchOrchestrator implements IMatchOrchestrator {
     return engine;
   }
 
-  configureMatch(court: Court, config: { playerNames?: { a: string; b: string }; matchConfig?: MatchConfig }): void {
+  configureMatch(court: RuntimeCourt, config: { playerNames?: { a: string; b: string }; matchConfig?: MatchConfig }): void {
     if (config.playerNames) {
       court.playerNames = config.playerNames;
       court.sportRules.setPlayerNames(config.playerNames);
@@ -78,7 +79,7 @@ export class MatchOrchestrator implements IMatchOrchestrator {
   }
 
   prepareCourt(
-    court: Court,
+    court: RuntimeCourt,
     config: { matchConfig: MatchConfig; playerNames: { a: string; b: string } },
   ): MatchStateExtended | null {
     const engineConfig = { ...config.matchConfig };
@@ -92,7 +93,7 @@ export class MatchOrchestrator implements IMatchOrchestrator {
     return court.sportRules.getState();
   }
 
-  startMatch(court: Court, config?: Partial<MatchConfig> & { playerNameA?: string; playerNameB?: string }): MatchStateExtended | null {
+  startMatch(court: RuntimeCourt, config?: Partial<MatchConfig> & { playerNameA?: string; playerNameB?: string }): MatchStateExtended | null {
     logger.info({ courtId: court.id, config }, 'startMatch called');
 
     const playerNames = {
@@ -136,7 +137,7 @@ export class MatchOrchestrator implements IMatchOrchestrator {
     return state;
   }
 
-  recordPoint(court: Court, player: Player): MatchStateExtended | null {
+  recordPoint(court: RuntimeCourt, player: Player): MatchStateExtended | null {
     if (!isMatchActive(court)) return null;
 
     const state = court.sportRules.recordPoint(player);
@@ -146,37 +147,37 @@ export class MatchOrchestrator implements IMatchOrchestrator {
     return state;
   }
 
-  subtractPoint(court: Court, player: Player): MatchStateExtended | null {
+  subtractPoint(court: RuntimeCourt, player: Player): MatchStateExtended | null {
     if (!isMatchActive(court)) return null;
 
     return court.sportRules.subtractPoint(player);
   }
 
-  undoLast(court: Court): MatchStateExtended | null {
+  undoLast(court: RuntimeCourt): MatchStateExtended | null {
     if (!isMatchActive(court)) return null;
 
     return court.sportRules.undoLast();
   }
 
-  setServer(court: Court, player: Player): MatchStateExtended | null {
+  setServer(court: RuntimeCourt, player: Player): MatchStateExtended | null {
     if (!isMatchActive(court)) return null;
 
     return court.sportRules.setServer(player);
   }
 
-  swapSides(court: Court): MatchStateExtended | null {
+  swapSides(court: RuntimeCourt): MatchStateExtended | null {
     if (!isMatchActive(court)) return null;
 
     return court.sportRules.swapSides();
   }
 
-  resetTable(court: Court, config?: MatchConfig): void {
+  resetTable(court: RuntimeCourt, config?: MatchConfig): void {
     const resolvedConfig = config || { sport: SPORT.TABLE_TENNIS, pointsPerSet: 11, bestOf: 3, minDifference: 2 } as MatchConfig;
     court.sportRules = this.createEngine(court, resolvedConfig, court.playerNames);
     setMatchStatus(court, 'WAITING');
   }
 
-  getMatchState(court: Court): MatchStateExtended | null {
+  getMatchState(court: RuntimeCourt): MatchStateExtended | null {
     return court.sportRules.getState();
   }
 }

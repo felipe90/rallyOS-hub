@@ -3,8 +3,8 @@ import type { CourtRecord } from '../../../shared/types';
 import { CourtManager, type CourtCatalog } from './courtManager';
 import { createTestCourtManager } from './courtManager.test-factory';
 import { StateStore } from '../services/store/StateStore';
-import type { FileSystem, PersistedCourt, PersistedClubCourt, PersistedMatchState } from '../services/store/types';
-import type { ClubCourt, TournamentCourt, MatchStateExtended, MatchEvent, FlowSlot, FlowModeKey, Court } from './types';
+import type { FileSystem, PersistedCourt, PersistedClubCourt, PersistedMatchState, PersistedFlowSession } from '../services/store/types';
+import type { RuntimeCourt, MatchStateExtended, MatchEvent, FlowSlot, FlowModeKey } from './types';
 import { MatchEngine, MAX_HISTORY_LENGTH } from './matchEngine';
 import { FlowModeRegistry } from './flows/FlowModeRegistry';
 import type { FlowModeContract, FlowContext } from './flows/FlowModeContract';
@@ -108,17 +108,57 @@ function makePersistedTable(overrides: Partial<PersistedCourt> = {}): PersistedC
 
 /**
  * Seed the fake FS with a saved state file containing the given tables.
- * v4 format (PERS-1) — tournament courts in the tournamentCourts array.
+ * v4 format (PERS-2) — the file carries transient `liveSessions` rows
+ * (PersistedFlowSession). Legacy PersistedCourt fixtures are converted
+ * into tournament-mode sessions.
  */
+function tableToSession(t: PersistedCourt): PersistedFlowSession {
+  return {
+    courtId: t.id,
+    flow: { mode: 'tournament', state: 'LIVE', startedAt: t.createdAt },
+    matchState: t.matchState,
+    number: t.number,
+    name: t.name,
+    pin: t.pin,
+    playerNames: { ...t.playerNames },
+    createdAt: t.createdAt,
+  };
+}
+
+function clubToSession(c: PersistedClubCourt): PersistedFlowSession {
+  return {
+    courtId: c.id,
+    flow: {
+      mode: 'club',
+      state: c.clubStatus === 'OCCUPIED' ? 'OCCUPIED' : 'FINISHED',
+      sessionMode: c.sessionMode ?? null,
+      occupiedAt: c.occupiedAt,
+      playerName: c.playerName ?? null,
+      phone: c.phone ?? null,
+      adminId: c.adminId ?? null,
+    },
+    matchState: c.matchState,
+    number: c.number,
+    name: c.name,
+    pin: c.pin,
+    playerNames: { ...c.playerNames },
+    createdAt: c.createdAt,
+  };
+}
+
 function seedStateFile(
   fs: ReturnType<typeof makeFs>,
   tables: PersistedCourt[],
 ): void {
+  // Only LIVE/FINISHED flows persist (PERS-2) — WAITING/CONFIGURING tables
+  // never reach the file, so restoreState skips them.
+  const liveSessions = tables
+    .filter((t) => t.status === 'LIVE' || t.status === 'FINISHED')
+    .map(tableToSession);
   const persisted = {
     version: 4,
     savedAt: Date.now(),
-    tournamentCourts: tables,
-    clubCourts: [] as unknown[],
+    liveSessions,
   };
   fs._files.set('data/rallyos-state.json', JSON.stringify(persisted));
 }
@@ -164,7 +204,7 @@ describe('CourtManager with StateStore', () => {
       const afterCreate = fs._files.get('data/rallyos-state.json');
       expect(afterCreate).toBeDefined();
       const afterCreateParsed = JSON.parse(afterCreate!);
-      expect(afterCreateParsed.tournamentCourts).toHaveLength(0);
+      expect(afterCreateParsed.liveSessions).toHaveLength(0);
 
       // Start the match → court becomes LIVE → should save with the court
       manager.startMatch(court.id, { playerNameA: 'Alice', playerNameB: 'Bob' });
@@ -174,10 +214,10 @@ describe('CourtManager with StateStore', () => {
       expect(savedContent).toBeDefined();
       const parsed = JSON.parse(savedContent!);
       expect(parsed.version).toBe(4);
-      expect(parsed.tournamentCourts).toHaveLength(1);
-      expect(parsed.tournamentCourts[0].id).toBe(court.id);
-      expect(parsed.tournamentCourts[0].pin).toBe(court.pin);
-      expect(parsed.tournamentCourts[0].status).toBe('LIVE');
+      expect(parsed.liveSessions).toHaveLength(1);
+      expect(parsed.liveSessions[0].courtId).toBe(court.id);
+      expect(parsed.liveSessions[0].pin).toBe(court.pin);
+      expect(parsed.liveSessions[0].flow.state).toBe('LIVE');
     });
 
     it('should save FINISHED courts', () => {
@@ -196,8 +236,8 @@ describe('CourtManager with StateStore', () => {
       const saved = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(saved!);
       expect(parsed.version).toBe(4);
-      expect(parsed.tournamentCourts[0].status).toBe('LIVE');
-      expect(parsed.tournamentCourts[0].pin).toBe(court.pin);
+      expect(parsed.liveSessions[0].flow.state).toBe('LIVE');
+      expect(parsed.liveSessions[0].pin).toBe(court.pin);
     });
 
     it('should filter out WAITING courts from save', () => {
@@ -216,8 +256,8 @@ describe('CourtManager with StateStore', () => {
       expect(savedContent).toBeDefined();
       const parsed = JSON.parse(savedContent!);
       expect(parsed.version).toBe(4);
-      expect(parsed.tournamentCourts).toHaveLength(1);
-      expect(parsed.tournamentCourts[0].name).toBe('Live Court');
+      expect(parsed.liveSessions).toHaveLength(1);
+      expect(parsed.liveSessions[0].name).toBe('Live Court');
     });
 
     it('should save match state with scores and history', () => {
@@ -234,9 +274,9 @@ describe('CourtManager with StateStore', () => {
       const savedContent = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(savedContent!);
       expect(parsed.version).toBe(4);
-      expect(parsed.tournamentCourts).toHaveLength(1);
+      expect(parsed.liveSessions).toHaveLength(1);
 
-      const matchState = parsed.tournamentCourts[0].matchState;
+      const matchState = parsed.liveSessions[0].matchState;
       expect(matchState.score.currentSet.a).toBe(2);
       expect(matchState.score.currentSet.b).toBe(1);
       expect(matchState.history.length).toBeGreaterThan(0);
@@ -257,10 +297,10 @@ describe('CourtManager with StateStore', () => {
       const savedContent = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(savedContent!);
       expect(parsed.version).toBe(4);
-      expect(parsed.tournamentCourts).toHaveLength(2);
-      const names = parsed.tournamentCourts.map((t: PersistedCourt) => t.name).sort();
+      expect(parsed.liveSessions).toHaveLength(2);
+      const names = parsed.liveSessions.map((s: PersistedFlowSession) => s.name).sort();
       expect(names).toEqual(['Mesa 1', 'Mesa 2']);
-      const pins = parsed.tournamentCourts.map((t: PersistedCourt) => t.pin);
+      const pins = parsed.liveSessions.map((s: PersistedFlowSession) => s.pin);
       expect(pins).toHaveLength(2);
       // Pins should be different (random generation)
       expect(pins[0]).not.toBe(pins[1]);
@@ -311,7 +351,7 @@ describe('CourtManager with StateStore', () => {
       const savedContent = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(savedContent!);
       expect(parsed.version).toBe(4);
-      expect(parsed.tournamentCourts[0].pin).toBe(originalPin);
+      expect(parsed.liveSessions[0].pin).toBe(originalPin);
     });
 
     it('should persist playerNames in saved state', () => {
@@ -323,7 +363,7 @@ describe('CourtManager with StateStore', () => {
       const savedContent = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(savedContent!);
       expect(parsed.version).toBe(4);
-      expect(parsed.tournamentCourts[0].playerNames).toEqual({
+      expect(parsed.liveSessions[0].playerNames).toEqual({
         a: 'Champion',
         b: 'Runner-up',
       });
@@ -338,7 +378,7 @@ describe('CourtManager with StateStore', () => {
       const savedContent = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(savedContent!);
       expect(parsed.version).toBe(4);
-      const savedTable = parsed.tournamentCourts[0];
+      const savedTable = parsed.liveSessions[0];
 
       expect(savedTable.sportRules).toBeUndefined();
       expect(savedTable.players).toBeUndefined();
@@ -1000,7 +1040,7 @@ describe('CourtManager with StateStore', () => {
       expect(result).not.toBeNull();
       expect(result!.sessionMode).toBe(SESSION_MODE.FREE);
 
-      const updated = manager.getCourt(court.id) as ClubCourt;
+      const updated = manager.getCourt(court.id) as RuntimeCourt;
       expect(updated.sessionMode).toBe(SESSION_MODE.FREE);
       expect(updated.clubStatus).toBe(CLUB_STATUS.OCCUPIED);
     });
@@ -1011,12 +1051,12 @@ describe('CourtManager with StateStore', () => {
       manager.activateCourt(court.id);
       manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
 
-      const before = (manager.getCourt(court.id) as ClubCourt).occupiedAt;
+      const before = (manager.getCourt(court.id) as RuntimeCourt).occupiedAt;
       manager.startFreePlay(court.id);
-      const after = (manager.getCourt(court.id) as ClubCourt).occupiedAt;
+      const after = (manager.getCourt(court.id) as RuntimeCourt).occupiedAt;
 
       expect(after).toBe(before);
-      expect((manager.getCourt(court.id) as ClubCourt).clubStatus).toBe(CLUB_STATUS.OCCUPIED);
+      expect((manager.getCourt(court.id) as RuntimeCourt).clubStatus).toBe(CLUB_STATUS.OCCUPIED);
     });
 
     it('should be idempotent — calling twice keeps sessionMode="free"', () => {
@@ -1030,7 +1070,7 @@ describe('CourtManager with StateStore', () => {
 
       expect(first!.sessionMode).toBe(SESSION_MODE.FREE);
       expect(second!.sessionMode).toBe(SESSION_MODE.FREE);
-      expect((manager.getCourt(court.id) as ClubCourt).sessionMode).toBe(SESSION_MODE.FREE);
+      expect((manager.getCourt(court.id) as RuntimeCourt).sessionMode).toBe(SESSION_MODE.FREE);
     });
 
     it('should transition from match mode to free mode', () => {
@@ -1038,11 +1078,11 @@ describe('CourtManager with StateStore', () => {
       const court = manager.createClubCourt('MatchToFree');
       manager.activateCourt(court.id);
       manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
-      (manager.getCourt(court.id) as ClubCourt).sessionMode = SESSION_MODE.MATCH;
+      (manager.getCourt(court.id) as RuntimeCourt).sessionMode = SESSION_MODE.MATCH;
 
       const result = manager.startFreePlay(court.id);
       expect(result!.sessionMode).toBe(SESSION_MODE.FREE);
-      expect((manager.getCourt(court.id) as ClubCourt).sessionMode).toBe(SESSION_MODE.FREE);
+      expect((manager.getCourt(court.id) as RuntimeCourt).sessionMode).toBe(SESSION_MODE.FREE);
     });
   });
 
@@ -1077,7 +1117,7 @@ describe('CourtManager with StateStore', () => {
       const before = manager.getMatchState(court.id) as any;
       expect(before.score.currentSet.a).toBeGreaterThan(0);
 
-      (manager.getCourt(court.id) as ClubCourt).sessionMode = SESSION_MODE.MATCH;
+      (manager.getCourt(court.id) as RuntimeCourt).sessionMode = SESSION_MODE.MATCH;
       const reset = manager.resetMatch(court.id);
 
       expect(reset).not.toBeNull();
@@ -1105,7 +1145,7 @@ describe('CourtManager with StateStore', () => {
       expect(finished.status).toBe('FINISHED');
       expect(finished.winner).toBe('A');
 
-      (manager.getCourt(court.id) as ClubCourt).sessionMode = SESSION_MODE.MATCH;
+      (manager.getCourt(court.id) as RuntimeCourt).sessionMode = SESSION_MODE.MATCH;
       const reset = manager.resetMatch(court.id);
 
       expect(reset).not.toBeNull();
@@ -1116,7 +1156,7 @@ describe('CourtManager with StateStore', () => {
       expect(state.score.currentSet.b).toBe(0);
 
       // Court remained OCCUPIED throughout.
-      const updated = manager.getCourt(court.id) as ClubCourt;
+      const updated = manager.getCourt(court.id) as RuntimeCourt;
       expect(updated.clubStatus).toBe(CLUB_STATUS.OCCUPIED);
     });
 
@@ -1125,11 +1165,11 @@ describe('CourtManager with StateStore', () => {
       const court = manager.createClubCourt('Reset KeepMode');
       manager.activateCourt(court.id);
       manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
-      (manager.getCourt(court.id) as ClubCourt).sessionMode = SESSION_MODE.MATCH;
+      (manager.getCourt(court.id) as RuntimeCourt).sessionMode = SESSION_MODE.MATCH;
 
       manager.resetMatch(court.id);
 
-      const updated = manager.getCourt(court.id) as ClubCourt;
+      const updated = manager.getCourt(court.id) as RuntimeCourt;
       expect(updated.sessionMode).toBe(SESSION_MODE.MATCH);
     });
 
@@ -1145,7 +1185,7 @@ describe('CourtManager with StateStore', () => {
 
       manager.resetMatch(court.id);
 
-      const updated = manager.getCourt(court.id) as ClubCourt;
+      const updated = manager.getCourt(court.id) as RuntimeCourt;
       expect(updated.playerNames).toEqual({ a: 'Alice Reset', b: 'Bob Reset' });
     });
   });
@@ -1192,7 +1232,7 @@ describe('CourtManager with StateStore', () => {
       expect(state.score.currentSet.a).toBe(0);
       expect(state.score.currentSet.b).toBe(0);
 
-      const updated = manager.getCourt(court.id) as ClubCourt;
+      const updated = manager.getCourt(court.id) as RuntimeCourt;
       expect(updated.sessionMode).toBe(SESSION_MODE.MATCH);
       expect(updated.playerNames).toEqual({ a: 'Carlos', b: 'Daniela' });
       expect(updated.clubStatus).toBe(CLUB_STATUS.OCCUPIED);
@@ -1204,7 +1244,7 @@ describe('CourtManager with StateStore', () => {
       manager.activateCourt(court.id);
       manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
       manager.startFreePlay(court.id);
-      expect((manager.getCourt(court.id) as ClubCourt).sessionMode).toBe(SESSION_MODE.FREE);
+      expect((manager.getCourt(court.id) as RuntimeCourt).sessionMode).toBe(SESSION_MODE.FREE);
 
       const result = manager.newMatch(court.id, {
         playerNameA: 'Newbie A',
@@ -1212,7 +1252,7 @@ describe('CourtManager with StateStore', () => {
       });
 
       expect(result).not.toBeNull();
-      const updated = manager.getCourt(court.id) as ClubCourt;
+      const updated = manager.getCourt(court.id) as RuntimeCourt;
       expect(updated.sessionMode).toBe(SESSION_MODE.MATCH);
       expect(updated.playerNames).toEqual({ a: 'Newbie A', b: 'Newbie B' });
     });
@@ -1350,10 +1390,10 @@ describe('CourtManager with StateStore', () => {
       const savedContent = fs._files.get('data/rallyos-state.json');
       expect(savedContent).toBeDefined();
       const parsed = JSON.parse(savedContent!);
-      const persisted = parsed.tournamentCourts.find((t: any) => t.id === court.id) ?? parsed.clubCourts.find((t: any) => t.id === court.id);
+      const persisted = parsed.liveSessions.find((s: any) => s.courtId === court.id);
       expect(persisted).toBeDefined();
-      expect(persisted.occupiedAt).toBeDefined();
-      expect(typeof persisted.occupiedAt).toBe('number');
+      expect(persisted.flow.occupiedAt).toBeDefined();
+      expect(typeof persisted.flow.occupiedAt).toBe('number');
 
       // Simulate restart
       const newStore = new StateStore(fs, 'data/rallyos-state.json');
@@ -1362,7 +1402,7 @@ describe('CourtManager with StateStore', () => {
 
       const restoredCourt = newManager.getCourt(court.id);
       expect(restoredCourt).toBeDefined();
-      expect((restoredCourt as any)!.occupiedAt).toBe(persisted.occupiedAt);
+      expect((restoredCourt as any)!.occupiedAt).toBe(persisted.flow.occupiedAt);
     });
   });
 
@@ -1425,9 +1465,9 @@ describe('CourtManager with StateStore', () => {
       const savedContent = fs._files.get('data/rallyos-state.json');
       expect(savedContent).toBeDefined();
       const parsed = JSON.parse(savedContent!);
-      const persisted = parsed.clubCourts.find((t: any) => t.id === court.id);
+      const persisted = parsed.liveSessions.find((s: any) => s.courtId === court.id);
       expect(persisted).toBeDefined();
-      expect(persisted.sessionMode).toBe('free');
+      expect(persisted.flow.sessionMode).toBe('free');
     });
 
     it('should persist sessionMode="match" in toPersistedClubCourt after newMatch', () => {
@@ -1443,8 +1483,8 @@ describe('CourtManager with StateStore', () => {
       manager.flush();
       const savedContent = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(savedContent!);
-      const persisted = parsed.clubCourts.find((t: any) => t.id === court.id);
-      expect(persisted.sessionMode).toBe('match');
+      const persisted = parsed.liveSessions.find((s: any) => s.courtId === court.id);
+      expect(persisted.flow.sessionMode).toBe('match');
     });
 
     it('should restore sessionMode from persisted state on restoreState', () => {
@@ -1455,22 +1495,24 @@ describe('CourtManager with StateStore', () => {
         JSON.stringify({
           version: 4,
           savedAt: Date.now(),
-          tournamentCourts: [],
-          clubCourts: [
+          liveSessions: [
             {
-              id: 'club-rt',
+              courtId: 'club-rt',
               number: 1,
               name: 'Restore Court',
-              kind: 'club',
-              clubStatus: 'OCCUPIED',
-              occupiedAt: 1700000000000,
               pin: '1234',
               playerNames: { a: 'Alice', b: 'Bob' },
               createdAt: 1700000000000,
+              flow: {
+                mode: 'club',
+                state: 'OCCUPIED',
+                sessionMode: 'free',
+                occupiedAt: 1700000000000,
+                playerName: null,
+                phone: null,
+                adminId: null,
+              },
               matchState: null,
-              config: null,
-              history: [],
-              sessionMode: 'free',
             },
           ],
         }),
@@ -1481,7 +1523,7 @@ describe('CourtManager with StateStore', () => {
       const loaded = manager.restoreState();
       expect(loaded).toBe(true);
 
-      const restored = manager.getCourt('club-rt') as ClubCourt;
+      const restored = manager.getCourt('club-rt') as RuntimeCourt;
       expect(restored).toBeDefined();
       expect(restored.sessionMode).toBe('free');
     });
@@ -1493,22 +1535,24 @@ describe('CourtManager with StateStore', () => {
         JSON.stringify({
           version: 4,
           savedAt: Date.now(),
-          tournamentCourts: [],
-          clubCourts: [
+          liveSessions: [
             {
-              id: 'club-legacy',
+              courtId: 'club-legacy',
               number: 1,
               name: 'Legacy Court',
-              kind: 'club',
-              clubStatus: 'OCCUPIED',
-              occupiedAt: 1700000000000,
               pin: '1234',
               playerNames: { a: 'Alice', b: 'Bob' },
               createdAt: 1700000000000,
+              flow: {
+                mode: 'club',
+                state: 'OCCUPIED',
+                sessionMode: null,
+                occupiedAt: 1700000000000,
+                playerName: null,
+                phone: null,
+                adminId: null,
+              },
               matchState: null,
-              config: null,
-              history: [],
-              // NOTE: no sessionMode field (mimics a pre-PR-2 v4 file)
             },
           ],
         }),
@@ -1518,7 +1562,7 @@ describe('CourtManager with StateStore', () => {
       const manager = createTestCourtManager({ persistence: store });
       manager.restoreState();
 
-      const restored = manager.getCourt('club-legacy') as ClubCourt;
+      const restored = manager.getCourt('club-legacy') as RuntimeCourt;
       expect(restored).toBeDefined();
       expect(restored.sessionMode).toBeNull();
     });
@@ -1550,7 +1594,7 @@ describe('CourtManager with StateStore', () => {
       manager.activateCourt(court.id);
       manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
 
-      const updated = manager.getCourt(court.id) as ClubCourt;
+      const updated = manager.getCourt(court.id) as RuntimeCourt;
       expect(updated.playerName).toBeNull();
       expect(updated.phone).toBeNull();
       expect(updated.adminId).toBeNull();
@@ -1571,7 +1615,7 @@ describe('CourtManager with StateStore', () => {
         expect(result).not.toBeNull();
         expect(result!.sessionMode).toBe(SESSION_MODE.FREE);
 
-        const updated = manager.getCourt(court.id) as ClubCourt;
+        const updated = manager.getCourt(court.id) as RuntimeCourt;
         expect(updated.playerName).toBe('Jorge');
         expect(updated.phone).toBe('enc:nonce:body:tag');
         // Player-initiated flow → adminId stays null (no admin started this).
@@ -1589,7 +1633,7 @@ describe('CourtManager with StateStore', () => {
         // (mode-only re-entry is a valid idempotent pattern).
         manager.startFreePlay(court.id);
 
-        const updated = manager.getCourt(court.id) as ClubCourt;
+        const updated = manager.getCourt(court.id) as RuntimeCourt;
         expect(updated.playerName).toBe('Ana');
         expect(updated.phone).toBe('C0');
       });
@@ -1600,7 +1644,7 @@ describe('CourtManager with StateStore', () => {
         // Don't activate — court is AVAILABLE.
         const result = manager.startFreePlay(court.id, { playerName: 'A', phone: 'B' });
         expect(result).toBeNull();
-        const updated = manager.getCourt(court.id) as ClubCourt;
+        const updated = manager.getCourt(court.id) as RuntimeCourt;
         expect(updated.playerName).toBeNull();
       });
     });
@@ -1620,7 +1664,7 @@ describe('CourtManager with StateStore', () => {
         });
 
         expect(result).not.toBeNull();
-        const updated = manager.getCourt(court.id) as ClubCourt;
+        const updated = manager.getCourt(court.id) as RuntimeCourt;
         // Match participants (playerNameA/B) populate court.playerNames as usual.
         expect(updated.playerNames).toEqual({ a: 'A', b: 'B' });
         // Player's own identity lives on the dedicated fields.
@@ -1639,7 +1683,7 @@ describe('CourtManager with StateStore', () => {
         // newMatch without playerName/phone — prior identity preserved.
         manager.newMatch(court.id, { playerNameA: 'X', playerNameB: 'Y' });
 
-        const updated = manager.getCourt(court.id) as ClubCourt;
+        const updated = manager.getCourt(court.id) as RuntimeCourt;
         expect(updated.playerName).toBe('Beto');
         expect(updated.phone).toBe('P0');
       });
@@ -1653,16 +1697,16 @@ describe('CourtManager with StateStore', () => {
         manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
         // Populate player identity via startFreePlay.
         manager.startFreePlay(court.id, { playerName: 'Carlos', phone: 'Z:Z:Z:Z' });
-        const before = manager.getCourt(court.id) as ClubCourt;
+        const before = manager.getCourt(court.id) as RuntimeCourt;
         expect(before.playerName).toBe('Carlos');
 
         // End the session so the court reaches FINISHED and can be reset.
         manager.forceEndSession(court.id);
-        const finished = manager.getCourt(court.id) as ClubCourt;
+        const finished = manager.getCourt(court.id) as RuntimeCourt;
         expect(finished.clubStatus).toBe(CLUB_STATUS.FINISHED);
 
         manager.resetCourt(court.id);
-        const reset = manager.getCourt(court.id) as ClubCourt;
+        const reset = manager.getCourt(court.id) as RuntimeCourt;
         expect(reset.clubStatus).toBe(CLUB_STATUS.AVAILABLE);
         expect(reset.playerName).toBeNull();
         expect(reset.phone).toBeNull();
@@ -1679,7 +1723,7 @@ describe('CourtManager with StateStore', () => {
         const result = manager.resetCourt(court.id);
         expect(result).toBeNull();
 
-        const stillOccupied = manager.getCourt(court.id) as ClubCourt;
+        const stillOccupied = manager.getCourt(court.id) as RuntimeCourt;
         expect(stillOccupied.clubStatus).toBe(CLUB_STATUS.OCCUPIED);
         expect(stillOccupied.playerName).toBe('Diana');
       });
@@ -1741,11 +1785,11 @@ describe('CourtManager with StateStore', () => {
         const savedContent = fs._files.get('data/rallyos-state.json');
         expect(savedContent).toBeDefined();
         const parsed = JSON.parse(savedContent!);
-        const persisted = parsed.clubCourts.find((t: any) => t.id === court.id);
+        const persisted = parsed.liveSessions.find((s: any) => s.courtId === court.id);
         expect(persisted).toBeDefined();
-        expect(persisted.playerName).toBe('Ana');
-        expect(persisted.phone).toBe('enc:N:B:T');
-        expect(persisted.adminId).toBeNull();
+        expect(persisted.flow.playerName).toBe('Ana');
+        expect(persisted.flow.phone).toBe('enc:N:B:T');
+        expect(persisted.flow.adminId).toBeNull();
       });
 
       it('restores playerName + phone from persisted state on restoreState', () => {
@@ -1756,25 +1800,24 @@ describe('CourtManager with StateStore', () => {
           JSON.stringify({
             version: 4,
             savedAt: Date.now(),
-            tournamentCourts: [],
-            clubCourts: [
+            liveSessions: [
               {
-                id: 'club-rt-id',
+                courtId: 'club-rt-id',
                 number: 1,
                 name: 'Restore Identity',
-                kind: 'club',
-                clubStatus: 'OCCUPIED',
-                occupiedAt: 1700000000000,
                 pin: '1234',
                 playerNames: { a: 'A', b: 'B' },
                 createdAt: 1700000000000,
                 matchState: null,
-                config: null,
-                history: [],
-                sessionMode: 'free',
-                playerName: 'Beto',
-                phone: 'pqb:abc:xyz',
-                adminId: null,
+                flow: {
+                  mode: 'club',
+                  state: 'OCCUPIED',
+                  sessionMode: 'free',
+                  occupiedAt: 1700000000000,
+                  playerName: 'Beto',
+                  phone: 'pqb:abc:xyz',
+                  adminId: null,
+                },
               },
             ],
           }),
@@ -1785,7 +1828,7 @@ describe('CourtManager with StateStore', () => {
         const loaded = manager.restoreState();
         expect(loaded).toBe(true);
 
-        const restored = manager.getCourt('club-rt-id') as ClubCourt;
+        const restored = manager.getCourt('club-rt-id') as RuntimeCourt;
         expect(restored).toBeDefined();
         expect(restored.playerName).toBe('Beto');
         expect(restored.phone).toBe('pqb:abc:xyz');
@@ -1799,23 +1842,22 @@ describe('CourtManager with StateStore', () => {
           JSON.stringify({
             version: 4,
             savedAt: Date.now(),
-            tournamentCourts: [],
-            clubCourts: [
+            liveSessions: [
               {
-                id: 'club-legacy-id',
+                courtId: 'club-legacy-id',
                 number: 1,
                 name: 'Legacy Identity',
-                kind: 'club',
-                clubStatus: 'OCCUPIED',
-                occupiedAt: 1700000000000,
                 pin: '1234',
                 playerNames: { a: 'A', b: 'B' },
                 createdAt: 1700000000000,
                 matchState: null,
-                config: null,
-                history: [],
-                sessionMode: 'free',
-                // No playerName / phone / adminId — pre-change v4 file.
+                flow: {
+                  mode: 'club',
+                  state: 'OCCUPIED',
+                  sessionMode: 'free',
+                  occupiedAt: 1700000000000,
+                  // No playerName / phone / adminId — pre-change v4 file.
+                },
               },
             ],
           }),
@@ -1825,7 +1867,7 @@ describe('CourtManager with StateStore', () => {
         const manager = createTestCourtManager({ persistence: store });
         manager.restoreState();
 
-        const restored = manager.getCourt('club-legacy-id') as ClubCourt;
+        const restored = manager.getCourt('club-legacy-id') as RuntimeCourt;
         expect(restored).toBeDefined();
         expect(restored.playerName).toBeNull();
         expect(restored.phone).toBeNull();
@@ -1860,7 +1902,7 @@ describe('CourtManager with StateStore', () => {
 
       let adminIdSeenByCallback: string | null | undefined = '__unset__';
       manager.onClubSessionEnd = (courtId) => {
-        const c = manager.getCourt(courtId) as ClubCourt | null;
+        const c = manager.getCourt(courtId) as RuntimeCourt | null;
         adminIdSeenByCallback = c?.adminId ?? null;
       };
 
@@ -1886,7 +1928,7 @@ describe('CourtManager with StateStore', () => {
 
       let adminIdSeenByCallback: string | null | undefined = '__unset__';
       manager.onClubSessionEnd = (courtId) => {
-        const c = manager.getCourt(courtId) as ClubCourt | null;
+        const c = manager.getCourt(courtId) as RuntimeCourt | null;
         adminIdSeenByCallback = c?.adminId ?? null;
       };
 
@@ -1895,7 +1937,7 @@ describe('CourtManager with StateStore', () => {
 
       expect(adminIdSeenByCallback).toBe('admin-force-ender');
       // The court's persisted adminId is the force-ender, not the starter.
-      expect((manager.getCourt(court.id) as ClubCourt).adminId).toBe('admin-force-ender');
+      expect((manager.getCourt(court.id) as RuntimeCourt).adminId).toBe('admin-force-ender');
     });
 
     it('forceEndSession without adminId preserves the existing court.adminId (backward compatible — no stamp, no override)', () => {
@@ -1910,7 +1952,7 @@ describe('CourtManager with StateStore', () => {
       manager.forceEndSession(court.id); // no adminId arg
 
       // Player-occupied court had adminId=null → force-end without id leaves it null.
-      expect((manager.getCourt(court.id) as ClubCourt).adminId).toBeNull();
+      expect((manager.getCourt(court.id) as RuntimeCourt).adminId).toBeNull();
     });
   });
 });
@@ -1949,7 +1991,7 @@ describe('debounced persistence (P1)', () => {
     expect(saveSpy).toHaveBeenCalledTimes(1);
 
     const parsed = JSON.parse(fs._files.get('data/rallyos-state.json')!);
-    expect(parsed.tournamentCourts[0].matchState.score.currentSet.a).toBe(5);
+    expect(parsed.liveSessions[0].matchState.score.currentSet.a).toBe(5);
   });
 
   it('coalesces mutations across the trailing window into a single save (no unbounded queue)', () => {
@@ -1989,7 +2031,7 @@ describe('debounced persistence (P1)', () => {
     manager.flush();
 
     const parsed = JSON.parse(fs._files.get('data/rallyos-state.json')!);
-    expect(parsed.tournamentCourts[0].matchState.score.currentSet.a).toBe(1);
+    expect(parsed.liveSessions[0].matchState.score.currentSet.a).toBe(1);
   });
 
   it('flush() is a no-op when no StateStore is configured', () => {
@@ -2017,7 +2059,7 @@ describe('bounded history (P4)', () => {
 
     manager.flush();
     const parsed = JSON.parse(fs._files.get('data/rallyos-state.json')!);
-    const persistedHistory = parsed.tournamentCourts[0].matchState.history;
+    const persistedHistory = parsed.liveSessions[0].matchState.history;
     expect(persistedHistory.length).toBeLessThanOrEqual(MAX_HISTORY_LENGTH);
   });
 });
@@ -2076,6 +2118,8 @@ function stubFlowContract(key: FlowModeKey, overrides: Partial<FlowModeContract>
     states: [],
     allowedTransitions: {},
     availabilityOf: () => AVAILABILITY.IDLE,
+    occupy: () => true,
+    start: () => true,
     end: () => null,
     forceEnd: () => null,
     serialize: () => null,
@@ -2086,11 +2130,15 @@ function stubFlowContract(key: FlowModeKey, overrides: Partial<FlowModeContract>
 }
 
 function catalogWith(ids: string[]): CourtCatalog {
+  const records = ids.map((courtId) => ({
+    courtId,
+    number: 1,
+    name: 'Mesa',
+    inventoryStatus: INVENTORY_STATUS.ACTIVE,
+  }));
   return {
-    get: (courtId: string) =>
-      ids.includes(courtId)
-        ? { courtId, number: 1, name: 'Mesa', inventoryStatus: INVENTORY_STATUS.ACTIVE }
-        : undefined,
+    get: (courtId: string) => records.find((r) => r.courtId === courtId),
+    list: () => records,
   };
 }
 
@@ -2155,31 +2203,41 @@ function persistedClubCourt(id: string): PersistedClubCourt {
 }
 
 describe('courtManager — FlowModeRegistry delegation (FMR-1)', () => {
+  /** Seed a club OCCUPIED flow directly (delegation tests stub the contracts,
+   *  so the occupy path that would normally set the flow is bypassed). */
+  function occupyForTest(manager: CourtManager, courtId: string): void {
+    const rt = manager.getCourt(courtId)!;
+    rt.mode = 'club';
+    rt.clubStatus = CLUB_STATUS.OCCUPIED;
+    rt.reserved = false;
+    rt.flow = { mode: 'club', state: 'OCCUPIED', sessionMode: null, occupiedAt: Date.now(), playerName: null, phone: null, adminId: null };
+  }
+
   it('endSession delegates to the club contract and returns its settled elapsed', () => {
-    const endSpy = jest.fn((_court: Court, _ctx?: FlowContext) => ({ elapsedMinutes: 3, elapsedSeconds: 180, cost: 150, currency: 'ARS' }));
+    const endSpy = jest.fn((_court: RuntimeCourt, _ctx?: FlowContext) => ({ elapsedMinutes: 3, elapsedSeconds: 180, cost: 150, currency: 'ARS' }));
     const registry = new FlowModeRegistry().register('club', () => stubFlowContract('club', { end: endSpy }));
     const manager = createTestCourtManager({ registry });
 
     const court = manager.createClubCourt('Deleg End');
     manager.activateCourt(court.id);
-    manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+    occupyForTest(manager, court.id);
 
     const result = manager.endSession(court.id, 'player');
     expect(endSpy).toHaveBeenCalledTimes(1);
-    const arg = endSpy.mock.calls[0][0] as ClubCourt;
+    const arg = endSpy.mock.calls[0][0] as RuntimeCourt;
     expect(arg.id).toBe(court.id);
     expect(arg.clubStatus).toBe(CLUB_STATUS.OCCUPIED); // contract receives the pre-transition court
     expect(result).toEqual({ elapsedMinutes: 3, elapsedSeconds: 180 });
   });
 
   it('forceEndSession delegates to the club contract for club courts', () => {
-    const forceEndSpy = jest.fn((_court: Court, _adminId: string, _ctx?: FlowContext) => ({ releasedCourtId: 'x', elapsedMinutes: 2, elapsedSeconds: 120, cost: 100, currency: 'ARS' }));
+    const forceEndSpy = jest.fn((_court: RuntimeCourt, _adminId: string, _ctx?: FlowContext) => ({ releasedCourtId: 'x', elapsedMinutes: 2, elapsedSeconds: 120, cost: 100, currency: 'ARS' }));
     const registry = new FlowModeRegistry().register('club', () => stubFlowContract('club', { forceEnd: forceEndSpy }));
     const manager = createTestCourtManager({ registry });
 
     const court = manager.createClubCourt('Deleg Force');
     manager.activateCourt(court.id);
-    manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+    occupyForTest(manager, court.id);
 
     const ended = manager.forceEndSession(court.id, 'admin-1');
     expect(forceEndSpy).toHaveBeenCalledTimes(1);
@@ -2188,7 +2246,7 @@ describe('courtManager — FlowModeRegistry delegation (FMR-1)', () => {
   });
 
   it('forceEndSession delegates to the tournament contract for tournament courts', () => {
-    const forceEndSpy = jest.fn((_court: Court, _adminId: string, _ctx?: FlowContext) => ({ releasedCourtId: 'x', unboundMatchId: 'R1-M1' }));
+    const forceEndSpy = jest.fn((_court: RuntimeCourt, _adminId: string, _ctx?: FlowContext) => ({ releasedCourtId: 'x', unboundMatchId: 'R1-M1' }));
     const registry = new FlowModeRegistry().register('tournament', () => stubFlowContract('tournament', { forceEnd: forceEndSpy }));
     const manager = createTestCourtManager({ registry });
 
@@ -2201,13 +2259,13 @@ describe('courtManager — FlowModeRegistry delegation (FMR-1)', () => {
   });
 
   it('startFreePlay delegates to the club contract start with sessionMode free', () => {
-    const startSpy = jest.fn((_court: Court, _ctx?: FlowContext) => true);
+    const startSpy = jest.fn((_court: RuntimeCourt, _ctx?: FlowContext) => true);
     const registry = new FlowModeRegistry().register('club', () => stubFlowContract('club', { start: startSpy }));
     const manager = createTestCourtManager({ registry });
 
     const court = manager.createClubCourt('Deleg Free');
     manager.activateCourt(court.id);
-    manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+    occupyForTest(manager, court.id);
 
     const result = manager.startFreePlay(court.id, { playerName: 'Ana' });
     expect(startSpy).toHaveBeenCalledTimes(1);
@@ -2216,13 +2274,13 @@ describe('courtManager — FlowModeRegistry delegation (FMR-1)', () => {
   });
 
   it('newMatch delegates to the club contract start with sessionMode match', () => {
-    const startSpy = jest.fn((_court: Court, _ctx?: FlowContext) => true);
+    const startSpy = jest.fn((_court: RuntimeCourt, _ctx?: FlowContext) => true);
     const registry = new FlowModeRegistry().register('club', () => stubFlowContract('club', { start: startSpy }));
     const manager = createTestCourtManager({ registry });
 
     const court = manager.createClubCourt('Deleg Match');
     manager.activateCourt(court.id);
-    manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
+    occupyForTest(manager, court.id);
 
     const result = manager.newMatch(court.id, { playerNameA: 'Ana', playerNameB: 'Bob' });
     expect(startSpy).toHaveBeenCalledTimes(1);
@@ -2238,7 +2296,7 @@ describe('courtManager — FlowModeRegistry delegation (FMR-1)', () => {
     manager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
     const ended = manager.endSession(court.id, 'player');
     expect(ended).not.toBeNull();
-    expect((manager.getCourt(court.id) as ClubCourt).clubStatus).toBe(CLUB_STATUS.FINISHED);
+    expect((manager.getCourt(court.id) as RuntimeCourt).clubStatus).toBe(CLUB_STATUS.FINISHED);
   });
 });
 
@@ -2304,7 +2362,7 @@ describe('courtManager — derived availability + canArchive (INV-4/INV-5)', () 
     manager.releaseCourtFlow(court.id);
 
     expect(manager.getCourtAvailability(court.id)).toBe(AVAILABILITY.IDLE);
-    expect((manager.getCourt(court.id) as TournamentCourt).status).toBe('WAITING');
+    expect((manager.getCourt(court.id) as RuntimeCourt).status).toBe('WAITING');
   });
 
   it('releaseCourtFlow is a NO-OP for club courts — club untouched by releaseAll (TCS-3)', () => {
@@ -2318,7 +2376,7 @@ describe('courtManager — derived availability + canArchive (INV-4/INV-5)', () 
 
     // club flow survives — releaseAll is bracket-scoped and never touches club courts.
     expect(manager.getCourtAvailability(club.id)).toBe(AVAILABILITY.BUSY);
-    expect((manager.getCourt(club.id) as ClubCourt).clubStatus).toBe(CLUB_STATUS.OCCUPIED);
+    expect((manager.getCourt(club.id) as RuntimeCourt).clubStatus).toBe(CLUB_STATUS.OCCUPIED);
   });
 
   it('releaseCourtFlow is a no-op for an unknown court', () => {
@@ -2361,8 +2419,11 @@ describe('courtManager — persist/restore axis split (ghost-drop, no ghost sess
     const persisted = {
       version: 4,
       savedAt: Date.now(),
-      tournamentCourts: [persistedTournamentCourt('live-1', 'LIVE'), persistedTournamentCourt('ghost-1', 'LIVE')],
-      clubCourts: [persistedClubCourt('club-1')],
+      liveSessions: [
+        tableToSession(persistedTournamentCourt('live-1', 'LIVE')),
+        tableToSession(persistedTournamentCourt('ghost-1', 'LIVE')),
+        clubToSession(persistedClubCourt('club-1')),
+      ],
     };
     const fakePersistence: ICourtPersistence = {
       save: jest.fn(),
@@ -2386,8 +2447,10 @@ describe('courtManager — persist/restore axis split (ghost-drop, no ghost sess
     const persisted = {
       version: 4,
       savedAt: Date.now(),
-      tournamentCourts: [persistedTournamentCourt('live-1', 'LIVE')],
-      clubCourts: [persistedClubCourt('club-1')],
+      liveSessions: [
+        tableToSession(persistedTournamentCourt('live-1', 'LIVE')),
+        clubToSession(persistedClubCourt('club-1')),
+      ],
     };
     const fakePersistence: ICourtPersistence = {
       save: jest.fn(),
@@ -2406,8 +2469,7 @@ describe('courtManager — persist/restore axis split (ghost-drop, no ghost sess
     const persisted = {
       version: 4,
       savedAt: Date.now(),
-      tournamentCourts: [persistedTournamentCourt('live-1', 'LIVE')],
-      clubCourts: [],
+      liveSessions: [tableToSession(persistedTournamentCourt('live-1', 'LIVE'))],
     };
     const fakePersistence: ICourtPersistence = {
       save: jest.fn(),

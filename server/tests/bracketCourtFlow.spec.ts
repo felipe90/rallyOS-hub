@@ -15,14 +15,20 @@
  *   3. SELECT validation (TCS-2/Q2): MAINTENANCE → COURT_NOT_FOUND, club
  *      RESERVED → COURT_RESERVED, reverse index → COURT_ALREADY_ASSIGNED.
  *   4. 2-step reset unbinds the bracket courts (bindings cleared).
+ *   5. SLICE 5 (bridge reversal): SELECT materializes the runtime tournament
+ *      court (ensureRuntimeTournamentCourt), the referee starts the match
+ *      (START_MATCH → flow tournament LIVE), scoring a completed match
+ *      auto-advances the bracket (MATCH_WON → handleCourtMatchWon), and a
+ *      reset after play releases the tournament flow → court IDLE.
  *
- * DEFERRED to slice 5 (documented bridge artifact): the full referee-play
+ * DEFERRED note (slice 4) — RESOLVED in slice 5: the full referee-play
  * auto-advance + browser-prefill flows need a RUNTIME tournament court (PIN +
- * match engine) at the inventory courtId. Slice 4 materializes runtime club
- * courts only (4.4); the tournament runtime materialization + COURT_LIST →
- * ACTIVE inventory lands at the slice-5 bridge reversal. Until then the
- * MATCH_WON → bracket auto-advance path is covered by unit tests
- * (BracketHandler.handleCourtMatchWon), not live e2e.
+ * match engine) at the inventory courtId. The slice-5 bridge reversal
+ * materializes the runtime tournament court at SELECT time
+ * (CourtManager.ensureRuntimeTournamentCourt), so the referee-play protocol
+ * tests below now run live (START_MATCH → MATCH_WON → bracket auto-advance).
+ * The browser-prefill path (referee dashboard picker over ACTIVE inventory)
+ * is exercised by the client e2e suite (referee → court → PinModal → start).
  *
  * Admin auth: the club admin PIN is operator-set (CLUB_SETUP) and has no
  * public API — provide it via CLUB_ADMIN_PIN (mirrors the TOURNAMENT_OWNER_PIN
@@ -363,5 +369,143 @@ test.describe('bracket ↔ inventory courts (slice 4 bridge)', () => {
     const cleared = tracker.waitFor((b) => b === null, 'bracket null after reset');
     ownerSocket.emit(SocketEvents.CLIENT.BRACKET_RESET, { confirmToken: token });
     await cleared;
+  });
+});
+
+// ── slice 5: referee-play auto-advance + tournament runtime materialization ──
+//
+// Slice 4 deferred this path (documented bridge artifact): the referee-play
+// flow needs a RUNTIME tournament court (PIN + match engine) at the inventory
+// courtId. Slice 5 reverses the bridge — SELECT now materializes the runtime
+// tournament court (CourtManager.ensureRuntimeTournamentCourt) so the referee
+// can start the match, score it, and the MATCH_WON auto-advances the bracket.
+
+test.describe('bracket referee-play (slice 5 bridge reversal)', () => {
+  test('SELECT materializes the runtime tournament court; START_MATCH → MATCH_WON auto-advances the bracket', async () => {
+    test.setTimeout(90_000);
+    const c = await seedInventoryCourt(adminSocket, `E2E Referee ${Date.now()}`);
+
+    const created = tracker.waitFor(
+      (b) => b !== null && b.status === 'SETUP',
+      'bracket SETUP after create',
+    );
+    ownerSocket.emit(SocketEvents.CLIENT.BRACKET_CREATE, {
+      name: `E2E Referee ${Date.now()}`,
+      numSlots: 4,
+      includeThirdPlace: false,
+    });
+    await created;
+
+    // Assign players to R1-M1 so the match is READY (auto-advance resolves
+    // the winner ONLY on READY matches).
+    const ready = tracker.waitFor(
+      (b) => matchById(b, 'R1-M1')?.status === 'READY',
+      'R1-M1 READY after player assignment',
+    );
+    ownerSocket.emit(SocketEvents.CLIENT.BRACKET_ASSIGN_PLAYER, { matchId: 'R1-M1', slot: 'A', name: 'Ana' });
+    ownerSocket.emit(SocketEvents.CLIENT.BRACKET_ASSIGN_PLAYER, { matchId: 'R1-M1', slot: 'B', name: 'Bob' });
+    await ready;
+
+    // Owner binds R1-M1 to the inventory court.
+    const bound = tracker.waitFor(
+      (b) => matchById(b, 'R1-M1')?.courtId === c.courtId,
+      'R1-M1 bound',
+    );
+    ownerSocket.emit(SocketEvents.CLIENT.TOURNAMENT_SELECT_TABLE, {
+      matchId: 'R1-M1',
+      courtId: c.courtId,
+    });
+    await bound;
+
+    // The runtime tournament court was materialized (owner sees it with a PIN
+    // in the public list — D11 COURT_LIST = ACTIVE inventory).
+    const publicList = once<unknown[]>(ownerSocket, SocketEvents.SERVER.COURT_LIST);
+    ownerSocket.emit(SocketEvents.CLIENT.LIST_COURTS);
+    const list = await publicList;
+    const materialized = (list as { id: string }[]).find((x) => x.id === c.courtId);
+    expect(materialized).toBeDefined();
+
+    // The owner fetches the court PIN (materialized at SELECT) so the referee
+    // can authenticate (SET_REF → REF_SET) before starting the match.
+    const pinsReq = once<{ courts: { id: string; pin: string }[] }>(
+      ownerSocket,
+      SocketEvents.SERVER.COURT_LIST_WITH_PINS,
+    );
+    ownerSocket.emit(SocketEvents.CLIENT.GET_COURTS_WITH_PINS, { ownerPin });
+    const { courts: withPins } = await pinsReq;
+    const pinned = withPins.find((x) => x.id === c.courtId);
+    expect(pinned).toBeDefined();
+    expect(pinned!.pin).toMatch(/^\d{4}$/);
+
+    // Referee starts the match on the court (START_MATCH gates on referee
+    // auth; the court now exists with a PIN + fresh match engine).
+    const refSocket = await connectClient();
+    const refSet = once<{ courtId: string }>(refSocket, SocketEvents.SERVER.REF_SET);
+    refSocket.emit(SocketEvents.CLIENT.SET_REF, { courtId: c.courtId, pin: pinned!.pin });
+    await refSet;
+
+    const startMatch = once<{ status: string }>(refSocket, SocketEvents.SERVER.MATCH_UPDATE);
+    refSocket.emit(SocketEvents.CLIENT.START_MATCH, {
+      courtId: c.courtId,
+      pointsPerSet: 11,
+      bestOf: 3,
+      // Player names must match the bracket slots so the auto-advance can
+      // resolve the winner ('Ana' === match.playerA).
+      playerNameA: 'Ana',
+      playerNameB: 'Bob',
+    });
+    const state = await startMatch;
+    expect(state.status).toBe('LIVE');
+
+    // Score until the match completes → MATCH_WON → bracket auto-advance
+    // (BracketHandler.handleCourtMatchWon resolves the bound match winner).
+    // The scoring rate limit is 30/min per court — pace at ~2.1s/point.
+    const advanced = tracker.waitFor(
+      (b) => matchById(b, 'R1-M1')?.winner != null,
+      'R1-M1 winner auto-set after MATCH_WON',
+      60_000,
+    );
+    for (let i = 0; i < 22; i++) {
+      refSocket.emit(SocketEvents.CLIENT.RECORD_POINT, { courtId: c.courtId, player: 'A' });
+      await new Promise((r) => setTimeout(r, 2100));
+    }
+    await advanced;
+    expect(matchById(tracker.latest(), 'R1-M1')?.winner).toBe('A');
+    refSocket.disconnect();
+  });
+
+  test('bracket reset after a played match releases the tournament flow (court → IDLE)', async () => {
+    test.setTimeout(90_000);
+    const c = await seedInventoryCourt(adminSocket, `E2E Release ${Date.now()}`);
+
+    const created = tracker.waitFor(
+      (b) => b !== null && b.status === 'SETUP',
+      'bracket SETUP after create',
+    );
+    ownerSocket.emit(SocketEvents.CLIENT.BRACKET_CREATE, {
+      name: `E2E Release ${Date.now()}`,
+      numSlots: 4,
+      includeThirdPlace: false,
+    });
+    await created;
+
+    const bound = tracker.waitFor(
+      (b) => matchById(b, 'R1-M1')?.courtId === c.courtId,
+      'R1-M1 bound',
+    );
+    ownerSocket.emit(SocketEvents.CLIENT.TOURNAMENT_SELECT_TABLE, {
+      matchId: 'R1-M1',
+      courtId: c.courtId,
+    });
+    await bound;
+
+    // 2-step reset releases bindings; the runtime tournament flow is cleared
+    // (releaseAll → court IDLE). The inventory record stays ACTIVE.
+    await resetBracket(ownerSocket, tracker);
+
+    const courts = await listInventory(adminSocket);
+    const record = courts.find((r) => r.courtId === c.courtId);
+    expect(record).toBeDefined();
+    expect(record!.inventoryStatus).toBe('ACTIVE');
   });
 });

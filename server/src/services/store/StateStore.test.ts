@@ -1,6 +1,6 @@
 import { SPORT, TournamentBracket, BRACKET_STATUS, BRACKET_MATCH_STATUS } from '../../../../shared/types';
 import { StateStore } from './StateStore';
-import { FileSystem, PersistedCourt, PersistedClubCourt, PersistedStateV3 } from './types';
+import { FileSystem, PersistedFlowSession, PersistedStateV4 } from './types';
 
 // ── Fake FileSystem for DI ────────────────────────────────────────────
 
@@ -49,50 +49,54 @@ function makeFs(): FileSystem & { _written: Map<string, string>; _files: Map<str
   };
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────
+// ── Helpers — v4 liveSessions rows (PERS-2) ───────────────────────────
 
-function makeTournamentCourt(overrides: Partial<PersistedCourt> = {}): PersistedCourt {
+function makeMatchState(status: string = 'LIVE') {
   return {
-    id: 'table-1',
+    config: { sport: SPORT.TABLE_TENNIS, pointsPerSet: 11, bestOf: 3, minDifference: 2 },
+    score: { sets: { a: 0, b: 0 }, currentSet: { a: 5, b: 3 }, serving: 'B' },
+    swappedSides: false,
+    midSetSwapped: false,
+    setHistory: [],
+    status,
+    winner: null,
+    sport: SPORT.TABLE_TENNIS,
+    history: [],
+  };
+}
+
+function makeTournamentSession(overrides: Partial<PersistedFlowSession> = {}): PersistedFlowSession {
+  return {
+    courtId: 'table-1',
+    flow: { mode: 'tournament', state: 'LIVE', startedAt: 1700000000000 },
+    matchState: makeMatchState('LIVE'),
     number: 1,
     name: 'Mesa 1',
-    status: 'LIVE',
     pin: '4821',
     playerNames: { a: 'Alice', b: 'Bob' },
     createdAt: 1700000000000,
-    matchState: {
-      config: { sport: SPORT.TABLE_TENNIS, pointsPerSet: 11, bestOf: 3, minDifference: 2 },
-      score: {
-        sets: { a: 0, b: 0 },
-        currentSet: { a: 5, b: 3 },
-        serving: 'B',
-      },
-      swappedSides: false,
-      midSetSwapped: false,
-      setHistory: [],
-      status: 'LIVE',
-      winner: null,
-      sport: SPORT.TABLE_TENNIS,
-      history: [],
-    },
     ...overrides,
   };
 }
 
-function makeClubCourt(overrides: Partial<PersistedClubCourt> = {}): PersistedClubCourt {
+function makeClubSession(overrides: Partial<PersistedFlowSession> = {}): PersistedFlowSession {
   return {
-    id: 'club-1',
+    courtId: 'club-1',
+    flow: {
+      mode: 'club',
+      state: 'OCCUPIED',
+      sessionMode: null,
+      occupiedAt: 1700000001000,
+      playerName: null,
+      phone: null,
+      adminId: null,
+    },
+    matchState: null,
     number: 2,
     name: 'Club Court 1',
-    kind: 'club',
-    clubStatus: 'OCCUPIED',
-    occupiedAt: 1700000001000,
     pin: '',
     playerNames: { a: '', b: '' },
     createdAt: 1700000000000,
-    matchState: null,
-    config: null,
-    history: [],
     ...overrides,
   };
 }
@@ -109,54 +113,47 @@ describe('StateStore', () => {
   });
 
   describe('save', () => {
-    it('should write v4 JSON with tournamentCourts and clubCourts', () => {
-      store.save([makeTournamentCourt()], [makeClubCourt()]);
+    it('should write v4 JSON with liveSessions (PERS-2 shape)', () => {
+      store.save([makeTournamentSession(), makeClubSession()]);
 
-      // After atomic write, content is at the final path (rename moved it from .tmp)
       const savedContent = fs._files.get('data/rallyos-state.json');
       expect(savedContent).toBeDefined();
 
       const parsed = JSON.parse(savedContent!);
       expect(parsed.version).toBe(4);
       expect(typeof parsed.savedAt).toBe('number');
-      // v4 uses separate arrays (slice-1 bridge — liveSessions shape lands
-      // with the slice-2 runtime conversion)
-      expect(parsed.tournamentCourts).toHaveLength(1);
-      expect(parsed.clubCourts).toHaveLength(1);
-      expect(parsed.tournamentCourts[0].id).toBe('table-1');
-      expect(parsed.clubCourts[0].id).toBe('club-1');
-      // v2-style tables array should NOT exist
+      expect(parsed.liveSessions).toHaveLength(2);
+      expect(parsed.liveSessions[0].courtId).toBe('table-1');
+      expect(parsed.liveSessions[1].courtId).toBe('club-1');
+      // The legacy v3 arrays are GONE (slice-5 bridge reversal).
+      expect(parsed.tournamentCourts).toBeUndefined();
+      expect(parsed.clubCourts).toBeUndefined();
       expect(parsed.tables).toBeUndefined();
     });
 
-    it('should accept empty arrays', () => {
-      store.save([], []);
+    it('should accept an empty sessions array', () => {
+      store.save([]);
 
       const finalContent = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(finalContent!);
-      expect(parsed.tournamentCourts).toHaveLength(0);
-      expect(parsed.clubCourts).toHaveLength(0);
+      expect(parsed.liveSessions).toHaveLength(0);
     });
 
     it('should rename tmp file to final path for atomic write', () => {
-      store.save([makeTournamentCourt()], [makeClubCourt()]);
+      store.save([makeTournamentSession()]);
 
-      // After rename, tmp content should be moved to final path
       const finalContent = fs._files.get('data/rallyos-state.json');
       expect(finalContent).toBeDefined();
-      // tmp should be gone
       expect(fs._written.has('data/rallyos-state.json.tmp')).toBe(false);
       expect(fs._files.has('data/rallyos-state.json.tmp')).toBe(false);
     });
 
     it('should create data directory if it does not exist (no-op with fake fs)', () => {
-      // The fake fs directory is always available, so this just tests
-      // that save doesn't throw
-      expect(() => store.save([makeTournamentCourt()], [makeClubCourt()])).not.toThrow();
+      expect(() => store.save([makeTournamentSession()])).not.toThrow();
     });
 
     it('should write before rename for atomic guarantee', () => {
-      store.save([makeTournamentCourt()], [makeClubCourt()]);
+      store.save([makeTournamentSession()]);
 
       const finalContent = fs._files.get('data/rallyos-state.json');
       expect(finalContent).toBeDefined();
@@ -164,38 +161,40 @@ describe('StateStore', () => {
       expect(parsed.version).toBe(4);
     });
 
-    it('should save multiple tournament courts', () => {
-      const t1 = makeTournamentCourt({ id: 't1', number: 1 });
-      const t2 = makeTournamentCourt({ id: 't2', number: 2 });
-      store.save([t1, t2], []);
+    it('should save multiple tournament sessions', () => {
+      const t1 = makeTournamentSession({ courtId: 't1', number: 1 });
+      const t2 = makeTournamentSession({ courtId: 't2', number: 2 });
+      store.save([t1, t2]);
 
       const finalContent = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(finalContent!);
-      expect(parsed.tournamentCourts).toHaveLength(2);
-      expect(parsed.tournamentCourts[0].id).toBe('t1');
-      expect(parsed.tournamentCourts[1].id).toBe('t2');
+      expect(parsed.liveSessions).toHaveLength(2);
+      expect(parsed.liveSessions[0].courtId).toBe('t1');
+      expect(parsed.liveSessions[1].courtId).toBe('t2');
     });
 
-    it('should save multiple club courts', () => {
-      const c1 = makeClubCourt({ id: 'c1' });
-      const c2 = makeClubCourt({ id: 'c2', clubStatus: 'FINISHED' });
-      store.save([], [c1, c2]);
+    it('should save multiple club sessions', () => {
+      const c1 = makeClubSession({ courtId: 'c1' });
+      const c2 = makeClubSession({
+        courtId: 'c2',
+        flow: { ...makeClubSession().flow, state: 'FINISHED' } as PersistedFlowSession['flow'],
+      });
+      store.save([c1, c2]);
 
       const finalContent = fs._files.get('data/rallyos-state.json');
       const parsed = JSON.parse(finalContent!);
-      expect(parsed.clubCourts).toHaveLength(2);
-      expect(parsed.clubCourts[0].id).toBe('c1');
-      expect(parsed.clubCourts[1].id).toBe('c2');
+      expect(parsed.liveSessions).toHaveLength(2);
+      expect(parsed.liveSessions[0].courtId).toBe('c1');
+      expect(parsed.liveSessions[1].courtId).toBe('c2');
     });
   });
 
   describe('load', () => {
     it('should return v4 state when valid v4 JSON file exists', () => {
-      const state: PersistedStateV3 = {
+      const state: PersistedStateV4 = {
         version: 4,
         savedAt: 1700000000000,
-        tournamentCourts: [makeTournamentCourt()],
-        clubCourts: [makeClubCourt()],
+        liveSessions: [makeTournamentSession(), makeClubSession()],
       };
       fs._files.set('data/rallyos-state.json', JSON.stringify(state));
 
@@ -204,22 +203,18 @@ describe('StateStore', () => {
       expect(result).not.toBeNull();
       expect(result!.version).toBe(4);
       expect(result!.savedAt).toBe(1700000000000);
-      expect(result!.tournamentCourts).toHaveLength(1);
-      expect(result!.clubCourts).toHaveLength(1);
-      expect(result!.tournamentCourts[0].id).toBe('table-1');
-      expect(result!.clubCourts[0].id).toBe('club-1');
+      expect(result!.liveSessions).toHaveLength(2);
+      expect(result!.liveSessions[0].courtId).toBe('table-1');
+      expect(result!.liveSessions[1].courtId).toBe('club-1');
     });
 
     // ── PERS-1 WIPE: any version !== 4 is discarded (no migration chain) ──
 
     it('should WIPE a v3 file — discarded, not migrated (PERS-1)', () => {
-      const state: PersistedStateV3 = {
-        version: 3,
-        savedAt: 1700000000000,
-        tournamentCourts: [makeTournamentCourt()],
-        clubCourts: [makeClubCourt()],
-      };
-      fs._files.set('data/rallyos-state.json', JSON.stringify(state));
+      fs._files.set(
+        'data/rallyos-state.json',
+        JSON.stringify({ version: 3, savedAt: 1700000000000, tournamentCourts: [], clubCourts: [] }),
+      );
 
       const result = store.load();
 
@@ -227,11 +222,9 @@ describe('StateStore', () => {
     });
 
     it('should WIPE a v1 file — discarded, not migrated (PERS-1)', () => {
-      const tables = [makeTournamentCourt({ status: 'LIVE' })];
-      delete (tables[0].matchState as any).sport; // v1: no sport field
       fs._files.set(
         'data/rallyos-state.json',
-        JSON.stringify({ version: 1, savedAt: 1700000000000, tables }),
+        JSON.stringify({ version: 1, savedAt: 1700000000000, tables: [] }),
       );
 
       const result = store.load();
@@ -240,10 +233,9 @@ describe('StateStore', () => {
     });
 
     it('should WIPE a v2 file — discarded, not migrated (PERS-1)', () => {
-      const tables = [makeTournamentCourt({ id: 't1', status: 'LIVE' })];
       fs._files.set(
         'data/rallyos-state.json',
-        JSON.stringify({ version: 2, savedAt: 1700000000000, tables }),
+        JSON.stringify({ version: 2, savedAt: 1700000000000, tables: [] }),
       );
 
       const result = store.load();
@@ -274,7 +266,7 @@ describe('StateStore', () => {
     });
 
     it('should return null when JSON is valid but missing version', () => {
-      fs._files.set('data/rallyos-state.json', JSON.stringify({ tournamentCourts: [], clubCourts: [] }));
+      fs._files.set('data/rallyos-state.json', JSON.stringify({ liveSessions: [] }));
 
       const result = store.load();
 
@@ -289,16 +281,8 @@ describe('StateStore', () => {
       expect(result).toBeNull();
     });
 
-    it('should return null when JSON is v4 but tournamentCourts is not an array', () => {
-      fs._files.set('data/rallyos-state.json', JSON.stringify({ version: 4, tournamentCourts: 'bad', clubCourts: [] }));
-
-      const result = store.load();
-
-      expect(result).toBeNull();
-    });
-
-    it('should return null when JSON is v4 but clubCourts is not an array', () => {
-      fs._files.set('data/rallyos-state.json', JSON.stringify({ version: 4, tournamentCourts: [], clubCourts: 'bad' }));
+    it('should return null when JSON is v4 but liveSessions is not an array', () => {
+      fs._files.set('data/rallyos-state.json', JSON.stringify({ version: 4, liveSessions: 'bad' }));
 
       const result = store.load();
 
@@ -334,19 +318,17 @@ describe('StateStore', () => {
 
   describe('archive', () => {
     it('should rename file to archive path and return the path', () => {
-      fs._files.set('data/rallyos-state.json', JSON.stringify({ version: 4, savedAt: 0, tournamentCourts: [], clubCourts: [] }));
+      fs._files.set('data/rallyos-state.json', JSON.stringify({ version: 4, savedAt: 0, liveSessions: [] }));
 
       const result = store.archive();
 
       expect(result).toMatch(/^data\/archive\/torneo-.*\.json$/);
-      // Source should be gone
       expect(fs._files.has('data/rallyos-state.json')).toBe(false);
-      // Archive should contain the content
       expect(fs._files.has(result)).toBe(true);
     });
 
     it('should preserve content in archive', () => {
-      const stored = JSON.stringify({ version: 4, savedAt: 1700000000000, tournamentCourts: [makeTournamentCourt()], clubCourts: [] });
+      const stored = JSON.stringify({ version: 4, savedAt: 1700000000000, liveSessions: [makeTournamentSession()] });
       fs._files.set('data/rallyos-state.json', stored);
 
       const result = store.archive();
@@ -365,7 +347,6 @@ describe('StateStore', () => {
 
       const result = store.archive();
 
-      // Match: torneo-YYYY-MM-DDTHH-MM-SS-SSSZ.json (colons/dots replaced with dashes)
       expect(result).toMatch(/torneo-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z\.json$/);
     });
   });
@@ -386,63 +367,60 @@ describe('StateStore', () => {
   });
 
   describe('save + load round-trip', () => {
-    it('should produce identical tournament data after save and load', () => {
-      const tournamentCourts = [
-        makeTournamentCourt({ id: 't1' }),
-        makeTournamentCourt({ id: 't2', status: 'FINISHED', playerNames: { a: 'Carol', b: 'Dave' } }),
+    it('should produce identical session data after save and load', () => {
+      const sessions = [
+        makeTournamentSession({ courtId: 't1' }),
+        makeTournamentSession({
+          courtId: 't2',
+          flow: { mode: 'tournament', state: 'LIVE', startedAt: 1700000000000 },
+          matchState: makeMatchState('FINISHED'),
+          playerNames: { a: 'Carol', b: 'Dave' },
+        }),
       ];
 
-      store.save(tournamentCourts, []);
+      store.save(sessions);
       const loaded = store.load();
 
       expect(loaded).not.toBeNull();
-      expect(loaded!.tournamentCourts).toHaveLength(2);
-      expect(loaded!.tournamentCourts[0].id).toBe('t1');
-      expect(loaded!.tournamentCourts[0].playerNames.a).toBe('Alice');
-      expect(loaded!.tournamentCourts[0].pin).toBe('4821');
-      expect(loaded!.tournamentCourts[1].id).toBe('t2');
-      expect(loaded!.tournamentCourts[1].status).toBe('FINISHED');
-      expect(loaded!.tournamentCourts[1].playerNames.a).toBe('Carol');
+      expect(loaded!.liveSessions).toHaveLength(2);
+      expect(loaded!.liveSessions[0].courtId).toBe('t1');
+      expect(loaded!.liveSessions[0].playerNames!.a).toBe('Alice');
+      expect(loaded!.liveSessions[0].pin).toBe('4821');
+      expect(loaded!.liveSessions[1].courtId).toBe('t2');
+      expect((loaded!.liveSessions[1].matchState as any).status).toBe('FINISHED');
+      expect(loaded!.liveSessions[1].playerNames!.a).toBe('Carol');
     });
 
-    it('should produce identical club data after save and load', () => {
-      const clubCourts = [
-        makeClubCourt({ id: 'c1', clubStatus: 'OCCUPIED' }),
-        makeClubCourt({ id: 'c2', clubStatus: 'FINISHED', playerNames: { a: 'X', b: 'Y' } }),
+    it('should round-trip club flow identity (sessionMode / occupiedAt / playerName)', () => {
+      const sessions = [
+        makeClubSession({
+          courtId: 'c1',
+          flow: {
+            mode: 'club',
+            state: 'OCCUPIED',
+            sessionMode: 'free',
+            occupiedAt: 1700000001000,
+            playerName: 'Ana',
+            phone: 'enc:1',
+            adminId: 'admin-1',
+          },
+        }),
       ];
 
-      store.save([], clubCourts);
+      store.save(sessions);
       const loaded = store.load();
 
       expect(loaded).not.toBeNull();
-      expect(loaded!.clubCourts).toHaveLength(2);
-      expect(loaded!.clubCourts[0].id).toBe('c1');
-      expect(loaded!.clubCourts[0].clubStatus).toBe('OCCUPIED');
-      expect(loaded!.clubCourts[1].id).toBe('c2');
-      expect(loaded!.clubCourts[1].clubStatus).toBe('FINISHED');
-      expect(loaded!.clubCourts[1].playerNames.a).toBe('X');
-    });
-
-    it('should persist and restore both tournament and club courts together', () => {
-      const tournamentCourts = [makeTournamentCourt({ id: 't1', status: 'LIVE' })];
-      const clubCourts = [makeClubCourt({ id: 'c1', clubStatus: 'OCCUPIED' })];
-
-      store.save(tournamentCourts, clubCourts);
-      const loaded = store.load();
-
-      expect(loaded).not.toBeNull();
-      expect(loaded!.tournamentCourts).toHaveLength(1);
-      expect(loaded!.tournamentCourts[0].id).toBe('t1');
-      expect(loaded!.clubCourts).toHaveLength(1);
-      expect(loaded!.clubCourts[0].id).toBe('c1');
+      expect(loaded!.liveSessions).toHaveLength(1);
+      const flow = loaded!.liveSessions[0].flow as { mode: 'club'; sessionMode: string; playerName: string; phone: string; adminId: string };
+      expect(flow.sessionMode).toBe('free');
+      expect(flow.playerName).toBe('Ana');
+      expect(flow.phone).toBe('enc:1');
+      expect(flow.adminId).toBe('admin-1');
     });
   });
 
-  // ── Tournament Bracket persistence (`bracket` field on PersistedStateV3) ──
-  //
-  // Spec: bracket-tournament-mvp R10 — the bracket survives a server restart.
-  // The `bracket` field is OPTIONAL so legacy v4 files (no bracket key) still
-  // parse. Court saves MUST NOT wipe a previously-persisted bracket.
+  // ── Tournament Bracket persistence (`bracket` field on PersistedStateV4) ──
 
   function makeBracket(overrides: Partial<TournamentBracket> = {}): TournamentBracket {
     return {
@@ -473,10 +451,6 @@ describe('StateStore', () => {
     };
   }
 
-  // Bracket methods live on StateStore but are bracket-specific. We access
-  // them via a typed view and ALWAYS call as methods (`view.setBracket(...)`)
-  // — destructuring a method then invoking it standalone loses `this` and
-  // would silently no-op inside setBracket's try/catch (caught the regression).
   interface BracketStoreView {
     setBracket(bracket: TournamentBracket | null): void;
     getBracket(): TournamentBracket | null;
@@ -500,10 +474,10 @@ describe('StateStore', () => {
       expect(got!.matches).toHaveLength(3);
     });
 
-    it('setBracket(null) clears the bracket but preserves persisted courts', () => {
+    it('setBracket(null) clears the bracket but preserves persisted sessions', () => {
       const fs = makeFs();
       const raw = new StateStore(fs, 'state.json');
-      raw.save([makeTournamentCourt({ id: 't1', status: 'LIVE' })], []);
+      raw.save([makeTournamentSession({ courtId: 't1' })]);
       const view = asBracketStore(raw);
 
       view.setBracket(makeBracket());
@@ -511,18 +485,18 @@ describe('StateStore', () => {
 
       const loaded = raw.load();
       expect(loaded!.bracket).toBeNull();
-      expect(loaded!.tournamentCourts).toHaveLength(1);
-      expect(loaded!.tournamentCourts[0].id).toBe('t1');
+      expect(loaded!.liveSessions).toHaveLength(1);
+      expect(loaded!.liveSessions[0].courtId).toBe('t1');
     });
 
-    it('court save (no bracket arg) preserves a previously-persisted bracket', () => {
+    it('session save (no bracket arg) preserves a previously-persisted bracket', () => {
       const fs = makeFs();
       const raw = new StateStore(fs, 'state.json');
       const view = asBracketStore(raw);
       view.setBracket(makeBracket({ name: 'Torneo Copa' }));
 
-      // Simulate CourtManager.persistState — saves courts with no bracket arg.
-      raw.save([makeTournamentCourt({ id: 't9', status: 'LIVE' })], []);
+      // Simulate CourtManager.persistState — saves sessions with no bracket arg.
+      raw.save([makeTournamentSession({ courtId: 't9' })]);
 
       const loaded = raw.load();
       expect(loaded!.bracket).not.toBeNull();
@@ -533,12 +507,12 @@ describe('StateStore', () => {
       const fs = makeFs();
       fs._files.set(
         'state.json',
-        JSON.stringify({ version: 4, savedAt: 1, tournamentCourts: [], clubCourts: [] }),
+        JSON.stringify({ version: 4, savedAt: 1, liveSessions: [] }),
       );
       const raw = new StateStore(fs, 'state.json');
 
       const loaded = raw.load();
-      expect(loaded!.tournamentCourts).toEqual([]);
+      expect(loaded!.liveSessions).toEqual([]);
       expect(loaded!.bracket ?? null).toBeNull();
     });
   });
@@ -553,16 +527,13 @@ describe('StateStore', () => {
 
       view.setBracket(makeBracket({ name: 'Torneo Copa' }));
 
-      // setBracket above already seeded the cache; from here on, court saves
-      // must use the in-memory cache instead of readFileSync.
       const readSpy = jest.spyOn(fs, 'readFileSync');
-      store.save([makeTournamentCourt({ id: 't1', status: 'LIVE' })], []);
-      store.save([makeTournamentCourt({ id: 't1', status: 'LIVE' })], []);
-      store.save([makeTournamentCourt({ id: 't1', status: 'LIVE' })], []);
+      store.save([makeTournamentSession({ courtId: 't1' })]);
+      store.save([makeTournamentSession({ courtId: 't1' })]);
+      store.save([makeTournamentSession({ courtId: 't1' })]);
 
       expect(readSpy).not.toHaveBeenCalled();
 
-      // The cached bracket was carried forward into each write.
       const loaded = store.load();
       expect(loaded!.bracket!.name).toBe('Torneo Copa');
     });
@@ -574,8 +545,7 @@ describe('StateStore', () => {
         JSON.stringify({
           version: 4,
           savedAt: 1,
-          tournamentCourts: [],
-          clubCourts: [],
+          liveSessions: [],
           bracket: makeBracket({ name: 'OnDisk' }),
         }),
       );
@@ -584,16 +554,15 @@ describe('StateStore', () => {
       const readSpy = jest.spyOn(fs, 'readFileSync');
 
       // First save (no bracket arg) reads the disk once to seed the cache.
-      store.save([makeTournamentCourt({ id: 't1', status: 'LIVE' })], []);
+      store.save([makeTournamentSession({ courtId: 't1' })]);
       expect(readSpy).toHaveBeenCalledTimes(1);
 
       readSpy.mockClear();
-      store.save([makeTournamentCourt({ id: 't1', status: 'LIVE' })], []);
-      store.save([makeTournamentCourt({ id: 't1', status: 'LIVE' })], []);
+      store.save([makeTournamentSession({ courtId: 't1' })]);
+      store.save([makeTournamentSession({ courtId: 't1' })]);
 
       expect(readSpy).not.toHaveBeenCalled();
 
-      // The cached value (from the initial disk read) is what gets carried.
       expect(store.load()!.bracket!.name).toBe('OnDisk');
     });
   });

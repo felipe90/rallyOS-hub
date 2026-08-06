@@ -9,17 +9,22 @@
 import { PlayerService } from './PlayerService';
 import { PinService } from '../security/PinService';
 import { MatchEngine } from '../../domain/matchEngine';
-import type { Court } from '../../domain/types';
+import type { RuntimeCourt } from '../../domain/types';
+import { INVENTORY_STATUS } from '../../../../shared/types';
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
-function makeCourt(overrides: Partial<Court> = {}): Court {
+function makeCourt(overrides: Partial<RuntimeCourt> = {}): RuntimeCourt {
   return {
+    record: { courtId: 'court-1', number: 1, name: 'Test Court', inventoryStatus: INVENTORY_STATUS.ACTIVE },
+    flow: null,
+    reserved: false,
+    mode: 'tournament',
     id: 'court-1',
     number: 1,
     name: 'Test Court',
-    kind: 'tournament',
     status: 'WAITING',
+    clubStatus: 'AVAILABLE' as const,
     pin: '1234',
     sportRules: new MatchEngine(),
     playerNames: { a: 'Player A', b: 'Player B' },
@@ -27,8 +32,13 @@ function makeCourt(overrides: Partial<Court> = {}): Court {
     players: [],
     createdAt: Date.now(),
     featured: false,
+    occupiedAt: null,
+    sessionMode: null,
+    playerName: null,
+    phone: null,
+    adminId: null,
     ...overrides,
-  } as Court;
+  } as RuntimeCourt;
 }
 
 describe('PlayerService — setRefereeDirect', () => {

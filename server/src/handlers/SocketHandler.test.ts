@@ -18,7 +18,7 @@ import { InventoryManager } from '../domain/inventory/InventoryManager';
 import { SessionTokenService } from '../services/security/SessionTokenService';
 import { SocketEvents } from '../../../shared/events';
 import { SPORT, CLUB_STATUS, INVENTORY_STATUS } from '../../../shared/types';
-import type { ClubCourt } from '../domain/types';
+import type { RuntimeCourt } from '../domain/types';
 import type { Socket } from 'socket.io';
 
 const TEST_SECRET = 'a'.repeat(64);
@@ -275,7 +275,7 @@ describe('SocketHandler.onMatchEvent — club MATCH_WON keeps OCCUPIED and emits
     }
 
     // Court STAYS OCCUPIED — the session is not auto-ended.
-    const updated = courtManager.getCourt(court.id) as ClubCourt;
+    const updated = courtManager.getCourt(court.id) as RuntimeCourt;
     expect(updated.clubStatus).toBe(CLUB_STATUS.OCCUPIED);
 
     // Server emitted MATCH_WON to the room
@@ -304,7 +304,7 @@ describe('SocketHandler.onMatchEvent — club MATCH_WON keeps OCCUPIED and emits
     const ended = courtManager.forceEndSession(court.id);
     expect(ended).not.toBeNull();
 
-    const updated = courtManager.getCourt(court.id) as ClubCourt;
+    const updated = courtManager.getCourt(court.id) as RuntimeCourt;
     expect(updated.clubStatus).toBe(CLUB_STATUS.FINISHED);
 
     // The onClubSessionEnd callback (wired by SocketHandler's ClubPlayerHandler
@@ -327,12 +327,12 @@ describe('SocketHandler.onMatchEvent — club MATCH_WON keeps OCCUPIED and emits
     const court = courtManager.createClubCourt('Disconnect Court');
     courtManager.activateCourt(court.id);
     courtManager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
-    const occupiedAtBefore = (courtManager.getCourt(court.id) as ClubCourt).occupiedAt;
+    const occupiedAtBefore = (courtManager.getCourt(court.id) as RuntimeCourt).occupiedAt;
 
     // Register a player socket as referee so it appears in court.players
     const playerSocketId = 'player-disconnect-socket';
     courtManager.registerClubReferee(court.id, playerSocketId);
-    expect((courtManager.getCourt(court.id) as ClubCourt).players.length).toBeGreaterThan(0);
+    expect((courtManager.getCourt(court.id) as RuntimeCourt).players.length).toBeGreaterThan(0);
 
     // Simulate the disconnect path used by SocketHandler disconnect handler:
     // for each court where the socket is a player, remove it.
@@ -344,7 +344,7 @@ describe('SocketHandler.onMatchEvent — club MATCH_WON keeps OCCUPIED and emits
       }
     }
 
-    const updated = courtManager.getCourt(court.id) as ClubCourt;
+    const updated = courtManager.getCourt(court.id) as RuntimeCourt;
     // Spec scenario 9: court stays OCCUPIED (no auto-terminate)
     expect(updated.clubStatus).toBe(CLUB_STATUS.OCCUPIED);
     // "sin jugadores": no remaining players

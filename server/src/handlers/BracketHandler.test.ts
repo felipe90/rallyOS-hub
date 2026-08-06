@@ -50,6 +50,7 @@ function createFakeTableManager(
     getAllTournamentCourts: jest.fn(() => courtIds.map((id) => ({ id }))),
     getCourt: jest.fn((id: string) => runtimeCourts[id]),
     releaseCourtFlow: jest.fn(),
+    ensureRuntimeTournamentCourt: jest.fn(() => true),
   } as unknown as import('../domain/courtManager').CourtManager;
 }
 
@@ -799,7 +800,7 @@ describe('BracketHandler', () => {
       ]);
       const { handler } = makeHandler(undefined, ['c1'], {
         inventory,
-        runtimeCourts: { c1: { id: 'c1', kind: 'club', clubStatus: 'OCCUPIED' } },
+        runtimeCourts: { c1: { id: 'c1', mode: 'club', clubStatus: 'OCCUPIED' } },
       });
       const socket = createMockSocket('s3');
       handler.registerHandlers(socket as unknown as Socket);
@@ -817,7 +818,7 @@ describe('BracketHandler', () => {
       ]);
       const { handler } = makeHandler(undefined, ['c1'], {
         inventory,
-        runtimeCourts: { c1: { id: 'c1', kind: 'club', clubStatus: 'RESERVED' } },
+        runtimeCourts: { c1: { id: 'c1', mode: 'club', clubStatus: 'RESERVED' } },
       });
       const socket = createMockSocket('s4');
       handler.registerHandlers(socket as unknown as Socket);

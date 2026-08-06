@@ -68,14 +68,13 @@ describe('CourtInventoryStore', () => {
     expect(before).toBeDefined();
 
     // Point burst: many session-state saves (debounced session writes).
-    stateStore.save(
-      [{ id: 't1', number: 1, name: 'Mesa 1', status: 'LIVE', pin: '1111', playerNames: { a: 'A', b: 'B' }, createdAt: 1, matchState: null as never }],
-      [],
-    );
-    stateStore.save(
-      [{ id: 't1', number: 1, name: 'Mesa 1', status: 'LIVE', pin: '1111', playerNames: { a: 'A', b: 'B' }, createdAt: 1, matchState: null as never }],
-      [],
-    );
+    const session = {
+      courtId: 't1',
+      flow: { mode: 'tournament' as const, state: 'LIVE' as const, startedAt: 1 },
+      matchState: null as never,
+    };
+    stateStore.save([session]);
+    stateStore.save([session]);
 
     // The catalog file is byte-identical — sessions never rewrite it.
     expect(fs.files.get('data/court-inventory.json')).toBe(before);

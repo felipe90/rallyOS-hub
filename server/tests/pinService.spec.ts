@@ -3,16 +3,20 @@
  */
 
 import { PinService } from '../src/services/security/PinService';
-import { Table } from '../src/domain/types';
+import type { RuntimeCourt } from '../src/domain/types';
 import { MatchEngine } from '../src/domain/matchEngine';
 
-function createMockTable(pin: string): Table {
+function createMockTable(pin: string): RuntimeCourt {
   return {
+    record: { courtId: 'test-table', number: 1, name: 'Test RuntimeCourt', inventoryStatus: 'ACTIVE' },
+    flow: null,
+    reserved: false,
+    mode: 'tournament',
     id: 'test-table',
     number: 1,
-    name: 'Test Table',
-    kind: 'tournament',
+    name: 'Test RuntimeCourt',
     status: 'WAITING',
+    clubStatus: 'AVAILABLE',
     pin,
     sportRules: new MatchEngine(),
     playerNames: { a: 'Player A', b: 'Player B' },
@@ -20,7 +24,12 @@ function createMockTable(pin: string): Table {
     players: [],
     createdAt: Date.now(),
     featured: false,
-  } as Table;
+    occupiedAt: null,
+    sessionMode: null,
+    playerName: null,
+    phone: null,
+    adminId: null,
+  } as RuntimeCourt;
 }
 
 describe('PinService', () => {

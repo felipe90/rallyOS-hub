@@ -44,7 +44,7 @@ async function test2() {
       rejectUnauthorized: false,
     })
     socket.on('connect', () => {
-      socket.emit('CREATE_COURT', { name: 'Test' })
+      socket.emit('LIST_COURTS')
       socket.once('COURT_CREATED', (data) => {
         socket.emit('START_MATCH', { tableId: data.id, pointsPerSet: 11, bestOf: 3 })
         const checkState = (state: any) => {
@@ -96,7 +96,7 @@ async function test4() {
       rejectUnauthorized: false,
     })
     socket.on('connect', () => {
-      socket.emit('CREATE_COURT', { name: 'Single Ref' })
+      socket.emit('LIST_COURTS')
       socket.once('COURT_CREATED', (data) => {
         setTimeout(() => {
           socket.emit('SET_REF', { tableId: data.id, pin: data.pin })
@@ -125,7 +125,7 @@ async function test5() {
       rejectUnauthorized: false,
     })
     socket.on('connect', () => {
-      socket.emit('CREATE_COURT', { name: 'Kill Switch' })
+      socket.emit('LIST_COURTS')
       socket.once('COURT_CREATED', (data) => {
         socket.emit('REGENERATE_PIN', { tableId: data.id })
         socket.once('PIN_REGENERATED', (result: any) => {
@@ -147,9 +147,9 @@ async function test6() {
       rejectUnauthorized: false,
     })
     socket.on('connect', () => {
-      socket.emit('CREATE_COURT', { name: 'QR Test' })
+      socket.emit('LIST_COURTS')
       socket.once('COURT_CREATED', () => {
-        socket.emit('CREATE_COURT', { name: 'QR Test 2' })
+        socket.emit('LIST_COURTS')
         socket.once('QR_DATA', (data: any) => {
           if (!data.encryptedPin) return reject(new Error('No encryptedPin'))
           // AES-256-GCM format: {iv}:{ciphertext}:{authTag}:{timestamp}

@@ -872,7 +872,11 @@ describe('ClubCourtHandler — INVENTORY_* admin inventory (slice 3)', () => {
       const record = inventory.add('Mesa Torneo');
       const runtime = manager.createCourt('Mesa Torneo');
       repository.delete(runtime.id);
-      repository.create({ ...runtime, id: record.courtId });
+      repository.create({
+        ...runtime,
+        id: record.courtId,
+        record: { ...runtime.record, courtId: record.courtId },
+      });
       manager.startMatch(record.courtId, { playerNameA: 'A', playerNameB: 'B' });
       expect(manager.canArchiveCourt(record.courtId)).toBe(false); // LIVE → BUSY
 

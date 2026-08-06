@@ -7,19 +7,29 @@
  * BUSY; release() is a no-op (club courts untouched by releaseAll, TCS-3).
  */
 import { ClubFlowContract } from './ClubFlowContract';
-import { CLUB_STATUS, AVAILABILITY, SESSION_MODE } from '../../../../shared/types';
-import type { ClubCourt } from '../types';
+import { CLUB_STATUS, AVAILABILITY, SESSION_MODE, INVENTORY_STATUS } from '../../../../shared/types';
+import type { RuntimeCourt, FlowSlot } from '../types';
 import { MatchEngine } from '../matchEngine';
 
 const contract = new ClubFlowContract();
 
-function clubCourt(overrides: Partial<ClubCourt> = {}): ClubCourt {
-  return {
-    kind: 'club',
+/**
+ * RuntimeCourt fixture for the club flow. The flow slot is the source of
+ * truth; the clubStatus projection is kept in sync (slice-5 single writer).
+ * RESERVED implies pending-PIN (reserved=true); OCCUPIED/FINISHED carry the
+ * club flow slot.
+ */
+function clubCourt(overrides: Partial<RuntimeCourt> = {}): RuntimeCourt {
+  const base: any = {
+    record: { courtId: 'club-1', number: 1, name: 'Mesa 1', inventoryStatus: INVENTORY_STATUS.ACTIVE },
+    flow: null,
+    reserved: false,
+    mode: 'club',
     id: 'club-1',
     number: 1,
     name: 'Mesa 1',
     clubStatus: CLUB_STATUS.AVAILABLE,
+    status: 'WAITING',
     pin: '1234',
     sportRules: new MatchEngine(),
     playerNames: { a: '', b: '' },
@@ -34,9 +44,25 @@ function clubCourt(overrides: Partial<ClubCourt> = {}): ClubCourt {
     adminId: null,
     ...overrides,
   };
+  if (base.clubStatus === CLUB_STATUS.RESERVED && !('reserved' in overrides)) base.reserved = true;
+  if (base.clubStatus === CLUB_STATUS.OCCUPIED && base.flow === null) {
+    base.flow = {
+      mode: 'club', state: 'OCCUPIED', sessionMode: base.sessionMode,
+      occupiedAt: base.occupiedAt ?? Date.now(), playerName: base.playerName,
+      phone: base.phone, adminId: base.adminId,
+    };
+    base.occupiedAt = base.flow.occupiedAt;
+  } else if (base.clubStatus === CLUB_STATUS.FINISHED && base.flow === null) {
+    base.flow = {
+      mode: 'club', state: 'FINISHED', sessionMode: base.sessionMode,
+      occupiedAt: base.occupiedAt, playerName: base.playerName,
+      phone: base.phone, adminId: base.adminId,
+    };
+  }
+  return base as RuntimeCourt;
 }
 
-const occupied = (overrides: Partial<ClubCourt> = {}): ClubCourt =>
+const occupied = (overrides: Partial<RuntimeCourt> = {}): RuntimeCourt =>
   clubCourt({ clubStatus: CLUB_STATUS.OCCUPIED, occupiedAt: Date.now(), ...overrides });
 
 describe('ClubFlowContract — contract surface (FMR-2)', () => {

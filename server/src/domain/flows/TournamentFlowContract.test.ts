@@ -7,20 +7,29 @@
  * (FMR-4, TCS-3); LIVE → BUSY, else IDLE.
  */
 import { TournamentFlowContract } from './TournamentFlowContract';
-import { AVAILABILITY } from '../../../../shared/types';
-import type { TournamentCourt } from '../types';
+import { AVAILABILITY, INVENTORY_STATUS } from '../../../../shared/types';
+import type { RuntimeCourt } from '../types';
 import type { BracketMatch } from '../../../../shared/types';
 import { MatchEngine } from '../matchEngine';
 
 const contract = new TournamentFlowContract();
 
-function tournamentCourt(overrides: Partial<TournamentCourt> = {}): TournamentCourt {
-  return {
-    kind: 'tournament',
+/**
+ * RuntimeCourt fixture for the tournament flow. The flow slot is the source
+ * of truth: status LIVE carries the tournament flow; WAITING/CONFIGURING/
+ * FINISHED carry no flow (IDLE).
+ */
+function tournamentCourt(overrides: Partial<RuntimeCourt> = {}): RuntimeCourt {
+  const base: any = {
+    record: { courtId: 't-1', number: 1, name: 'Cancha 1', inventoryStatus: INVENTORY_STATUS.ACTIVE },
+    flow: null,
+    reserved: false,
+    mode: 'tournament',
     id: 't-1',
     number: 1,
     name: 'Cancha 1',
     status: 'WAITING',
+    clubStatus: 'AVAILABLE',
     pin: '1234',
     sportRules: new MatchEngine(),
     playerNames: { a: '', b: '' },
@@ -28,11 +37,20 @@ function tournamentCourt(overrides: Partial<TournamentCourt> = {}): TournamentCo
     players: [],
     createdAt: Date.now(),
     featured: false,
+    occupiedAt: null,
+    sessionMode: null,
+    playerName: null,
+    phone: null,
+    adminId: null,
     ...overrides,
   };
+  if (base.status === 'LIVE' && base.flow === null) {
+    base.flow = { mode: 'tournament', state: 'LIVE', startedAt: Date.now() };
+  }
+  return base as RuntimeCourt;
 }
 
-const live = (overrides: Partial<TournamentCourt> = {}): TournamentCourt =>
+const live = (overrides: Partial<RuntimeCourt> = {}): RuntimeCourt =>
   tournamentCourt({ status: 'LIVE', ...overrides });
 
 /** A bracket-like binding: resolveMatchForCourt returns it; unbindMatch nulls its courtId. */

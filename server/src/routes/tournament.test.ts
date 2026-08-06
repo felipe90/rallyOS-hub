@@ -128,8 +128,10 @@ describe('Tournament route handlers', () => {
       const persisted = {
         version: 4,
         savedAt: 1700000000000,
-        tournamentCourts: [makeTable({ id: 't1' }), makeTable({ id: 't2' })],
-        clubCourts: [],
+        liveSessions: [
+          { courtId: 't1', flow: { mode: 'tournament' as const, state: 'LIVE' as const, startedAt: 1700000000000 }, matchState: null },
+          { courtId: 't2', flow: { mode: 'tournament' as const, state: 'LIVE' as const, startedAt: 1700000000000 }, matchState: null },
+        ],
       };
       fs._files.set('data/rallyos-state.json', JSON.stringify(persisted));
 

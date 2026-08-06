@@ -1,13 +1,17 @@
 /**
- * CourtEventHandler - Handles table-related socket events
+ * CourtEventHandler - Handles court socket events
  *
  * Events handled:
- * - CREATE_TABLE: Create a new table
- * - LIST_TABLES: Get all public tables
- * - GET_TABLES_WITH_PINS: Get tables with PINs (owner only)
- * - JOIN_TABLE: Join a table as player or spectator
- * - LEAVE_TABLE: Leave a table
- * - DELETE_TABLE: Delete a table (requires PIN)
+ * - LIST_COURTS: Get all public courts (ACTIVE inventory — D11)
+ * - GET_COURTS_WITH_PINS: Get courts with PINs (owner only)
+ * - JOIN_COURT: Join a court as player or spectator
+ * - LEAVE_COURT: Leave a court
+ *
+ * REMOVED (admin-court-inventory slice 5, breaking): CREATE_COURT /
+ * DELETE_COURT — court existence is admin-only via the INVENTORY_* events
+ * (ClubCourtHandler). The MAX_COURTS cap and per-IP create/delete
+ * rate-limits are dropped, not moved (CE-4): a single trusted admin no
+ * longer needs them. The tournament/owner can NEVER mutate existence.
  */
 
 import { Server, Socket } from 'socket.io';
@@ -25,58 +29,20 @@ export class CourtEventHandler extends SocketHandlerBase {
   }
 
   /**
-   * Override: COURT_LIST only includes tournament courts.
-   * Club courts are emitted via CLUB_KIOSK_DATA instead.
+   * D11 — the public court list is the ACTIVE inventory catalog (mode-agnostic),
+   * enriched with availability. Delegates to CourtManager, which maps the
+   * inventory records + runtime flows (falls back to the runtime list when no
+   * inventory is wired — legacy test compat).
    */
   protected getPublicCourtList(): CourtInfo[] {
-    return this.tableManager.getAllTournamentCourts();
+    return this.tableManager.getPublicCourtList();
   }
 
   /**
-   * Register all table event handlers
+   * Register all court event handlers
    */
   public registerHandlers(socket: Socket): void {
-    // CREATE_TABLE: Create a new table
-    socket.on(SocketEvents.CLIENT.CREATE_COURT, (data?: { name?: string }) => {
-      if (!this.validateAuthenticated(socket)) return;
-      if (!validateSocketPayload(socket, data || {}, { name: { type: 'string', maxLength: 256, required: false } }, 'CREATE_COURT')) {
-        return;
-      }
-
-      // Rate limit: max 10 tables per minute per IP
-      const clientIp = socket.handshake.address;
-      const rateLimitKey = `CREATE_TABLE:${clientIp}`;
-      if (this.isRateLimited(rateLimitKey)) {
-        this.logRateLimitBlocked('CREATE_COURT', 'global', clientIp);
-        return this.emitError(socket, 'RATE_LIMITED', 'Too many tables created. Please wait a minute.');
-      }
-
-      // Max court limit: prevent memory exhaustion
-      const MAX_COURTS = parseInt(process.env.MAX_TABLES || '50', 10);
-      const currentCourts = this.tableManager.getAllCourts().length;
-      if (currentCourts >= MAX_COURTS) {
-        return this.emitError(socket, 'MAX_TABLES_REACHED', `Maximum of ${MAX_COURTS} courts reached`);
-      }
-
-      const court = this.tableManager.createCourt(data?.name);
-      socket.join(court.id);
-      
-      // POC UX: creator is trusted as initial referee
-      this.tableManager.joinTable(court.id, socket.id, 'Referee');
-      this.tableManager.setReferee(court.id, socket.id, court.pin);
-      
-      socket.emit(SocketEvents.SERVER.COURT_CREATED, this.tableManager.getCourtWithPin(court.id) ?? this.tableManager.courtToInfo(court));
-      socket.emit(SocketEvents.SERVER.REF_SET, { courtId: court.id });
-
-      const qrData = this.tableManager.generateQRData(court.id);
-      if (qrData) {
-        socket.emit(SocketEvents.SERVER.QR_DATA, qrData);
-      }
-
-      socket.emit(SocketEvents.SERVER.MATCH_UPDATE, this.tableManager.getMatchState(court.id));
-    });
-
-    // LIST_TABLES: Get all public courts
+    // LIST_COURTS: Get all public courts
     socket.on(SocketEvents.CLIENT.LIST_COURTS, () => {
       socket.emit(SocketEvents.SERVER.COURT_LIST, this.getPublicCourtList());
     });
@@ -145,7 +111,7 @@ export class CourtEventHandler extends SocketHandlerBase {
       }
     });
 
-    // LEAVE_TABLE: Leave a table
+    // LEAVE_COURT: Leave a court
     socket.on(SocketEvents.CLIENT.LEAVE_COURT, (data: { courtId: string }) => {
       if (!validateSocketPayload(socket, data, { courtId: { required: true, type: 'string', maxLength: 36 } }, 'LEAVE_COURT')) {
         return;
@@ -162,59 +128,6 @@ export class CourtEventHandler extends SocketHandlerBase {
       if (player) {
         this.tableManager.leaveTable(data.courtId, socket.id);
         this.io.to(data.courtId).emit(SocketEvents.SERVER.PLAYER_LEFT, { courtId: data.courtId, socketId: socket.id });
-      }
-    });
-
-    // DELETE_TABLE: Delete a table (owner only - no PIN needed)
-    socket.on(SocketEvents.CLIENT.DELETE_COURT, (data: { courtId: string; pin?: string }) => {
-      if (!validateSocketPayload(socket, data, {
-        courtId: { required: true, type: 'string', maxLength: 36 },
-        pin: { required: false, type: 'string', pattern: /^\d{4}$/ }
-      }, 'DELETE_COURT')) {
-        return;
-      }
-
-      if (!data?.courtId) {
-        return this.emitError(socket, 'INVALID_PARAMS', 'tableId required');
-      }
-
-      const clientIp = socket.handshake.address;
-      const rateLimitKey = `DELETE_TABLE:${data.courtId}:${clientIp}`;
-      if (this.isRateLimited(rateLimitKey)) {
-        this.logRateLimitBlocked('DELETE_COURT', data.courtId, clientIp);
-        return this.emitError(socket, 'RATE_LIMITED', 'Too many attempts. Please wait a minute before trying again.');
-      }
-
-      const court = this.tableManager.getCourt(data.courtId);
-      if (!court) {
-        return this.emitError(socket, 'TABLE_NOT_FOUND', 'Cancha no encontrada');
-      }
-
-      const isOwner = (socket.data as SocketData)?.isOwner === true;
-      const isRef = this.tableManager.isReferee(data.courtId, socket.id);
-      if (!isOwner && !isRef) {
-        return this.emitError(socket, 'UNAUTHORIZED', 'No autorizado');
-      }
-
-      // Kick current referee before deleting
-      const refSocketId = this.tableManager.getRefereeSocketId(data.courtId);
-      if (refSocketId) {
-        this.io.to(refSocketId).emit(SocketEvents.SERVER.REF_REVOKED, {
-          courtId: data.courtId,
-          reason: 'Eliminada'
-        });
-        this.io.in(refSocketId).socketsLeave(data.courtId);
-      }
-
-      // Notify room and delete
-        this.io.to(data.courtId).emit(SocketEvents.SERVER.COURT_DELETED, { courtId: data.courtId });
-      this.io.in(data.courtId).socketsLeave(data.courtId);
-
-      const success = this.tableManager.deleteCourt(data.courtId);
-
-      if (success) {
-        logger.info({ courtId: data.courtId, socketId: socket.id }, 'Court deleted successfully');
-        this.io.emit(SocketEvents.SERVER.COURT_LIST, this.getPublicCourtList());
       }
     });
   }

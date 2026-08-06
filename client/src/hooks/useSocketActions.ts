@@ -8,7 +8,6 @@ import { useCallback } from 'react'
 import type { Socket } from 'socket.io-client'
 import { SocketEvents } from '@shared/events'
 import type { CourtInfo } from '@shared/types'
-import { validateCourtName } from '@/services/validation'
 
 export function useSocketActions(socket: Socket | null, currentCourt: CourtInfo | null) {
   const emit = useCallback(
@@ -20,13 +19,8 @@ export function useSocketActions(socket: Socket | null, currentCourt: CourtInfo 
     [socket],
   )
 
-  const createCourt = useCallback(
-    (name?: string) => {
-      if (!validateCourtName(name)) return
-      emit(SocketEvents.CLIENT.CREATE_COURT, { name })
-    },
-    [emit],
-  )
+  // NOTE (admin-court-inventory slice 5): createCourt removed — court
+  // existence is admin-only via the INVENTORY_* events (useCourtInventory).
 
   const requestCourts = useCallback(() => emit(SocketEvents.CLIENT.LIST_COURTS), [emit])
 
@@ -73,7 +67,6 @@ export function useSocketActions(socket: Socket | null, currentCourt: CourtInfo 
 
   return {
     emit,
-    createCourt,
     requestCourts,
     requestCourtsWithPins,
     scorePoint,

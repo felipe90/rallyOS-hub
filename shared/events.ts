@@ -12,8 +12,13 @@
 
 export const SocketEvents = {
   // Emitted by CLIENT → received by SERVER
+  //
+  // NOTE (admin-court-inventory slice 5 — breaking): CREATE_COURT /
+  // DELETE_COURT / CLUB_CREATE_COURT / CLUB_DELETE_COURT are REMOVED.
+  // Court existence is admin-only via INVENTORY_* (D3/CE-3); the
+  // tournament/owner can never mutate existence. The MAX_COURTS cap and
+  // per-IP create/delete rate-limits are dropped, not moved (CE-4).
   CLIENT: {
-    CREATE_COURT: 'CREATE_COURT',
     JOIN_COURT: 'JOIN_COURT',
     LEAVE_COURT: 'LEAVE_COURT',
     LIST_COURTS: 'LIST_COURTS',
@@ -21,7 +26,6 @@ export const SocketEvents = {
     GET_MATCH_STATE: 'GET_MATCH_STATE',
     SET_REF: 'SET_REF',
     REF_ROLE_CHECK: 'REF_ROLE_CHECK',
-    DELETE_COURT: 'DELETE_COURT',
     VERIFY_OWNER: 'VERIFY_OWNER',
     CONFIGURE_MATCH: 'CONFIGURE_MATCH',
     START_MATCH: 'START_MATCH',
@@ -45,11 +49,9 @@ export const SocketEvents = {
     CLUB_GET_CONFIG: 'CLUB_GET_CONFIG',
     CLUB_JOIN: 'CLUB_JOIN',
     CLUB_SETUP: 'CLUB_SETUP',
-    CLUB_CREATE_COURT: 'CLUB_CREATE_COURT',
     CLUB_ACTIVATE_COURT: 'CLUB_ACTIVATE_COURT',
     CLUB_FORCE_END: 'CLUB_FORCE_END',
     CLUB_RECONNECT: 'CLUB_RECONNECT',
-    CLUB_DELETE_COURT: 'CLUB_DELETE_COURT',
     CLUB_DEACTIVATE_COURT: 'CLUB_DEACTIVATE_COURT',
     CLUB_RESET_COURT: 'CLUB_RESET_COURT',
     CLUB_END_SESSION: 'CLUB_END_SESSION',

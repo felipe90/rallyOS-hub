@@ -2,15 +2,19 @@
  * ClubCourtHandler — Handles club court lifecycle events
  *
  * Events handled:
- * - CLUB_CREATE_COURT: Create a new club-mode court
  * - CLUB_ACTIVATE_COURT: Activate a club court (AVAILABLE → RESERVED + PIN)
  * - CLUB_FORCE_END: Force-end an active session (OCCUPIED → FINISHED)
- * - CLUB_DELETE_COURT: Delete a club court (only when AVAILABLE)
+ * - INVENTORY_*: the admin-only existence surface (D3/CE-3)
+ *
+ * REMOVED (admin-court-inventory slice 5, breaking): CLUB_CREATE_COURT /
+ * CLUB_DELETE_COURT. Court existence is admin-only via INVENTORY_ADD /
+ * INVENTORY_ARCHIVE (archive-not-delete, INV-3). The legacy create/delete
+ * paths are gone — no hard delete, no ad-hoc existence mutation.
  */
 
 import { Server, Socket } from 'socket.io';
 import { CourtManager } from '../domain/courtManager';
-import { isClubCourt } from '../domain/types';
+import type { RuntimeCourt } from '../domain/types';
 import type { IClubConfigRepository } from '../domain/ports/IClubConfigRepository';
 import type { InventoryManager } from '../domain/inventory/InventoryManager';
 import type { FlowContext } from '../domain/flows/FlowModeContract';
@@ -65,23 +69,6 @@ export class ClubCourtHandler extends SocketHandlerBase {
    * Register all club court event handlers
    */
   public registerHandlers(socket: Socket): void {
-    // CLUB_CREATE_COURT: Create a new club-mode court
-    socket.on(SocketEvents.CLIENT.CLUB_CREATE_COURT, (data?: { name?: string }) => {
-      if (!this.validateClubAdmin(socket)) return;
-
-      if (!validateSocketPayload(socket, data || {}, {
-        name: { type: 'string', maxLength: 100, required: false },
-      }, 'CLUB_CREATE_COURT')) {
-        return;
-      }
-
-      const court = this.tableManager.createClubCourt(data?.name);
-
-      // CLUB_KIOSK_DATA update is handled by onTableUpdate (notifyUpdate inside createClubCourt)
-
-      logger.info({ courtId: court.id, courtName: court.name }, 'Club court created by admin');
-    });
-
     // CLUB_ACTIVATE_COURT: Activate a club court
     socket.on(SocketEvents.CLIENT.CLUB_ACTIVATE_COURT, (data: { courtId: string }) => {
       if (!this.validateClubAdmin(socket)) return;
@@ -104,7 +91,7 @@ export class ClubCourtHandler extends SocketHandlerBase {
       socket.emit(SocketEvents.SERVER.CLUB_COURT_ACTIVATED, {
         id: activated.id,
         name: activated.name,
-        status: isClubCourt(activated) ? activated.clubStatus : COURT_MODE.CLUB,
+        status: activated.clubStatus,
         mode: COURT_MODE.CLUB,
         pin: activated.pin,
       });
@@ -261,7 +248,7 @@ export class ClubCourtHandler extends SocketHandlerBase {
 
       socket.emit(SocketEvents.SERVER.CLUB_COURT_DEACTIVATED, {
         courtId: deactivated.id,
-        status: isClubCourt(deactivated) ? deactivated.clubStatus : COURT_MODE.CLUB,
+        status: deactivated.clubStatus,
       });
 
       logger.info({ courtId: data.courtId }, 'Club court deactivated');
@@ -286,37 +273,10 @@ export class ClubCourtHandler extends SocketHandlerBase {
 
       socket.emit(SocketEvents.SERVER.CLUB_COURT_RESETTED, {
         courtId: reset.id,
-        status: isClubCourt(reset) ? reset.clubStatus : COURT_MODE.CLUB,
+        status: reset.clubStatus,
       });
 
       logger.info({ courtId: data.courtId }, 'Club court reset to available');
-    });
-
-    // CLUB_DELETE_COURT: Delete a club court (only when AVAILABLE)
-    socket.on(SocketEvents.CLIENT.CLUB_DELETE_COURT, (data: { courtId: string }) => {
-      if (!this.validateClubAdmin(socket)) return;
-
-      if (!validateSocketPayload(socket, data, {
-        courtId: { required: true, type: 'string', maxLength: 36 },
-      }, 'CLUB_DELETE_COURT')) {
-        return;
-      }
-
-      if (!this.validateCourtExists(socket, data.courtId)) return;
-
-      const deleted = this.tableManager.deleteClubCourt(data.courtId);
-      if (!deleted) {
-        return this.emitError(socket, 'DELETE_FAILED', 'No se pudo eliminar. La cancha debe estar en estado AVAILABLE.');
-      }
-
-      // Broadcast deletion
-      this.io.emit(SocketEvents.SERVER.COURT_DELETED, { courtId: data.courtId });
-
-      // Emit updated club kiosk data (deleteClubCourt does not call notifyUpdate)
-      const kioskPayload = this.tableManager.getClubKioskPayload(null);
-      this.io.emit(SocketEvents.SERVER.CLUB_KIOSK_DATA, kioskPayload);
-
-      logger.info({ courtId: data.courtId }, 'Club court deleted by admin');
     });
 
     // ── Admin Court Inventory (D3, INV-1) ───────────────────────────────

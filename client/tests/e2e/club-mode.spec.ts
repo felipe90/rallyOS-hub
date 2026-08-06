@@ -1,5 +1,10 @@
 import { test, expect } from '@playwright/test'
 
+/**
+ * SLICE 5 REWRITE (admin-court-inventory): courts are seeded via the admin
+ * inventory (INVENTORY_ADD FAB "Agregar Mesa/Cancha") instead of the removed
+ * CLUB_CREATE_COURT create button. The rest of the club flow is unchanged.
+ */
 test.describe('Club Mode E2E', () => {
   test.describe.configure({ mode: 'serial' })
 
@@ -14,9 +19,10 @@ test.describe('Club Mode E2E', () => {
       await page.locator('text=Conectado').or(page.locator('text=Connected')).waitFor({ timeout: 5000 }).catch(() => {})
       await page.locator('input[placeholder="••••••••"]').fill('12345678')
       await page.locator('text=Ingresar').click()
-      await expect(page.getByRole('button', { name: /^(Mesa|Cancha)$/ })).toBeVisible({ timeout: 3000 })
+      await expect(page.getByRole('button', { name: /Agregar (Mesa|Cancha)/i })).toBeVisible({ timeout: 3000 })
 
-      await page.getByRole('button', { name: /^(Mesa|Cancha)$/ }).click()
+      // Seed an inventory court via the admin inventory FAB (INVENTORY_ADD).
+      await page.getByRole('button', { name: /Agregar (Mesa|Cancha)/i }).click()
       await page.waitForTimeout(500)
 
       // Activate the newest court (last card) and grab its PIN (last PIN badge in body)
@@ -63,9 +69,10 @@ test.describe('Club Mode E2E', () => {
       await page.locator('text=Conectado').or(page.locator('text=Connected')).waitFor({ timeout: 5000 }).catch(() => {})
       await page.locator('input[placeholder="••••••••"]').fill('12345678')
       await page.locator('text=Ingresar').click()
-      await expect(page.getByRole('button', { name: /^(Mesa|Cancha)$/ })).toBeVisible({ timeout: 3000 })
+      await expect(page.getByRole('button', { name: /Agregar (Mesa|Cancha)/i })).toBeVisible({ timeout: 3000 })
 
-      await page.getByRole('button', { name: /^(Mesa|Cancha)$/ }).click()
+      // Seed an inventory court via the admin inventory FAB (INVENTORY_ADD).
+      await page.getByRole('button', { name: /Agregar (Mesa|Cancha)/i }).click()
       await page.waitForTimeout(500)
       await page.locator('div.card-light').last().locator('button:has-text("Activar")').click()
       await page.waitForTimeout(500)
@@ -103,16 +110,20 @@ test.describe('Club Mode E2E', () => {
       await page.locator('text=Conectado').or(page.locator('text=Connected')).waitFor({ timeout: 5000 }).catch(() => {})
       await page.locator('input[placeholder="••••••••"]').fill('12345678')
       await page.locator('text=Ingresar').click()
-      await expect(page.getByRole('button', { name: /^(Mesa|Cancha)$/ })).toBeVisible({ timeout: 3000 })
+      await expect(page.getByRole('button', { name: /Agregar (Mesa|Cancha)/i })).toBeVisible({ timeout: 3000 })
 
-      await page.getByRole('button', { name: /^(Mesa|Cancha)$/ }).click()
+      // Seed an inventory court via the admin inventory FAB (INVENTORY_ADD).
+      await page.getByRole('button', { name: /Agregar (Mesa|Cancha)/i }).click()
       await page.waitForTimeout(500)
-      await expect(page.locator('text=Disponible').first()).toBeVisible({ timeout: 3000 })
+      // The inventory card shows the ACTIVE status pill ("Activa"/"Active").
+      await expect(page.locator('text=Activa').first()).toBeVisible({ timeout: 3000 })
 
       await page.locator('div.card-light').last().locator('button:has-text("Activar")').click()
       await page.waitForTimeout(500)
-      await expect(page.locator('text=Reservada').first()).toBeVisible({ timeout: 3000 })
+      // RESERVED (pending PIN) → the deactivate button + PIN badge render.
       await expect(page.locator('text=Desactivar').first()).toBeVisible({ timeout: 3000 })
+      const bodyText = await page.textContent('body')
+      expect(bodyText).toMatch(/PIN\s*\d{4}/)
     })
   })
 })

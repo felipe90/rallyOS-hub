@@ -223,8 +223,6 @@ export function BracketView({
                     key={match.id}
                     match={match}
                     courtLabel={ctx.courtLabel}
-                    courtOrphan={ctx.courtOrphan}
-                    courtOccupied={ctx.courtOccupied}
                     onAssignSlot={(mid, slot) => {
                       const m = match // closed over the current match
                       const current =
@@ -250,8 +248,6 @@ export function BracketView({
             <BracketMatchCard
               match={bracket.thirdPlaceMatch}
               courtLabel={resolveCourtContext(bracket.thirdPlaceMatch, courts, bracket.matches).courtLabel}
-              courtOrphan={resolveCourtContext(bracket.thirdPlaceMatch, courts, bracket.matches).courtOrphan}
-              courtOccupied={resolveCourtContext(bracket.thirdPlaceMatch, courts, bracket.matches).courtOccupied}
               onAssignSlot={(mid, slot) => {
                 const m = bracket.thirdPlaceMatch!
                 const current = slot === 'A' ? m.playerA ?? '' : m.playerB ?? ''

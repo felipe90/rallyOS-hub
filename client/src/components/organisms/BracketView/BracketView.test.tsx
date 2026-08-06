@@ -261,12 +261,12 @@ describe('BracketView — court assignment modal', () => {
     expect(onAssignCourt).toHaveBeenCalledWith('R1-M1', null)
   })
 
-  it('shows "Mesa eliminada" when the assigned court is missing from the list', () => {
+  it('falls back to the generic no-court label when the assigned court is missing (inventory courts are archive-only)', () => {
     const b = makeBracket({
       matches: [makeMatch({ id: 'R1-M1', status: 'READY', playerA: 'A', playerB: 'B', courtId: 'ghost' })],
     })
     renderWithI18n(<BracketView bracket={b} courts={[]} resetToken={null} {...handlers} />)
-    expect(screen.getByText(/Mesa eliminada/i)).toBeInTheDocument()
+    expect(screen.getByText(/Sin mesa/i)).toBeInTheDocument()
   })
 })
 

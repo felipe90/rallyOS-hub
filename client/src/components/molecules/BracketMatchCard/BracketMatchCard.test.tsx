@@ -193,20 +193,13 @@ describe('BracketMatchCard — court states', () => {
     expect(screen.getByText('Cancha 3')).toBeInTheDocument()
   })
 
-  it('renders "Mesa eliminada" when court is orphan (courtId set but removed)', () => {
+  it('falls back to the generic no-court label when courtId is not in the list (inventory courts are archive-only)', () => {
     const match = makeMatch({ status: 'READY', playerA: 'A', playerB: 'B', courtId: 'court-gone' })
     renderWithI18n(
-      <BracketMatchCard match={match} courtOrphan onAssignSlot={noop} onSetWinner={noop} onAssignCourt={noop} onUndo={noop} />,
+      <BracketMatchCard match={match} onAssignSlot={noop} onSetWinner={noop} onAssignCourt={noop} onUndo={noop} />,
     )
-    expect(screen.getByText(/Mesa eliminada/i)).toBeInTheDocument()
-  })
-
-  it('shows a non-blocking warning when the court is occupied by another match', () => {
-    const match = makeMatch({ status: 'READY', playerA: 'A', playerB: 'B', courtId: 'c' })
-    renderWithI18n(
-      <BracketMatchCard match={match} courtLabel="Cancha 1" courtOccupied onAssignSlot={noop} onSetWinner={noop} onAssignCourt={noop} onUndo={noop} />,
-    )
-    const alert = screen.getByRole('alert')
-    expect(alert).toHaveTextContent(/ocupada por otro partido/i)
+    // No orphan "eliminada" state exists (slice 5.2) — the card shows the
+    // generic "Sin cancha" fallback.
+    expect(screen.getByText(/Sin mesa/i)).toBeInTheDocument()
   })
 })

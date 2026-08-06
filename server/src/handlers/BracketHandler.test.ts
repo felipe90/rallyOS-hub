@@ -970,6 +970,33 @@ describe('BracketHandler', () => {
       expect(tableManager.releaseCourtFlow).not.toHaveBeenCalled();
       expect(ownerBracketState(socket)).not.toBeNull();
     });
+
+    it('completing the FINAL match auto-releases the bracket courts (Q4 — courts IDLE, bracket kept)', () => {
+      const { handler, tableManager } = makeHandler();
+      const socket = createMockSocket('r3');
+      handler.registerHandlers(socket as unknown as Socket);
+      socket._trigger(SocketEvents.CLIENT.BRACKET_CREATE, { name: 'T', numSlots: 4, includeThirdPlace: true });
+      socket._trigger(SocketEvents.CLIENT.TOURNAMENT_SELECT_TABLE, { matchId: 'R1-M1', courtId: 'c1' });
+      socket._trigger(SocketEvents.CLIENT.TOURNAMENT_SELECT_TABLE, { matchId: 'R1-M2', courtId: 'c2' });
+      socket._trigger(SocketEvents.CLIENT.TOURNAMENT_SELECT_TABLE, { matchId: 'R2-M1', courtId: 'c1' });
+      // Decide both semis + feed the third-place losers.
+      socket._trigger(SocketEvents.CLIENT.BRACKET_ASSIGN_PLAYER, { matchId: 'R1-M1', slot: 'A', name: 'A1' });
+      socket._trigger(SocketEvents.CLIENT.BRACKET_ASSIGN_PLAYER, { matchId: 'R1-M1', slot: 'B', name: 'B1' });
+      socket._trigger(SocketEvents.CLIENT.BRACKET_SET_WINNER, { matchId: 'R1-M1', winner: 'A' });
+      socket._trigger(SocketEvents.CLIENT.BRACKET_ASSIGN_PLAYER, { matchId: 'R1-M2', slot: 'A', name: 'A2' });
+      socket._trigger(SocketEvents.CLIENT.BRACKET_ASSIGN_PLAYER, { matchId: 'R1-M2', slot: 'B', name: 'B2' });
+      socket._trigger(SocketEvents.CLIENT.BRACKET_SET_WINNER, { matchId: 'R1-M2', winner: 'A' });
+
+      // The final is now decided → bracket COMPLETED → courts auto-released.
+      socket._trigger(SocketEvents.CLIENT.BRACKET_SET_WINNER, { matchId: 'R2-M1', winner: 'A' });
+
+      const b = ownerBracketState(socket);
+      expect(b!.status).toBe('COMPLETED');
+      expect(b).not.toBeNull(); // bracket kept for display (Q4)
+      expect(tableManager.releaseCourtFlow).toHaveBeenCalledWith('c1');
+      expect(tableManager.releaseCourtFlow).toHaveBeenCalledWith('c2');
+      for (const m of b!.matches) expect(m.courtId).toBeNull();
+    });
   });
 
   // ── Slice 4: strict cold start (TCS-4) ────────────────────────────────

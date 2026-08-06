@@ -12,8 +12,13 @@
 
 export const SocketEvents = {
   // Emitted by CLIENT → received by SERVER
+  //
+  // NOTE (admin-court-inventory slice 5 — breaking): CREATE_COURT /
+  // DELETE_COURT / CLUB_CREATE_COURT / CLUB_DELETE_COURT are REMOVED.
+  // Court existence is admin-only via INVENTORY_* (D3/CE-3); the
+  // tournament/owner can never mutate existence. The MAX_COURTS cap and
+  // per-IP create/delete rate-limits are dropped, not moved (CE-4).
   CLIENT: {
-    CREATE_COURT: 'CREATE_COURT',
     JOIN_COURT: 'JOIN_COURT',
     LEAVE_COURT: 'LEAVE_COURT',
     LIST_COURTS: 'LIST_COURTS',
@@ -21,7 +26,6 @@ export const SocketEvents = {
     GET_MATCH_STATE: 'GET_MATCH_STATE',
     SET_REF: 'SET_REF',
     REF_ROLE_CHECK: 'REF_ROLE_CHECK',
-    DELETE_COURT: 'DELETE_COURT',
     VERIFY_OWNER: 'VERIFY_OWNER',
     CONFIGURE_MATCH: 'CONFIGURE_MATCH',
     START_MATCH: 'START_MATCH',
@@ -45,11 +49,9 @@ export const SocketEvents = {
     CLUB_GET_CONFIG: 'CLUB_GET_CONFIG',
     CLUB_JOIN: 'CLUB_JOIN',
     CLUB_SETUP: 'CLUB_SETUP',
-    CLUB_CREATE_COURT: 'CLUB_CREATE_COURT',
     CLUB_ACTIVATE_COURT: 'CLUB_ACTIVATE_COURT',
     CLUB_FORCE_END: 'CLUB_FORCE_END',
     CLUB_RECONNECT: 'CLUB_RECONNECT',
-    CLUB_DELETE_COURT: 'CLUB_DELETE_COURT',
     CLUB_DEACTIVATE_COURT: 'CLUB_DEACTIVATE_COURT',
     CLUB_RESET_COURT: 'CLUB_RESET_COURT',
     CLUB_END_SESSION: 'CLUB_END_SESSION',
@@ -86,6 +88,26 @@ export const SocketEvents = {
     BRACKET_UNDO_MATCH: 'BRACKET_UNDO_MATCH',
     BRACKET_GET: 'BRACKET_GET',
     BRACKET_RESET: 'BRACKET_RESET',
+    // Admin Court Inventory — admin-only existence mutations (D3, INV-1).
+    // The admin is the single source of truth for court existence; the
+    // tournament/owner can NEVER mutate existence. Responses to every
+    // mutation are the single `INVENTORY_UPDATED` snapshot broadcast
+    // (Q3/design-answers — no per-op response events). INVENTORY_LIST is
+    // the view request (all roles) that returns the catalog via
+    // INVENTORY_UPDATED. INVENTORY_FORCE_END is the admin's cross-mode
+    // stop control (R7): it force-ends ANY live session (club OCCUPIED or
+    // tournament LIVE) to free the court → IDLE.
+    INVENTORY_LIST: 'INVENTORY_LIST',
+    INVENTORY_ADD: 'INVENTORY_ADD',
+    INVENTORY_RENAME: 'INVENTORY_RENAME',
+    INVENTORY_MAINTENANCE: 'INVENTORY_MAINTENANCE',
+    INVENTORY_ARCHIVE: 'INVENTORY_ARCHIVE',
+    INVENTORY_FORCE_END: 'INVENTORY_FORCE_END',
+    // Tournament court selection — owner picker binds a bracket match to an
+    // inventory-ACTIVE court (D13, TCS-1/TCS-2). Payload { matchId, courtId }
+    // (Q1 design-answers): BracketEngine.assignCourt(matchId, courtId) needs
+    // the match id. Binds availability only — never mutates existence.
+    TOURNAMENT_SELECT_TABLE: 'TOURNAMENT_SELECT_TABLE',
   },
   // Emitted by SERVER → received by CLIENT
   SERVER: {
@@ -155,6 +177,11 @@ export const SocketEvents = {
     BRACKET_STATE: 'BRACKET_STATE',
     BRACKET_ERROR: 'BRACKET_ERROR',
     BRACKET_RESET_CONFIRM: 'BRACKET_RESET_CONFIRM',
+    // Admin Court Inventory — single catalog snapshot broadcast after EVERY
+    // inventory mutation (add/rename/maintenance/archive/force-end) and on
+    // request (INVENTORY_LIST) / connect. Payload: { courts: CourtRecord[] }.
+    // One snapshot event, no per-op responses (Q3/design-answers).
+    INVENTORY_UPDATED: 'INVENTORY_UPDATED',
   },
 } as const;
 

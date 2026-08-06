@@ -64,27 +64,14 @@ describe('groupIntoRounds', () => {
 describe('resolveCourtContext', () => {
   it('returns null label when courtId is null', () => {
     const r = resolveCourtContext(m(1, 0, { courtId: null }), [], [])
-    expect(r).toEqual({ courtLabel: null, courtOrphan: false, courtOccupied: false })
+    expect(r).toEqual({ courtLabel: null })
   })
-  it('marks orphan when courtId not in courts list', () => {
+  it('returns null label when courtId not in the courts list', () => {
     const r = resolveCourtContext(m(1, 0, { courtId: 'ghost' }), [{ id: 'c1', name: 'C1' }], [])
-    expect(r.courtOrphan).toBe(true)
     expect(r.courtLabel).toBeNull()
   })
   it('resolves label for a live court', () => {
     const r = resolveCourtContext(m(1, 0, { courtId: 'c1' }), [{ id: 'c1', name: 'Cancha 1' }], [])
-    expect(r).toEqual({ courtLabel: 'Cancha 1', courtOrphan: false, courtOccupied: false })
-  })
-  it('flags courtOccupied when another non-completed match shares the courtId', () => {
-    const a = m(1, 0, { courtId: 'c1', status: 'READY' })
-    const b = m(1, 1, { courtId: 'c1', status: 'READY' })
-    const r = resolveCourtContext(a, [{ id: 'c1', name: 'C1' }], [a, b])
-    expect(r.courtOccupied).toBe(true)
-  })
-  it('does NOT flag courtOccupied when the sharing match is completed', () => {
-    const a = m(1, 0, { courtId: 'c1', status: 'READY' })
-    const b = m(1, 1, { courtId: 'c1', status: 'COMPLETED' })
-    const r = resolveCourtContext(a, [{ id: 'c1', name: 'C1' }], [a, b])
-    expect(r.courtOccupied).toBe(false)
+    expect(r).toEqual({ courtLabel: 'Cancha 1' })
   })
 })

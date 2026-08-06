@@ -10,22 +10,25 @@
  * single-interface file, exported via barrel.
  */
 
-import type { PersistedCourt, PersistedClubCourt, PersistedStateV3 } from './persistence-types';
+import type { PersistedStateV4 } from './persistence-types';
 
 export interface ICourtPersistence {
   /**
-   * Persist tournament and club courts to storage.
-   * Only the caller is responsible for filtering to relevant states
-   * (LIVE/FINISHED/OCCUPIED). The implementation handles atomic I/O.
+   * Persist the FULL v4 document (PERS-4 single-writer contract). The caller
+   * (PersistenceCoordinator) owns the in-memory snapshot — liveSessions rows
+   * AND the bracket — and hands the whole document to save(); the
+   * implementation performs atomic tmp+rename I/O only, never reading the
+   * file first. There is deliberately NO bracket-arg overload: a second
+   * writer on this file was the R2 torn-write source (removed in slice 6).
    */
-  save(tournamentCourts: PersistedCourt[], clubCourts: PersistedClubCourt[]): void;
+  save(state: PersistedStateV4): void;
 
   /**
-   * Load persisted state from storage.
-   * Returns null if no state exists or deserialization fails.
-   * Implementations should handle migration from older formats.
+   * Load persisted state from storage (v4 shape, PERS-1 WIPE).
+   * Returns null if no state exists, deserialization fails, or the file
+   * version is not 4 (v1/v2/v3 files are discarded — one-way door).
    */
-  load(): PersistedStateV3 | null;
+  load(): PersistedStateV4 | null;
 
   /**
    * Check whether persisted state exists in storage.

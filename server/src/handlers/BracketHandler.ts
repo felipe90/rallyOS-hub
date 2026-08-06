@@ -21,8 +21,9 @@ import crypto from 'crypto';
 import { SocketHandlerBase } from './SocketHandlerBase';
 import { SocketEvents } from '../../../shared/events';
 import type { Player, TournamentBracket, BracketMatch } from '../../../shared/types';
-import { BRACKET_MATCH_STATUS } from '../../../shared/types';
+import { BRACKET_MATCH_STATUS, BRACKET_STATUS, INVENTORY_STATUS } from '../../../shared/types';
 import { BracketEngine, BracketError, VALID_BRACKET_SLOTS } from '../domain/BracketEngine';
+import type { InventoryManager } from '../domain/inventory/InventoryManager';
 import { sanitizePlayerName } from '../../../shared/validation';
 import { logger } from '../utils/logger';
 
@@ -37,9 +38,18 @@ interface PendingReset {
   expiresAt: number;
 }
 
+/**
+ * Persistence seam for the bracket (slice 6 — PERS-4 single writer).
+ * `setBracket` mutates the shared IN-MEMORY snapshot only (never disk);
+ * `flush()` performs the ONE atomic tmp+rename of the FULL document.
+ * `PersistenceCoordinator` satisfies this structurally — the bracket cache
+ * lives in the coordinator snapshot, so a concurrent CourtManager session
+ * flush re-serializes the latest bracket and can never clobber it (R2 fixed).
+ */
 interface BracketStoreSeam {
   getBracket(): TournamentBracket | null;
   setBracket(bracket: TournamentBracket | null): void;
+  flush(): void;
 }
 
 export class BracketHandler extends SocketHandlerBase {
@@ -47,15 +57,26 @@ export class BracketHandler extends SocketHandlerBase {
   private readonly store: BracketStoreSeam;
   private readonly pendingResetBySocket = new Map<string, PendingReset>();
   private saveTimer: NodeJS.Timeout | null = null;
+  /**
+   * Admin court catalog (D3) — the existence authority for `courtExists`
+   * (TCS-2: a bracket court MUST be inventory-ACTIVE) and the strict
+   * cold-start gate (TCS-4: no ACTIVE inventory court → no bracket). Optional
+   * for older test wiring; when absent the legacy `getAllTournamentCourts`
+   * check is used and the cold-start gate is skipped (bridge honesty — the
+   * production index.ts always injects it).
+   */
+  private readonly inventoryManager?: InventoryManager;
 
   constructor(
     io: Server,
     tableManager: import('../domain/courtManager').CourtManager,
     ownerPin: string,
     store: BracketStoreSeam,
+    inventoryManager?: InventoryManager,
   ) {
     super(io, tableManager, ownerPin);
     this.store = store;
+    this.inventoryManager = inventoryManager;
     // R10: hydrate the engine from persisted state on startup so a server
     // restart restores the bracket.
     const persisted = this.store.getBracket();
@@ -86,6 +107,15 @@ export class BracketHandler extends SocketHandlerBase {
     socket.on(SocketEvents.CLIENT.BRACKET_ASSIGN_COURT, (data: unknown) =>
       this.onAssignCourt(socket, data as Record<string, unknown>),
     );
+    // Owner-picker court binding (D13/TCS-1): TOURNAMENT_SELECT_TABLE binds a
+    // bracket match to an inventory-ACTIVE court. Registered here (not in
+    // CourtEventHandler — DEVIATION, see header note) because the engine +
+    // reverse index + owner gate are private to BracketHandler; the slice-3
+    // AFE-2 seam pattern applies the same way (BracketHandler exposes public
+    // seams to other handlers).
+    socket.on(SocketEvents.CLIENT.TOURNAMENT_SELECT_TABLE, (data: unknown) =>
+      this.onSelectTable(socket, data as Record<string, unknown>),
+    );
     socket.on(SocketEvents.CLIENT.BRACKET_UNDO_MATCH, (data: unknown) =>
       this.onUndoMatch(socket, data as Record<string, unknown>),
     );
@@ -106,6 +136,16 @@ export class BracketHandler extends SocketHandlerBase {
 
   private onCreate(socket: Socket, data: Record<string, unknown>): void {
     if (!this.guardOwner(socket)) return;
+    // TCS-4 strict cold start: a tournament MUST NOT start when no
+    // inventory-ACTIVE court exists. No provisional seeding, no escape hatch.
+    // Skipped only when no InventoryManager is wired (legacy test wiring).
+    if (this.inventoryManager && !this.inventoryManager.hasActive()) {
+      return this.emitError(
+        socket,
+        'COURT_INVENTORY_EMPTY',
+        'No hay mesas disponibles. Configurá el inventario como admin para comenzar un torneo.',
+      );
+    }
     const name = data?.name;
     const numSlots = data?.numSlots;
     const includeThirdPlace = data?.includeThirdPlace;
@@ -159,6 +199,7 @@ export class BracketHandler extends SocketHandlerBase {
       return this.onEngineError(socket, err);
     }
     this.persistNow(); // completed match must not be lost
+    this.releaseIfCompleted(); // Q4 — final decided → courts IDLE, bracket kept
     this.broadcastState(socket);
   }
 
@@ -192,6 +233,70 @@ export class BracketHandler extends SocketHandlerBase {
     } catch (err) {
       return this.onEngineError(socket, err);
     }
+    this.scheduleDebouncedSave();
+    this.broadcastState(socket);
+  }
+
+  /**
+   * Owner picker → bracket binding (D13, TCS-1/TCS-2, Q1/Q2 payload).
+   *
+   * `TOURNAMENT_SELECT_TABLE { matchId, courtId }` binds a bracket match to an
+   * inventory-ACTIVE court. Availability-only (TCS-1 — never mutates
+   * existence). Guards, in order:
+   *   1. owner gate (guardOwner);
+   *   2. inventory-ACTIVE (TCS-2 — the widened courtExists);
+   *   3. club RESERVED (Q2 — a pending-PIN club court reads IDLE from
+   *      availability but MUST be excluded from SELECT);
+   *   4. flow-empty (TCS-2 — a live club/tournament flow refuses SELECT);
+   *   5. reverse index (TCS-2 — a court cannot be bound to TWO matches).
+   * Success → `engine.assignCourt` → the binding makes availability BUSY
+   * (INV-4 — the flow slot is derived).
+   */
+  private onSelectTable(socket: Socket, data: Record<string, unknown>): void {
+    if (!this.guardOwner(socket)) return;
+    const m = data?.matchId;
+    const c = data?.courtId;
+    if (typeof m !== 'string' || !m) {
+      return this.emitError(socket, 'INVALID_PARAMS', 'matchId required');
+    }
+    if (typeof c !== 'string' || !c) {
+      return this.emitError(socket, 'INVALID_PARAMS', 'courtId must be a string');
+    }
+    if (!this.courtExists(c)) {
+      return this.emitError(socket, 'COURT_NOT_FOUND', 'La cancha no existe o no está disponible');
+    }
+    const runtime = this.tableManager.getCourt(c);
+    if (runtime && runtime.mode === 'club') {
+      // Q2: RESERVED (pending PIN) is pre-flow but must never be SELECTED.
+      if (runtime.clubStatus === 'RESERVED') {
+        return this.emitError(socket, 'COURT_RESERVED', 'La cancha está reservada para una sesión de club');
+      }
+      // TCS-2: a live club flow (OCCUPIED/FINISHED) refuses SELECT.
+      if (runtime.clubStatus === 'OCCUPIED' || runtime.clubStatus === 'FINISHED') {
+        return this.emitError(socket, 'COURT_BUSY', 'La cancha está en uso');
+      }
+    } else if (runtime && runtime.flow?.state === 'LIVE') {
+      // TCS-2: a live tournament flow refuses SELECT.
+      return this.emitError(socket, 'COURT_BUSY', 'La cancha está en uso');
+    }
+    // TCS-2 reverse index — a court cannot be bound to TWO bracket matches.
+    const boundMatch = this.buildCourtIndex().get(c);
+    if (boundMatch && boundMatch.id !== m) {
+      return this.emitError(
+        socket,
+        'COURT_ALREADY_ASSIGNED',
+        'La cancha ya está asignada a otro partido del bracket',
+      );
+    }
+    try {
+      this.engine.assignCourt(m, c);
+    } catch (err) {
+      return this.onEngineError(socket, err);
+    }
+    // Slice 5 — materialize the tournament RUNTIME court at SELECT time so
+    // the court + PIN exist for the referee (referee-play path). No-op when
+    // already materialized; unknown/non-ACTIVE courts were rejected above.
+    this.tableManager.ensureRuntimeTournamentCourt(c);
     this.scheduleDebouncedSave();
     this.broadcastState(socket);
   }
@@ -244,8 +349,12 @@ export class BracketHandler extends SocketHandlerBase {
     }
 
     this.pendingResetBySocket.delete(socket.id);
+    // TCS-3/Q4: before clearing the bracket, release every court binding so
+    // tournament flows reach IDLE (courts freed for club/tournament reuse).
+    this.releaseAllCourts();
     this.engine.reset();
-    this.store.setBracket(null); // immediate
+    this.store.setBracket(null); // mutate the snapshot immediately
+    this.store.flush(); // reset must not be lost — immediate disk write
     this.broadcastState(socket);
   }
 
@@ -330,6 +439,7 @@ export class BracketHandler extends SocketHandlerBase {
       return false;
     }
     this.persistNow(); // a decided match must not be lost
+    this.releaseIfCompleted(); // Q4 — auto-advance completing the final frees courts
     this.broadcastStateToAll();
     return true;
   }
@@ -397,9 +507,66 @@ export class BracketHandler extends SocketHandlerBase {
     this.emitError(socket, code, err instanceof Error ? err.message : code);
   }
 
-  /** A tournament court id exists (R6 court validation). */
+  /** A tournament court id exists (R6 court validation, TCS-2 widening). */
   private courtExists(courtId: string): boolean {
+    // TCS-2 (slice 4): existence is the admin catalog — a bracket court MUST
+    // be inventory-ACTIVE. Live club flows can never enter the reverse index
+    // because SELECT requires flow-empty (they never pass the guard above).
+    if (this.inventoryManager) {
+      return this.inventoryManager.get(courtId)?.inventoryStatus === INVENTORY_STATUS.ACTIVE;
+    }
+    // Legacy fallback for wiring without an inventory (old tests).
     return this.tableManager.getAllTournamentCourts().some((c) => c.id === courtId);
+  }
+
+  /**
+   * Public unbind seam (AFE-2 completion, slice 4): null a bracket match's
+   * courtId binding (engine.assignCourt(m, null)). Consumed by the
+   * INVENTORY_FORCE_END flow context so a force-ended tournament court frees
+   * its bracket binding (no setWinner / no advance). Unknown match → no-op
+   * (the binding is already gone).
+   */
+  unbindMatch(matchId: string): void {
+    try {
+      this.engine.assignCourt(matchId, null);
+    } catch {
+      return; // MATCH_NOT_FOUND — nothing bound, nothing to unbind
+    }
+    this.scheduleDebouncedSave();
+    this.broadcastStateToAll();
+  }
+
+  /**
+   * Release every bracket court binding + tournament flow on tournament
+   * end/reset (TCS-3, Q4). Public so the HTTP finish route can invoke it via
+   * the SocketHandler seam. Bracket-scoped: only courtIds bound in the
+   * bracket are released — club courts are never touched (they are not in
+   * bracket.matches). The completed bracket is KEPT for display (Q4 — no
+   * engine.reset()/setBracket(null) here). Persists once. Returns the
+   * released courtIds (distinct).
+   */
+  releaseAllCourts(): string[] {
+    const courtIds = this.engine.releaseAll();
+    for (const courtId of courtIds) {
+      this.tableManager.releaseCourtFlow(courtId);
+    }
+    if (courtIds.length > 0) {
+      this.persistNow();
+      this.broadcastStateToAll();
+    }
+    return courtIds;
+  }
+
+  /**
+   * Release the bracket courts when the tournament COMPLETES (Q4): after the
+   * final is decided the courts must reach IDLE while the completed bracket
+   * stays on display. Called from the mutation paths that can complete the
+   * bracket (manual setWinner + auto-advance).
+   */
+  private releaseIfCompleted(): void {
+    if (this.engine.bracket?.status === BRACKET_STATUS.COMPLETED) {
+      this.releaseAllCourts();
+    }
   }
 
   /** Immediate persistence — used for create / winner / undo / reset. */
@@ -408,15 +575,36 @@ export class BracketHandler extends SocketHandlerBase {
       clearTimeout(this.saveTimer);
       this.saveTimer = null;
     }
-    this.store.setBracket(this.engine.bracket);
+    this.store.setBracket(this.engine.bracket); // mutate the snapshot now…
+    this.store.flush(); // …and flush the FULL document immediately (atomic).
   }
 
-  /** Debounced (2s) persistence — used for slot-class mutations. */
+  /**
+   * Flush any pending debounced save immediately (PERS-4 graceful shutdown).
+   * The snapshot is already current (scheduleDebouncedSave mutates it right
+   * away); this only forces the pending 2s DISK write. No-op when no save is
+   * pending.
+   */
+  flushPending(): void {
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer);
+      this.saveTimer = null;
+      this.store.flush();
+    }
+  }
+
+  /**
+   * Debounced (2s) persistence — used for slot-class mutations. The in-memory
+   * snapshot is mutated IMMEDIATELY (PERS-4: the shared source of truth stays
+   * current so a concurrent CourtManager flush serializes the latest bracket);
+   * only the DISK write (flush) is debounced.
+   */
   private scheduleDebouncedSave(): void {
     if (this.saveTimer) clearTimeout(this.saveTimer);
+    this.store.setBracket(this.engine.bracket);
     this.saveTimer = setTimeout(() => {
       this.saveTimer = null;
-      this.store.setBracket(this.engine.bracket);
+      this.store.flush();
     }, SAVE_DEBOUNCE_MS);
     if (typeof this.saveTimer.unref === 'function') this.saveTimer.unref();
   }

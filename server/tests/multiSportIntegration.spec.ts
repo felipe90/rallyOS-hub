@@ -14,7 +14,8 @@ import { SportRegistry } from '../src/domain/sports/sport.registry';
 import { MatchEngine } from '../src/domain/matchEngine';
 import { SPORT } from '../../shared/types';
 import { SocketEvents } from '../../shared/events';
-import type { Court, HubConfig, MatchEvent } from '../src/domain/types';
+import type { RuntimeCourt, HubConfig, MatchEvent } from '../src/domain/types';
+import { INVENTORY_STATUS } from '../../shared/types';
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
@@ -26,7 +27,7 @@ const mockHubConfig: HubConfig = {
   wifiPassword: 'test-password',
 };
 
-function makeCourt(overrides: Partial<Court> = {}): Court {
+function makeCourt(overrides: Partial<RuntimeCourt> = {}): RuntimeCourt {
   return {
     id: 'court-int-1',
     number: 1,
@@ -41,7 +42,7 @@ function makeCourt(overrides: Partial<Court> = {}): Court {
     createdAt: Date.now(),
     featured: false,
     ...overrides,
-  } as Court;
+  } as RuntimeCourt;
 }
 
 // ── Task 5.5: Integration tests ────────────────────────────────────────

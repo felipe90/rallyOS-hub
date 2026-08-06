@@ -15,6 +15,8 @@ import type {
   PersistedClubCourt,
   PersistedMatchState,
   PersistedStateV3,
+  PersistedStateV4,
+  PersistedFlowSession,
   FileSystem,
   MatchExporter,
   IPinService,
@@ -27,8 +29,9 @@ import type {
   ICourtPersistence,
   IClubConfigRepository,
 } from '../../ports';
-import type { Court, QRData, CourtInfo, CourtInfoWithPin, MatchConfig, MatchStateExtended } from '../../types';
-import { isTournamentCourt, isClubCourt, COURT_MODE, Player, SPORT } from '../../types';
+import type { RuntimeCourt, QRData, CourtInfo, CourtInfoWithPin, MatchConfig, MatchStateExtended } from '../../types';
+import { INVENTORY_STATUS } from '../../../../../shared/types';
+import { COURT_MODE, Player, SPORT } from '../../types';
 import type {
   PersistedMatchState as StorePersistedMatchState,
   PersistedCourt as StorePersistedCourt,
@@ -72,7 +75,7 @@ function createPersistedCourt(): PersistedCourt {
   return {
     id: 'court-1',
     number: 1,
-    name: 'Court 1',
+    name: 'RuntimeCourt 1',
     status: 'LIVE',
     pin: '1234',
     playerNames: { a: 'Alice', b: 'Bob' },
@@ -88,7 +91,7 @@ function createPersistedClubCourt(): PersistedClubCourt {
   return {
     id: 'club-1',
     number: 2,
-    name: 'Club Court 1',
+    name: 'Club RuntimeCourt 1',
     kind: 'club',
     clubStatus: 'OCCUPIED',
     occupiedAt: Date.now(),
@@ -132,7 +135,7 @@ function createPinService(): IPinService {
     generatePin(): string {
       return '4321';
     },
-    validatePin(_court: Court, _pin: string): boolean {
+    validatePin(_court: RuntimeCourt, _pin: string): boolean {
       return _pin === '4321';
     },
   };
@@ -143,7 +146,7 @@ function createPinService(): IPinService {
  */
 function createQRService(): IQRService {
   return {
-    generateQRData(_court: Court): QRData | null {
+    generateQRData(_court: RuntimeCourt): QRData | null {
       return {
         hubSsid: 'RallyOS',
         hubIp: '192.168.1.1',
@@ -162,31 +165,31 @@ function createQRService(): IQRService {
  */
 function createCourtFormatter(): ICourtFormatter {
   return {
-    toPublicInfo(_court: Court): CourtInfo {
+    toPublicInfo(_court: RuntimeCourt): CourtInfo {
       return {
         id: _court.id,
         number: _court.number,
         name: _court.name,
-        status: isTournamentCourt(_court) ? _court.status : (_court as any).clubStatus,
+        status: (_court as any).status ?? 'WAITING',
         playerCount: _court.players.length,
         playerNames: _court.playerNames,
         currentScore: { a: 0, b: 0 },
         currentSets: { a: 0, b: 0 },
         winner: null,
         featured: _court.featured,
-        mode: isClubCourt(_court) ? COURT_MODE.CLUB : COURT_MODE.TOURNAMENT,
+        mode: (_court as any).mode === 'club' ? COURT_MODE.CLUB : COURT_MODE.TOURNAMENT,
       };
     },
-    toInfoWithPin(_court: Court): CourtInfoWithPin {
+    toInfoWithPin(_court: RuntimeCourt): CourtInfoWithPin {
       return {
         ...this.toPublicInfo(_court),
         pin: _court.pin,
       };
     },
-    toPublicList(_courts: Court[]): CourtInfo[] {
+    toPublicList(_courts: RuntimeCourt[]): CourtInfo[] {
       return _courts.map((c) => this.toPublicInfo(c));
     },
-    toListWithPins(_courts: Court[]): CourtInfoWithPin[] {
+    toListWithPins(_courts: RuntimeCourt[]): CourtInfoWithPin[] {
       return _courts.map((c) => this.toInfoWithPin(c));
     },
   };
@@ -231,7 +234,7 @@ describe('ports persistence types', () => {
       const court = createPersistedCourt();
       expect(court.id).toBe('court-1');
       expect(court.number).toBe(1);
-      expect(court.name).toBe('Court 1');
+      expect(court.name).toBe('RuntimeCourt 1');
       expect(court.status).toBe('LIVE');
       expect(court.pin).toBe('1234');
       expect(court.playerNames).toEqual({ a: 'Alice', b: 'Bob' });
@@ -308,12 +311,12 @@ describe('port interfaces', () => {
 
     it('should validate PIN with correct value', () => {
       const service = createPinService();
-      expect(service.validatePin({ id: 'court-1', pin: '4321' } as Court, '4321')).toBe(true);
+      expect(service.validatePin({ id: 'court-1', pin: '4321' } as RuntimeCourt, '4321')).toBe(true);
     });
 
     it('should reject PIN with incorrect value', () => {
       const service = createPinService();
-      expect(service.validatePin({ id: 'court-1', pin: '4321' } as Court, 'wrong')).toBe(false);
+      expect(service.validatePin({ id: 'court-1', pin: '4321' } as RuntimeCourt, 'wrong')).toBe(false);
     });
   });
 
@@ -321,11 +324,15 @@ describe('port interfaces', () => {
     it('should generate QR data for a court', () => {
       const service = createQRService();
       const court = {
-        kind: 'tournament' as const,
+        record: { courtId: 'court-1', number: 1, name: 'RuntimeCourt 1', inventoryStatus: INVENTORY_STATUS.ACTIVE },
+        flow: { mode: 'tournament' as const, state: 'LIVE' as const, startedAt: 0 },
+        reserved: false,
+        mode: 'tournament' as const,
         id: 'court-1',
         number: 1,
-        name: 'Court 1',
+        name: 'RuntimeCourt 1',
         status: 'LIVE' as const,
+        clubStatus: 'AVAILABLE' as const,
         pin: '4321',
         sportRules: {} as any,
         playerNames: { a: 'A', b: 'B' },
@@ -333,12 +340,17 @@ describe('port interfaces', () => {
         players: [],
         createdAt: Date.now(),
         featured: false,
+        occupiedAt: null,
+        sessionMode: null,
+        playerName: null,
+        phone: null,
+        adminId: null,
       };
       const result = service.generateQRData(court);
       expect(result).not.toBeNull();
       expect(result!.hubSsid).toBe('RallyOS');
       expect(result!.courtId).toBe('court-1');
-      expect(result!.courtName).toBe('Court 1');
+      expect(result!.courtName).toBe('RuntimeCourt 1');
       expect(result!.encryptedPin).toBe('encrypted');
       expect(result!.url).toContain('rallyhub://join/');
     });
@@ -347,19 +359,23 @@ describe('port interfaces', () => {
       // The contract allows implementations to return null when
       // QR data cannot be generated (e.g., invalid court state)
       const nullService: IQRService = {
-        generateQRData: (_court: Court) => null,
+        generateQRData: (_court: RuntimeCourt) => null,
       };
-      expect(nullService.generateQRData({} as Court)).toBeNull();
+      expect(nullService.generateQRData({} as RuntimeCourt)).toBeNull();
     });
   });
 
   describe('ICourtFormatter', () => {
     const makeTournamentCourt = () => ({
-      kind: 'tournament' as const,
+      record: { courtId: 'court-1', number: 1, name: 'RuntimeCourt 1', inventoryStatus: INVENTORY_STATUS.ACTIVE },
+      flow: { mode: 'tournament' as const, state: 'LIVE' as const, startedAt: 0 },
+      reserved: false,
+      mode: 'tournament' as const,
       id: 'court-1',
       number: 1,
-      name: 'Court 1',
+      name: 'RuntimeCourt 1',
       status: 'LIVE' as const,
+      clubStatus: 'AVAILABLE' as const,
       pin: '1234',
       sportRules: {
         getState: () => ({
@@ -379,16 +395,25 @@ describe('port interfaces', () => {
       players: [{ socketId: 's1', name: 'Alice', role: 'PLAYER_A' as const, joinedAt: 0 }],
       createdAt: 1000,
       featured: false,
+      occupiedAt: null,
+      sessionMode: null,
+      playerName: null,
+      phone: null,
+      adminId: null,
       onTableUpdate: undefined,
       onMatchEvent: undefined,
     });
 
     const makeClubCourt = () => ({
-      kind: 'club' as const,
+      record: { courtId: 'club-1', number: 2, name: 'Club RuntimeCourt', inventoryStatus: INVENTORY_STATUS.ACTIVE },
+      flow: { mode: 'club' as const, state: 'OCCUPIED' as const, sessionMode: null, occupiedAt: 0, playerName: null, phone: null, adminId: null },
+      reserved: false,
+      mode: 'club' as const,
       id: 'club-1',
       number: 2,
-      name: 'Club Court',
+      name: 'Club RuntimeCourt',
       clubStatus: 'OCCUPIED' as const,
+      status: 'WAITING' as const,
       pin: '5678',
       sportRules: {
         getState: () => ({
@@ -425,7 +450,7 @@ describe('port interfaces', () => {
       const info = formatter.toPublicInfo(court);
       expect(info.id).toBe('court-1');
       expect(info.number).toBe(1);
-      expect(info.name).toBe('Court 1');
+      expect(info.name).toBe('RuntimeCourt 1');
       expect(info.mode).toBe('tournament');
     });
 
@@ -500,12 +525,16 @@ describe('backward-compat re-exports', () => {
 // ── Phase 2: Core Service Interfaces ──────────────────────────────────
 
 describe('Phase 2 port interfaces', () => {
-  const mockCourt: Court = {
-    kind: 'tournament',
+  const mockCourt: RuntimeCourt = {
+    record: { courtId: 'court-1', number: 1, name: 'RuntimeCourt 1', inventoryStatus: INVENTORY_STATUS.ACTIVE },
+    flow: null,
+    reserved: false,
+    mode: 'tournament',
     id: 'court-1',
     number: 1,
-    name: 'Court 1',
+    name: 'RuntimeCourt 1',
     status: 'WAITING',
+    clubStatus: 'AVAILABLE' as const,
     pin: '1234',
     sportRules: null as any,
     playerNames: { a: 'A', b: 'B' },
@@ -513,25 +542,25 @@ describe('Phase 2 port interfaces', () => {
     players: [],
     createdAt: Date.now(),
     featured: false,
-  } as unknown as Court;
+    occupiedAt: null,
+    sessionMode: null,
+    playerName: null,
+    phone: null,
+    adminId: null,
+  } as unknown as RuntimeCourt;
 
   describe('ICourtRepository', () => {
     function createCourtRepository(): ICourtRepository {
-      const courts = new Map<string, Court>();
+      const courts = new Map<string, RuntimeCourt>();
       return {
-        getNextTableNumber(): number {
-          let max = 0;
-          for (const c of courts.values()) { max = Math.max(max, c.number); }
-          return max + 1;
-        },
-        create(court: Court): Court {
+        create(court: RuntimeCourt): RuntimeCourt {
           courts.set(court.id, court);
           return court;
         },
-        get(id: string): Court | undefined {
+        get(id: string): RuntimeCourt | undefined {
           return courts.get(id);
         },
-        getAll(): Court[] {
+        getAll(): RuntimeCourt[] {
           return Array.from(courts.values());
         },
         delete(id: string): boolean {
@@ -539,7 +568,7 @@ describe('Phase 2 port interfaces', () => {
         },
         clear(): void {
           for (const [id, c] of courts) {
-            if (c.kind === 'tournament') courts.delete(id);
+            if (c.mode === 'tournament') courts.delete(id);
           }
         },
         clearAll(): void {
@@ -560,13 +589,6 @@ describe('Phase 2 port interfaces', () => {
       expect(repo.get('non-existent')).toBeUndefined();
     });
 
-    it('should get next table number incrementally', () => {
-      const repo = createCourtRepository();
-      expect(repo.getNextTableNumber()).toBe(1);
-      repo.create(mockCourt);
-      expect(repo.getNextTableNumber()).toBe(2);
-    });
-
     it('should delete a court', () => {
       const repo = createCourtRepository();
       repo.create(mockCourt);
@@ -579,10 +601,10 @@ describe('Phase 2 port interfaces', () => {
       expect(repo.delete('non-existent')).toBe(false);
     });
 
-    it('should clear tournament courts only', () => {
+    it('should clear tournament courts only (flow release, club survives)', () => {
       const repo = createCourtRepository();
       repo.create(mockCourt);
-      repo.create({ ...mockCourt, id: 'club-1', kind: 'club', clubStatus: 'AVAILABLE', occupiedAt: null } as any);
+      repo.create({ ...mockCourt, id: 'club-1', mode: 'club', clubStatus: 'AVAILABLE', occupiedAt: null } as any);
       repo.clear();
       expect(repo.get('court-1')).toBeUndefined();
       expect(repo.get('club-1')).toBeDefined();
@@ -608,18 +630,18 @@ describe('Phase 2 port interfaces', () => {
   describe('IPlayerService (depends on IPinService)', () => {
     function createPlayerService(pinService: IPinService): IPlayerService {
       return {
-        joinCourt(court: Court, socketId: string, name: string, pin?: string): boolean {
+        joinCourt(court: RuntimeCourt, socketId: string, name: string, pin?: string): boolean {
           if (pin && !pinService.validatePin(court, pin)) return false;
           if (!court.players.find(p => p.socketId === socketId)) {
             court.players.push({ socketId, name, role: 'SPECTATOR', joinedAt: Date.now() });
           }
           return true;
         },
-        leaveCourt(court: Court, socketId: string): void {
+        leaveCourt(court: RuntimeCourt, socketId: string): void {
           const idx = court.players.findIndex(p => p.socketId === socketId);
           if (idx !== -1) court.players.splice(idx, 1);
         },
-        setReferee(court: Court, socketId: string, pin: string): boolean {
+        setReferee(court: RuntimeCourt, socketId: string, pin: string): boolean {
           if (!pinService.validatePin(court, pin)) return false;
           const existing = court.players.find(p => p.role === 'REFEREE');
           if (existing && existing.socketId !== socketId) {
@@ -630,7 +652,7 @@ describe('Phase 2 port interfaces', () => {
           else court.players.push({ socketId, name: 'Referee', role: 'REFEREE', joinedAt: Date.now() });
           return true;
         },
-        setRefereeDirect(court: Court, socketId: string, name: string): string | null {
+        setRefereeDirect(court: RuntimeCourt, socketId: string, name: string): string | null {
           const existing = court.players.find(p => p.role === 'REFEREE');
           if (existing && existing.socketId !== socketId) {
             court.players = court.players.filter(p => p.role !== 'REFEREE');
@@ -642,10 +664,10 @@ describe('Phase 2 port interfaces', () => {
           }
           return null;
         },
-        isReferee(court: Court, socketId: string): boolean {
+        isReferee(court: RuntimeCourt, socketId: string): boolean {
           return court.players.some(p => p.socketId === socketId && p.role === 'REFEREE');
         },
-        getRefereeSocketId(court: Court): string | null {
+        getRefereeSocketId(court: RuntimeCourt): string | null {
           const ref = court.players.find(p => p.role === 'REFEREE');
           return ref?.socketId || null;
         },
@@ -654,7 +676,7 @@ describe('Phase 2 port interfaces', () => {
 
     const pinService: IPinService = {
       generatePin: () => '1234',
-      validatePin: (_court: Court, pin: string) => pin === '1234',
+      validatePin: (_court: RuntimeCourt, pin: string) => pin === '1234',
     };
 
     it('should join a court successfully without PIN', () => {
@@ -753,8 +775,8 @@ describe('Phase 2 port interfaces', () => {
     it('should have all persistence methods', () => {
       // Type-level contract: create a mock implementation
       const persistence: ICourtPersistence = {
-        save(_tournamentCourts: PersistedCourt[], _clubCourts: PersistedClubCourt[]): void {},
-        load(): PersistedStateV3 | null { return null; },
+        save(_state: PersistedStateV4): void {},
+        load(): PersistedStateV4 | null { return null; },
         clear(): void {},
         checkExists(): boolean { return false; },
       };
@@ -766,18 +788,18 @@ describe('Phase 2 port interfaces', () => {
 
     it('should accept empty arrays in save', () => {
       const persistence: ICourtPersistence = {
-        save(_tournamentCourts: PersistedCourt[], _clubCourts: PersistedClubCourt[]): void {},
-        load(): PersistedStateV3 | null { return null; },
+        save(_state: PersistedStateV4): void {},
+        load(): PersistedStateV4 | null { return null; },
         clear(): void {},
         checkExists(): boolean { return false; },
       };
-      expect(() => persistence.save([], [])).not.toThrow();
+      expect(() => persistence.save({ version: 4, savedAt: 0, liveSessions: [] })).not.toThrow();
     });
 
     it('should return null from load when no state exists', () => {
       const persistence: ICourtPersistence = {
-        save(_tournamentCourts: PersistedCourt[], _clubCourts: PersistedClubCourt[]): void {},
-        load(): PersistedStateV3 | null { return null; },
+        save(_state: PersistedStateV4): void {},
+        load(): PersistedStateV4 | null { return null; },
         clear(): void {},
         checkExists(): boolean { return false; },
       };
@@ -785,29 +807,27 @@ describe('Phase 2 port interfaces', () => {
     });
 
     it('should return state from load when state exists', () => {
-      const state: PersistedStateV3 = {
-        version: 3,
+      const state: PersistedStateV4 = {
+        version: 4,
         savedAt: 1700000000000,
-        tournamentCourts: [],
-        clubCourts: [],
+        liveSessions: [],
       };
       const persistence: ICourtPersistence = {
-        save(_tournamentCourts: PersistedCourt[], _clubCourts: PersistedClubCourt[]): void {},
-        load(): PersistedStateV3 | null { return state; },
+        save(_state: PersistedStateV4): void {},
+        load(): PersistedStateV4 | null { return state; },
         clear(): void {},
         checkExists(): boolean { return false; },
       };
       const result = persistence.load();
       expect(result).not.toBeNull();
-      expect(result!.version).toBe(3);
-      expect(result!.tournamentCourts).toEqual([]);
-      expect(result!.clubCourts).toEqual([]);
+      expect(result!.version).toBe(4);
+      expect(result!.liveSessions).toEqual([]);
     });
 
     it('should accept court data in save', () => {
       const tournamentCourts: PersistedCourt[] = [
         {
-          id: 'court-1', number: 1, name: 'Test Court',
+          id: 'court-1', number: 1, name: 'Test RuntimeCourt',
           status: 'LIVE', pin: '1234',
           playerNames: { a: 'A', b: 'B' },
           createdAt: 1000,
@@ -822,7 +842,7 @@ describe('Phase 2 port interfaces', () => {
       ];
       const clubCourts: PersistedClubCourt[] = [
         {
-          id: 'club-1', number: 2, name: 'Club Court', kind: 'club',
+          id: 'club-1', number: 2, name: 'Club RuntimeCourt', kind: 'club',
           clubStatus: 'OCCUPIED', occupiedAt: 2000,
           pin: '', playerNames: { a: '', b: '' },
           createdAt: 1000, matchState: null,
@@ -830,21 +850,28 @@ describe('Phase 2 port interfaces', () => {
         },
       ];
       const persistence: ICourtPersistence = {
-        save(_tc: PersistedCourt[], _cc: PersistedClubCourt[]): void {
-          expect(_tc).toHaveLength(1);
-          expect(_cc).toHaveLength(1);
+        save(state: PersistedStateV4): void {
+          expect(state.liveSessions).toHaveLength(1);
         },
-        load(): PersistedStateV3 | null { return null; },
+        load(): PersistedStateV4 | null { return null; },
         clear(): void {},
         checkExists(): boolean { return false; },
       };
-      persistence.save(tournamentCourts, clubCourts);
+      persistence.save({
+        version: 4,
+        savedAt: 0,
+        liveSessions: [{
+          courtId: 'c1',
+          flow: { mode: 'club', state: 'OCCUPIED', sessionMode: null, occupiedAt: 2000, playerName: null, phone: null, adminId: null },
+          matchState: null,
+        }],
+      });
     });
 
     it('should be callable without errors from clear', () => {
       const persistence: ICourtPersistence = {
         save(): void {},
-        load(): PersistedStateV3 | null { return null; },
+        load(): PersistedStateV4 | null { return null; },
         clear(): void {},
         checkExists(): boolean { return false; },
       };
@@ -978,12 +1005,27 @@ describe('Phase 2 port interfaces', () => {
         },
       }];
 
-      // Contract: save → load → verify
-      store.save(tournamentCourts, []);
+      // Contract: save → load → verify (v4 liveSessions shape)
+      const sessions: PersistedFlowSession[] = [{
+        courtId: 't1',
+        flow: { mode: 'tournament', state: 'LIVE', startedAt: 1000 },
+        matchState: {
+          config: { sport: 'tableTennis', pointsPerSet: 11, bestOf: 5, minDifference: 2 },
+          score: { sets: { a: 0, b: 0 }, currentSet: { a: 0, b: 0 }, serving: 'A' },
+          swappedSides: false, midSetSwapped: false,
+          setHistory: [], status: 'LIVE', winner: null,
+          sport: 'tableTennis', history: [],
+        },
+        number: 1,
+        name: 'Table 1',
+        playerNames: { a: 'A', b: 'B' },
+        createdAt: 1000,
+      }];
+      store.save({ version: 4, savedAt: 1000, liveSessions: sessions });
       const loaded = store.load();
       expect(loaded).not.toBeNull();
-      expect(loaded!.tournamentCourts).toHaveLength(1);
-      expect(loaded!.tournamentCourts[0].id).toBe('t1');
+      expect(loaded!.liveSessions).toHaveLength(1);
+      expect(loaded!.liveSessions[0].courtId).toBe('t1');
 
       // Contract: clear → load returns null
       store.clear();
@@ -995,18 +1037,27 @@ describe('Phase 2 port interfaces', () => {
       const store: ICourtPersistence = new StateStore(fs, 'test-state.json');
 
       const clubCourts: PersistedClubCourt[] = [{
-        id: 'c1', number: 1, name: 'Club Court', kind: 'club',
+        id: 'c1', number: 1, name: 'Club RuntimeCourt', kind: 'club',
         clubStatus: 'OCCUPIED', occupiedAt: 2000,
         pin: '', playerNames: { a: '', b: '' },
         createdAt: 1000, matchState: null,
         config: null, history: [],
       }];
 
-      store.save([], clubCourts);
+      const sessions: PersistedFlowSession[] = [{
+        courtId: 'c1',
+        flow: { mode: 'club', state: 'OCCUPIED', sessionMode: null, occupiedAt: 2000, playerName: null, phone: null, adminId: null },
+        matchState: null,
+        number: 1,
+        name: 'Club RuntimeCourt',
+        playerNames: { a: '', b: '' },
+        createdAt: 1000,
+      }];
+      store.save({ version: 4, savedAt: 1000, liveSessions: sessions });
       const loaded = store.load();
       expect(loaded).not.toBeNull();
-      expect(loaded!.clubCourts).toHaveLength(1);
-      expect(loaded!.clubCourts[0].id).toBe('c1');
+      expect(loaded!.liveSessions).toHaveLength(1);
+      expect(loaded!.liveSessions[0].courtId).toBe('c1');
     });
 
     it('should return null when no state exists', () => {
@@ -1084,16 +1135,16 @@ describe('Phase 2 port interfaces', () => {
   describe('IMatchOrchestrator', () => {
     function createMatchOrchestrator(): IMatchOrchestrator {
       return {
-        configureMatch(_court: Court, _config: { playerNames?: { a: string; b: string }; matchConfig?: MatchConfig }): void {},
-        prepareCourt(_court: Court, _config: { matchConfig: MatchConfig; playerNames: { a: string; b: string } }): MatchStateExtended | null { return null; },
-        startMatch(_court: Court, _config?: Partial<MatchConfig> & { playerNameA?: string; playerNameB?: string }): MatchStateExtended | null { return null; },
-        recordPoint(_court: Court, _player: Player): MatchStateExtended | null { return null; },
-        subtractPoint(_court: Court, _player: Player): MatchStateExtended | null { return null; },
-        undoLast(_court: Court): MatchStateExtended | null { return null; },
-        setServer(_court: Court, _player: Player): MatchStateExtended | null { return null; },
-        swapSides(_court: Court): MatchStateExtended | null { return null; },
-        resetTable(_court: Court, _config?: MatchConfig): void {},
-        getMatchState(_court: Court): MatchStateExtended | null { return null; },
+        configureMatch(_court: RuntimeCourt, _config: { playerNames?: { a: string; b: string }; matchConfig?: MatchConfig }): void {},
+        prepareCourt(_court: RuntimeCourt, _config: { matchConfig: MatchConfig; playerNames: { a: string; b: string } }): MatchStateExtended | null { return null; },
+        startMatch(_court: RuntimeCourt, _config?: Partial<MatchConfig> & { playerNameA?: string; playerNameB?: string }): MatchStateExtended | null { return null; },
+        recordPoint(_court: RuntimeCourt, _player: Player): MatchStateExtended | null { return null; },
+        subtractPoint(_court: RuntimeCourt, _player: Player): MatchStateExtended | null { return null; },
+        undoLast(_court: RuntimeCourt): MatchStateExtended | null { return null; },
+        setServer(_court: RuntimeCourt, _player: Player): MatchStateExtended | null { return null; },
+        swapSides(_court: RuntimeCourt): MatchStateExtended | null { return null; },
+        resetTable(_court: RuntimeCourt, _config?: MatchConfig): void {},
+        getMatchState(_court: RuntimeCourt): MatchStateExtended | null { return null; },
       };
     }
 

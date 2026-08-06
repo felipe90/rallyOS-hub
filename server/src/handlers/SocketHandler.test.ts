@@ -13,10 +13,13 @@ import { CourtManager } from '../domain/courtManager';
 import { createTestCourtManager } from '../domain/courtManager.test-factory';
 import { ClubConfigStore } from '../services/store/ClubConfigStore';
 import { StateStore } from '../services/store/StateStore';
+import { PersistenceCoordinator } from '../services/store/PersistenceCoordinator';
+import { CourtInventoryStore } from '../services/store/CourtInventoryStore';
+import { InventoryManager } from '../domain/inventory/InventoryManager';
 import { SessionTokenService } from '../services/security/SessionTokenService';
 import { SocketEvents } from '../../../shared/events';
-import { SPORT, CLUB_STATUS } from '../../../shared/types';
-import type { ClubCourt } from '../domain/types';
+import { SPORT, CLUB_STATUS, INVENTORY_STATUS } from '../../../shared/types';
+import type { RuntimeCourt } from '../domain/types';
 import type { Socket } from 'socket.io';
 
 const TEST_SECRET = 'a'.repeat(64);
@@ -273,7 +276,7 @@ describe('SocketHandler.onMatchEvent — club MATCH_WON keeps OCCUPIED and emits
     }
 
     // Court STAYS OCCUPIED — the session is not auto-ended.
-    const updated = courtManager.getCourt(court.id) as ClubCourt;
+    const updated = courtManager.getCourt(court.id) as RuntimeCourt;
     expect(updated.clubStatus).toBe(CLUB_STATUS.OCCUPIED);
 
     // Server emitted MATCH_WON to the room
@@ -302,7 +305,7 @@ describe('SocketHandler.onMatchEvent — club MATCH_WON keeps OCCUPIED and emits
     const ended = courtManager.forceEndSession(court.id);
     expect(ended).not.toBeNull();
 
-    const updated = courtManager.getCourt(court.id) as ClubCourt;
+    const updated = courtManager.getCourt(court.id) as RuntimeCourt;
     expect(updated.clubStatus).toBe(CLUB_STATUS.FINISHED);
 
     // The onClubSessionEnd callback (wired by SocketHandler's ClubPlayerHandler
@@ -325,12 +328,12 @@ describe('SocketHandler.onMatchEvent — club MATCH_WON keeps OCCUPIED and emits
     const court = courtManager.createClubCourt('Disconnect Court');
     courtManager.activateCourt(court.id);
     courtManager.occupyClubCourt(court.id, SPORT.TABLE_TENNIS);
-    const occupiedAtBefore = (courtManager.getCourt(court.id) as ClubCourt).occupiedAt;
+    const occupiedAtBefore = (courtManager.getCourt(court.id) as RuntimeCourt).occupiedAt;
 
     // Register a player socket as referee so it appears in court.players
     const playerSocketId = 'player-disconnect-socket';
     courtManager.registerClubReferee(court.id, playerSocketId);
-    expect((courtManager.getCourt(court.id) as ClubCourt).players.length).toBeGreaterThan(0);
+    expect((courtManager.getCourt(court.id) as RuntimeCourt).players.length).toBeGreaterThan(0);
 
     // Simulate the disconnect path used by SocketHandler disconnect handler:
     // for each court where the socket is a player, remove it.
@@ -342,7 +345,7 @@ describe('SocketHandler.onMatchEvent — club MATCH_WON keeps OCCUPIED and emits
       }
     }
 
-    const updated = courtManager.getCourt(court.id) as ClubCourt;
+    const updated = courtManager.getCourt(court.id) as RuntimeCourt;
     // Spec scenario 9: court stays OCCUPIED (no auto-terminate)
     expect(updated.clubStatus).toBe(CLUB_STATUS.OCCUPIED);
     // "sin jugadores": no remaining players
@@ -616,11 +619,23 @@ describe('SocketHandler — BracketHandler wiring', () => {
     };
     if (bracket) {
       // Seed a persisted bracket so the handler restores it on construction.
-      const store = new StateStore(fakeFs, 'state.json');
-      (store as unknown as { setBracket: (b: typeof bracket) => void }).setBracket(bracket);
+      // Slice 6 (PERS-4): the coordinator owns the snapshot — seed through it.
+      const seedStore = new StateStore(fakeFs, 'state.json');
+      const seedCoordinator = new PersistenceCoordinator(seedStore, {
+        version: 4,
+        savedAt: 0,
+        liveSessions: [],
+        bracket: null,
+      });
+      seedCoordinator.setBracket(bracket);
+      seedCoordinator.flush();
     }
     const clubConfigStore = new ClubConfigStore(fakeFs);
     const stateStore = new StateStore(fakeFs, 'state.json');
+    const coordinator = new PersistenceCoordinator(
+      stateStore,
+      stateStore.load() ?? { version: 4, savedAt: 0, liveSessions: [], bracket: null },
+    );
     new SocketHandler(
       io as any,
       courtManager as CourtManager,
@@ -629,14 +644,14 @@ describe('SocketHandler — BracketHandler wiring', () => {
       clubConfigStore,
       undefined,
       undefined,
-      stateStore,
+      coordinator,
     );
 
     const connectionCall = (io.on as jest.Mock).mock.calls.find(
       ([event]: [string]) => event === 'connection',
     );
     expect(connectionCall).toBeDefined();
-    return { io, connectionCall, courtManager, stateStore, fakeFs };
+    return { io, connectionCall, courtManager, stateStore, coordinator, fakeFs };
   }
 
   function makeOwnerSocket() {
@@ -809,5 +824,95 @@ describe('SocketHandler — BracketHandler wiring', () => {
       ([event]: [string]) => event === SocketEvents.SERVER.BRACKET_STATE,
     );
     expect(bracketBroadcasts).toHaveLength(0);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Slice 3 — InventoryManager wiring (INVENTORY_* events + connect push)
+// ═══════════════════════════════════════════════════════════════
+
+describe('SocketHandler — InventoryManager wiring (slice 3)', () => {
+  function buildWithInventory() {
+    const io: any = {
+      to: jest.fn().mockReturnThis(),
+      in: jest.fn().mockReturnThis(),
+      emit: jest.fn(),
+      use: jest.fn(),
+      on: jest.fn(),
+      engine: { clientsCount: 0 },
+      sockets: { sockets: new Map() },
+    };
+    const courtManager = createTestCourtManager();
+    const fakeFs: any = {
+      _files: new Map<string, string>(),
+      writeFileSync: jest.fn(function (this: any, p: string, d: string) { this._files.set(p, d); }),
+      readFileSync: jest.fn(function (this: any, p: string) {
+        if (!this._files.has(p)) throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+        return this._files.get(p);
+      }),
+      renameSync: jest.fn(function (this: any, o: string, n: string) {
+        const c = this._files.get(o);
+        this._files.set(n, c);
+        this._files.delete(o);
+      }),
+      existsSync: jest.fn(function (this: any, p: string) { return this._files.has(p); }),
+      mkdirSync: jest.fn(() => undefined),
+      unlinkSync: jest.fn(),
+    };
+    const clubConfigStore = new ClubConfigStore(fakeFs);
+    const inventory = new InventoryManager(new CourtInventoryStore(fakeFs, 'inventory.json'), {
+      resolveCourtSport: () => SPORT.TABLE_TENNIS,
+    });
+    new SocketHandler(
+      io as any,
+      courtManager as CourtManager,
+      '12345678',
+      { ssid: 's', ip: '1', port: 3000, domain: 'd', wifiPassword: '' },
+      clubConfigStore,
+      undefined,
+      undefined,
+      undefined,
+      inventory,
+    );
+
+    const connectionCall = (io.on as jest.Mock).mock.calls.find(
+      ([event]: [string]) => event === 'connection',
+    );
+    expect(connectionCall).toBeDefined();
+    return { io, connectionCall, courtManager, inventory };
+  }
+
+  it('pushes the catalog snapshot (INVENTORY_UPDATED) to a freshly connected socket', () => {
+    const { io, connectionCall, inventory } = buildWithInventory();
+    const record = inventory.add('Mesa 1');
+    const socket = makeMockSocket({});
+    (connectionCall![1] as (s: any) => void)(socket);
+
+    expect(socket.emit).toHaveBeenCalledWith(
+      SocketEvents.SERVER.INVENTORY_UPDATED,
+      { courts: [record] },
+    );
+    expect(io.emit).not.toHaveBeenCalledWith(SocketEvents.SERVER.INVENTORY_UPDATED);
+  });
+
+  it('routes INVENTORY_ADD through the wired ClubCourtHandler and broadcasts the snapshot', () => {
+    const { io, connectionCall } = buildWithInventory();
+    const socket = makeMockSocket({});
+    socket.data = { isClubAdmin: true, adminId: 'admin-1' };
+    (connectionCall![1] as (s: any) => void)(socket);
+
+    const onMock = socket.on as jest.Mock;
+    const addCall = onMock.mock.calls.find(
+      ([event]: [string]) => event === SocketEvents.CLIENT.INVENTORY_ADD,
+    );
+    expect(addCall).toBeDefined();
+    (addCall![1] as (d: { name?: string }) => void)({ name: 'Mesa 1' });
+
+    expect(io.emit).toHaveBeenCalledWith(
+      SocketEvents.SERVER.INVENTORY_UPDATED,
+      expect.objectContaining({ courts: expect.arrayContaining([
+        expect.objectContaining({ name: 'Mesa 1', inventoryStatus: INVENTORY_STATUS.ACTIVE }),
+      ]) }),
+    );
   });
 });

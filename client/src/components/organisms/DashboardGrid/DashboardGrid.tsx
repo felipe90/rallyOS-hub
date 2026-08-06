@@ -16,10 +16,6 @@ export interface DashboardGridProps {
   cleanConfirmCourtId?: string | null;  // Court ID being confirmed for cleaning
   onCleanCourtConfirm?: () => void;  // Confirm clean
   onCleanCourtCancel?: () => void;    // Cancel clean
-  onDeleteCourt?: (courtId: string) => void;  // Delete court (Owner only)
-  showDeleteConfirm?: string | null;  // Court ID being confirmed for deletion
-  onDeleteCourtConfirm?: () => void;  // Confirm delete
-  onDeleteCourtCancel?: () => void;    // Cancel delete
   /** Currently featured court ID for spotlight toggle display */
   featuredCourtId?: string | null;
   /** Called to toggle featured status for a court */
@@ -36,10 +32,6 @@ export function DashboardGrid({
   cleanConfirmCourtId,
   onCleanCourtConfirm,
   onCleanCourtCancel,
-  onDeleteCourt,
-  showDeleteConfirm,
-  onDeleteCourtConfirm,
-  onDeleteCourtCancel,
   featuredCourtId,
   onToggleFeatured,
 }: DashboardGridProps) {
@@ -72,10 +64,6 @@ export function DashboardGrid({
               showCleanConfirm={cleanConfirmCourtId === court.id}
               onCleanConfirm={onCleanCourtConfirm}
               onCleanCancel={onCleanCourtCancel}
-              onDelete={onDeleteCourt ? () => onDeleteCourt(court.id) : undefined}
-              showDeleteConfirm={showDeleteConfirm === court.id}
-              onDeleteConfirm={onDeleteCourtConfirm}
-              onDeleteCancel={onDeleteCourtCancel}
               featured={court.featured === true}
               onToggleFeatured={onToggleFeatured ? () => onToggleFeatured(court.id) : undefined}
             />
@@ -116,10 +104,6 @@ export function DashboardGrid({
               showCleanConfirm={cleanConfirmCourtId === court.id}
               onCleanConfirm={onCleanCourtConfirm}
               onCleanCancel={onCleanCourtCancel}
-              onDelete={onDeleteCourt ? () => onDeleteCourt(court.id) : undefined}
-              showDeleteConfirm={showDeleteConfirm === court.id}
-              onDeleteConfirm={onDeleteCourtConfirm}
-              onDeleteCancel={onDeleteCourtCancel}
               featured={court.featured === true}
               onToggleFeatured={onToggleFeatured ? () => onToggleFeatured(court.id) : undefined}
             />

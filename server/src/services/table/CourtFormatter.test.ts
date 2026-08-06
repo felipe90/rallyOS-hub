@@ -6,14 +6,20 @@
  */
 
 import { CourtFormatter } from './CourtFormatter';
-import { Court } from '../../domain/types';
+import type { RuntimeCourt } from '../../domain/types';
+import { INVENTORY_STATUS } from '../../../../shared/types';
 
-function createMockCourt(overrides: Partial<Court> = {}): Court {
+function createMockCourt(overrides: Partial<RuntimeCourt> = {}): RuntimeCourt {
   return {
+    record: { courtId: 'court-1', number: 1, name: 'Cancha 1', inventoryStatus: INVENTORY_STATUS.ACTIVE },
+    flow: null,
+    reserved: false,
+    mode: 'tournament',
     id: 'court-1',
     number: 1,
     name: 'Cancha 1',
     status: 'LIVE',
+    clubStatus: 'AVAILABLE' as const,
     pin: '1234',
     sportRules: {
       getState: () => ({
@@ -41,6 +47,10 @@ function createMockCourt(overrides: Partial<Court> = {}): Court {
     createdAt: Date.now(),
     featured: false,
     occupiedAt: null,
+    sessionMode: null,
+    playerName: null,
+    phone: null,
+    adminId: null,
     ...overrides,
   } as any;
 }

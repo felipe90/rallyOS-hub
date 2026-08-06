@@ -18,8 +18,7 @@ import { SocketEvents } from '../../../shared/events';
 import { PIN_RULES, sanitizePlayerName } from '../../../shared/validation';
 import { SPORT, CLUB_STATUS, SESSION_MODE } from '../../../shared/types';
 import type { MatchConfig, SessionRecord, SessionMode, ClubConfig } from '../../../shared/types';
-import { isClubCourt } from '../domain/types';
-import type { ClubCourt } from '../domain/types';
+import { isClubFlowCourt } from '../domain/types';
 import { SocketHandlerBase } from './SocketHandlerBase';
 import { PinRateLimiter } from '../services/security/PinRateLimiter';
 import { SessionHistoryStore } from '../services/store/SessionHistoryStore';
@@ -103,7 +102,7 @@ export class ClubPlayerHandler extends SocketHandlerBase {
       const court = this.tableManager.getCourt(courtId);
       const courtName = court?.name ?? '';
       const sessionMode: SessionMode | null =
-        court && isClubCourt(court) ? court.sessionMode : null;
+        court && isClubFlowCourt(court) ? court.sessionMode : null;
       const mode: SessionMode = sessionMode ?? SESSION_MODE.MATCH;
 
       // Free mode costs the same as match mode — the court is occupied and
@@ -124,7 +123,7 @@ export class ClubPlayerHandler extends SocketHandlerBase {
       //   - `adminId` — `null` for player-initiated sessions (no admin
       //     started or ended this). Populated with `socket.data.adminId`
       //     (set at CLUB_VERIFY_ADMIN) by the admin flows in Phase 3 / U2.
-      const clubCourt = court && isClubCourt(court) ? court : null;
+      const clubCourt = court && isClubFlowCourt(court) ? court : null;
       const record: SessionRecord = {
         courtName,
         elapsedSeconds,
@@ -292,7 +291,7 @@ export class ClubPlayerHandler extends SocketHandlerBase {
         return;
       }
 
-      if (!isClubCourt(court)) {
+      if (!isClubFlowCourt(court)) {
         socket.emit(SocketEvents.SERVER.CLUB_RECONNECT_RESULT, {
           success: false,
           error: 'NOT_CLUB_MODE',
@@ -337,7 +336,7 @@ export class ClubPlayerHandler extends SocketHandlerBase {
       // timer on reconnect. sessionMode is sourced from the in-memory ClubCourt
       // — toPersistedClubCourt persists it (PR 2 fix), so this also covers
       // reconnect-after-restart once the StateStore reloads the court.
-      const clubCourt = court as ClubCourt;
+      const clubCourt = court;
       const elapsedSeconds = clubCourt.occupiedAt
         ? Math.max(0, Math.floor((Date.now() - clubCourt.occupiedAt) / 1000))
         : 0;
@@ -384,7 +383,7 @@ export class ClubPlayerHandler extends SocketHandlerBase {
       // Validate court exists and is OCCUPIED (both for confirm and
       // confirmation-request paths). FINISHED courts return ERROR.
       const court = this.tableManager.getCourt(data.courtId);
-      if (!court || !isClubCourt(court) || court.clubStatus !== CLUB_STATUS.OCCUPIED) {
+      if (!court || !isClubFlowCourt(court) || court.clubStatus !== CLUB_STATUS.OCCUPIED) {
         socket.emit(SocketEvents.SERVER.ERROR, {
           code: 'SESSION_NOT_ACTIVE',
           message: 'La sesión no está activa',

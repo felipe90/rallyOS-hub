@@ -16,7 +16,6 @@ const { mockConnection, mockState, actions, connect, disconnect } = vi.hoisted((
   mockState: { courts: [] as unknown[] },
   actions: {
     emit: vi.fn(),
-    createCourt: vi.fn(),
     requestCourts: vi.fn(),
     requestCourtsWithPins: vi.fn(),
     scorePoint: vi.fn(),

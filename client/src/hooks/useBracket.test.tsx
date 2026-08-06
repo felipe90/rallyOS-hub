@@ -143,6 +143,16 @@ describe('useBracket — emit actions', () => {
     })
   })
 
+  it('selectTable emits TOURNAMENT_SELECT_TABLE with { matchId, courtId } (D13 owner picker)', () => {
+    const { socket } = createMockSocket()
+    const { result } = renderHook(() => useBracket(socket))
+    act(() => result.current.selectTable('R1-M1', 'court-9'))
+    expect(socket.emit).toHaveBeenCalledWith(SocketEvents.CLIENT.TOURNAMENT_SELECT_TABLE, {
+      matchId: 'R1-M1',
+      courtId: 'court-9',
+    })
+  })
+
   it('undoMatch emits BRACKET_UNDO_MATCH with { matchId }', () => {
     const { socket } = createMockSocket()
     const { result } = renderHook(() => useBracket(socket))

@@ -36,7 +36,7 @@ import {
   SESSION_MODE,
 } from '../../../shared/types';
 import { SocketEvents } from '../../../shared/events';
-import type { ClubCourt, PersistedClubCourt } from '../domain/types';
+import type { RuntimeCourt, PersistedClubCourt } from '../domain/types';
 import type { PersistedClubCourt as PersistedClubCourtFromPort } from '../domain/ports/persistence-types';
 import { MatchEngine } from '../domain/matchEngine';
 
@@ -219,15 +219,19 @@ describe('player-identity — foundation types (Phase 1)', () => {
   });
 });
 
-describe('player-identity — server internal ClubCourt fields (task 1.5)', () => {
-  function makeClubCourt(overrides: Partial<ClubCourt> = {}): ClubCourt {
+describe('player-identity — server internal RuntimeCourt fields (task 1.5)', () => {
+  function makeClubCourt(overrides: Partial<RuntimeCourt> = {}): RuntimeCourt {
     const engine = new MatchEngine();
     engine.setCourtId('c-1', 'Cancha 1');
     return {
-      kind: 'club',
+      record: { courtId: 'c-1', number: 1, name: 'Cancha 1', inventoryStatus: 'ACTIVE' },
+      flow: null,
+      reserved: false,
+      mode: 'club',
       id: 'c-1',
       number: 1,
       name: 'Cancha 1',
+      status: 'WAITING',
       clubStatus: 'AVAILABLE',
       pin: '',
       sportRules: engine,
@@ -246,14 +250,14 @@ describe('player-identity — server internal ClubCourt fields (task 1.5)', () =
     };
   }
 
-  test('ClubCourt accepts null player fields on creation (unoccupied)', () => {
+  test('RuntimeCourt accepts null player fields on creation (unoccupied)', () => {
     const court = makeClubCourt();
     expect(court.playerName).toBeNull();
     expect(court.phone).toBeNull();
     expect(court.adminId).toBeNull();
   });
 
-  test('ClubCourt accepts populated player fields after an occupy (player flow)', () => {
+  test('RuntimeCourt accepts populated player fields after an occupy (player flow)', () => {
     const court = makeClubCourt({
       clubStatus: 'OCCUPIED',
       playerName: 'Ana',

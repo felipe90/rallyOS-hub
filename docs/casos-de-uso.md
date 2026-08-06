@@ -50,8 +50,9 @@
 
 | CU | Description | Events |
 |---|---|---|
-| **CU-OWNER-01** | Manage courts: grid with PINs + QR, create court (FAB "Cancha"), clean/delete, feature, notify kiosk, export CSV, finish tournament, auto-restore referee session | C `CREATE_COURT`, `RESET_COURT`, `DELETE_COURT`, `SET_FEATURED`, `SEND_NOTIFICATION`, `GET_COURTS_WITH_PINS`, `GET_ALL_HISTORY` · S `COURT_LIST_WITH_PINS`, `COURT_CREATED`, `COURT_UPDATE`, `PIN_REGENERATED`, `QR_DATA`, `KIOSK_MODE` |
-| **CU-OWNER-02** | Manage bracket: create (4/8/16/32, optional 3rd place), assign player, set winner, assign court, undo result, 2-step reset | C `BRACKET_CREATE`, `BRACKET_ASSIGN_PLAYER`, `BRACKET_SET_WINNER`, `BRACKET_ASSIGN_COURT`, `BRACKET_UNDO_MATCH`, `BRACKET_GET`, `BRACKET_RESET` · S `BRACKET_STATE`, `BRACKET_ERROR`, `BRACKET_RESET_CONFIRM` |
+| **CU-OWNER-01** | Manage courts: grid with PINs + QR, clean (PIN regeneration), feature, notify kiosk, export CSV, finish tournament, auto-restore referee session. **[rewritten]** — create/delete removed: court existence is admin-only via the inventory (INVENTORY_*); the owner can no longer create or hard-delete courts | C `RESET_COURT`, `SET_FEATURED`, `SEND_NOTIFICATION`, `GET_COURTS_WITH_PINS`, `GET_ALL_HISTORY` · S `COURT_LIST_WITH_PINS`, `COURT_UPDATE`, `PIN_REGENERATED`, `QR_DATA`, `KIOSK_MODE` |
+| **CU-OWNER-01b** | **[new]** Owner tournament picker: courts come from the ACTIVE inventory (same catalog/availability as the admin — D12); "TOURNAMENT_SELECT_TABLE { matchId, courtId }" binds a bracket match to a court (TCS-1); strict cold-start empty-state copy "No hay mesas disponibles. Configurá el inventario como admin para comenzar un torneo." when no ACTIVE court exists (TCS-4) | C `TOURNAMENT_SELECT_TABLE` · S `INVENTORY_UPDATED`, `BRACKET_STATE` |
+| **CU-OWNER-02** | Manage bracket: create (4/8/16/32, optional 3rd place), assign player, set winner, assign court, undo result, 2-step reset. **[updated]** — a bracket court must be an inventory-ACTIVE court; SELECT is blocked when the court is MAINTENANCE / club RESERVED / live (BUSY) / already assigned | C `BRACKET_CREATE`, `BRACKET_ASSIGN_PLAYER`, `BRACKET_SET_WINNER`, `BRACKET_ASSIGN_COURT`, `TOURNAMENT_SELECT_TABLE`, `BRACKET_UNDO_MATCH`, `BRACKET_GET`, `BRACKET_RESET` · S `BRACKET_STATE`, `BRACKET_ERROR`, `BRACKET_RESET_CONFIRM` |
 | **CU-OWNER-03** | Set remote kiosk mode: "Kiosko" / "Torneo" / "Bracket" | C `SET_KIOSK_MODE` · S `KIOSK_MODE` |
 
 ---
@@ -60,7 +61,7 @@
 
 | CU | Description | Events |
 |---|---|---|
-| **CU-REFEREE-01** | Pick a court and join as referee: courts WITHOUT visible PIN → tap → 4-digit `PinModal` → join. PIN persisted to restore session after refresh | C `SET_REF`, `JOIN_COURT`, `LIST_COURTS`, `REQUEST_COURT_STATE` · S `COURT_LIST`, `REF_SET`, `REF_ROLE_CHECK_RESULT`, `COURT_UPDATE` |
+| **CU-REFEREE-01** | Pick a court and join as referee: courts WITHOUT visible PIN → tap → 4-digit `PinModal` → join. **[updated]** — the court list comes from the ACTIVE inventory (D11); tournament courts are materialized at SELECT time so the PIN exists | C `SET_REF`, `JOIN_COURT`, `LIST_COURTS`, `REQUEST_COURT_STATE` · S `COURT_LIST`, `REF_SET`, `REF_ROLE_CHECK_RESULT`, `COURT_UPDATE` |
 | **CU-REFEREE-02** | Configure + start match: auto-opened "Configurar Partido" modal (Player A/B, "Mejor de", "Desventaja", teams) → `START_MATCH` | C `START_MATCH` (legacy `CONFIGURE_MATCH`) · S `MATCH_UPDATE`, `MATCH_WON`, `SET_WON`, `GAME_WON`, `DEUCE`, `TIEBREAK_START` |
 | **CU-REFEREE-03** | Score/correct/undo/swap sides: tap scoreboard halves → `RECORD_POINT`; minus button → `SUBTRACT_POINT`; undo → `UNDO_LAST`; swap → `SWAP_SIDES`; set server → `SET_SERVER`; `HistoryDrawer`; winner dialog "¡Partido Finalizado! / Ganador: {{name}} / Continuar"; coachmark "Tocá cualquier lado del marcador para sumar un punto"; optional RallyTap BLE bridge | C `RECORD_POINT`, `SUBTRACT_POINT`, `UNDO_LAST`, `SWAP_SIDES`, `SET_SERVER` · S `MATCH_UPDATE`, `MATCH_WON` |
 | **CU-REFEREE-04** | Referee revoked: `REF_REVOKED` (PIN regenerated / displaced) → "Árbitr@ removido" view → "Redirigiendo a sala de espera..." → `/dashboard/spectator` after 3s | S `REF_REVOKED` |
@@ -71,7 +72,7 @@
 
 | CU | Description | Events |
 |---|---|---|
-| **CU-SPECTATOR-01** | View available courts: "Canchas Disponibles" list, empty state "No hay canchas disponibles / Intenta más tarde", card shows "Player A vs Player B" + "Tocá para spectar" | — |
+| **CU-SPECTATOR-01** | View available courts: "Canchas Disponibles" list, empty state "No hay canchas disponibles / Intenta más tarde", card shows "Player A vs Player B" + "Tocá para spectar". **[updated]** — the list is the ACTIVE inventory catalog (D11), mode-agnostic | — |
 | **CU-SPECTATOR-02** | Join as viewer and watch a read-only scoreboard (no edit controls, no config modal, no undo) | C `JOIN_COURT`, `GET_MATCH_STATE` · S `MATCH_UPDATE` |
 
 ---
@@ -81,11 +82,13 @@
 | CU | Description | Events |
 |---|---|---|
 | **CU-CLUBADMIN-01** | Verify admin PIN: 8-digit input `••••••••`, "Ingresar" button → `CLUB_VERIFY_ADMIN`; JWT session persisted and restored after reload (`CLUB_SESSION_RESTORED`); disconnect clears admin state | C `CLUB_VERIFY_ADMIN` · S `CLUB_ADMIN_VERIFIED`, `ERROR`, `CLUB_SESSION_RESTORED` |
-| **CU-CLUBADMIN-02** | Create court: FAB "Cancha" → auto-name "Cancha N" | C `CLUB_CREATE_COURT` · S `CLUB_COURT_CREATED` |
-| **CU-CLUBADMIN-03** | Activate court (generates 4-digit PIN): "Activar" on AVAILABLE → RESERVED, badge `PIN 3629` (no colon) | C `CLUB_ACTIVATE_COURT` · S `CLUB_COURT_ACTIVATED`, `CLUB_KIOSK_DATA` |
-| **CU-CLUBADMIN-04** | Deactivate / Reset / Delete court by status | C `CLUB_DEACTIVATE_COURT`, `CLUB_RESET_COURT`, `CLUB_DELETE_COURT` |
-| **CU-CLUBADMIN-05** | Force-end an OCCUPIED session: "Finalizar Sesión" → confirm "¿Finalizar esta sesión? La cancha se pondrá en FINISHED." | C `CLUB_FORCE_END` · S `CLUB_SESSION_ENDED` |
-| **CU-CLUBADMIN-06** | Admin starts a session for a player (occupy): "Iniciar sesión — {{courtName}}" modal with name/phone/mode Libre-Partido; phone encrypted client-side | C `CLUB_ADMIN_OCCUPY` |
+| **CU-CLUBADMIN-02** | **[rewritten]** Add court to the inventory: FAB "Agregar Mesa/Cancha" → `INVENTORY_ADD` (counter-assigned number, sport-aware suggested name "Mesa N"/"Cancha N"); the court appears ACTIVE/Disponible. The old `CLUB_CREATE_COURT` create flow is **removed** (CE-1) | C `INVENTORY_ADD` · S `INVENTORY_UPDATED` |
+| **CU-CLUBADMIN-02b** | **[new]** Rename / maintenance / archive inventory courts: display name over the stable courtId (`INVENTORY_RENAME`); ACTIVE↔MAINTENANCE gated on !BUSY (`INVENTORY_MAINTENANCE`); archive-not-delete with the no-delete copy "used courts are archived, never deleted" — ARCHIVE blocked while BUSY (`INVENTORY_ARCHIVE`, INV-5/R7); the catalog is the single source of truth (D3) | C `INVENTORY_RENAME`, `INVENTORY_MAINTENANCE`, `INVENTORY_ARCHIVE` · S `INVENTORY_UPDATED` |
+| **CU-CLUBADMIN-03** | Activate court (generates 4-digit PIN): "Activar" on AVAILABLE → RESERVED, badge `PIN 3629` (no colon). **[updated]** — the court now comes from the inventory (materialized on first activate) | C `CLUB_ACTIVATE_COURT` · S `CLUB_COURT_ACTIVATED`, `CLUB_KIOSK_DATA` |
+| **CU-CLUBADMIN-04** | **[rewritten — archive]** Deactivate / Reset by status; the hard DELETE path (`CLUB_DELETE_COURT`) is **removed** — used courts are archived via `INVENTORY_ARCHIVE` (blocked while BUSY; force-end first) | C `CLUB_DEACTIVATE_COURT`, `CLUB_RESET_COURT`, `INVENTORY_ARCHIVE` |
+| **CU-CLUBADMIN-04b** | **[new]** Admin force-end (general stop control, R7/AFE-1): "Finalizar sesión" on a BUSY court ends ANY live session (club OCCUPIED or tournament LIVE) → IDLE, `adminId`-traceable; a tournament force-end unbinds the bracket match WITHOUT advancing it (AFE-2) | C `INVENTORY_FORCE_END` · S `INVENTORY_UPDATED`, `CLUB_KIOSK_DATA` |
+| **CU-CLUBADMIN-05** | Force-end an OCCUPIED session: "Finalizar Sesión" → confirm "¿Finalizar esta sesión? La cancha se pondrá en FINISHED." **[updated]** — the court comes from the inventory; `INVENTORY_FORCE_END` (CU-CLUBADMIN-04b) is the cross-mode stop control | C `CLUB_FORCE_END` · S `CLUB_SESSION_ENDED` |
+| **CU-CLUBADMIN-06** | Admin starts a session for a player (occupy): "Iniciar sesión — {{courtName}}" modal with name/phone/mode Libre-Partido; phone encrypted client-side. **[updated]** — occupies an inventory court (materialized on demand) | C `CLUB_ADMIN_OCCUPY` |
 | **CU-CLUBADMIN-07** | Session history + phone reveal: table Cancha/Jugador/Duración/Costo/Fecha, "Ver teléfono" → modal with number (10s auto-dismiss); 2-step "Limpiar historial"; "Exportar CSV" (`/api/club/sessions/export`) | C `CLUB_REVEAL_PHONE`, `CLUB_CLEAR_HISTORY`, `CLUB_CLEAR_HISTORY_CONFIRM` · S `CLUB_SESSION_HISTORY`, `CLUB_REVEAL_PHONE_RESULT` |
 | **CU-CLUBADMIN-08** | Kiosk mode + notifications: "Kiosko"/"Torneo" toggle; bell → `KioskNotificationModal` (type/message/duration/scope) | C `SET_KIOSK_MODE`, `CLUB_SEND_NOTIFICATION` · S `KIOSK_MODE`, `KIOSK_NOTIFICATION` |
 | **CU-CLUBADMIN-09** | Feature a court for kiosk spotlight ("Destacar"/"Quitar Destacado") on OCCUPIED match-mode courts | C `SET_FEATURED` |
@@ -131,22 +134,32 @@
 
 | CU | Description | Events |
 |---|---|---|
-| **CU-BRACKET-01** | Owner bracket management (equivalent to CU-OWNER-02): create, assign player ("Asignar jugador", "Tocá para asignar"), confirm winner ("Ganó {{name}}"), assign court (incl. "Sin cancha"), undo, 2-step reset (token + "Reiniciar ahora", 30s) | C `BRACKET_CREATE/ASSIGN_PLAYER/SET_WINNER/ASSIGN_COURT/UNDO_MATCH/GET/RESET` · S `BRACKET_STATE/BRACKET_ERROR/BRACKET_RESET_CONFIRM` |
+| **CU-BRACKET-01** | Owner bracket management (equivalent to CU-OWNER-02): create, assign player ("Asignar jugador", "Tocá para asignar"), confirm winner ("Ganó {{name}}"), assign court (incl. "Sin cancha"), undo, 2-step reset (token + "Reiniciar ahora", 30s). **[updated]** — court assignment requires an inventory-ACTIVE court (TOURNAMENT_SELECT_TABLE); a SELECT on a MAINTENANCE / club-RESERVED / BUSY / already-assigned court is rejected (TCS-2) | C `BRACKET_CREATE/ASSIGN_PLAYER/SET_WINNER/ASSIGN_COURT/UNDO_MATCH/GET/RESET`, `TOURNAMENT_SELECT_TABLE` · S `BRACKET_STATE/BRACKET_ERROR/BRACKET_RESET_CONFIRM` |
 
 ---
 
 ## E2E coverage matrix
 
-Current state of the `client/tests/e2e/` suite (verified 2026-08-03, post-fix): **green — 57 passed, 3 skipped, 0 failed** across chromium/firefox/webkit. The 3 skips are the pre-existing `CU-TIMER-01` (match auto-finish → elapsed+cost) which requires full match state. Categories used below: (a) stale copy, (b) stale PIN length/placeholder, (e) requires real hub state, (f) test design.
+Current state of the `client/tests/e2e/` suite (verified 2026-08-03, post-fix): **green — 57 passed, 3 skipped, 0 failed** across chromium/firefox/webkit. The 3 skips are the pre-existing `CU-TIMER-01` (match auto-finish → elapsed+cost) which requires full match state.
 
-| Spec | CU covered | Status after fix |
+**SLICE 5 REWRITE (admin-court-inventory) — matrix regenerated 2026-08-05.** The club specs now seed courts via the admin inventory (INVENTORY_ADD FAB "Agregar Mesa/Cancha") instead of the removed CLUB_CREATE_COURT create button; the stale 'Cancha' selector drift in `club-free-mode.spec.ts` / `player-identity.spec.ts` is fixed (tableTennis fixture renders "Agregar Mesa"). **VERIFIED LIVE 2026-08-05** (chromium, fresh hub, `CLUB_ADMIN_PIN` set): client suite **19 passed / 1 skipped / 0 failed** (the skip is the pre-existing `CU-TIMER-01`); server Playwright **10/10 passed** (`security.spec.ts` 5/5 + `bracketCourtFlow.spec.ts` 5/5, including the slice-5 referee-play auto-advance). Also fixed during the live run: `useCourtInventory.loading` now clears on every source snapshot (buttons were stuck disabled after INVENTORY_ADD / CLUB_ACTIVATE), and the ClubAdminPage renders Activar/Ocupar for catalog-only courts (clubStatus undefined → AVAILABLE).
+
+| Spec | CU covered | Status after slice 5 |
 |---|---|---|
-| `auth.spec.ts` | CU-AUTH-01..04 | ✅ fixed (a): "Ingresá el PIN de Organizador del torneo" |
-| `dashboard.spec.ts` | CU-AUTH-02/03 | ✅ superficial navigation checks (no content asserts) |
-| `scoreboard.spec.ts` | CU-REFEREE-02 | ✅ test 2 rewritten: unauthenticated scoreboard route → redirects to `/auth` |
-| `club-mode.spec.ts` | CU-CLUBADMIN-01..04, CU-CLUBPLAY-06 | ✅ fixed (a)+(b)+(f): 8-dot placeholder, "Ingresar", "Cancha", `/PIN\s*(\d+)/`; CU-RECONNECT-01 starts a free session before refresh |
-| `club-free-mode.spec.ts` | CU-CLUBPLAY-02/03 | ✅ fixed (f): name+phone filled before "Comenzar" (free mode is now gated on identity) |
-| `player-identity.spec.ts` | CU-PID-01..04 | ✅ fixed: testids added to components, occupy modal uses new testids, dialog-scoped clicks |
+| `auth.spec.ts` | CU-AUTH-01..04 | ✅ verified live |
+| `dashboard.spec.ts` | CU-AUTH-02/03 | ✅ verified live |
+| `scoreboard.spec.ts` | CU-REFEREE-02 | ✅ verified live |
+| `club-mode.spec.ts` | CU-CLUBADMIN-01..04, CU-CLUBPLAY-06 | ✅ verified live — inventory FAB seeding ("Agregar Mesa/Cancha") |
+| `club-free-mode.spec.ts` | CU-CLUBPLAY-02/03 | ✅ verified live — inventory FAB seeding + 'Cancha' drift fixed |
+| `player-identity.spec.ts` | CU-PID-01..04 | ✅ verified live — inventory FAB seeding + 'Cancha' drift fixed |
+| `server/tests/security.spec.ts` | RF-01, INV-1, CE-3, RF-03 | ✅ verified live — CREATE_COURT removed; admin-gated INVENTORY_ADD + legacy-event rejection + SET_REF rate limit |
+| `server/tests/bracketCourtFlow.spec.ts` | TCS-1..4 + slice-5 referee-play | ✅ verified live — SELECT materializes runtime tournament court; START_MATCH → MATCH_WON auto-advance; reset releases flow (`CLUB_ADMIN_PIN` env) |
+
+### Removed CU rows (per Update Protocol)
+
+- **CU-OWNER-01 (create/delete part)** — `[removed]` CREATE_COURT/DELETE_COURT: owner can no longer mutate court existence (CE-1/CE-2); migrated to the inventory (CU-OWNER-01b picker + CU-CLUBADMIN-02b).
+- **CU-CLUBADMIN-02 (old create)** — `[removed]` CLUB_CREATE_COURT: creation moved to INVENTORY_ADD (CE-1).
+- **CU-CLUBADMIN-04 (delete part)** — `[removed]` CLUB_DELETE_COURT: hard delete removed, archive-only (CE-2, INV-3).
 
 ### Harness notes (for future e2e rewrites)
 

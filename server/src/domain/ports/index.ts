@@ -17,6 +17,7 @@ export type { IQRService } from './IQRService';
 export type { ICourtFormatter } from './ICourtFormatter';
 export type { ICourtRepository } from './ICourtRepository';
 export type { ICourtPersistence } from './ICourtPersistence';
+export type { ICourtInventoryStore } from './ICourtInventoryStore';
 export type { IClubConfigRepository } from './IClubConfigRepository';
 export type { IPlayerService } from './IPlayerService';
 export type { IMatchEngineFactory } from './IMatchEngineFactory';
@@ -32,6 +33,8 @@ export type {
   PersistedMatchState,
   PersistedTable,
   PersistedStateV3,
+  PersistedStateV4,
+  PersistedFlowSession,
   FileSystem,
   MatchExporter,
 } from './persistence-types';

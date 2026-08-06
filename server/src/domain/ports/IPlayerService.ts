@@ -10,38 +10,38 @@
  * pure interface, one file per concern.
  */
 
-import type { Court, Player } from '../types';
+import type { RuntimeCourt, Player } from '../types';
 
 export interface IPlayerService {
   /**
    * Join a court. When a PIN is provided, validates it first.
    * Returns true on success, false on invalid PIN.
    */
-  joinCourt(court: Court, socketId: string, name: string, pin?: string): boolean;
+  joinCourt(court: RuntimeCourt, socketId: string, name: string, pin?: string): boolean;
 
   /**
    * Remove a player from a court by socket ID.
    * No-op if the socket is not on the court.
    */
-  leaveCourt(court: Court, socketId: string): void;
+  leaveCourt(court: RuntimeCourt, socketId: string): void;
 
   /**
    * Set a socket as referee, authenticated by PIN.
    * Replaces any existing referee.
    * Returns true on successful PIN validation.
    */
-  setReferee(court: Court, socketId: string, pin: string): boolean;
+  setReferee(court: RuntimeCourt, socketId: string, pin: string): boolean;
 
   /**
    * Set a socket as referee without PIN validation.
    * Used by club-mode courts where the joining player IS the referee.
    * Returns the old referee's socketId if one was displaced, null otherwise.
    */
-  setRefereeDirect(court: Court, socketId: string, name: string): string | null;
+  setRefereeDirect(court: RuntimeCourt, socketId: string, name: string): string | null;
 
   /** Check if a socket is the current referee for a court. */
-  isReferee(court: Court, socketId: string): boolean;
+  isReferee(court: RuntimeCourt, socketId: string): boolean;
 
   /** Get the socket ID of the current referee, or null if none. */
-  getRefereeSocketId(court: Court): string | null;
+  getRefereeSocketId(court: RuntimeCourt): string | null;
 }

@@ -20,6 +20,11 @@ import { QRService } from './services/qr/QRService';
 import { SportRegistry } from './domain/sports/sport.registry';
 import { DefaultMatchEngineFactory } from './domain/ports';
 import { StateStore } from './services/store/StateStore';
+import { PersistenceCoordinator } from './services/store/PersistenceCoordinator';
+import { PERSISTENCE_VERSION } from './domain/ports/persistence-types';
+import { CourtInventoryStore } from './services/store/CourtInventoryStore';
+import { InventoryManager } from './domain/inventory/InventoryManager';
+import { registerDefaultFlows } from './domain/flows';
 import { ClubConfigStore } from './services/store/ClubConfigStore';
 import { SessionHistoryStore } from './services/store/SessionHistoryStore';
 import { createTournamentRouter } from './routes/tournament';
@@ -62,7 +67,33 @@ const hubConfig = {
 
 // Create stores
 const stateStore = new StateStore();
+// Slice 6 (PERS-4): the single-writer persistence coordinator. Seeded from
+// the persisted v4 document (or a fresh empty one); it owns the in-memory
+// snapshot (liveSessions + bracket) and performs ONE atomic tmp+rename of
+// the FULL document per flush. CourtManager (sessions) and BracketHandler
+// (bracket) both mutate this snapshot — the R2 torn-write is gone.
+const persistenceCoordinator = new PersistenceCoordinator(
+  stateStore,
+  stateStore.load() ?? {
+    version: PERSISTENCE_VERSION,
+    savedAt: 0,
+    liveSessions: [],
+    bracket: null,
+  },
+);
 const clubConfigStore = new ClubConfigStore();
+// Admin inventory catalog (PERS-2/PERS-3): durable CourtRecord store with
+// synchronous immediate writes; InventoryManager is the ONLY existence
+// authority. Injected into CourtManager for the persist/restore axis split
+// (INV-4): restoreState drops any persisted flow whose courtId has no
+// catalog record (no ghost sessions — see admin-court-inventory design D1).
+const courtInventoryStore = new CourtInventoryStore();
+const inventoryManager = new InventoryManager(courtInventoryStore, {
+  resolveCourtSport: () => {
+    const config = clubConfigStore.load();
+    return config?.sport === SPORT.PADEL ? SPORT.PADEL : SPORT.TABLE_TENNIS;
+  },
+});
 // SessionHistoryStore — append-only JSON log of completed club sessions.
 // Spec: club-session-history / "SessionHistoryStore" requirement. Injected
 // into both the socket layer (ClubPlayerHandler.append on session end +
@@ -89,6 +120,21 @@ const courtManager = new CourtManager({
   formatter,
   qrService,
   persistence: stateStore,
+  // PERS-4 (slice 6) — single-writer coordinator: persistState mutates the
+  // shared snapshot and flushes the FULL document (sessions + bracket).
+  coordinator: persistenceCoordinator,
+  // FMR-1 — the flow rule engine (club + tournament contracts).
+  registry: registerDefaultFlows(),
+  // INV-4 — catalog view for the persist/restore axis split (ghost-drop).
+  inventory: inventoryManager,
+  // FMR-3/AFE-3 — resolve the club cost config so the club flow contract
+  // SETTLES the real session cost (ceil(elapsedMinutes × costPerMinute)).
+  resolveClubConfig: () => {
+    const config = clubConfigStore.load();
+    return config
+      ? { costPerMinute: config.costPerMinute, currency: config.currency }
+      : null;
+  },
   // MP-1 — sport-aware default court names: NEW courts are named after the
   // club's configured sport ("Mesa N" for table tennis, "Cancha N" for
   // padel). Normalized exactly like ClubPlayerHandler.ts:207 so an unknown
@@ -106,7 +152,7 @@ const courtManager = new CourtManager({
 // of truth (ENCRYPTION_SECRET via pinEncryption.getServerSecret).
 const sessionTokenService = new SessionTokenService();
 
-createSocketServer(io, courtManager, ownerPin, hubConfig, clubConfigStore, sessionHistoryStore, undefined, stateStore);
+const socketHandler = createSocketServer(io, courtManager, ownerPin, hubConfig, clubConfigStore, sessionHistoryStore, undefined, persistenceCoordinator, inventoryManager);
 
 // Restore persisted state (OCCUPIED/FINISHED courts) from disk.
 // Must run AFTER createSocketServer so onTableUpdate callbacks are wired.
@@ -132,10 +178,18 @@ app.get('/api/club/config', (_req, res) => {
   });
 });
 
-// Mount tournament lifecycle routes (before SPA fallback)
+// Mount tournament lifecycle routes (before SPA fallback).
+// Slice 4 (TCS-3/Q4): POST /finish also releases every bracket court binding
+// (flows → IDLE) via the SocketHandler seam — the finished bracket stays on
+// display and club courts are untouched.
 app.use(
   '/api/tournament',
-  createTournamentRouter(stateStore, courtManager, ownerAuthMiddleware),
+  createTournamentRouter(
+    stateStore,
+    courtManager,
+    ownerAuthMiddleware,
+    () => socketHandler.releaseAllBracketCourts(),
+  ),
 );
 
 // Mount CSV export route (before SPA fallback)
@@ -187,7 +241,12 @@ const shutdown = (signal: 'SIGTERM' | 'SIGINT') => {
 
   // P1: flush any pending debounced persist before the event loop winds
   // down — a rolling match must not lose its last points on a restart.
+  // Slice 6 (PERS-4): CourtManager.flush() covers the 600ms session debounce;
+  // flushBracketPersistence() covers the bracket's 2s slot-save timer. Both
+  // flush through the SAME coordinator, so one atomic write lands the full
+  // document (sessions + bracket) before the process exits.
   courtManager.flush();
+  socketHandler.flushBracketPersistence?.();
 
   gracefulShutdown(
     httpsServer,

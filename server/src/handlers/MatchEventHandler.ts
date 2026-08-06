@@ -19,7 +19,7 @@ import { logger } from '../utils/logger';
 import { SocketEvents } from '../../../shared/events';
 import { SocketHandlerBase } from './SocketHandlerBase';
 import { RateLimiter } from '../services/security/RateLimiter';
-import { isClubCourt } from '../domain/types';
+import { isClubFlowCourt } from '../domain/types';
 
 import type { Player, MatchConfig } from '../domain/matchEngine';
 import { SPORT } from '../../../shared/types';
@@ -139,7 +139,7 @@ export class MatchEventHandler extends SocketHandlerBase {
       if (court) {
         const courtInfo = this.tableManager.courtToInfo(court);
         // Do not broadcast COURT_UPDATE for club courts — they use CLUB_KIOSK_DATA.
-        if (!isClubCourt(court)) {
+        if (!isClubFlowCourt(court)) {
           this.io.emit(SocketEvents.SERVER.COURT_UPDATE, this.toPublicCourtInfo(courtInfo));
         }
       }
@@ -206,7 +206,7 @@ export class MatchEventHandler extends SocketHandlerBase {
       if (court) {
         const courtInfo = this.tableManager.courtToInfo(court);
         // Do not broadcast COURT_UPDATE for club courts — they use CLUB_KIOSK_DATA.
-        if (!isClubCourt(court)) {
+        if (!isClubFlowCourt(court)) {
           this.io.emit(SocketEvents.SERVER.COURT_UPDATE, this.toPublicCourtInfo(courtInfo));
         }
       }

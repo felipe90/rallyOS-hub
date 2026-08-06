@@ -101,6 +101,11 @@ export const SocketEvents = {
     INVENTORY_MAINTENANCE: 'INVENTORY_MAINTENANCE',
     INVENTORY_ARCHIVE: 'INVENTORY_ARCHIVE',
     INVENTORY_FORCE_END: 'INVENTORY_FORCE_END',
+    // Tournament court selection — owner picker binds a bracket match to an
+    // inventory-ACTIVE court (D13, TCS-1/TCS-2). Payload { matchId, courtId }
+    // (Q1 design-answers): BracketEngine.assignCourt(matchId, courtId) needs
+    // the match id. Binds availability only — never mutates existence.
+    TOURNAMENT_SELECT_TABLE: 'TOURNAMENT_SELECT_TABLE',
   },
   // Emitted by SERVER → received by CLIENT
   SERVER: {

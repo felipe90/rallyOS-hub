@@ -200,6 +200,12 @@ describe('Admin court inventory — server → client events', () => {
   });
 });
 
+describe('Tournament court selection — TOURNAMENT_SELECT_TABLE', () => {
+  test('client event is registered with the D13 payload name', () => {
+    expect(SocketEvents.CLIENT.TOURNAMENT_SELECT_TABLE).toBe('TOURNAMENT_SELECT_TABLE');
+  });
+});
+
 describe('Admin court inventory — event name uniqueness', () => {
   test('every INVENTORY_* event is unique across the whole dictionary', () => {
     const allValues = [

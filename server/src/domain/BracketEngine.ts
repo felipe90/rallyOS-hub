@@ -255,6 +255,32 @@ export class BracketEngine {
     return b;
   }
 
+  // ── releaseAll (TCS-3, Q4) ─────────────────────────────────────────────
+
+  /**
+   * Release every court binding on bracket end/reset (TCS-3, Q4): walk the
+   * main matches + the third-place match, set each `match.courtId = null`,
+   * and return the DISTINCT courtIds that were released. Bracket-scoped —
+   * club courts are never touched (they are not in `bracket.matches`). The
+   * bracket itself is KEPT for display (Q4 — no `reset()`, no status change);
+   * the caller (BracketHandler) releases the per-court tournament flows →
+   * IDLE and persists once. Returns [] when nothing is bound (no-op).
+   */
+  releaseAll(): string[] {
+    const b = this._bracket;
+    if (!b) return [];
+    const released = new Set<string>();
+    const unbind = (m: BracketMatch): void => {
+      if (m.courtId) {
+        released.add(m.courtId);
+        m.courtId = null;
+      }
+    };
+    for (const m of b.matches) unbind(m);
+    if (b.thirdPlaceMatch) unbind(b.thirdPlaceMatch);
+    return Array.from(released);
+  }
+
   // ── reset & restore (R10) ───────────────────────────────────────────────
 
   /** Clear the bracket entirely (used by the confirmed 2-step reset). */

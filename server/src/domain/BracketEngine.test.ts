@@ -595,6 +595,63 @@ describe('undoMatch cascade with third place (Option 2)', () => {
   });
 });
 
+// ── releaseAll (TCS-3 / Q4) ────────────────────────────────────────────
+
+describe('releaseAll (TCS-3, Q4)', () => {
+  test('clears every match + third-place courtId and returns the distinct released courtIds', () => {
+    const e = new BracketEngine();
+    e.create('T', 4, true);
+    e.assignCourt('R1-M1', 'c1');
+    e.assignCourt('R1-M2', 'c2');
+    e.assignCourt('R2-M1', 'c1'); // same court bound to the final — distinct dedupe
+    e.assignCourt('TP-M1', 'c3');
+
+    const released = e.releaseAll();
+
+    expect(released.sort()).toEqual(['c1', 'c2', 'c3']);
+    for (const m of e.bracket!.matches) {
+      expect(m.courtId).toBeNull();
+    }
+    expect(e.bracket!.thirdPlaceMatch!.courtId).toBeNull();
+  });
+
+  test('keeps the completed bracket for display — no reset, no status change', () => {
+    const e = new BracketEngine();
+    e.create('T', 4, true);
+    e.assignCourt('R1-M1', 'c1');
+    e.assignCourt('R1-M2', 'c2');
+    // Decide every match → bracket COMPLETED.
+    e.assignPlayer('R1-M1', 'A', 'A1');
+    e.assignPlayer('R1-M1', 'B', 'B1');
+    e.setWinner('R1-M1', 'A');
+    e.assignPlayer('R1-M2', 'A', 'A2');
+    e.assignPlayer('R1-M2', 'B', 'B2');
+    e.setWinner('R1-M2', 'A');
+    e.setThirdPlaceLoser('R1-M1', 'B');
+    e.setThirdPlaceLoser('R1-M2', 'B');
+    e.assignPlayer('R2-M1', 'A', 'A1');
+    e.assignPlayer('R2-M1', 'B', 'A2');
+    e.setWinner('R2-M1', 'A');
+    expect(e.bracket!.status).toBe(BRACKET_STATUS.COMPLETED);
+
+    e.releaseAll();
+
+    // Bracket survives with all its data — only the court bindings are gone.
+    expect(e.bracket).not.toBeNull();
+    expect(e.bracket!.status).toBe(BRACKET_STATUS.COMPLETED);
+    expect(match(e.bracket!, 'R2-M1').winner).toBe('A');
+    expect(e.bracket!.matches).toHaveLength(3);
+    expect(e.bracket!.thirdPlaceMatch).not.toBeNull();
+  });
+
+  test('returns an empty array when no court is bound (no-op)', () => {
+    const e = new BracketEngine();
+    e.create('T', 8, false);
+    expect(e.releaseAll()).toEqual([]);
+    expect(e.bracket).not.toBeNull();
+  });
+});
+
 // ── reset & restore (R10) ──────────────────────────────────────────────
 
 describe('reset & restore (R10)', () => {

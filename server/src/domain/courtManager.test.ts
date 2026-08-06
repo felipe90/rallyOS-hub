@@ -3,6 +3,7 @@ import type { CourtRecord } from '../../../shared/types';
 import { CourtManager, type CourtCatalog } from './courtManager';
 import { createTestCourtManager } from './courtManager.test-factory';
 import { StateStore } from '../services/store/StateStore';
+import { PersistenceCoordinator } from '../services/store/PersistenceCoordinator';
 import type { FileSystem, PersistedCourt, PersistedClubCourt, PersistedMatchState, PersistedFlowSession } from '../services/store/types';
 import type { RuntimeCourt, MatchStateExtended, MatchEvent, FlowSlot, FlowModeKey } from './types';
 import { MatchEngine, MAX_HISTORY_LENGTH } from './matchEngine';
@@ -2480,5 +2481,72 @@ describe('courtManager — persist/restore axis split (ghost-drop, no ghost sess
     const manager = createTestCourtManager({ persistence: fakePersistence });
     expect(manager.restoreState()).toBe(true);
     expect(manager.getCourt('live-1')).toBeDefined();
+  });
+});
+
+// ── Slice 6: PERS-4 coordinator routing (single writer) ────────────────
+
+function coordinatorBracket() {
+  return {
+    name: 'Torneo',
+    numSlots: 4,
+    includeThirdPlace: false,
+    matches: [
+      {
+        id: 'R1-M1', round: 1, position: 0,
+        playerA: 'Juan', playerB: null, winner: null,
+        status: 'READY', courtId: null,
+      },
+    ],
+    thirdPlaceMatch: null,
+    status: 'SETUP',
+    createdAt: 1700000000000,
+  };
+}
+
+describe('CourtManager — PersistenceCoordinator routing (PERS-4)', () => {
+  it('persistState mutates the shared snapshot and flushes the full document ONCE', () => {
+    const fs2 = makeFs();
+    const store = new StateStore(fs2, 'data/rallyos-state.json');
+    const coordinator = new PersistenceCoordinator(store, {
+      version: 4,
+      savedAt: 0,
+      liveSessions: [],
+      bracket: null,
+    });
+    const manager = createTestCourtManager({ persistence: store, coordinator });
+    const court = manager.createCourt('Mesa Test');
+    manager.startMatch(court.id, { playerNameA: 'A', playerNameB: 'B' });
+    manager.flush();
+
+    const loaded = store.load();
+    expect(loaded).not.toBeNull();
+    expect(loaded!.liveSessions).toHaveLength(1);
+    expect(loaded!.liveSessions[0].courtId).toBe(court.id);
+    // The coordinator wrote the file — the snapshot is authoritative.
+    expect(coordinator.getSnapshot().liveSessions).toHaveLength(1);
+  });
+
+  it('a bracket already in the shared snapshot survives a CourtManager session flush (R2 fixed)', () => {
+    const fs2 = makeFs();
+    const store = new StateStore(fs2, 'data/rallyos-state.json');
+    const coordinator = new PersistenceCoordinator(store, {
+      version: 4,
+      savedAt: 0,
+      liveSessions: [],
+      bracket: coordinatorBracket() as never,
+    });
+    const manager = createTestCourtManager({ persistence: store, coordinator });
+    const court = manager.createCourt('Mesa Test');
+    manager.startMatch(court.id, { playerNameA: 'A', playerNameB: 'B' });
+    manager.flush();
+
+    // Old R2 failure: CourtManager re-serialized its own stale view (no
+    // bracket) and clobbered BracketHandler's write. Now the flush
+    // re-serializes the FULL snapshot — the bracket rides along.
+    const loaded = store.load();
+    expect(loaded!.liveSessions).toHaveLength(1);
+    expect(loaded!.bracket).not.toBeNull();
+    expect((loaded!.bracket as { name: string }).name).toBe('Torneo');
   });
 });

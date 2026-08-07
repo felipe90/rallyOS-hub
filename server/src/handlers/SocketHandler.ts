@@ -394,6 +394,14 @@ export class SocketHandler {
         logger.info({ mode: this.kioskMode }, 'Kiosk mode updated');
       });
 
+      // GET_KIOSK_MODE — public: the kiosk TV requests the current mode on
+      // (re)mount so a page reload never gets stuck on the loading state
+      // (the one-shot connect push may have been missed). Mirrors the
+      // LIST_COURTS / INVENTORY_LIST / BRACKET_GET request pattern.
+      socket.on(SocketEvents.CLIENT.GET_KIOSK_MODE, () => {
+        socket.emit(SocketEvents.SERVER.KIOSK_MODE, { mode: this.kioskMode });
+      });
+
       // Register all handler events
       this.courtHandler.registerHandlers(socket);
       this.matchHandler.registerHandlers(socket);

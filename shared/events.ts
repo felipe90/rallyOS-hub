@@ -88,6 +88,10 @@ export const SocketEvents = {
     CLUB_SEND_NOTIFICATION: 'CLUB_SEND_NOTIFICATION',
     // Kiosk mode switch
     SET_KIOSK_MODE: 'SET_KIOSK_MODE',
+    // Request the current kiosk mode on (re)mount — the server pushes
+    // KIOSK_MODE once at connection time, but a page reload can attach its
+    // listener AFTER that one-shot emit (same race as LIST_COURTS etc.).
+    GET_KIOSK_MODE: 'GET_KIOSK_MODE',
     // Tournament Bracket — owner-only manual bracket management
     // (see `bracket-tournament-mvp` spec).
     BRACKET_CREATE: 'BRACKET_CREATE',

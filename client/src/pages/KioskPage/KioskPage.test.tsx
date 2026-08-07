@@ -3,6 +3,7 @@ import { render, screen, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { KioskPage } from './KioskPage'
 import { useSocketContext } from '@/contexts/SocketContext'
+import { SocketEvents } from '@shared/events'
 
 // Mock SocketContext
 vi.mock('@/contexts/SocketContext', () => ({
@@ -160,5 +161,29 @@ describe('KioskPage', () => {
     render(<MemoryRouter initialEntries={['/kiosk/tournament']}><KioskPage /></MemoryRouter>)
 
     expect(screen.getByTestId('tournament-kiosk')).toBeInTheDocument()
+  })
+})
+
+describe('KioskPage — reload race (mode request)', () => {
+  it('requests the current kiosk mode on mount so a reload never sticks on loading', () => {
+    let handler: (...args: unknown[]) => void = () => {}
+    const mockOn = vi.fn((_event: string, h: (...args: unknown[]) => void) => {
+      handler = h
+    })
+    const mockEmit = vi.fn()
+    mockUseSocketContext.mockReturnValue({
+      socket: { on: mockOn, emit: mockEmit, off: vi.fn() },
+    })
+
+    render(<MemoryRouter><KioskPage /></MemoryRouter>)
+
+    // The hook requests the mode on demand (same pattern as LIST_COURTS).
+    expect(mockEmit).toHaveBeenCalledWith(SocketEvents.CLIENT.GET_KIOSK_MODE)
+
+    // The response resolves the loading state.
+    act(() => {
+      handler({ mode: 'club' })
+    })
+    expect(screen.getByTestId('club-kiosk')).toBeInTheDocument()
   })
 })

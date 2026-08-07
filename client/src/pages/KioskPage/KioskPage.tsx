@@ -42,6 +42,13 @@ export function KioskPage() {
 
     if (!socket) return
 
+    // Request the current kiosk mode on (re)mount: the server pushes
+    // KIOSK_MODE once at connection time, but a page reload can attach this
+    // listener AFTER that one-shot emit — without the request the TV kiosk
+    // would stay on the loading spinner forever. GET_KIOSK_MODE returns the
+    // current mode on demand (same race pattern as LIST_COURTS etc.).
+    socket.emit(SocketEvents.CLIENT.GET_KIOSK_MODE)
+
     // Listen for remote kiosk mode from server (set by admin/owner dashboard)
     const handleKioskMode = (data: { mode: KioskMode }) => {
       setMode(data.mode)

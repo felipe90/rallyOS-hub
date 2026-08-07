@@ -42,6 +42,14 @@ export function useSocketState(socket: Socket | null) {
   useEffect(() => {
     if (!socket) return
 
+    // Request the public court list on (re)mount: the server pushes
+    // COURT_LIST once at connection time, but a page reload can attach these
+    // listeners AFTER that one-shot emit (the socket is created by
+    // useSocketConnection while this effect still holds the previous/null
+    // ref). LIST_COURTS returns the same COURT_LIST payload on demand
+    // (CourtEventHandler) — closes the reload race for the owner grid.
+    socket.emit(SocketEvents.CLIENT.LIST_COURTS)
+
     const handleCourtUpdate = (court: CourtInfo) => {
       // Reject club courts — OwnerDashboard only shows tournament courts.
       if (court.mode === COURT_MODE.CLUB) return

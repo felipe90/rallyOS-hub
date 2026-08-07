@@ -268,3 +268,21 @@ describe('useSocketState — bracket (kiosk bracket mode)', () => {
     expect(result.current.bracket).toBeNull()
   })
 })
+
+describe('useSocketState — reload race (owner grid)', () => {
+  it('requests the public court list on mount so a reload never shows an empty owner grid', () => {
+    const { socket } = createMockSocket()
+    renderHook(() => useSocketState(socket as never))
+
+    // The one-shot COURT_LIST emitted at connection can be missed when a page
+    // reload attaches listeners after the socket was created — the hook must
+    // re-request the snapshot (LIST_COURTS → COURT_LIST) like the admin's
+    // INVENTORY_LIST does.
+    expect(socket.emit).toHaveBeenCalledWith(SocketEvents.CLIENT.LIST_COURTS)
+  })
+
+  it('does not emit when the socket is null', () => {
+    const { result } = renderHook(() => useSocketState(null))
+    expect(result.current.courts).toEqual([])
+  })
+})

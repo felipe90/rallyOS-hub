@@ -452,12 +452,19 @@ export class ClubCourtHandler extends SocketHandlerBase {
     });
   }
 
-  /** Broadcast the single catalog snapshot after every inventory mutation (Q3). */
+  /**
+   * Broadcast after every inventory mutation (Q3): the single catalog
+   * snapshot (INVENTORY_UPDATED) AND the public court list (COURT_LIST) so
+   * the owner dashboard grid — which consumes COURT_LIST, not the catalog —
+   * reflects new/renamed/archived inventory courts live (D11: the public
+   * list IS the ACTIVE inventory catalog).
+   */
   private broadcastInventory(): void {
     if (!this.inventoryManager) return;
     this.io.emit(SocketEvents.SERVER.INVENTORY_UPDATED, {
       courts: this.inventoryManager.list(),
     });
+    this.io.emit(SocketEvents.SERVER.COURT_LIST, this.getPublicCourtList());
   }
 
   /**

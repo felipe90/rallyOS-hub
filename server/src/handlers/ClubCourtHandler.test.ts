@@ -680,6 +680,20 @@ describe('ClubCourtHandler — INVENTORY_* admin inventory (slice 3)', () => {
       expect(calls[calls.length - 1][1].courts).toHaveLength(1);
     });
 
+    it('also re-emits COURT_LIST so the owner dashboard grid sees the new inventory court live (D11)', () => {
+      const socket = adminSocket('admin-1');
+      handler.registerHandlers(socket as unknown as Socket);
+
+      trigger(socket, SocketEvents.CLIENT.INVENTORY_ADD, { name: 'Mesa 1' });
+
+      // The public court list (what the owner grid consumes) is refreshed on
+      // the same broadcast that carries the catalog snapshot. Content comes
+      // from the CourtManager (D11) — the contract here is that COURT_LIST is
+      // re-emitted after every inventory mutation (in production the manager
+      // is wired with the inventory, so the grid sees the new court).
+      expect(io.emit).toHaveBeenCalledWith(SocketEvents.SERVER.COURT_LIST, expect.any(Array));
+    });
+
     it('suggests a sport-aware default name when none is provided (MP-2)', () => {
       const padelIo = createMockIo();
       const padelRepo = new CourtRepository();

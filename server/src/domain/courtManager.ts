@@ -16,7 +16,7 @@ import {
   CLUB_STATUS, SessionMode, SESSION_MODE, FlowModeKey, FlowSlot,
 } from './types';
 import { AllHistoryEntry, ClubKioskPayload, ClubKioskCourtInfo, ClubConfig, INVENTORY_STATUS, AVAILABILITY } from '../../../shared/types';
-import type { Availability, CourtRecord, BracketMatch } from '../../../shared/types';
+import type { Availability, CourtRecord, BracketMatch, TournamentBracket } from '../../../shared/types';
 import { logger } from '../utils/logger';
 import { sanitizeInput } from '../utils/validation';
 import type { PersistedFlowSession, PersistedMatchState, PersistedStateV4 } from './ports/persistence-types';
@@ -48,6 +48,9 @@ export type CourtCatalog = Pick<InventoryManager, 'get' | 'list'>;
 export interface StateCoordinator {
   mutate(fn: (s: PersistedStateV4) => void): void;
   flush(): void;
+  /** Read the persisted bracket (null when absent/cleared). Used by
+   *  restoreState to re-materialize bracket-assigned WAITING courts. */
+  getBracket(): TournamentBracket | null;
 }
 
 /**
@@ -1373,11 +1376,9 @@ export class CourtManager {
     }
 
     const sessions = persisted.liveSessions ?? [];
-    if (sessions.length === 0) {
-      return false;
-    }
 
     let restored = 0;
+    let bracketRestored = 0;
 
     for (const session of sessions) {
       const flow = session.flow;
@@ -1465,7 +1466,31 @@ export class CourtManager {
       }
     }
 
-    return restored > 0;
+    // Bracket-assigned WAITING courts (no flow yet) are NOT in liveSessions,
+    // so the loop above skipped them — but the bracket persists their courtId
+    // and the referee needs the PIN after a server restart. Re-materialize
+    // every bracket-referenced court that is inventory-ACTIVE and has no
+    // runtime entry (ensureRuntimeTournamentCourt is the exact SELECT-path
+    // materialization, E11 — shared identity, fresh PIN).
+    if (this.coordinator) {
+      const bracket = this.coordinator.getBracket();
+      const assigned = new Set<string>();
+      for (const m of bracket?.matches ?? []) if (m.courtId) assigned.add(m.courtId);
+      if (bracket?.thirdPlaceMatch?.courtId) assigned.add(bracket.thirdPlaceMatch.courtId);
+      for (const courtId of assigned) {
+        if (!this.repository.get(courtId) && this.ensureRuntimeTournamentCourt(courtId)) {
+          bracketRestored++;
+          logger.info({ courtId }, 'restoreState: re-materialized bracket-assigned court');
+        }
+      }
+    }
+    if (bracketRestored > 0) {
+      for (const court of this.repository.getAll()) {
+        this.notifyUpdate(court);
+      }
+    }
+
+    return restored > 0 || bracketRestored > 0;
   }
 }
 /** @deprecated Use CourtManager instead */

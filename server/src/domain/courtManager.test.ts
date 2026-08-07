@@ -656,6 +656,45 @@ describe('CourtManager with StateStore', () => {
       expect(courts).toHaveLength(1);
       expect(courts[0].id).toBe('live');
     });
+
+    it('re-materializes bracket-assigned WAITING courts (referee PIN survives restart)', () => {
+      // No liveSessions — but the bracket references a court (assigned in
+      // SELECT, match not started yet). It must be re-materialized with a PIN.
+      const bracket = {
+        name: 'T',
+        numSlots: 4,
+        includeThirdPlace: false,
+        matches: [
+          { id: 'R1-M1', round: 1, position: 1, playerA: 'A', playerB: 'B', winner: null, status: 'READY', courtId: 'cat-1' },
+        ],
+        thirdPlaceMatch: null,
+        status: 'ACTIVE' as const,
+        createdAt: 1,
+      };
+      const coordinator = {
+        mutate: jest.fn(),
+        flush: jest.fn(),
+        getBracket: jest.fn(() => bracket),
+      } as unknown as import('./courtManager').StateCoordinator;
+      const inventoryStub = {
+        get: (id: string) =>
+          id === 'cat-1'
+            ? { courtId: 'cat-1', number: 1, name: 'Mesa 1', inventoryStatus: INVENTORY_STATUS.ACTIVE }
+            : undefined,
+        list: () => [{ courtId: 'cat-1', number: 1, name: 'Mesa 1', inventoryStatus: INVENTORY_STATUS.ACTIVE }],
+        hasActive: () => true,
+      } as unknown as import('./courtManager').CourtCatalog;
+
+      seedStateFile(fs, []);
+      const manager = createTestCourtManager({ persistence: stateStore, coordinator, inventory: inventoryStub });
+
+      const result = manager.restoreState();
+
+      expect(result).toBe(true);
+      const court = manager.getCourt('cat-1');
+      expect(court).toBeDefined();
+      expect(court!.pin).toMatch(/^\d{4}$/); // referee can be handed a PIN after restart
+    });
   });
 
   describe('callback wiring after restore', () => {

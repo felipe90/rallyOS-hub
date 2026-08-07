@@ -9,7 +9,7 @@ vi.mock('@/i18n', () => ({
   useI18n: () => ({
     i18nText: (key: string) => {
       const map: Record<string, string> = {
-        'authTagline': 'Jugá sin complicaciones',
+        'authTagline': 'Tu club, del PIN al podio',
         'authClubPlaySubtitle': 'Ingresá el PIN de tu cancha',
         'authEnterOwnerPin': 'Ingresa tu PIN de Organizador',
         'authRoleOwner': 'Organizador',
@@ -127,7 +127,7 @@ describe('AuthPage', () => {
   describe('Role Selection', () => {
     it('shows the tagline replacing the old title', () => {
       renderWithRouter()
-      expect(screen.getByText('Jugá sin complicaciones')).toBeInTheDocument()
+      expect(screen.getByText('Tu club, del PIN al podio')).toBeInTheDocument()
     })
 
     it('shows new card layout: play card, tournament section, admin', () => {
@@ -137,7 +137,7 @@ describe('AuthPage', () => {
       expect(screen.getByAltText('RallyOS')).toBeInTheDocument()
 
       // Tagline replaces the old title
-      expect(screen.getByText('Jugá sin complicaciones')).toBeInTheDocument()
+      expect(screen.getByText('Tu club, del PIN al podio')).toBeInTheDocument()
 
       // New primary CTA card
       expect(screen.getByText('Quiero jugar')).toBeInTheDocument()
@@ -215,7 +215,7 @@ describe('AuthPage', () => {
       const backButton = screen.getByText('Atrás')
       fireEvent.click(backButton)
 
-      expect(screen.getByText('Jugá sin complicaciones')).toBeInTheDocument()
+      expect(screen.getByText('Tu club, del PIN al podio')).toBeInTheDocument()
     })
 
     it('has Ingresa tu PIN de Organizador text', () => {
@@ -247,7 +247,7 @@ describe('AuthPage', () => {
       fireEvent.click(screen.getByText('Quiero jugar'))
       fireEvent.click(screen.getByText('Volver'))
 
-      expect(screen.getByText('Jugá sin complicaciones')).toBeInTheDocument()
+      expect(screen.getByText('Tu club, del PIN al podio')).toBeInTheDocument()
       expect(screen.getByText('Quiero jugar')).toBeInTheDocument()
     })
   })

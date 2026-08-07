@@ -137,7 +137,33 @@ export class SocketHandler {
       const configStore = this.clubConfigStore ?? new ClubConfigStore();
       this.clubHistoryHandler = new ClubSessionHistoryHandler(io, sessionHistoryStore, auditStore, configStore);
     }
-    this.clubAdminHandler = new ClubAdminHandler(io, tableManager, ownerPin, clubConfigStore!, adminPinService, sessionTokenService, this.clubHistoryHandler, inventoryManager);
+    this.clubAdminHandler = new ClubAdminHandler(
+      io,
+      tableManager,
+      ownerPin,
+      clubConfigStore!,
+      adminPinService,
+      sessionTokenService,
+      this.clubHistoryHandler,
+      inventoryManager,
+      // CLUB_RESET_SETUP factory-state hook: wipe the inventory catalog and
+      // the live sessions/bracket snapshot so the first-run wizard starts
+      // clean. Session HISTORY is preserved (the club's sales record).
+      () => {
+        inventoryManager?.clearCatalog();
+        if (coordinator) {
+          coordinator.mutate((s) => {
+            s.liveSessions = [];
+            s.bracket = null;
+          });
+          coordinator.flush();
+        }
+        // Refresh every client's court view after the wipe.
+        this.io.emit(SocketEvents.SERVER.INVENTORY_UPDATED, { courts: [] });
+        this.io.emit(SocketEvents.SERVER.COURT_LIST, tableManager.getPublicCourtList());
+        this.io.emit(SocketEvents.SERVER.CLUB_KIOSK_DATA, tableManager.getClubKioskPayload(clubConfigStore?.load() ?? null));
+      },
+    );
     // BracketHandler (Tier 2): constructed BEFORE ClubCourtHandler so its
     // force-end context seam (AFE-2 bracket unbind) can be wired into the
     // INVENTORY_FORCE_END handler below. Constructed only when a coordinator

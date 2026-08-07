@@ -807,6 +807,42 @@ describe('ClubAdminHandler — CLUB_RESET_SETUP (verified admin only)', () => {
     expect(resetEvent.data.success).toBe(true);
   });
 
+  it('invokes the runtime-reset hook so inventory + live state are wiped (history preserved)', () => {
+    const trackedStore: IClubConfigRepository = {
+      load: jest.fn().mockReturnValue({
+        configured: true,
+        clubName: 'Existing Club',
+        sport: 'tableTennis',
+        adminPinHash: 'hash',
+        createdAt: Date.now(),
+      }),
+      save: jest.fn(),
+      checkExists: jest.fn().mockReturnValue(true),
+      clear: jest.fn(),
+    } as unknown as IClubConfigRepository;
+    const resetRuntimeState = jest.fn();
+
+    const handler = new ClubAdminHandler(
+      mockIo,
+      createTestCourtManager() as any,
+      '12345678',
+      trackedStore,
+      adminPinService as any,
+      sessionTokenService,
+      undefined,
+      undefined,
+      resetRuntimeState,
+    );
+    const socket = makeMockSocket();
+    socket.data = { ...socket.data, isClubAdmin: true };
+    handler.registerHandlers(socket as unknown as Socket);
+
+    socket._trigger(SocketEvents.CLIENT.CLUB_RESET_SETUP, {});
+
+    expect(trackedStore.clear).toHaveBeenCalledTimes(1);
+    expect(resetRuntimeState).toHaveBeenCalledTimes(1);
+  });
+
   it('rejects CLUB_RESET_SETUP from an unauthenticated socket', () => {
     const trackedStore: IClubConfigRepository = {
       load: jest.fn().mockReturnValue({ configured: true, clubName: 'X', sport: 'padel' }),

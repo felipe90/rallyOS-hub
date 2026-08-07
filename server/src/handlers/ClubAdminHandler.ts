@@ -42,6 +42,7 @@ export class ClubAdminHandler extends SocketHandlerBase {
   private sessionTokenService: SessionTokenService;
   private readonly historyHandler?: ClubHistoryBridge;
   private readonly inventoryManager?: InventoryManager;
+  private readonly resetRuntimeState?: () => void;
 
   constructor(
     io: Server,
@@ -66,6 +67,14 @@ export class ClubAdminHandler extends SocketHandlerBase {
      * pre-inventory constructors keep working.
      */
     inventoryManager?: InventoryManager,
+    /**
+     * Runtime reset hook wired by SocketHandler: on CLUB_RESET_SETUP the club
+     * returns to factory state — club config + inventory catalog + live
+     * sessions/bracket are wiped (session HISTORY is preserved: it is the
+     * club's sales/usage record). Optional so pre-coordinator constructors
+     * keep working (they simply skip the runtime wipe).
+     */
+    resetRuntimeState?: () => void,
   ) {
     super(io, tableManager, ownerPin);
     this.clubConfigStore = clubConfigStore;
@@ -73,6 +82,7 @@ export class ClubAdminHandler extends SocketHandlerBase {
     this.sessionTokenService = sessionTokenService;
     this.historyHandler = historyHandler;
     this.inventoryManager = inventoryManager;
+    this.resetRuntimeState = resetRuntimeState;
   }
 
   /**
@@ -272,17 +282,21 @@ export class ClubAdminHandler extends SocketHandlerBase {
       );
     });
 
-    // CLUB_RESET_SETUP: verified admin wipes the club config so the club can
-    // be re-configured (first-run wizard again). Bounded: only club-config is
-    // cleared — never the court inventory (INV-3 archive-only) nor session
-    // history (cost integrity). Requires an ALREADY-verified admin session
-    // (validateClubAdmin), so a raw socket cannot wipe the club.
+    // CLUB_RESET_SETUP: verified admin returns the club to factory state —
+    // wipes club config + the inventory catalog + live sessions/bracket so the
+    // first-run wizard starts clean. Session HISTORY is PRESERVED (the club's
+    // sales/usage record — never destroyed by a re-configuration). Requires an
+    // ALREADY-verified admin session (validateClubAdmin), so a raw socket
+    // cannot wipe the club.
     socket.on(SocketEvents.CLIENT.CLUB_RESET_SETUP, () => {
       if (!this.validateClubAdmin(socket)) return;
       if (!this.clubConfigStore.load()?.configured) {
         return this.emitError(socket, 'NOT_CONFIGURED', 'El club no está configurado');
       }
       this.clubConfigStore.clear();
+      // Wipe the runtime: inventory catalog + live sessions/bracket (the
+      // wiring hook owns the coordinator/repository/inventory stores).
+      this.resetRuntimeState?.();
       logger.info({ socketId: socket.id }, 'Club setup reset by verified admin');
       socket.emit(SocketEvents.SERVER.CLUB_SETUP_RESET, { success: true });
     });

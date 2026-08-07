@@ -415,7 +415,7 @@ export function ClubAdminPage() {
             <div className="space-y-4">
               {inventory.courts.length === 0 ? (
                 <motion.div
-                  initial={{ opacity: 0 }}
+                  initial={false}
                   animate={{ opacity: 1 }}
                   className="flex flex-col items-center justify-center py-12 gap-2"
                 >
@@ -429,7 +429,7 @@ export function ClubAdminPage() {
                       <motion.div
                         layout
                         key={court.courtId}
-                        initial={{ opacity: 0, scale: 0.95 }}
+                        initial={false}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.95 }}
                         transition={{ duration: 0.2 }}

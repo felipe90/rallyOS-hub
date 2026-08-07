@@ -47,6 +47,24 @@ seeding, max 32 slots). Two gaps:
 
 ---
 
+## 3b. Post-inventory-merge verification (D5 verified)
+
+After PR #39 (`admin-court-inventory`) merged to origin/main (`337b6df`), the seams this feature builds on are confirmed to exist as designed:
+
+- `RuntimeCourt` + `FlowSlot` (legacy `TournamentCourt`/`ClubCourt` union removed) — `server/src/domain/types.ts`, `courtManager.ts`.
+- `FlowModeRegistry` + `ClubFlowContract` + `TournamentFlowContract` — `server/src/domain/flows/`.
+- `InventoryManager` + `CourtNumberCounter` + `CourtInventoryStore` — `server/src/domain/inventory/`, `server/src/services/store/CourtInventoryStore.ts`.
+- `TOURNAMENT_SELECT_TABLE`, `INVENTORY_FORCE_END`, `INVENTORY_UPDATED`, `INVENTORY_*` — `shared/events.ts`.
+- `releaseAll` chain: `BracketEngine.releaseAll` → `BracketHandler.releaseAllCourts` → `SocketHandler.releaseAllBracketCourts` → `/finish`.
+- `COURT_INVENTORY_EMPTY` strict cold-start — `BracketHandler.ts:142`.
+- `courtExists` widened to inventory-ACTIVE — `BracketHandler.ts:511-516`.
+- `PersistenceCoordinator` single-writer owns `rallyos-state.json` v4 (liveSessions + bracket in ONE atomic flush) — `server/src/services/store/PersistenceCoordinator.ts`.
+- 4 legacy events REMOVED (slice 5 merged) — `shared/events.ts:16-17`.
+
+**Implication for this feature**: `BracketMatch.playerA/playerB` (D19/D20 participant id) composes cleanly — it doesn't touch `courtId`/`releaseAll`. The `TournamentBracket` shape (`shared/types.ts:103-111`) is unchanged by the inventory merge, so adding `tournamentId`/`format` is additive.
+
+---
+
 ## 4. Decisions (locked)
 
 | # | Decision | Lock |
@@ -55,8 +73,8 @@ seeding, max 32 slots). Two gaps:
 | D2 | **Format is optional per tournament**: `format.kind: 'knockout'` (current behavior unchanged) vs `'groups'` (round-robin group stage → standings → qualifiers → knockout of the SAME tournament). | ✅ |
 | D3 | **Qualifier seeding: MANUAL (single mode for now)** — after the group stage, the organizer places qualified players into knockout slots by hand from a label/palette list of qualifiers (reuses today's `assignPlayer` interaction). **Automatic seeding is a FUTURE improvement, only if organizers request it.** | ✅ |
 | D4 | **Booking deferred** — not part of this feature (BR-5). | ✅ |
-| D5 | **Build on the in-flight inventory SDD** (`admin-court-inventory`): courts come from the admin inventory + `FlowModeRegistry`; never design against legacy ephemeral `tournamentCourts`. | ✅ |
-| D6 | **Execution order**: do NOT start this feature until `admin-court-inventory` SDD closes (group stage needs many concurrent matches on inventory courts). | ✅ |
+| D5 | **Build on the in-flight inventory SDD** (`admin-court-inventory`): courts come from the admin inventory + `FlowModeRegistry`; never design against legacy ephemeral `tournamentCourts`. | ✅ (verified post-merge) |
+| D6 | **Execution order**: ~~do NOT start until `admin-court-inventory` SDD closes~~ — **SATISFIED** (PR #39 merged to origin/main, commit 337b6df). Feature can start. | ✅ |
 | D7 | **Group config baseline (first slice)**: 4 groups × 4 players, top 2 advance → 8-player knockout. Group numbers/configurable per tournament; this is the default + initial scope. | ✅ |
 | D8 | **Standings tie-break order**: set difference → game difference → if still tied, organizer resolves manually (no head-to-head factor). | ✅ |
 | D9 | **Post-finish retention**: catalog keeps tournament **identity + podium** (winner/runner-up/third); `format`/`status` records. Design so it can **scale later to a full bracket snapshot** (future evolution, not a blocker). | ✅ |
@@ -66,7 +84,7 @@ seeding, max 32 slots). Two gaps:
 | D13 | **Group config strict validation**: `numGroups`/`groupSize`/`topN` bounded and typed via const-enum/discriminants (same pattern as `VALID_BRACKET_SLOTS`); no unbounded numeric input. | ✅ |
 | D14 | **Qualifier uniqueness**: manual slot assignment must reject placing the same qualifier in two slots (extend the existing court→match uniqueness guard). | ✅ |
 | D15 | **Standings & tie-break pure**: ranking computed deterministically and reversibly (set diff → game diff → manual); never mutates data mid-transition; reproducible for audit. | ✅ |
-| D16 | **Separate tournament persistence** (`data/tournaments.json`, v1, greenfield): tournament catalog + ACTIVE bracket live in their own file, decoupled from club state. FIXES current bug where `POST /new|/finish` `stateStore.clear()` wipes the WHOLE state file incl. club data. MUST be written through the single-writer coordinator (inventory slice 6), never as an independent 3rd writer. State file stays v4 (bracket field removed via wipe window — no v5 bump needed for state file; tournaments.json gets v1). | ✅ |
+| D16 | **Separate tournament catalog persistence** (`data/tournaments.json`, v1, greenfield) — **AMENDED post-inventory-merge**: the durable **catalog** (tournament identity + status + format + podium, D9) lives in its own file. The **ACTIVE bracket stays in `rallyos-state.json` v4** (transient, like `liveSessions`) because the `PersistenceCoordinator` flushes it atomically as ONE document (PERS-4); moving the bracket out would break the single-writer atomicity the inventory SDD just shipped. **Justification revised**: the original "fix clear()-wipes-club" bug is ALREADY FIXED by the inventory merge (club courts moved to `court-inventory.json`, so `clear()` only wipes live state). The remaining driver is catalog-growth isolation + finish-doesn't-wipe-history (D17). State file shape UNCHANGED → no v5. Catalog file written through the coordinator (or a sibling writer under it), never an independent 3rd writer. | ✅ |
 | D17 | **Finish with LIVE matches = auto-end**: finishing a tournament force-ends any in-progress matches atomically (releaseAll + force-end flow → IDLE), completes the tournament and keeps the podium. No forced sequential closing by the organizer. | ✅ |
 | D18 | **SETUP tournament can be closed**: finishing a `SETUP` (never-started) tournament is allowed — it produces no podium (empty), leaves no orphan bracket. | ✅ |
 | D19 | **Stable participant ID (not name-string)**: introduce an internal `participantId` per player from the start (in addition to display name), because future player registration in the system will require ids anyway. `BracketMatch.playerA/playerB` move from `string` (name) to participant identity. **Scope impact: inflates first slice** (touches `BracketMatch`, `assignPlayer`, persistence, tests, e2e) — but avoids a structural migration later. | ✅ |

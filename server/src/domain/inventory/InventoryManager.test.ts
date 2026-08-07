@@ -69,13 +69,26 @@ describe('InventoryManager', () => {
       expect(manager.list()).toHaveLength(1);
     });
 
-    it('NEVER reuses a number after archive (INV-3) — archived 3 is not re-issued', () => {
-      const store = makeFakeStore([record('c1', 1), record('c2', 2), record('c3', 3, { inventoryStatus: INVENTORY_STATUS.ARCHIVED })]);
+    it('REUSES an archived number — archive is terminal, the number is freed (product decision)', () => {
+      const store = makeFakeStore([record('c1', 1, { inventoryStatus: INVENTORY_STATUS.ARCHIVED }), record('c2', 2)]);
       const manager = new InventoryManager(store, { resolveCourtSport: () => SPORT.TABLE_TENNIS });
 
       const court = manager.add();
 
-      expect(court.number).toBe(4); // monotonic — 3 was archived but never reused
+      expect(court.number).toBe(1); // lowest free — archived 1 is freed
+      expect(court.name).toBe('Mesa 1');
+    });
+
+    it('re-seeds from the LIVE catalog — a runtime archive frees its number immediately', () => {
+      const store = makeFakeStore([record('c1', 1), record('c2', 2)]);
+      const manager = new InventoryManager(store, { resolveCourtSport: () => SPORT.TABLE_TENNIS });
+
+      // Mesa 2 dies → its number 2 is freed for the next add.
+      manager.archive('c2');
+      const court = manager.add();
+
+      expect(court.number).toBe(2);
+      expect(court.name).toBe('Mesa 2');
     });
 
     it('seeds the counter from the loaded catalog when none is injected', () => {
@@ -85,12 +98,12 @@ describe('InventoryManager', () => {
       expect(manager.add().number).toBe(3);
     });
 
-    it('uses an injected counter when provided (index.ts boot wiring seeds it)', () => {
+    it('uses an injected counter when provided (compat — index.ts does not inject one)', () => {
       const store = makeFakeStore([record('c1', 1), record('c2', 2)]);
       const counter = new CourtNumberCounter([record('c1', 1), record('c2', 2), record('c3', 5)]);
       const manager = new InventoryManager(store, { resolveCourtSport: () => SPORT.TABLE_TENNIS, counter });
 
-      expect(manager.add().number).toBe(6); // respects the injected counter, not the store
+      expect(manager.add().number).toBe(3); // lowest free among {1,2,5} — respects the injected counter
     });
   });
 
@@ -167,6 +180,20 @@ describe('InventoryManager', () => {
     it('returns null for an unknown courtId', () => {
       const manager = new InventoryManager(makeFakeStore(), { resolveCourtSport: () => SPORT.TABLE_TENNIS });
       expect(manager.archive('nope')).toBeNull();
+    });
+  });
+
+  describe('clearCatalog (CLUB_RESET_SETUP factory state)', () => {
+    it('wipes the entire catalog so the first-run wizard starts clean', () => {
+      const store = makeFakeStore([record('c1', 1), record('c2', 2)]);
+      const manager = new InventoryManager(store, { resolveCourtSport: () => SPORT.TABLE_TENNIS });
+
+      manager.clearCatalog();
+
+      expect(manager.list()).toHaveLength(0);
+      expect(store.load()).toHaveLength(0);
+      // The next add starts at the lowest free number again (Mesa 1).
+      expect(manager.add().number).toBe(1);
     });
   });
 

@@ -23,7 +23,7 @@ import { CourtNumberCounter } from './CourtNumberCounter';
  */
 export class InventoryManager {
   private readonly store: ICourtInventoryStore;
-  private readonly counter: CourtNumberCounter;
+  private readonly injectedCounter: CourtNumberCounter | null;
   private readonly resolveCourtSport: () => Sport;
   private readonly canArchive: (court: CourtRecord) => boolean;
 
@@ -31,7 +31,7 @@ export class InventoryManager {
     store: ICourtInventoryStore,
     opts: {
       resolveCourtSport: () => Sport;
-      /** Monotonic counter; defaults to one seeded from the loaded catalog. */
+      /** Counter; defaults to a fresh lowest-free counter seeded from the LIVE catalog on every add (archive releases numbers). */
       counter?: CourtNumberCounter;
       /** Guard: false while the court is BUSY/HELD — blocks archive/maintenance (INV-5). */
       canArchive?: (court: CourtRecord) => boolean;
@@ -39,7 +39,10 @@ export class InventoryManager {
   ) {
     this.store = store;
     this.resolveCourtSport = opts.resolveCourtSport;
-    this.counter = opts.counter ?? new CourtNumberCounter(this.store.load() ?? []);
+    // Distinguish an explicitly injected counter (compat — respected as-is)
+    // from the default (recomputed from the live catalog on every add so a
+    // runtime archive frees its number immediately).
+    this.injectedCounter = opts.counter ?? null;
     this.canArchive = opts.canArchive ?? (() => true);
   }
 
@@ -54,11 +57,17 @@ export class InventoryManager {
   }
 
   /**
-   * Add a court to the catalog. number = counter.next() (monotonic, no reuse,
-   * INV-3); name = suggestedName ?? sport-aware default (MP-2). Sync write.
+   * Add a court to the catalog. number = lowest free number among NON-archived
+   * courts (archive is terminal — an archived court releases its number, so
+   * after archiving "Mesa 1" the next add is "Mesa 1" again); name =
+   * suggestedName ?? sport-aware default (MP-2). Sync write.
+   *
+   * The counter is re-seeded from the LIVE catalog on every add so a runtime
+   * archive frees its number immediately (the constructor seed alone would
+   * miss it).
    */
   add(suggestedName?: string): CourtRecord {
-    const number = this.counter.next();
+    const number = this.freshCounter().next();
     const court: CourtRecord = {
       courtId: crypto.randomUUID(),
       number,
@@ -103,12 +112,34 @@ export class InventoryManager {
     return updated;
   }
 
+  /**
+   * Factory-state reset (CLUB_RESET_SETUP): wipe the ENTIRE catalog so the
+   * first-run wizard starts clean. This is the ONE path that removes records
+   * (archive-only applies to individual courts in normal operation — a club
+   * reset is an explicit, verified-admin factory reset). Session history is
+   * preserved by the caller — this only clears the catalog.
+   */
+  clearCatalog(): void {
+    this.persist(() => []);
+  }
+
   /** Strict cold-start gate (TCS-4): true when at least one ACTIVE court exists. */
   hasActive(): boolean {
     return this.list().some((c) => c.inventoryStatus === INVENTORY_STATUS.ACTIVE);
   }
 
   // ── Private ──────────────────────────────────────────────────────────
+
+  /**
+   * Fresh lowest-free counter seeded from the LIVE catalog (archive releases
+   * numbers, so this must be computed per-add — a constructor-seeded counter
+   * would never observe a runtime archive). An injected `counter` opts out of
+   * this behavior (index.ts boot does not inject one).
+   */
+  private freshCounter(): CourtNumberCounter {
+    if (this.injectedCounter) return this.injectedCounter;
+    return new CourtNumberCounter(this.list());
+  }
 
   /** MP-1/MP-2 — sport-aware default name: "Cancha {n}" padel, "Mesa {n}" TT. */
   private defaultCourtName(n: number): string {

@@ -95,6 +95,11 @@ function deriveAvailability(
  * Reconcile the four wire sources into one catalog + availability view.
  * Order: catalog records first (by number), then bridge-only runtime courts
  * (by name). One row per courtId — never two rows for the same physical court.
+ *
+ * ARCHIVED catalog records are EXCLUDED from the view (product decision:
+ * archive is terminal — the court dies and must not appear in the admin list;
+ * its number/name are freed for a new court). The durable record stays in
+ * court-inventory.json for history, it just isn't rendered.
  */
 export function reconcileInventory(input: InventoryReconcileInput): InventoryCourtView[] {
   const { catalog, clubFlows, tournamentCourts, bracket } = input
@@ -104,8 +109,10 @@ export function reconcileInventory(input: InventoryReconcileInput): InventoryCou
 
   const views: InventoryCourtView[] = []
 
-  // 1. Catalog records (authoritative identity + inventory status).
+  // 1. Catalog records (authoritative identity + inventory status) — archived
+  //    courts are terminal and hidden from the operational list.
   for (const record of catalog) {
+    if (record.inventoryStatus === INVENTORY_STATUS.ARCHIVED) continue
     const club = clubByCourt.get(record.courtId)
     const tourn = tournByCourt.get(record.courtId)
     views.push({

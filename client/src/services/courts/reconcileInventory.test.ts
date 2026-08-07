@@ -139,7 +139,7 @@ describe('reconcileInventory', () => {
     expect(views[0].availability).toBe(AVAILABILITY.BUSY)
   })
 
-  it('keeps MAINTENANCE and ARCHIVED catalog records listed with their status', () => {
+  it('keeps MAINTENANCE listed but EXCLUDES ARCHIVED catalog records (archive is terminal)', () => {
     const views = reconcileInventory({
       catalog: [
         rec('m1', { inventoryStatus: INVENTORY_STATUS.MAINTENANCE, number: 2 }),
@@ -149,9 +149,12 @@ describe('reconcileInventory', () => {
       tournamentCourts: [],
       bracket: null,
     })
-    expect(views).toHaveLength(2)
-    expect(views.find(v => v.courtId === 'm1')?.inventoryStatus).toBe(INVENTORY_STATUS.MAINTENANCE)
-    expect(views.find(v => v.courtId === 'a1')?.inventoryStatus).toBe(INVENTORY_STATUS.ARCHIVED)
+    expect(views).toHaveLength(1)
+    expect(views[0].courtId).toBe('m1')
+    expect(views[0].inventoryStatus).toBe(INVENTORY_STATUS.MAINTENANCE)
+    // Archived courts are terminal — hidden from the operational list, their
+    // durable record stays in court-inventory.json for history only.
+    expect(views.find(v => v.courtId === 'a1')).toBeUndefined()
   })
 
   it('includes bridge-era runtime courts that have no catalog record (inCatalog=false)', () => {

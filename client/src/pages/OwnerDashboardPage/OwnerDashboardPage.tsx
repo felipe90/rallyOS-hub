@@ -408,18 +408,18 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
               onClick={() => setActiveTab('courts')}
             />
             <Tab
-              id="history"
-              label={i18nText('ownerViewHistory')}
-              icon={<Clock size={16} />}
-              active={activeTab === 'history'}
-              onClick={() => setActiveTab('history')}
-            />
-            <Tab
               id="tournament"
               label={i18nText('bracketTabTournament')}
               icon={<Trophy size={16} />}
               active={activeTab === 'tournament'}
               onClick={() => setActiveTab('tournament')}
+            />
+            <Tab
+              id="history"
+              label={i18nText('ownerViewHistory')}
+              icon={<Clock size={16} />}
+              active={activeTab === 'history'}
+              onClick={() => setActiveTab('history')}
             />
           </div>
         </div>

@@ -233,7 +233,7 @@ describe('OwnerDashboardPage — Notification Button', () => {
     fireEvent.click(screen.getByText('Send Notification'))
     fireEvent.click(screen.getByTestId('modal-submit'))
 
-    expect(mockEmit).toHaveBeenCalledTimes(1)
+    expect(mockEmit).toHaveBeenCalledTimes(2) // BRACKET_GET on mount + SEND_NOTIFICATION
     expect(mockEmit).toHaveBeenCalledWith('SEND_NOTIFICATION', {
       pin: '12345678',
       type: 'info',

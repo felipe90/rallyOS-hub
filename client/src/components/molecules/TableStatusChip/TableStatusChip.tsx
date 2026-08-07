@@ -4,7 +4,7 @@ import { Badge } from '../../atoms/Badge';
 import { Body } from '../../atoms/Typography';
 import { Button } from '../../atoms/Button';
 import { ConfirmDialog } from '../ConfirmDialog';
-import { RefreshCw, Trash2, Star } from 'lucide-react';
+import { RefreshCw, Trash2, Star, KeyRound } from 'lucide-react';
 import { useSportTerms } from '@/hooks/useSportTerms';
 
 /* TableStatusChip Molecule - Court info card component */
@@ -32,6 +32,9 @@ export interface TableStatusChipProps {
   featured?: boolean;
   /** Callback to toggle featured status */
   onToggleFeatured?: () => void;
+  /** Owner-initiated referee free-play PIN (option A): render the generate-PIN
+   *  button INSIDE the card for courts that have no PIN yet. */
+  onGeneratePin?: () => void;
 }
 
 // Status pill colors synced with card border colors (statusBorderColor below)
@@ -89,6 +92,7 @@ export function TableStatusChip({
   statusLabel,
   featured,
   onToggleFeatured,
+  onGeneratePin,
 }: TableStatusChipProps) {
   const { terms, i18nText } = useSportTerms();
   const pillClass = statusPillClass[status];
@@ -178,6 +182,19 @@ export function TableStatusChip({
           stopPropagation
         >
           {featured ? i18nText('courtQuitarDestacado') : i18nText('courtDestacar')}
+        </Button>
+      )}
+
+      {/* Generate free-play referee PIN — only for courts without a PIN yet */}
+      {onGeneratePin && (
+        <Button
+          variant="secondary"
+          size="sm"
+          icon={<KeyRound size={16} />}
+          onClick={() => onGeneratePin()}
+          stopPropagation
+        >
+          Generar PIN
         </Button>
       )}
 

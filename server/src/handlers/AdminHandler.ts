@@ -88,6 +88,37 @@ export class AdminHandler extends SocketHandlerBase {
       logger.info({ courtId: data.courtId }, 'PIN regenerated for court');
     });
 
+    // GENERATE_COURT_PIN — owner-initiated referee free-play PIN (option A).
+    // Materializes the inventory court on demand (E11 — shared identity) and
+    // returns its PIN so the owner can hand it to a referee WITHOUT a bracket
+    // match. Guards: owner only + inventory-ACTIVE (no ghost courts).
+    socket.on(SocketEvents.CLIENT.GENERATE_COURT_PIN, (data: { courtId: string }) => {
+      if (!validateSocketPayload(socket, data, {
+        courtId: { required: true, type: 'string', maxLength: 36 },
+      }, 'GENERATE_COURT_PIN')) {
+        return;
+      }
+      if (!data?.courtId) {
+        return this.emitError(socket, 'INVALID_PARAMS', 'courtId required');
+      }
+      const isOwnerSocket = (socket.data as { isOwner?: unknown } | undefined)?.isOwner === true;
+      if (!isOwnerSocket) {
+        return this.emitError(socket, 'UNAUTHORIZED', 'No autorizado');
+      }
+
+      const pin = this.tableManager.generateRefereePin(data.courtId);
+      if (!pin) {
+        return this.emitError(socket, 'COURT_NOT_ACTIVE', 'La cancha no está activa en el inventario');
+      }
+
+      // Broadcast the refreshed public list so every client sees the newly
+      // materialized court (with its state); the PIN goes ONLY to the owner.
+      this.io.emit(SocketEvents.SERVER.COURT_LIST, this.tableManager.getPublicCourtList());
+      socket.emit(SocketEvents.SERVER.PIN_REGENERATED, { courtId: data.courtId, newPin: pin });
+
+      logger.info({ courtId: data.courtId }, 'Referee free-play PIN generated for court');
+    });
+
     // SEND_NOTIFICATION: Send typed notification to all kiosk clients
     socket.on(SocketEvents.CLIENT.SEND_NOTIFICATION, (data: {
       pin: string;

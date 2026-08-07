@@ -86,6 +86,7 @@ export function useSocket(options: UseSocketOptions = {}) {
       actions.emit,
       actions.requestCourts,
       actions.requestCourtsWithPins,
+      actions.generateCourtPin,
       actions.scorePoint,
       actions.undoLastPoint,
       actions.startMatch,

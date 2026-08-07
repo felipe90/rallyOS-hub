@@ -38,6 +38,11 @@ export const SocketEvents = {
     SWAP_SIDES: 'SWAP_SIDES',
     REQUEST_COURT_STATE: 'REQUEST_COURT_STATE',
     REGENERATE_PIN: 'REGENERATE_PIN',
+    // Owner-initiated referee free-play PIN (option A): materialize the
+    // inventory court on demand and return its PIN so a referee can join
+    // WITHOUT a bracket match. Distinct from REGENERATE_PIN (which requires
+    // an existing runtime court).
+    GENERATE_COURT_PIN: 'GENERATE_COURT_PIN',
     GET_RATE_LIMIT_STATUS: 'GET_RATE_LIMIT_STATUS',
     GET_ALL_HISTORY: 'GET_ALL_HISTORY',
     SEND_NOTIFICATION: 'SEND_NOTIFICATION',

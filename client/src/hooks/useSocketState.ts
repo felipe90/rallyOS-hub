@@ -100,6 +100,15 @@ export function useSocketState(socket: Socket | null) {
       setCourts(prev => prev.filter(t => t.id !== (data.courtId || data.tableId)))
     }
 
+    // PIN_REGENERATED (owner REGENERATE_PIN / GENERATE_COURT_PIN): layer the
+    // fresh PIN onto the court so the owner card shows it immediately. The
+    // server also re-emits COURT_LIST (without PINs) — this handler must run
+    // so the PIN survives; COURT_LIST_WITH_PINS will confirm on next request.
+    const handlePinRegenerated = (data: { courtId?: string; newPin?: string }) => {
+      if (!data?.courtId || !data?.newPin) return
+      setCourts(prev => prev.map(c => (c.id === data.courtId ? { ...c, pin: data.newPin } : c)))
+    }
+
     const handleCourtCreated = (court: CourtInfo) => {
       // Reject club courts — OwnerDashboard only shows tournament courts.
       if (court.mode === COURT_MODE.CLUB) return
@@ -140,6 +149,7 @@ export function useSocketState(socket: Socket | null) {
     socket.on(SocketEvents.SERVER.COURT_LIST, handleCourtList)
     socket.on(SocketEvents.SERVER.COURT_LIST_WITH_PINS, handleCourtListWithPins)
     socket.on(SocketEvents.SERVER.COURT_DELETED, handleCourtDeleted)
+    socket.on(SocketEvents.SERVER.PIN_REGENERATED, handlePinRegenerated)
     socket.on(SocketEvents.SERVER.COURT_CREATED, handleCourtCreated)
     socket.on(SocketEvents.SERVER.MATCH_UPDATE, handleMatchUpdate)
     socket.on(SocketEvents.SERVER.ALL_HISTORY, handleAllHistory)
@@ -153,6 +163,7 @@ export function useSocketState(socket: Socket | null) {
       socket.off(SocketEvents.SERVER.COURT_LIST, handleCourtList)
       socket.off(SocketEvents.SERVER.COURT_LIST_WITH_PINS, handleCourtListWithPins)
       socket.off(SocketEvents.SERVER.COURT_DELETED, handleCourtDeleted)
+      socket.off(SocketEvents.SERVER.PIN_REGENERATED, handlePinRegenerated)
       socket.off(SocketEvents.SERVER.COURT_CREATED, handleCourtCreated)
       socket.off(SocketEvents.SERVER.MATCH_UPDATE, handleMatchUpdate)
       socket.off(SocketEvents.SERVER.ALL_HISTORY, handleAllHistory)

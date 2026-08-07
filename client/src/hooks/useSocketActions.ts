@@ -29,6 +29,11 @@ export function useSocketActions(socket: Socket | null, currentCourt: CourtInfo 
     [emit],
   )
 
+  const generateCourtPin = useCallback(
+    (courtId: string) => emit(SocketEvents.CLIENT.GENERATE_COURT_PIN, { courtId }),
+    [emit],
+  )
+
   const scorePoint = useCallback(
     (player: 'A' | 'B') => {
       if (currentCourt?.id) {
@@ -69,6 +74,7 @@ export function useSocketActions(socket: Socket | null, currentCourt: CourtInfo 
     emit,
     requestCourts,
     requestCourtsWithPins,
+    generateCourtPin,
     scorePoint,
     undoLastPoint,
     startMatch,

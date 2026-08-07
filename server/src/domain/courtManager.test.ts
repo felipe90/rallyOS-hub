@@ -2550,3 +2550,49 @@ describe('CourtManager — PersistenceCoordinator routing (PERS-4)', () => {
     expect((loaded!.bracket as { name: string }).name).toBe('Torneo');
   });
 });
+
+describe('courtManager — generateRefereePin (option A: owner free-play PIN)', () => {
+  function makeInventoryStub(records: CourtRecord[]) {
+    return {
+      get: (id: string) => records.find(r => r.courtId === id),
+      list: () => records,
+      hasActive: () => records.some(r => r.inventoryStatus === INVENTORY_STATUS.ACTIVE),
+    } as unknown as import('./courtManager').CourtCatalog;
+  }
+
+  it('materializes an inventory-ACTIVE court and returns its PIN (no bracket needed)', () => {
+    const record: CourtRecord = { courtId: 'fp-1', number: 3, name: 'Mesa 3', inventoryStatus: INVENTORY_STATUS.ACTIVE };
+    const manager = createTestCourtManager({ inventory: makeInventoryStub([record]) });
+
+    const pin = manager.generateRefereePin('fp-1');
+
+    expect(pin).toMatch(/^\d{4}$/);
+    const runtime = manager.getCourt('fp-1');
+    expect(runtime).toBeDefined();
+    expect(runtime!.mode).toBe('tournament');
+    expect(runtime!.pin).toBe(pin);
+  });
+
+  it('returns the SAME pin for an already-materialized court (no double materialization)', () => {
+    const record: CourtRecord = { courtId: 'fp-2', number: 4, name: 'Mesa 4', inventoryStatus: INVENTORY_STATUS.ACTIVE };
+    const manager = createTestCourtManager({ inventory: makeInventoryStub([record]) });
+
+    const first = manager.generateRefereePin('fp-2');
+    const second = manager.generateRefereePin('fp-2');
+
+    expect(first).toBe(second);
+  });
+
+  it('returns null for a non-ACTIVE court (no ghost courts)', () => {
+    const record: CourtRecord = { courtId: 'fp-3', number: 5, name: 'Mesa 5', inventoryStatus: INVENTORY_STATUS.ARCHIVED };
+    const manager = createTestCourtManager({ inventory: makeInventoryStub([record]) });
+
+    expect(manager.generateRefereePin('fp-3')).toBeNull();
+    expect(manager.getCourt('fp-3')).toBeUndefined();
+  });
+
+  it('returns null when no inventory is wired (legacy test compat)', () => {
+    const manager = createTestCourtManager();
+    expect(manager.generateRefereePin('fp-x')).toBeNull();
+  });
+});

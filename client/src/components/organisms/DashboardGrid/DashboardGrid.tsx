@@ -2,7 +2,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import type { TableInfo, TableInfoWithPin } from '@shared/types';
 import { CourtStatusChip } from '../../molecules/CourtStatusChip';
 import { Button } from '../../atoms/Button';
-import { LayoutGrid, List } from 'lucide-react';
+import { LayoutGrid, List, KeyRound } from 'lucide-react';
 import { useState, useRef, useCallback, type ReactNode } from 'react';
 
 export interface DashboardGridProps {
@@ -20,6 +20,8 @@ export interface DashboardGridProps {
   featuredCourtId?: string | null;
   /** Called to toggle featured status for a court */
   onToggleFeatured?: (courtId: string) => void;
+  /** Owner-initiated referee free-play PIN (option A): materialize + show PIN. */
+  onGeneratePin?: (courtId: string) => void;
 }
 
 export function DashboardGrid({ 
@@ -34,6 +36,7 @@ export function DashboardGrid({
   onCleanCourtCancel,
   featuredCourtId,
   onToggleFeatured,
+  onGeneratePin,
 }: DashboardGridProps) {
   const shouldReduceMotion = useReducedMotion()
 
@@ -107,6 +110,18 @@ export function DashboardGrid({
               featured={court.featured === true}
               onToggleFeatured={onToggleFeatured ? () => onToggleFeatured(court.id) : undefined}
             />
+            {showPin && !(court as TableInfoWithPin).pin && onGeneratePin && (
+              <Button
+                variant="secondary"
+                size="xs"
+                fullWidth
+                className="mt-2"
+                onClick={() => onGeneratePin(court.id)}
+                icon={<KeyRound size={14} />}
+              >
+                Generar PIN
+              </Button>
+            )}
           </GridWrapper>
         );
       })}

@@ -45,7 +45,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
   const [kioskMode, setKioskModeState] = useState<KioskMode>('club')
   const navigate = useNavigate()
   const { terms, i18nText } = useSportTerms()
-  const { courts, connected, socket, requestCourtsWithPins, appError, allHistories } = useSocketContext()
+  const { courts, connected, socket, requestCourtsWithPins, generateCourtPin, appError, allHistories } = useSocketContext()
   const { logout, ownerPin, setCourtPin, isOwner, tournamentToken } = useAuthContext()
   const stats = useDashboardStats(courts)
   const { submitPin, loading: pinLoading, error: pinError, clearError } = usePinSubmission(socket)
@@ -433,6 +433,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
               onCleanCourtCancel={cancelClean}
               featuredCourtId={courts.find(t => t.featured)?.id ?? null}
               onToggleFeatured={handleToggleFeatured}
+              onGeneratePin={generateCourtPin}
             />
           ) : activeTab === 'tournament' ? (
             <BracketView

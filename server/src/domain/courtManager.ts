@@ -1122,6 +1122,24 @@ export class CourtManager {
     return court.pin;
   }
 
+  /**
+   * Option A — referee free-play PIN (owner-initiated): ensure the inventory
+   * court has a RUNTIME entry (materializing it from the catalog when needed,
+   * E11 — shared identity) and return its PIN so the owner can hand it to a
+   * referee WITHOUT a bracket match. Mirrors the bracket SELECT materialization
+   * (ensureRuntimeTournamentCourt) but is available on demand for free-play.
+   * Returns null when the court is not inventory-ACTIVE (no ghost courts).
+   */
+  generateRefereePin(courtId: string): string | null {
+    if (!this.ensureRuntimeTournamentCourt(courtId)) return null;
+    const court = this.repository.get(courtId);
+    if (!court) return null;
+    // Persist the freshly materialized runtime court (bracket SELECT also
+    // persists via the debounced save; here we flush so the PIN survives).
+    this.flush();
+    return court.pin;
+  }
+
   // QR
   generateQRData(courtId: string): QRData | null {
     const court = this.repository.get(courtId);

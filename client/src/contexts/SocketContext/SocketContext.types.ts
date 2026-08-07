@@ -34,6 +34,8 @@ export interface SocketContextType {
   startMatch: (config?: { pointsPerSet: number; bestOf: number; playerNameA?: string; playerNameB?: string }) => void
   setReferee: (courtId: string, pin: string) => void
   regeneratePin: (courtId: string) => void
+  /** Owner-initiated referee free-play PIN (option A): materialize + show PIN. */
+  generateCourtPin: (courtId: string) => void
 }
 
 export interface SocketProviderProps {

@@ -286,7 +286,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
       <button
         onClick={() => socket?.emit(SocketEvents.CLIENT.SET_KIOSK_MODE, { mode: 'club' })}
         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold tracking-wide transition-all duration-150 ${
-          kioskMode === 'club' ? 'bg-surface text-text shadow-sm' : 'text-text-muted hover:text-text'
+          kioskMode === 'club' ? 'bg-surface text-text shadow-sm hover:brightness-100 active:brightness-100' : 'text-text-muted hover:text-text'
         }`}
       >
         <Monitor size={14} />
@@ -295,7 +295,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
       <button
         onClick={() => socket?.emit(SocketEvents.CLIENT.SET_KIOSK_MODE, { mode: 'tournament' })}
         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold tracking-wide transition-all duration-150 ${
-          kioskMode === 'tournament' ? 'bg-surface text-text shadow-sm' : 'text-text-muted hover:text-text'
+          kioskMode === 'tournament' ? 'bg-surface text-text shadow-sm hover:brightness-100 active:brightness-100' : 'text-text-muted hover:text-text'
         }`}
       >
         <Trophy size={14} />
@@ -304,7 +304,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
       <button
         onClick={() => socket?.emit(SocketEvents.CLIENT.SET_KIOSK_MODE, { mode: 'bracket' })}
         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold tracking-wide transition-all duration-150 ${
-          kioskMode === 'bracket' ? 'bg-surface text-text shadow-sm' : 'text-text-muted hover:text-text'
+          kioskMode === 'bracket' ? 'bg-surface text-text shadow-sm hover:brightness-100 active:brightness-100' : 'text-text-muted hover:text-text'
         }`}
         aria-label={i18nText('ownerKioskModeBracket')}
       >

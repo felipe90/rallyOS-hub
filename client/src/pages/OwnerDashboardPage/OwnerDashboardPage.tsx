@@ -67,6 +67,16 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
   const hasActiveInventoryCourts = inventory.courts.some(
     (c) => c.inventoryStatus === INVENTORY_STATUS.ACTIVE,
   )
+  /** CourtIds currently referenced by bracket matches (with a court assigned).
+   *  These must NOT offer "Generar PIN" — the bracket owns them. */
+  const bracketAssignedCourtIds: string[] = useMemo(() => {
+    const b = bracketApi.bracket
+    if (!b) return []
+    const ids = new Set<string>()
+    for (const m of b.matches) if (m.courtId) ids.add(m.courtId)
+    if (b.thirdPlaceMatch?.courtId) ids.add(b.thirdPlaceMatch.courtId)
+    return [...ids]
+  }, [bracketApi.bracket])
   const { addToast } = useToast()
 
   // ── Court cleaning (PIN regeneration) — local UI state. The DELETE path is
@@ -434,6 +444,7 @@ export function OwnerDashboardPage({ viewMode: initialViewMode }: OwnerDashboard
               featuredCourtId={courts.find(t => t.featured)?.id ?? null}
               onToggleFeatured={handleToggleFeatured}
               onGeneratePin={generateCourtPin}
+              bracketAssignedCourtIds={bracketAssignedCourtIds}
             />
           ) : activeTab === 'tournament' ? (
             <BracketView

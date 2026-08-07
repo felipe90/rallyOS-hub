@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { DashboardGrid, DashboardHeader } from './DashboardGrid';
-import type { CourtInfo } from '@shared/types';
+import type { CourtInfo, TableInfo, TableInfoWithPin } from '@shared/types';
 
 // TableStatusChip (rendered via CourtStatusChip) resolves its action labels
 // through useSportTerms, which requires SportContext. Default to tableTennis.
@@ -146,5 +146,56 @@ describe('DashboardHeader', () => {
     
     expect(screen.getByLabelText('Grid view')).toBeInTheDocument();
     expect(screen.getByLabelText('List view')).toBeInTheDocument();
+  });
+});
+describe('DashboardGrid — Generar PIN (referee free-play)', () => {
+  function court(over: Partial<TableInfo> = {}): TableInfo {
+    return {
+      id: 'c1',
+      number: 1,
+      name: 'Mesa 1',
+      status: 'WAITING',
+      playerCount: 0,
+      mode: 'tournament',
+      ...over,
+    } as TableInfo;
+  }
+
+  function renderGrid(over: Partial<Parameters<typeof DashboardGrid>[0]> = {}) {
+    return render(
+      <DashboardGrid
+        courts={over.courts ?? [court()]}
+        viewMode="grid"
+        showPin
+        onGeneratePin={vi.fn()}
+        {...over}
+      />,
+    );
+  }
+
+  it('shows Generar PIN for a free WAITING court without a PIN', () => {
+    renderGrid({ courts: [court({ availability: 'IDLE' })] });
+    expect(screen.getByRole('button', { name: /generar pin/i })).toBeInTheDocument();
+  });
+
+  it('hides Generar PIN for a court in play (LIVE)', () => {
+    renderGrid({ courts: [court({ status: 'LIVE', availability: 'BUSY' })] });
+    expect(screen.queryByRole('button', { name: /generar pin/i })).not.toBeInTheDocument();
+  });
+
+  it('hides Generar PIN when the bracket references the court', () => {
+    renderGrid({
+      courts: [court({ availability: 'IDLE' })],
+      bracketAssignedCourtIds: ['c1'],
+    });
+    expect(screen.queryByRole('button', { name: /generar pin/i })).not.toBeInTheDocument();
+  });
+
+  it('hides Generar PIN when the court already has a PIN', () => {
+    renderGrid({
+      courts: [{ ...court({ availability: 'IDLE' }), pin: '1234' } as TableInfoWithPin],
+    });
+    // The court has a pin on the row → no generate button.
+    expect(screen.queryByRole('button', { name: /generar pin/i })).not.toBeInTheDocument();
   });
 });

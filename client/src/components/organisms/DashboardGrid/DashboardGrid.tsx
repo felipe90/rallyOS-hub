@@ -5,6 +5,16 @@ import { Button } from '../../atoms/Button';
 import { LayoutGrid, List } from 'lucide-react';
 import { useState, useRef, useCallback, type ReactNode } from 'react';
 
+/**
+ * Whether a court may offer the owner "Generar PIN" (referee free-play).
+ * Only courts that are truly available qualify: WAITING status (not LIVE /
+ * FINISHED) AND not BUSY (INV-4 — no live flow, no bracket binding). A court
+ * already assigned to a bracket match, or in play, must never offer it.
+ */
+function canGenerateFreePlayPin(court: TableInfo): boolean {
+  return court.status === 'WAITING' && court.availability !== 'BUSY'
+}
+
 export interface DashboardGridProps {
   courts: (TableInfo | TableInfoWithPin)[];
   onCourtClick?: (courtId: string) => void;
@@ -22,6 +32,10 @@ export interface DashboardGridProps {
   onToggleFeatured?: (courtId: string) => void;
   /** Owner-initiated referee free-play PIN (option A): materialize + show PIN. */
   onGeneratePin?: (courtId: string) => void;
+  /** CourtIds currently referenced by bracket matches (READY/PENDING with a
+   *  court assigned). These must NOT offer "Generar PIN" — the bracket owns
+   *  them until the match is released. */
+  bracketAssignedCourtIds?: string[];
 }
 
 export function DashboardGrid({ 
@@ -37,6 +51,7 @@ export function DashboardGrid({
   featuredCourtId,
   onToggleFeatured,
   onGeneratePin,
+  bracketAssignedCourtIds = [],
 }: DashboardGridProps) {
   const shouldReduceMotion = useReducedMotion()
 
@@ -70,7 +85,8 @@ export function DashboardGrid({
               featured={court.featured === true}
               onToggleFeatured={onToggleFeatured ? () => onToggleFeatured(court.id) : undefined}
               onGeneratePin={
-                showPin && !(court as TableInfoWithPin).pin && onGeneratePin
+                showPin && canGenerateFreePlayPin(court) && !(court as TableInfoWithPin).pin && onGeneratePin
+                  && !bracketAssignedCourtIds.includes(court.id)
                   ? () => onGeneratePin(court.id)
                   : undefined
               }
@@ -115,7 +131,8 @@ export function DashboardGrid({
               featured={court.featured === true}
               onToggleFeatured={onToggleFeatured ? () => onToggleFeatured(court.id) : undefined}
               onGeneratePin={
-                showPin && !(court as TableInfoWithPin).pin && onGeneratePin
+                showPin && canGenerateFreePlayPin(court) && !(court as TableInfoWithPin).pin && onGeneratePin
+                  && !bracketAssignedCourtIds.includes(court.id)
                   ? () => onGeneratePin(court.id)
                   : undefined
               }

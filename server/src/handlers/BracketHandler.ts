@@ -297,6 +297,13 @@ export class BracketHandler extends SocketHandlerBase {
     // the court + PIN exist for the referee (referee-play path). No-op when
     // already materialized; unknown/non-ACTIVE courts were rejected above.
     this.tableManager.ensureRuntimeTournamentCourt(c);
+    // Surface the court's PIN to the owner immediately (the court was just
+    // materialized with a fresh PIN, or it already had one) — the owner grid
+    // shows it without waiting for a COURT_LIST_WITH_PINS re-request.
+    const selectedRuntime = this.tableManager.getCourt(c);
+    if (selectedRuntime?.pin) {
+      socket.emit(SocketEvents.SERVER.PIN_REGENERATED, { courtId: c, newPin: selectedRuntime.pin });
+    }
     this.scheduleDebouncedSave();
     this.broadcastState(socket);
   }

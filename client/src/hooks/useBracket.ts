@@ -54,6 +54,13 @@ export function useBracket(socket: Socket | null): UseBracketReturn {
   useEffect(() => {
     if (!socket) return
 
+    // Request the bracket snapshot on (re)mount: the server pushes
+    // BRACKET_STATE once at connection time, but a page reload can attach
+    // these listeners AFTER that one-shot emit. BRACKET_GET returns the
+    // current state on demand — closes the reload race (same pattern as
+    // LIST_COURTS / INVENTORY_LIST).
+    socket.emit(SocketEvents.CLIENT.BRACKET_GET)
+
     const handleState = (next: TournamentBracket | null) => {
       setBracket(next)
       setError(null)

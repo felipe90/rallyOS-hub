@@ -808,6 +808,26 @@ describe('BracketHandler', () => {
       expect(b!.matches.find((m) => m.id === 'R1-M1')!.courtId).toBe('c1');
     });
 
+    it('emits PIN_REGENERATED with the court PIN after SELECT (owner sees it immediately)', () => {
+      const { handler, tableManager } = makeHandler(undefined, ['c1', 'c2'], {
+        runtimeCourts: { c1: { id: 'c1', pin: '4321' } },
+      });
+      const socket = createMockSocket('s1');
+      handler.registerHandlers(socket as unknown as Socket);
+      socket._trigger(SocketEvents.CLIENT.BRACKET_CREATE, { name: 'T', numSlots: 4, includeThirdPlace: false });
+
+      socket._trigger(SocketEvents.CLIENT.TOURNAMENT_SELECT_TABLE, { matchId: 'R1-M1', courtId: 'c1' });
+
+      // The runtime court carries a PIN; the owner receives it immediately
+      // instead of waiting for a pins re-request.
+      const pinEvent = (socket._emitted as any[]).find(
+        (e) => e.event === SocketEvents.SERVER.PIN_REGENERATED,
+      );
+      expect(pinEvent).toBeDefined();
+      expect(pinEvent.data.courtId).toBe('c1');
+      expect(pinEvent.data.newPin).toBe('4321');
+    });
+
     it('rejects a MAINTENANCE inventory court with COURT_NOT_FOUND (TCS-2)', () => {
       const inventory = createFakeInventory([
         { courtId: 'c1', inventoryStatus: 'MAINTENANCE' },

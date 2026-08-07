@@ -266,7 +266,7 @@ export function KioskAllCourtsPage() {
           <KioskHeader hubConfig={hubConfig} />
 
           {/* Content — Grid / Rotation / Empty */}
-          <main id="main-content" className="flex-1 flex flex-col">
+          <main id="main-content" className="flex-1 flex flex-col min-h-0">
           {activeCourts.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center gap-4">
               <div className="stadium-card rounded-2xl p-8 flex flex-col items-center gap-4">
@@ -278,7 +278,7 @@ export function KioskAllCourtsPage() {
             </div>
           ) : isRotating ? (
             /* Rotation mode — show one page at a time with fade + indicators */
-            <div className="flex-1 flex flex-col relative">
+            <div className="flex-1 flex flex-col relative min-h-0">
               <AnimatePresence mode="wait">
                 <motion.div
                   key={currentPage}
@@ -286,7 +286,7 @@ export function KioskAllCourtsPage() {
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.5 }}
-                  className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 p-6 absolute inset-0 content-start"
+                  className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 p-6 absolute inset-0 content-start overflow-y-auto"
                 >
                   {pages[currentPage]?.map((court) => (
                     <KioskCourtCard key={court.id} table={court} />
@@ -309,7 +309,7 @@ export function KioskAllCourtsPage() {
             </div>
           ) : (
             /* Static mode — all cards fit, render with tighter spacing */
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-6 flex-1 content-start">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-6 flex-1 content-start overflow-y-auto min-h-0">
               {activeCourts.map((court) => (
                 <KioskCourtCard key={court.id} table={court} condensed />
               ))}

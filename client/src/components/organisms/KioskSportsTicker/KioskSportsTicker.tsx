@@ -67,7 +67,7 @@ export function KioskSportsTicker({ notification, defaultText, defaultTexts }: K
     || 'BIENVENIDOS A RALLYOS — RESULTADOS Y PUNTUACIÓN EN TIEMPO REAL';
 
   return (
-    <footer className="w-full bg-[#001915] border-t border-teal-500/20 text-white flex items-center h-12 overflow-hidden select-none z-30 shadow-2xl relative">
+    <footer className="w-full bg-[#001915] border-t border-teal-500/20 text-white flex items-center h-12 shrink-0 overflow-hidden select-none z-30 shadow-2xl relative">
       {/* Broadcast Live Badge Indicator */}
       <div className="bg-gradient-to-r from-teal-700 to-emerald-600 px-4 h-full flex items-center gap-2 font-heading font-extrabold text-xs tracking-widest uppercase z-10 shadow-md">
         <Bell size={14} className="animate-pulse text-amber-300" />

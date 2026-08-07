@@ -34,10 +34,13 @@ export abstract class SocketHandlerBase {
   }
 
   /**
-   * Get public court list
+   * Get public court list — D11: the ACTIVE inventory catalog (enriched with
+   * derived availability) when an inventory is wired, falling back to the
+   * runtime tournament list otherwise. Delegates to CourtManager so every
+   * handler shares the SAME source of truth (inventory-ACTIVE, not runtime).
    */
   protected getPublicCourtList(): CourtInfo[] {
-    return this.tableManager.getAllCourts().map((court) => this.toPublicCourtInfo(court));
+    return this.tableManager.getPublicCourtList();
   }
 
   /**

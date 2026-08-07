@@ -236,9 +236,12 @@ describe('BracketView — court assignment modal', () => {
     )
     fireEvent.click(screen.getAllByRole('button', { name: /Sin mesa/i })[0])
     expect(screen.getByText(/Asignar mesa/i)).toBeInTheDocument()
-    expect(screen.getByText('Cancha 1')).toBeInTheDocument()
-    expect(screen.getByText('Cancha 2')).toBeInTheDocument()
-    fireEvent.click(screen.getByText('Cancha 2'))
+    // The assignment modal now uses a dropdown, not a button per court.
+    expect(screen.getByRole('combobox')).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Cancha 1' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Cancha 2' })).toBeInTheDocument()
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'c-2' } })
+    fireEvent.click(screen.getByRole('button', { name: /confirmar|ok/i }))
     expect(onSelectTable).toHaveBeenCalledWith('R1-M1', 'c-2')
   })
 
@@ -257,7 +260,8 @@ describe('BracketView — court assignment modal', () => {
       />,
     )
     fireEvent.click(screen.getByText('Cancha 1'))
-    fireEvent.click(screen.getByRole('button', { name: /^Sin mesa$/i }))
+    // The dropdown defaults to "Sin mesa" (empty value) — confirm clears it.
+    fireEvent.click(screen.getByRole('button', { name: /confirmar|ok/i }))
     expect(onAssignCourt).toHaveBeenCalledWith('R1-M1', null)
   })
 

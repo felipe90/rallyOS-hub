@@ -15,6 +15,9 @@ export type { TypographyProps, TypographyVariant, TypographyWeight } from './Typ
 
 export { Input } from './Input'
 
+export { Select } from './Select'
+export type { SelectProps, SelectOption } from './Select'
+
 export { Modal } from './Modal'
 export type { ModalProps } from './Modal'
 

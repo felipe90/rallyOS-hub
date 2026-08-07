@@ -18,6 +18,7 @@ import { bracketErrorTranslationKey } from '@/i18n/bracketError'
 import { Button } from '@/components/atoms/Button'
 import { Title, Body } from '@/components/atoms/Typography'
 import { Input } from '@/components/atoms/Input'
+import { Select } from '@/components/atoms/Select'
 import { Modal } from '@/components/atoms/Modal'
 import { ConfirmDialog } from '@/components/molecules/ConfirmDialog'
 import { BracketMatchCard } from '@/components/molecules/BracketMatchCard'
@@ -105,6 +106,7 @@ export function BracketView({
   const [slotTarget, setSlotTarget] = useState<SlotTarget | null>(null)
   const [slotName, setSlotName] = useState('')
   const [courtTargetMatchId, setCourtTargetMatchId] = useState<string | null>(null)
+  const [courtTargetValue, setCourtTargetValue] = useState<string>('')
   const [resetFirstOpen, setResetFirstOpen] = useState(false)
   const [resetSecondOpen, setResetSecondOpen] = useState(false)
 
@@ -299,46 +301,50 @@ export function BracketView({
         </div>
       </Modal>
 
-      {/* Court assignment modal */}
+      {/* Court assignment modal — dropdown selector */}
       <Modal
         isOpen={courtTargetMatchId != null}
         onClose={() => setCourtTargetMatchId(null)}
         title={terms.bracketAssignCourtTitle}
       >
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-3">
           {courts.length === 0 && (
             <Body className="text-text/70">{i18nText('bracketNoBracket')}</Body>
           )}
-          {courts.map((c) => (
+          <Select
+            value={courtTargetValue}
+            onChange={(value) => setCourtTargetValue(value)}
+            options={[
+              { value: '', label: terms.bracketAssignCourtNone },
+              ...courts.map((c) => ({ value: c.id, label: c.name })),
+            ]}
+          />
+          <div className="flex gap-2">
             <Button
-              key={c.id}
-              variant="secondary"
-              fullWidth
+              variant="outline"
+              className="flex-1"
+              onClick={() => setCourtTargetMatchId(null)}
+            >
+              {i18nText('bracketAssignCourtCancel')}
+            </Button>
+            <Button
+              variant="primary"
+              className="flex-1"
               onClick={() => {
-                if (courtTargetMatchId) onSelectTable(courtTargetMatchId, c.id)
+                if (!courtTargetMatchId) return
+                if (courtTargetValue) {
+                  onSelectTable(courtTargetMatchId, courtTargetValue)
+                } else {
+                  // Empty value = "Sin mesa" — clear the assignment.
+                  onAssignCourt(courtTargetMatchId, null)
+                }
                 setCourtTargetMatchId(null)
+                setCourtTargetValue('')
               }}
             >
-              {c.name}
+              {i18nText('commonConfirm')}
             </Button>
-          ))}
-          <Button
-            variant="ghost"
-            fullWidth
-            onClick={() => {
-              if (courtTargetMatchId) onAssignCourt(courtTargetMatchId, null)
-              setCourtTargetMatchId(null)
-            }}
-          >
-            {terms.bracketAssignCourtNone}
-          </Button>
-          <Button
-            variant="outline"
-            fullWidth
-            onClick={() => setCourtTargetMatchId(null)}
-          >
-            {i18nText('bracketAssignCourtCancel')}
-          </Button>
+          </div>
         </div>
       </Modal>
 

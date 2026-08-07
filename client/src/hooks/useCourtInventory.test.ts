@@ -73,6 +73,24 @@ describe('useCourtInventory — reconciliation (feed 4 wire sources)', () => {
     })
   })
 
+  it('requests the catalog snapshot via INVENTORY_LIST when connected (connect-race fix)', () => {
+    const { result } = renderHook(() => useCourtInventory(mockSocket as Socket, true))
+    expect(mockSocket.emit).toHaveBeenCalledWith(SocketEvents.CLIENT.INVENTORY_LIST)
+    // The snapshot response arrives as INVENTORY_UPDATED and reconciles.
+    act(() => {
+      mockSocket.fireServerEvent(SocketEvents.SERVER.INVENTORY_UPDATED, {
+        courts: [catalogRecord('c1')],
+      })
+    })
+    expect(result.current.courts).toHaveLength(1)
+    expect(result.current.courts[0].courtId).toBe('c1')
+  })
+
+  it('does not request the catalog snapshot while disconnected', () => {
+    renderHook(() => useCourtInventory(mockSocket as Socket, false))
+    expect(mockSocket.emit).not.toHaveBeenCalledWith(SocketEvents.CLIENT.INVENTORY_LIST)
+  })
+
   it('derives BUSY from a CLUB_KIOSK_DATA OCCUPIED flow on a catalog court', () => {
     const { result } = renderHook(() => useCourtInventory(mockSocket as Socket, true))
     act(() => {

@@ -48,6 +48,15 @@ export function useCourtInventory(socket: Socket | null, connected: boolean) {
   useEffect(() => {
     if (!socket) return
 
+    // Request the catalog snapshot: the server pushes INVENTORY_UPDATED once
+    // at connection time, but this hook may mount AFTER that one-shot emit
+    // (SPA navigation) and socket.io does not buffer server→client events
+    // emitted before listeners attach. INVENTORY_LIST returns the same
+    // INVENTORY_UPDATED payload on demand (ClubCourtHandler).
+    if (connected) {
+      socket.emit(SocketEvents.CLIENT.INVENTORY_LIST)
+    }
+
     const onInventory = (data: { courts: CourtRecord[] }) => {
       setCatalog(data?.courts ?? [])
       // Any catalog snapshot arriving means the pending mutation completed —
@@ -86,7 +95,7 @@ export function useCourtInventory(socket: Socket | null, connected: boolean) {
       socket.off(SocketEvents.SERVER.BRACKET_STATE, onBracket)
       socket.off(SocketEvents.SERVER.ERROR, onError)
     }
-  }, [socket])
+  }, [socket, connected])
 
   // ── derived view (pure service) ───────────────────────────────────────
   const courts: InventoryCourtView[] = useMemo(

@@ -119,7 +119,7 @@ vi.mock('@/i18n', () => ({
         courtQuitarDestacado: 'Quitar Destacado',
         clubAdminRenameLabel: 'Nuevo nombre',
         clubSetupReset: 'Reiniciar Setup',
-        clubSetupResetConfirm: '¿Reiniciar la configuración del club? Volverás al asistente de setup. Las canchas del inventario y el historial NO se borran.',
+        clubSetupResetConfirm: '¿Reiniciar la configuración del club? Se borrarán las canchas del inventario y las sesiones en curso, y volverás al asistente de setup. El historial de sesiones NO se borra.',
         clubSetupResetSuccess: 'Setup reiniciado. Configurá el club de nuevo.',
         clubSetupResetError: 'No se pudo reiniciar el setup.',
       }

@@ -123,10 +123,18 @@ function translateOperationError(code: string | null, i18nText: (key: string) =>
 export function ClubAdminPage() {
   const { socket, connected } = useSocketContext()
   const navigate = useNavigate()
-  const { terms, i18nText, sport } = useSportTerms()
+  const { terms, i18nText } = useSportTerms()
   const { setSessionToken } = useAuthContext()
-  const { isAdmin, verifyAdminPin, verifyLoading, verifyError, clearVerifyError } =
-    useClubAdmin(socket, connected, { setSessionToken })
+  const {
+    isAdmin,
+    verifyAdminPin,
+    verifyLoading,
+    verifyError,
+    clearVerifyError,
+    clubConfig,
+    resetSetup,
+    resetLoading,
+  } = useClubAdmin(socket, connected, { setSessionToken })
   const inventory = useCourtInventory(socket, connected)
   // Session history hook is only meaningful once the admin is verified
   // (the server only emits CLUB_SESSION_HISTORY to authenticated sockets).
@@ -147,6 +155,7 @@ export function ClubAdminPage() {
   const [notificationLoading, setNotificationLoading] = useState(false)
   const [notificationError, setNotificationError] = useState<string | null>(null)
   const [toastedError, setToastedError] = useState<string | null>(null)
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false)
 
   // Toast for operation errors (inventory ops + bridge club-flow ops).
   useEffect(() => {
@@ -176,6 +185,15 @@ export function ClubAdminPage() {
     }
   }, [verifyError, addToast, i18nText])
 
+  // Discovery fix: an unconfigured club must route to the first-run setup
+  // wizard — the /club/admin PIN screen has no PIN to enter yet (the PIN is
+  // chosen AT setup). The server reports configured:false via CLUB_CONFIG.
+  useEffect(() => {
+    if (clubConfig && !clubConfig.configured) {
+      navigate(Routes.CLUB_SETUP, { replace: true })
+    }
+  }, [clubConfig, navigate])
+
   const handleVerify = () => {
     if (adminPin.trim()) {
       verifyAdminPin(adminPin.trim())
@@ -184,19 +202,11 @@ export function ClubAdminPage() {
 
   // ── Inventory actions ─────────────────────────────────────────────────
 
-  /** Sport-aware suggested name for the next court (MP-2). */
-  const suggestedNextName = (() => {
-    let next = inventory.courts.length + 1
-    let name = i18nText(`sportTerm.clubAdminDefaultCourtName.${sport}`, { number: String(next) })
-    while (inventory.courts.some(c => c.name === name)) {
-      next++
-      name = i18nText(`sportTerm.clubAdminDefaultCourtName.${sport}`, { number: String(next) })
-    }
-    return name
-  })()
-
   const handleAddCourt = () => {
-    inventory.add(suggestedNextName)
+    // No suggested name: the server assigns the lowest free number from the
+    // live catalog (archive frees numbers), so a new court after archiving
+    // "Mesa 1" is correctly named "Mesa 1" again by the server (MP-2).
+    inventory.add()
   }
 
   const handleRenameStart = (court: InventoryCourtView) => {
@@ -250,6 +260,19 @@ export function ClubAdminPage() {
     },
     [socket],
   )
+
+  // Reset the club setup: wipe club config so the first-run wizard can run
+  // again. Inventory courts + session history are never touched (INV-3).
+  const handleResetSetupConfirm = async () => {
+    setResetConfirmOpen(false)
+    const ok = await resetSetup()
+    if (ok) {
+      addToast('success', i18nText('clubSetupResetSuccess'))
+      navigate(Routes.CLUB_SETUP, { replace: true })
+    } else {
+      addToast('error', i18nText('clubSetupResetError'))
+    }
+  }
 
   // Admin PIN verification screen
   if (!isAdmin) {
@@ -336,6 +359,16 @@ export function ClubAdminPage() {
               icon={<Bell size={14} />}
             >
               {i18nText('notificationModalTitle')}
+            </Button>
+            <Button
+              variant="ghost"
+              size="xs"
+              onClick={() => setResetConfirmOpen(true)}
+              icon={<RefreshCw size={14} />}
+              className="text-text-muted hover:text-text"
+              title={i18nText('clubSetupReset')}
+            >
+              {i18nText('clubSetupReset')}
             </Button>
             <div className="flex gap-1 p-0.5 rounded-lg bg-surface-low border border-border">
               <button
@@ -519,6 +552,20 @@ export function ClubAdminPage() {
         encryptionKey={null}
         onClose={() => setOccupyCourt(null)}
         onSubmit={handleOccupySubmit}
+      />
+
+      {/* Reset setup confirmation modal — destructive but bounded: only club
+          config is wiped; inventory courts and session history are never
+          touched (INV-3). */}
+      <ConfirmDialog
+        isOpen={resetConfirmOpen}
+        title={i18nText('clubSetupReset')}
+        message={i18nText('clubSetupResetConfirm')}
+        severity="warning"
+        confirmLabel={i18nText('commonConfirm')}
+        cancelLabel={i18nText('commonCancel')}
+        onConfirm={handleResetSetupConfirm}
+        onCancel={() => setResetConfirmOpen(false)}
       />
 
       {/* Force-end confirmation modal */}

@@ -118,6 +118,10 @@ vi.mock('@/i18n', () => ({
         courtDestacar: 'Destacar',
         courtQuitarDestacado: 'Quitar Destacado',
         clubAdminRenameLabel: 'Nuevo nombre',
+        clubSetupReset: 'Reiniciar Setup',
+        clubSetupResetConfirm: '¿Reiniciar la configuración del club? Volverás al asistente de setup. Las canchas del inventario y el historial NO se borran.',
+        clubSetupResetSuccess: 'Setup reiniciado. Configurá el club de nuevo.',
+        clubSetupResetError: 'No se pudo reiniciar el setup.',
       }
       let s = map[key] ?? key
       if (opts) {
@@ -163,6 +167,9 @@ function defaultHooks(courts: InventoryCourtView[] = []) {
     verifyLoading: false,
     verifyError: null,
     clearVerifyError: vi.fn(),
+    clubConfig: { configured: true, clubName: 'Club', sport: 'tableTennis' },
+    resetSetup: vi.fn().mockResolvedValue(true),
+    resetLoading: false,
   })
   useCourtInventoryMock.mockReturnValue({
     courts,
@@ -414,5 +421,60 @@ describe('ClubAdminPage — error toasts from inventory ops', () => {
     })
     adminPage()
     expect(addToastMock).toHaveBeenCalledWith('error', 'No se pudo archivar')
+  })
+})
+
+describe('ClubAdminPage — setup discovery + reset', () => {
+  it('redirects to /setup when the club is not configured (discovery fix)', () => {
+    defaultHooks()
+    useClubAdminMock.mockReturnValue({
+      isAdmin: false,
+      verifyAdminPin: vi.fn(),
+      verifyLoading: false,
+      verifyError: null,
+      clearVerifyError: vi.fn(),
+      clubConfig: { configured: false },
+      resetSetup: vi.fn(),
+      resetLoading: false,
+    })
+    const { Route, Routes } = require('react-router-dom')
+    render(
+      <MemoryRouter initialEntries={['/club/admin']}>
+        <Routes>
+          <Route path="/setup" element={<div data-testid="setup-route">Setup</div>} />
+          <Route path="/club/admin" element={<ClubAdminPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    // The page navigated to /setup — the PIN screen is gone and setup shows.
+    expect(screen.getByTestId('setup-route')).toBeInTheDocument()
+    expect(screen.queryByText(/Ingresá el PIN de Admin/i)).not.toBeInTheDocument()
+  })
+
+  it('renders the reset-setup button for a verified admin', () => {
+    defaultHooks()
+    adminPage()
+    expect(screen.getByRole('button', { name: /Reiniciar Setup/i })).toBeInTheDocument()
+  })
+
+  it('emits the reset and navigates to /setup after confirmation', () => {
+    defaultHooks()
+    const resetSetupMock = vi.fn().mockResolvedValue(true)
+    useClubAdminMock.mockReturnValue({
+      isAdmin: true,
+      verifyAdminPin: vi.fn(),
+      verifyLoading: false,
+      verifyError: null,
+      clearVerifyError: vi.fn(),
+      clubConfig: { configured: true, clubName: 'Club', sport: 'tableTennis' },
+      resetSetup: resetSetupMock,
+      resetLoading: false,
+    })
+    adminPage()
+    fireEvent.click(screen.getByRole('button', { name: /Reiniciar Setup/i }))
+    // Confirm dialog visible
+    expect(screen.getByText(/Volverás al asistente de setup/i)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }))
+    expect(resetSetupMock).toHaveBeenCalledTimes(1)
   })
 })

@@ -13,6 +13,30 @@ import type { IClubConfigRepository } from '../domain/ports/IClubConfigRepositor
 import { SocketEvents } from '../../../shared/events';
 import { createTestCourtManager } from '../domain/courtManager.test-factory';
 import type { CourtManager } from '../domain/courtManager';
+import { CourtInventoryStore } from '../services/store/CourtInventoryStore';
+import { InventoryManager } from '../domain/inventory/InventoryManager';
+import { INVENTORY_STATUS, SPORT } from '../../../shared/types';
+import type { FileSystem } from '../domain/ports/persistence-types';
+
+function makeMemoryFs(): FileSystem & { files: Map<string, string> } {
+  const files = new Map<string, string>();
+  return {
+    files,
+    writeFileSync(p: string, data: string): void { files.set(p, data); },
+    readFileSync(p: string): string {
+      if (!files.has(p)) throw Object.assign(new Error(`ENOENT ${p}`), { code: 'ENOENT' });
+      return files.get(p)!;
+    },
+    renameSync(oldP: string, newP: string): void {
+      if (!files.has(oldP)) throw Object.assign(new Error(`ENOENT ${oldP}`), { code: 'ENOENT' });
+      files.set(newP, files.get(oldP)!);
+      files.delete(oldP);
+    },
+    existsSync(p: string): boolean { return files.has(p); },
+    unlinkSync(p: string): void { files.delete(p); },
+    mkdirSync(): string | undefined { return undefined; },
+  };
+}
 
 const TEST_SECRET = 'a'.repeat(64);
 const JWT_REGEX = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
@@ -683,4 +707,158 @@ describe('ClubAdminHandler — CLUB_ADMIN_VERIFIED JWT (REQ-10)', () => {
       expect(savedConfigs).toHaveLength(0);
     });
   });
+// ── admin-court-inventory — CLUB_SETUP seeds the catalog + CLUB_RESET_SETUP ──
+
+describe('ClubAdminHandler — CLUB_SETUP seeds the inventory catalog (admin-court-inventory)', () => {
+  it('creates initial courts through the inventory when wired, and broadcasts INVENTORY_UPDATED', () => {
+    const savedConfigs: any[] = [];
+    const trackedStore: IClubConfigRepository = {
+      load: jest.fn().mockReturnValue(null),
+      save: jest.fn((cfg) => { savedConfigs.push(cfg); }),
+      checkExists: jest.fn().mockReturnValue(false),
+      clear: jest.fn(),
+    } as unknown as IClubConfigRepository;
+
+    // Real inventory store (in-memory path) + real InventoryManager.
+    const store = new CourtInventoryStore(makeMemoryFs(), '/tmp/court-inventory-setup-test.json');
+    const inventoryManager = new InventoryManager(store, {
+      resolveCourtSport: () => SPORT.TABLE_TENNIS,
+    });
+
+    const handler = new ClubAdminHandler(
+      mockIo,
+      createTestCourtManager() as any,
+      '12345678',
+      trackedStore,
+      adminPinService as any,
+      sessionTokenService,
+      undefined,
+      inventoryManager,
+    );
+    const socket = makeMockSocket();
+    handler.registerHandlers(socket as unknown as Socket);
+
+    socket._trigger(SocketEvents.CLIENT.CLUB_SETUP, {
+      clubName: 'Inventory Club',
+      sport: 'tableTennis',
+      pin: '424242',
+      courtCount: 3,
+    });
+
+    // Catalog got 3 ACTIVE records via the inventory (single existence authority).
+    const courts = inventoryManager.list();
+    expect(courts).toHaveLength(3);
+    expect(courts.every((c) => c.inventoryStatus === INVENTORY_STATUS.ACTIVE)).toBe(true);
+    // Numbers are monotonic 1..3 (INV-3).
+    expect(courts.map((c) => c.number)).toEqual([1, 2, 3]);
+
+    // The catalog snapshot is broadcast so every client reconciles.
+    expect(mockIo.emit).toHaveBeenCalledWith(
+      SocketEvents.SERVER.INVENTORY_UPDATED,
+      expect.objectContaining({ courts: expect.any(Array) }),
+    );
+
+    // The legacy runtime-only path is NOT used: no CLUB_COURT_CREATED broadcast.
+    expect(mockIo.emit).not.toHaveBeenCalledWith(
+      SocketEvents.SERVER.CLUB_COURT_CREATED,
+      expect.anything(),
+    );
+
+    expect(savedConfigs).toHaveLength(1);
+    expect(savedConfigs[0].configured).toBe(true);
+  });
+});
+
+describe('ClubAdminHandler — CLUB_RESET_SETUP (verified admin only)', () => {
+  it('wipes the club config and emits CLUB_SETUP_RESET for a verified admin', () => {
+    const trackedStore: IClubConfigRepository = {
+      load: jest.fn().mockReturnValue({
+        configured: true,
+        clubName: 'Existing Club',
+        sport: 'tableTennis',
+        adminPinHash: 'hash',
+        createdAt: Date.now(),
+      }),
+      save: jest.fn(),
+      checkExists: jest.fn().mockReturnValue(true),
+      clear: jest.fn(),
+    } as unknown as IClubConfigRepository;
+
+    const handler = new ClubAdminHandler(
+      mockIo,
+      createTestCourtManager() as any,
+      '12345678',
+      trackedStore,
+      adminPinService as any,
+      sessionTokenService,
+    );
+    const socket = makeMockSocket();
+    // Verified admin session.
+    socket.data = { ...socket.data, isClubAdmin: true };
+    handler.registerHandlers(socket as unknown as Socket);
+
+    socket._trigger(SocketEvents.CLIENT.CLUB_RESET_SETUP, {});
+
+    expect(trackedStore.clear).toHaveBeenCalledTimes(1);
+    const resetEvent = (socket._emitted as any[]).find(
+      (e) => e.event === SocketEvents.SERVER.CLUB_SETUP_RESET,
+    );
+    expect(resetEvent).toBeDefined();
+    expect(resetEvent.data.success).toBe(true);
+  });
+
+  it('rejects CLUB_RESET_SETUP from an unauthenticated socket', () => {
+    const trackedStore: IClubConfigRepository = {
+      load: jest.fn().mockReturnValue({ configured: true, clubName: 'X', sport: 'padel' }),
+      save: jest.fn(),
+      checkExists: jest.fn().mockReturnValue(true),
+      clear: jest.fn(),
+    } as unknown as IClubConfigRepository;
+
+    const handler = new ClubAdminHandler(
+      mockIo,
+      createTestCourtManager() as any,
+      '12345678',
+      trackedStore,
+      adminPinService as any,
+      sessionTokenService,
+    );
+    const socket = makeMockSocket(); // NOT admin
+    handler.registerHandlers(socket as unknown as Socket);
+
+    socket._trigger(SocketEvents.CLIENT.CLUB_RESET_SETUP, {});
+
+    expect(trackedStore.clear).not.toHaveBeenCalled();
+    const error = (socket._emitted as any[]).find((e) => e.event === 'ERROR');
+    expect(error).toBeDefined();
+  });
+
+  it('rejects CLUB_RESET_SETUP on an unconfigured club', () => {
+    const trackedStore: IClubConfigRepository = {
+      load: jest.fn().mockReturnValue(null),
+      save: jest.fn(),
+      checkExists: jest.fn().mockReturnValue(false),
+      clear: jest.fn(),
+    } as unknown as IClubConfigRepository;
+
+    const handler = new ClubAdminHandler(
+      mockIo,
+      createTestCourtManager() as any,
+      '12345678',
+      trackedStore,
+      adminPinService as any,
+      sessionTokenService,
+    );
+    const socket = makeMockSocket();
+    socket.data = { ...socket.data, isClubAdmin: true };
+    handler.registerHandlers(socket as unknown as Socket);
+
+    socket._trigger(SocketEvents.CLIENT.CLUB_RESET_SETUP, {});
+
+    expect(trackedStore.clear).not.toHaveBeenCalled();
+    const error = (socket._emitted as any[]).find((e) => e.event === 'ERROR');
+    expect(error).toBeDefined();
+    expect(error.data.code).toBe('NOT_CONFIGURED');
+  });
+});
 });

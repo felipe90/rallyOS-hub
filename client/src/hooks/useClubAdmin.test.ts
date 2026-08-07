@@ -104,3 +104,40 @@ describe('useClubAdmin — CLUB_ADMIN_VERIFIED token storage (REQ-10/12)', () =>
     expect(sessionStorage.getItem('rallyos.sessionToken')).toBeNull()
   })
 })
+
+describe('useClubAdmin — resetSetup (CLUB_RESET_SETUP)', () => {
+  it('emits CLUB_RESET_SETUP and resolves true on CLUB_SETUP_RESET', async () => {
+    const socket = makeMockSocket()
+    const { result } = renderHook(() => useClubAdmin(socket as any, true))
+
+    let resolved: boolean | undefined
+    const pending = result.current.resetSetup().then((ok) => { resolved = ok })
+
+    expect(socket.emit).toHaveBeenCalledWith(SocketEvents.CLIENT.CLUB_RESET_SETUP)
+
+    act(() => {
+      socket.fireOnce(SocketEvents.SERVER.CLUB_SETUP_RESET, { success: true })
+    })
+
+    await pending
+    expect(resolved).toBe(true)
+    // The hook clears the configured state so the wizard can run again.
+    expect(result.current.clubConfig?.configured).toBe(false)
+  })
+
+  it('resolves false on server error and records the code', async () => {
+    const socket = makeMockSocket()
+    const { result } = renderHook(() => useClubAdmin(socket as any, true))
+
+    let resolved: boolean | undefined
+    const pending = result.current.resetSetup().then((ok) => { resolved = ok })
+
+    act(() => {
+      socket.fireOnce(SocketEvents.SERVER.ERROR, { code: 'NOT_CONFIGURED', message: 'x' })
+    })
+
+    await pending
+    expect(resolved).toBe(false)
+    expect(result.current.resetError).toBe('NOT_CONFIGURED')
+  })
+})

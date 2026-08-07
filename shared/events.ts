@@ -49,6 +49,10 @@ export const SocketEvents = {
     CLUB_GET_CONFIG: 'CLUB_GET_CONFIG',
     CLUB_JOIN: 'CLUB_JOIN',
     CLUB_SETUP: 'CLUB_SETUP',
+    // club-reset-setup — verified admin wipes club config so the club can be
+    // re-configured (first-run wizard again). Destructive but bounded: never
+    // touches the court inventory or session history (INV-3 archive-only).
+    CLUB_RESET_SETUP: 'CLUB_RESET_SETUP',
     CLUB_ACTIVATE_COURT: 'CLUB_ACTIVATE_COURT',
     CLUB_FORCE_END: 'CLUB_FORCE_END',
     CLUB_RECONNECT: 'CLUB_RECONNECT',
@@ -140,6 +144,9 @@ export const SocketEvents = {
     CLUB_CONFIG: 'CLUB_CONFIG',
     CLUB_KIOSK_DATA: 'CLUB_KIOSK_DATA',
     CLUB_SETUP_COMPLETE: 'CLUB_SETUP_COMPLETE',
+    // club-reset-setup — server confirms the config was wiped and the client
+    // should route to the setup wizard again.
+    CLUB_SETUP_RESET: 'CLUB_SETUP_RESET',
     CLUB_COURT_CREATED: 'CLUB_COURT_CREATED',
     CLUB_COURT_ACTIVATED: 'CLUB_COURT_ACTIVATED',
     CLUB_COURT_DEACTIVATED: 'CLUB_COURT_DEACTIVATED',

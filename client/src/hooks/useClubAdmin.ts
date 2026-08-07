@@ -47,6 +47,8 @@ export function useClubAdmin(
   const [setupLoading, setSetupLoading] = useState(false)
   const [setupError, setSetupError] = useState<string | null>(null)
   const [setupComplete, setSetupComplete] = useState(false)
+  const [resetLoading, setResetLoading] = useState(false)
+  const [resetError, setResetError] = useState<string | null>(null)
 
   /** Check club config via REST endpoint */
   const checkClubConfig = useCallback(async (): Promise<ClubConfigData> => {
@@ -139,6 +141,53 @@ export function useClubAdmin(
     socket.emit(SocketEvents.CLIENT.CLUB_SETUP, { ...rest, pin: adminPin })
   }, [socket, connected])
 
+  /** Reset the club setup — verified admin only. Wipes club config so the
+   *  first-run wizard can run again. Never touches inventory or history. */
+  const resetSetup = useCallback((): Promise<boolean> => {
+    return new Promise((resolve) => {
+      if (!socket || !connected) {
+        setResetError('NO_CONNECTION')
+        resolve(false)
+        return
+      }
+      setResetLoading(true)
+      setResetError(null)
+
+      const timeoutId = setTimeout(() => {
+        cleanup()
+        setResetError('TIMEOUT')
+        resolve(false)
+      }, 5000)
+
+      const handleReset = () => {
+        cleanup()
+        setSetupComplete(false)
+        setClubConfig({ configured: false })
+        resolve(true)
+      }
+
+      const handleError = (err: { code: string; message: string }) => {
+        cleanup()
+        setResetError(err.code || 'RESET_FAILED')
+        resolve(false)
+      }
+
+      let cleanupCalled = false
+      const cleanup = () => {
+        if (cleanupCalled) return
+        cleanupCalled = true
+        clearTimeout(timeoutId)
+        socket.off(SocketEvents.SERVER.CLUB_SETUP_RESET, handleReset)
+        socket.off(SocketEvents.SERVER.ERROR, handleError)
+        setResetLoading(false)
+      }
+
+      socket.once(SocketEvents.SERVER.CLUB_SETUP_RESET, handleReset)
+      socket.once(SocketEvents.SERVER.ERROR, handleError)
+      socket.emit(SocketEvents.CLIENT.CLUB_RESET_SETUP)
+    })
+  }, [socket, connected])
+
   // Listen for setup completion and socket lifecycle events
   useEffect(() => {
     if (!socket) return
@@ -191,6 +240,7 @@ export function useClubAdmin(
 
   const clearVerifyError = useCallback(() => setVerifyError(null), [])
   const clearSetupError = useCallback(() => setSetupError(null), [])
+  const clearResetError = useCallback(() => setResetError(null), [])
 
   return {
     clubConfig,
@@ -202,10 +252,14 @@ export function useClubAdmin(
     setupLoading,
     setupError,
     setupComplete,
+    resetLoading,
+    resetError,
     checkClubConfig,
     verifyAdminPin,
     submitSetup,
+    resetSetup,
     clearVerifyError,
     clearSetupError,
+    clearResetError,
   }
 }

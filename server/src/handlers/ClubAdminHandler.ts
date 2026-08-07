@@ -9,6 +9,7 @@
 
 import { Server, Socket } from 'socket.io';
 import { CourtManager } from '../domain/courtManager';
+import { InventoryManager } from '../domain/inventory/InventoryManager';
 import type { IClubConfigRepository } from '../domain/ports/IClubConfigRepository';
 import { AdminPinService } from '../services/security/AdminPinService';
 import { SessionTokenService } from '../services/security/SessionTokenService';
@@ -16,9 +17,8 @@ import { validateSocketPayload } from '../utils/validation';
 import { logger, maskIp } from '../utils/logger';
 import { SocketEvents } from '../../../shared/events';
 import { ADMIN_PIN_RULES, sanitizeMessage } from '../../../shared/validation';
-import { COURT_MODE, KioskNotificationType } from '../../../shared/types';
+import { KioskNotificationType } from '../../../shared/types';
 import { SocketHandlerBase } from './SocketHandlerBase';
-import type { RuntimeCourt } from '../domain/types';
 import type { SocketData } from '../domain/types';
 import type { ClubSessionHistoryHandler } from './ClubSessionHistoryHandler';
 // player-identity (Phase 2 task 2.6) — AES-256-GCM key generator used on
@@ -41,6 +41,7 @@ export class ClubAdminHandler extends SocketHandlerBase {
   private adminPinService: AdminPinService;
   private sessionTokenService: SessionTokenService;
   private readonly historyHandler?: ClubHistoryBridge;
+  private readonly inventoryManager?: InventoryManager;
 
   constructor(
     io: Server,
@@ -58,12 +59,20 @@ export class ClubAdminHandler extends SocketHandlerBase {
      * remove the no-history branch).
      */
     historyHandler?: ClubHistoryBridge,
+    /**
+     * Admin inventory catalog (admin-court-inventory): CLUB_SETUP seeds the
+     * initial courts through the SAME existence authority as INVENTORY_ADD
+     * instead of the legacy runtime-only createClubCourt path. Optional so
+     * pre-inventory constructors keep working.
+     */
+    inventoryManager?: InventoryManager,
   ) {
     super(io, tableManager, ownerPin);
     this.clubConfigStore = clubConfigStore;
     this.adminPinService = adminPinService;
     this.sessionTokenService = sessionTokenService;
     this.historyHandler = historyHandler;
+    this.inventoryManager = inventoryManager;
   }
 
   /**
@@ -227,21 +236,26 @@ export class ClubAdminHandler extends SocketHandlerBase {
       };
       this.clubConfigStore.save(clubConfig);
 
-      // Create initial courts
+      // Create initial courts THROUGH THE INVENTORY (admin-court-inventory):
+      // the catalog is the single existence authority — the legacy
+      // runtime-only createClubCourt path would create ghost courts with no
+      // catalog record, invisible to the admin UI and dropped on restore
+      // (D1). Fall back to the legacy path only when no inventory is wired
+      // (pre-inventory test constructors).
       const courtCount = Math.max(0, Math.min(data.courtCount ?? 3, 50));
-      const courts = [];
+      const createdNames: string[] = [];
       for (let i = 0; i < courtCount; i++) {
-        const court = this.tableManager.createClubCourt();
-        courts.push(court);
+        if (this.inventoryManager) {
+          createdNames.push(this.inventoryManager.add().name);
+        } else {
+          this.tableManager.createClubCourt();
+        }
       }
 
-      // Broadcast court creation
-      for (const court of courts) {
-        this.io.emit(SocketEvents.SERVER.CLUB_COURT_CREATED, {
-          id: court.id,
-          name: court.name,
-          status: (court as RuntimeCourt).clubStatus,
-          mode: COURT_MODE.CLUB,
+      // Broadcast the catalog so every client reconciles the new courts.
+      if (this.inventoryManager) {
+        this.io.emit(SocketEvents.SERVER.INVENTORY_UPDATED, {
+          courts: this.inventoryManager.list(),
         });
       }
 
@@ -249,16 +263,28 @@ export class ClubAdminHandler extends SocketHandlerBase {
       socket.emit(SocketEvents.SERVER.CLUB_SETUP_COMPLETE, {
         clubName: data.clubName,
         sport: data.sport,
-        courtCount: courts.length,
+        courtCount,
       });
 
-      // Also update the global court list
-      this.io.emit(SocketEvents.SERVER.COURT_LIST, this.getPublicCourtList());
-
       logger.info(
-        { clubName: data.clubName, sport: data.sport, courtCount: courts.length },
+        { clubName: data.clubName, sport: data.sport, courtCount },
         'Club setup complete',
       );
+    });
+
+    // CLUB_RESET_SETUP: verified admin wipes the club config so the club can
+    // be re-configured (first-run wizard again). Bounded: only club-config is
+    // cleared — never the court inventory (INV-3 archive-only) nor session
+    // history (cost integrity). Requires an ALREADY-verified admin session
+    // (validateClubAdmin), so a raw socket cannot wipe the club.
+    socket.on(SocketEvents.CLIENT.CLUB_RESET_SETUP, () => {
+      if (!this.validateClubAdmin(socket)) return;
+      if (!this.clubConfigStore.load()?.configured) {
+        return this.emitError(socket, 'NOT_CONFIGURED', 'El club no está configurado');
+      }
+      this.clubConfigStore.clear();
+      logger.info({ socketId: socket.id }, 'Club setup reset by verified admin');
+      socket.emit(SocketEvents.SERVER.CLUB_SETUP_RESET, { success: true });
     });
   }
 

@@ -80,8 +80,20 @@ export function useSocketState(socket: Socket | null) {
 
     const handleCourtList = (list: CourtInfo[]) => setCourts(list)
 
+    // COURT_LIST_WITH_PINS carries ONLY runtime courts that have a PIN — it
+    // is NOT the full inventory (inventory-ACTIVE courts without a runtime
+    // flow/PIN are absent). Replacing the whole list with this payload would
+    // wipe the catalog courts the owner grid needs. Merge: keep every court
+    // already known, and layer PINs onto the runtime subset.
     const handleCourtListWithPins = (data: { courts?: CourtInfoWithPin[]; tables?: CourtInfoWithPin[] }) => {
-      setCourts((data.courts || data.tables || []) as CourtInfo[])
+      const withPins = (data.courts || data.tables || []) as CourtInfoWithPin[]
+      setCourts(prev => {
+        const byId = new Map(prev.map(c => [c.id, c]))
+        for (const court of withPins) {
+          byId.set(court.id, { ...byId.get(court.id), ...court })
+        }
+        return [...byId.values()]
+      })
     }
 
     const handleCourtDeleted = (data: { courtId?: string; tableId?: string }) => {

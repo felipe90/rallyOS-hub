@@ -286,3 +286,29 @@ describe('useSocketState — reload race (owner grid)', () => {
     expect(result.current.courts).toEqual([])
   })
 })
+
+describe('useSocketState — COURT_LIST_WITH_PINS merge (owner grid)', () => {
+  it('keeps inventory courts from COURT_LIST when COURT_LIST_WITH_PINS returns only runtime PINs', () => {
+    const { socket, trigger } = createMockSocket()
+    const { result } = renderHook(() => useSocketState(socket as never))
+
+    // COURT_LIST first — the inventory ACTIVE courts (what the owner grid shows).
+    trigger(SocketEvents.SERVER.COURT_LIST, [
+      createMockCourt({ id: 'inv-1', name: 'Mesa 1', inventoryStatus: 'ACTIVE' }),
+      createMockCourt({ id: 'inv-2', name: 'Mesa 2', inventoryStatus: 'ACTIVE' }),
+    ])
+    expect(result.current.courts).toHaveLength(2)
+
+    // COURT_LIST_WITH_PINS — only runtime courts with a PIN. An empty payload
+    // (or a runtime-only subset) must NOT wipe the inventory courts.
+    trigger(SocketEvents.SERVER.COURT_LIST_WITH_PINS, { courts: [] })
+    expect(result.current.courts).toHaveLength(2)
+
+    // A runtime court with a PIN layers onto the existing inventory row.
+    trigger(SocketEvents.SERVER.COURT_LIST_WITH_PINS, {
+      courts: [{ ...createMockCourt({ id: 'inv-1', mode: COURT_MODE.TOURNAMENT }), pin: '1234' }],
+    })
+    expect(result.current.courts).toHaveLength(2)
+    expect(result.current.courts.find(c => c.id === 'inv-1')?.pin).toBe('1234')
+  })
+})
